@@ -17,4 +17,14 @@ export default defineConfig({
             },
         }),
     ],
+    css: {
+        preprocessorOptions: {
+            scss: {
+                // Define your global SCSS variables here
+                additionalData: `
+                  @import "./resources/js/colors.scss"; // Adjust the path to your colors file
+                `,
+            },
+        },
+    },
 });

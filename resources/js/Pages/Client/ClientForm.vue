@@ -1,5 +1,5 @@
 <template>
-    <div>
+    <div class="background">
         <h1>Add New Client</h1>
         <form @submit.prevent="addClient">
             <!-- Form fields for Name, Company, Email, and Phone -->
@@ -62,3 +62,6 @@ export default {
     },
 };
 </script>
+<style scoped lang="scss">
+
+</style>

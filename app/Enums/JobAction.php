@@ -3,30 +3,13 @@
 
 namespace App\Enums;
 
-use Illuminate\Validation\Rules\Enum;
 
-/**
- * @method static self ACTION_1()
- * @method static self ACTION_2()
- * @method static self ACTION_3()
- * @method static self ACTION_4()
- * @method static self ACTION_5()
- * @method static self ACTION_6()
- * @method static self ACTION_7()
- * @method static self ACTION_8()
- * @method static self ACTION_9()
- * @method static self ACTION_10()
- */
-class JobAction extends Enum
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+
+class JobAction extends Model
 {
-    protected static function values(): array
-    {
-        $values = [];
+    use HasFactory;
 
-        for ($i = 1; $i <= 35; $i++) {
-            $values["ACTION_$i"] = "Action $i";
-        }
-
-        return $values;
-    }
+    protected $fillable = ['name', 'status'];
 }

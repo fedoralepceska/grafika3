@@ -20,7 +20,7 @@ use Illuminate\Validation\Rules\Enum;
  */
 class MaterialSmall extends Enum
 {
-    protected static function values(): array
+    public static function values(): array
     {
         $values = [];
 

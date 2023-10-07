@@ -10,8 +10,15 @@ use Illuminate\Validation\Rules\Enum;
 */
 class InvoiceStatus extends Enum
 {
+    public static function values(): array
+    {
+        $values = [];
+        $values["NOT_STARTED_YET"] = 'Not started yet';
+        $values["IN_PROGRESS"] = 'In progress';
+        $values["COMPLETED"] = 'Completed';
+
+        return $values;
+    }
 // Define your ENUM values here
-const NOT_STARTED_YET = 'Not started yet';
-const IN_PROGRESS = 'In progress';
-const COMPLETED = 'Completed';
+
 }
