@@ -30,6 +30,9 @@ return new class extends Migration
             $table->unsignedBigInteger('job_action_id')->nullable();
             $table->foreign('job_action_id')->references('id')->on('job_actions');
 
+            $table->unsignedBigInteger('invoice_id');
+            $table->foreign('invoice_id')->references('id')->on('invoices')->onDelete('cascade');
+
             // Add a column to store the status of each job action
             $table->string('job_action_status')->nullable();
 

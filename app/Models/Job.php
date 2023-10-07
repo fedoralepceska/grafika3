@@ -10,6 +10,7 @@ use App\Enums\Material;
 use App\Enums\MaterialSmall;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 class Job extends Model
@@ -40,5 +41,10 @@ class Job extends Model
     public function jobActions(): BelongsToMany
     {
         return $this->belongsToMany(JobAction::class)->withPivot('status');
+    }
+
+    public function invoice(): BelongsTo
+    {
+        return $this->belongsTo(Invoice::class);
     }
 }

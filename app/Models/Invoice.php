@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Enums\InvoiceStatus;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Invoice extends Model
 {
@@ -27,4 +28,9 @@ class Invoice extends Model
         'start_date',
         'end_date',
     ];
+
+    public function jobs(): HasMany
+    {
+        return $this->hasMany(Job::class);
+    }
 }
