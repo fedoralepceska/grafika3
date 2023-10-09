@@ -1,37 +1,40 @@
 <template>
-    <div class="background">
-        <h1>Add New Client</h1>
-        <form @submit.prevent="addClient">
-            <!-- Form fields for Name, Company, Email, and Phone -->
-            <div class="form-group">
-                <label for="name">Name:</label>
-                <input type="text" id="name" v-model="client.name" required>
-            </div>
-            <div class="form-group">
-                <label for="name">Company:</label>
-                <input type="text" id="name" v-model="client.company" required>
-            </div>
-            <div class="form-group">
-                <label for="name">Email:</label>
-                <input type="text" id="name" v-model="client.email" required>
-            </div>
-            <div class="form-group">
-                <label for="name">Phone:</label>
-                <input type="text" id="name" v-model="client.phone" required>
-            </div>
+    <MainLayout>
+        <div class="background">
+            <h1>Add New Client</h1>
+            <form @submit.prevent="addClient">
+                <!-- Form fields for Name, Company, Email, and Phone -->
+                <div class="form-group">
+                    <label for="name">Name:</label>
+                    <input type="text" id="name" v-model="client.name" required>
+                </div>
+                <div class="form-group">
+                    <label for="name">Company:</label>
+                    <input type="text" id="name" v-model="client.company" required>
+                </div>
+                <div class="form-group">
+                    <label for="name">Email:</label>
+                    <input type="text" id="name" v-model="client.email" required>
+                </div>
+                <div class="form-group">
+                    <label for="name">Phone:</label>
+                    <input type="text" id="name" v-model="client.phone" required>
+                </div>
 
-            <!-- Other form fields... -->
-            <PrimaryButton type="submit">Add Client</PrimaryButton>
-        </form>
-    </div>
+                <!-- Other form fields... -->
+                <PrimaryButton type="submit">Add Client</PrimaryButton>
+            </form>
+        </div>
+    </MainLayout>
 </template>
 
 <script>
 import axios from 'axios';
 import PrimaryButton from "@/Components/PrimaryButton.vue";
+import MainLayout from "@/Layouts/MainLayout.vue";
 
 export default {
-    components: {PrimaryButton},
+    components: {MainLayout, PrimaryButton},
     data() {
         return {
             client: {
