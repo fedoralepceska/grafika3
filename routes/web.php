@@ -39,4 +39,8 @@ Route::resource('clients', \App\Http\Controllers\ClientController::class)
     ->only(['index', 'store'])
     ->middleware(['auth', 'verified']);
 
+Route::resource('invoices', \App\Http\Controllers\InvoiceController::class)
+    ->only(['index', 'store'])
+    ->middleware(['auth', 'verified']);
+
 require __DIR__.'/auth.php';

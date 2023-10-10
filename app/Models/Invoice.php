@@ -14,7 +14,7 @@ class Invoice extends Model
     protected $fillable = [
         'start_date',
         'end_date',
-        'client',
+        'client_id',
         'invoice_title',
         'comment',
         'status',
@@ -29,8 +29,13 @@ class Invoice extends Model
         'end_date',
     ];
 
-    public function jobs(): HasMany
+    public function jobs(): \Illuminate\Database\Eloquent\Relations\BelongsToMany
     {
-        return $this->hasMany(Job::class);
+        return $this->BelongsToMany(Job::class);
+    }
+
+    public function client_id(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    {
+        return $this->belongsTo(Client::class);
     }
 }
