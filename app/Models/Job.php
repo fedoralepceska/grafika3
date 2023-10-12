@@ -43,8 +43,8 @@ class Job extends Model
         return $this->belongsToMany(JobAction::class)->withPivot('status');
     }
 
-    public function invoice(): BelongsTo
+    public function invoices(): BelongsToMany
     {
-        return $this->belongsTo(Invoice::class);
+        return $this->belongsToMany(Invoice::class);
     }
 }

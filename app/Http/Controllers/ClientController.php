@@ -12,10 +12,14 @@ class ClientController extends Controller
     /**
      * Display a listing of the resource.
      */
-    public function index(): Response
+    public function index()
     {
+        $clients = Client::all();
+        if (request()->wantsJson()) {
+            return response()->json($clients);
+        }
         return Inertia::render('Client/ClientForm', [
-            //
+            'clients' => $clients
         ]);
     }
 
