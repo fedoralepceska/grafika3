@@ -49,22 +49,19 @@ class InvoiceController extends Controller
         $invoice->status = 'Not started yet';
 
         $invoice->save();
+        $jobFiles = $request->jobs;
 
-        if ($request->hasFile('jobs')) {
-            $jobFiles = $request->file('jobs');
+        foreach ($jobFiles as $jobFile) {
+            $job = new Job([
+                'width' => $jobFile['width'],
+                'height' => $jobFile['height'],
+            ]);
 
-            foreach ($jobFiles as $jobFile) {
-                $job = new Job([
-                    'width' => $jobFile->width,
-                    'height' => $jobFile->height,
-                ]);
-
-                $filename = time() . '_' . $jobFile->getClientOriginalName();
-                $jobFile->storeAs('public/uploads', $filename);
-                $job->file = $filename;
-
-                $invoice->jobs()->save($job);
-            }
+            $filename = time() . '_' . $jobFile['file']->getClientOriginalName();
+            $jobFile['file']->storeAs('public/uploads', $filename);
+            $job->file = $filename;
+            $job->save();
+            $invoice->jobs()->save($job);
         }
 
         return response()->json([

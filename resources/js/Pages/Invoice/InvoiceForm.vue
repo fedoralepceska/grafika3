@@ -64,9 +64,18 @@
             <DragAndDrop ref="dragAndDrop"/>
         </div>
         <div>
-            <ul>
-                <li v-for="i in invoices">{{ i }}</li>
-            </ul>
+            <div v-for="(invoice, index) in invoices" :key="index">
+                <h2>{{ invoice.invoice_title }}</h2>
+                <p>Start Date: {{ invoice.start_date }}</p>
+                <p>End Date: {{ invoice.end_date }}</p>
+                <ul>
+                    <li v-for="(job, jobIndex) in invoice.jobs" :key="jobIndex">
+                        <img :src="job.imageData" alt="Job Image" />
+                        <span>Width: {{ job.width }}</span>
+                        <span>Height: {{ job.height }}</span>
+                    </li>
+                </ul>
+            </div>
         </div>
     </MainLayout>
 </template>
@@ -145,15 +154,7 @@ export default {
                 this.invoice.jobs.push(finalJob);
             }
             try {
-                const formData = new FormData();
-                formData.append('invoice', JSON.stringify(this.invoice));
-
-                // Append each job separately in FormData
-                for (let i = 0; i < this.invoice.jobs.length; i++) {
-                    formData.append('jobs[]', this.invoice.jobs[i]);
-                }
-
-                let response = await axios.post('/invoices', formData, {
+                let response = await axios.post('/invoices', this.invoice, {
                     headers: {
                         'Content-Type': 'multipart/form-data',
                     },
