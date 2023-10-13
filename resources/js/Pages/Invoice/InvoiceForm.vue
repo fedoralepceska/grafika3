@@ -60,6 +60,9 @@
                 </div>
             </div>
         </div>
+        <div>
+            <DragAndDrop/>
+        </div>
     </MainLayout>
 </template>
 
@@ -67,10 +70,11 @@
 import axios from 'axios';
 import MainLayout from "@/Layouts/MainLayout.vue";
 import PrimaryButton from "@/Components/PrimaryButton.vue";
+import DragAndDrop from "@/Components/DragAndDrop.vue";
 
 export default {
     name: "InvoiceForm",
-    components: { MainLayout, PrimaryButton },
+    components: {DragAndDrop, MainLayout, PrimaryButton },
     data() {
         return {
             invoice: {
