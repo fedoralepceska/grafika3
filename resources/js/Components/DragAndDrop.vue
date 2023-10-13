@@ -1,15 +1,25 @@
 <template>
-    <div class="drop-zone" @dragover.prevent @drop="handleFileDrop">
+    <div class="drop-zone text-white" @dragover.prevent @drop="handleFileDrop">
         <p>Drag and drop files here</p>
-        <ul>
-            <li v-for="(job, index) in jobs" :key="index">
-                <img :src="job.imageData" alt="Job Image" />
-                <span>Width: {{ job.width }}</span>
-                <span>Height: {{ job.height }}</span>
-                <!-- Add options form here -->
-            </li>
-        </ul>
     </div>
+
+    <table v-if="jobs.length > 0">
+        <thead>
+        <tr>
+            <th>Image</th>
+            <th>Width</th>
+            <th>Height</th>
+        </tr>
+        </thead>
+        <tbody>
+        <tr v-for="(job, index) in jobs" :key="index">
+            <td><img :src="job.imageData" alt="Job Image" class="jobImg" /></td>
+            <td>{{ job.width }}</td>
+            <td>{{ job.height }}</td>
+            <!-- Add options form here -->
+        </tr>
+        </tbody>
+    </table>
 </template>
 
 <script>
@@ -69,15 +79,10 @@ export default {
                         imageData: imageData,
                         width: width,
                         height: height,
-                        file: file
+                        file: file,
                     };
 
-                    this.jobs.push({
-                        imageData: imageData, // Store the image data
-                        width: width,
-                        height: height,
-                        file: file
-                    });
+                    this.jobs.push(job); // Correct variable name
                 };
             };
 
@@ -87,10 +92,40 @@ export default {
 };
 </script>
 
-<style scoped>
+<style scoped lang="scss">
 .drop-zone {
-    border: 2px dashed #ccc;
-    padding: 20px;
+    display: flex;
+    border: 5px dashed #ccc;
+    border-radius: 25px;
+    align-items: center;
+    font-size: 25px;
+    justify-content: center;
+    width: 450px;
+    height: 250px;
+    background-color: $light-gray;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 20px;
+}
+
+th, td {
+    border: 1px solid #ccc;
+    padding: 8px;
     text-align: center;
 }
+
+th {
+    background-color: #f0f0f0;
+}
+
+.jobImg {
+    width: 50px;
+    height: 50px;
+    display: block;
+    margin: 0 auto;
+}
+
 </style>

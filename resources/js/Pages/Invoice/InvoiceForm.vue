@@ -10,58 +10,61 @@
                     <h3 class="text-white">Invoice / Create New Invoice</h3>
                 </div>
             </div>
-            <div class="dark-gray client-form">
-                <div class="form-container p15">
-                    <form @submit.prevent="submitForm">
-                        <div class="two-column-layout">
-                            <div class="left-column">
-                                <h2 class="sub-title">CLIENT DETAILS</h2>
-                                <div class="form-group">
-                                    <label for="invoice_title">Invoice Title:</label>
-                                    <input type="text" v-model="invoice.invoice_title" id="invoice_title" class="text-gray-700" required>
-                                </div>
-                                <div class="form-group">
-                                    <label for="client">Client:</label>
-                                    <select v-model="invoice.client_id" @change="onClientSelected" id="client" class="text-gray-700" required>
-                                        <option v-for="client in clients" :key="client.id" :value="client.id">{{ client.name }}</option>
-                                    </select>
-                                </div>
-                                <div class="form-group">
-                                    <label for="client_email">Company:</label>
-                                    <span id="client_email">{{ selectedClientCompany }}</span>
-                                </div>
-                                <div class="form-group">
-                                    <label for="client_email">Contact:</label>
-                                    <span id="client_email">{{ selectedClientPhone }}</span>
-                                </div>
+            <div class="grid grid-cols-2 gap-4">
+                <div class="dark-gray client-form">
+                    <div class="form-container p15">
+                        <form @submit.prevent="submitForm">
+                            <div class="two-column-layout">
+                                <div class="left-column">
+                                    <h2 class="sub-title">CLIENT DETAILS</h2>
+                                    <div class="form-group">
+                                        <label for="invoice_title">Invoice Title:</label>
+                                        <input type="text" v-model="invoice.invoice_title" id="invoice_title" class="text-gray-700" required>
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="client">Client:</label>
+                                        <select v-model="invoice.client_id" @change="onClientSelected" id="client" class="text-gray-700" required>
+                                            <option v-for="client in clients" :key="client.id" :value="client.id">{{ client.name }}</option>
+                                        </select>
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="client_email">Company:</label>
+                                        <span id="client_email">{{ selectedClientCompany }}</span>
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="client_email">Contact:</label>
+                                        <span id="client_email">{{ selectedClientPhone }}</span>
+                                    </div>
 
-                                <div class="form-group">
-                                    <label for="comment">Comment:</label>
-                                    <textarea v-model="invoice.comment" id="comment" class="text-gray-700"></textarea>
+                                    <div class="form-group">
+                                        <label for="comment">Comment:</label>
+                                        <textarea v-model="invoice.comment" id="comment" class="text-gray-700"></textarea>
+                                    </div>
+                                </div>
+                                <div class="right-column">
+                                    <h2 class="sub-title">SHIPPING DETAILS</h2>
+                                    <div class="form-group">
+                                        <label for="start_date">Start Date:</label>
+                                        <input type="date" v-model="invoice.start_date" id="start_date" class="text-gray-700" required>
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="end_date">End Date:</label>
+                                        <input type="date" v-model="invoice.end_date" id="end_date" class="text-gray-700" required>
+                                    </div>
                                 </div>
                             </div>
-                            <div class="right-column">
-                                <h2 class="sub-title">SHIPPING DETAILS</h2>
-                                <div class="form-group">
-                                    <label for="start_date">Start Date:</label>
-                                    <input type="date" v-model="invoice.start_date" id="start_date" class="text-gray-700" required>
-                                </div>
-                                <div class="form-group">
-                                    <label for="end_date">End Date:</label>
-                                    <input type="date" v-model="invoice.end_date" id="end_date" class="text-gray-700" required>
-                                </div>
+                            <!-- Submit Button -->
+                            <div class="button-container mt-10">
+                                <PrimaryButton type="submit">Create Invoice</PrimaryButton>
                             </div>
-                        </div>
-                        <!-- Submit Button -->
-                        <div class="button-container mt-10">
-                            <PrimaryButton type="submit">Create Invoice</PrimaryButton>
-                        </div>
-                    </form>
+                        </form>
+                    </div>
+                </div>
+
+                <div class="DragAndDrop ">
+                    <DragAndDrop ref="dragAndDrop"/>
                 </div>
             </div>
-        </div>
-        <div>
-            <DragAndDrop ref="dragAndDrop"/>
         </div>
         <div>
             <div v-for="(invoice, index) in invoices" :key="index">
@@ -191,6 +194,7 @@ export default {
 .right-column {
     margin-left: 20px;
 }
+
 .header{
     margin-left: 20px;
     display: flex;
@@ -206,6 +210,7 @@ export default {
 .client-form {
     width: 100%;
     max-width: 1000px;
+
     padding: 20px;
     border-radius: 5px;
     box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
@@ -245,6 +250,7 @@ export default {
     display: flex;
     justify-content: end;
 }
+
 
 
 </style>
