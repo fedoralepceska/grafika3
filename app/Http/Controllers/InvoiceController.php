@@ -39,7 +39,7 @@ class InvoiceController extends Controller
             'invoice_title' => 'required',
             'start_date' => 'required|date',
             'end_date' => 'required|date',
-            'comment' => 'string|nullable'
+            'comment' => 'string|nullable',
         ]);
 
         $invoiceData = $request->all();
@@ -50,14 +50,19 @@ class InvoiceController extends Controller
 
         $invoice->save();
 
-        if (isset($invoiceData['jobs']) && is_array($invoiceData['jobs'])) {
-            // Iterate through the jobs and associate them with the invoice
-            foreach ($invoiceData['jobs'] as $jobData) {
+        if ($request->hasFile('jobs')) {
+            $jobFiles = $request->file('jobs');
+
+            foreach ($jobFiles as $jobFile) {
                 $job = new Job([
-                    'file' => $jobData['file'],
-                    'width' => $jobData['width'],
-                    'height' => $jobData['height'],
+                    'width' => $jobFile->width,
+                    'height' => $jobFile->height,
                 ]);
+
+                $filename = time() . '_' . $jobFile->getClientOriginalName();
+                $jobFile->storeAs('public/uploads', $filename);
+                $job->file = $filename;
+
                 $invoice->jobs()->save($job);
             }
         }

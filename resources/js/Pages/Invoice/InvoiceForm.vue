@@ -134,16 +134,31 @@ export default {
 
             // Push the job objects created in the DragAndDrop component to the jobs array
             for (const job of this.$refs.dragAndDrop.jobs) {
-                console.log(job);
-                this.invoice.jobs.push({
+                console.log(job.file);
+                let finalJob;
+                finalJob = {
                     width: job.width,
                     height: job.height,
-                    file: job.file,
-                    // You can add other job-related properties here
-                });
+                    file: job.file
+                }
+                console.log(this.invoice.jobs);
+                this.invoice.jobs.push(finalJob);
             }
             try {
-                let response = await axios.post('/invoices', this.invoice); // Adjust this endpoint to your API route
+                const formData = new FormData();
+                formData.append('invoice', JSON.stringify(this.invoice));
+
+                // Append each job separately in FormData
+                for (let i = 0; i < this.invoice.jobs.length; i++) {
+                    formData.append('jobs[]', this.invoice.jobs[i]);
+                }
+
+                let response = await axios.post('/invoices', formData, {
+                    headers: {
+                        'Content-Type': 'multipart/form-data',
+                    },
+                });
+
                 alert('Invoice created successfully!');
                 // You might want to reset the form or navigate the user to another page
             } catch (error) {
