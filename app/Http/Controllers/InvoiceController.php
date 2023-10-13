@@ -5,20 +5,25 @@ namespace App\Http\Controllers;
 use App\Enums\InvoiceStatus;
 use App\Models\Client;
 use App\Models\Invoice;
+use App\Models\Job;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Validation\Rules\In;
 use Inertia\Inertia;
 
 class InvoiceController extends Controller
 {
     public function index()
     {
-        $invoices = Invoice::all();
+        $invoices = Invoice::with('jobs')->get(); // Eager load jobs related to invoices
+
         if (request()->wantsJson()) {
             return response()->json($invoices);
         }
+
         return Inertia::render('Invoice/InvoiceForm', [
-            'invoices' => $invoices
+            'invoices' => $invoices,
         ]);
     }
 
@@ -29,41 +34,37 @@ class InvoiceController extends Controller
 
     public function store(Request $request)
     {
-        $data = $request->validate([
+        $request->validate([
+            'client_id' => 'required',
+            'invoice_title' => 'required',
             'start_date' => 'required|date',
             'end_date' => 'required|date',
-            'client_id' => 'required|exists:clients,id',
-            'status' => 'required|in:NOT_STARTED_YET,IN_PROGRESS,COMPLETED', // Adjust this enum based on your needs
-            'invoice_title' => 'required|string',
-            'comment' => 'nullable|string',
-            'job_ids' => 'array',  // Ensure an array of job IDs is provided
-            'job_ids.*' => 'exists:jobs,id', // Ensure each provided job ID exists
+            'comment' => 'string|nullable'
         ]);
 
-        DB::beginTransaction();
+        $invoiceData = $request->all();
 
-        try {
-            // Create a new invoice record
-            $invoice = new Invoice();
-            $invoice->invoice_title = $data['invoice_title'];
-            $invoice->start_date = $data['start_date'];
-            $invoice->end_date = $data['end_date'];
-            $invoice->client_id = $data['client_id'];
-            $invoice->comment = $data['comment'];
-            $invoice->status = $data['status']; // Use the provided status value
+        // Create the invoice
+        $invoice = new Invoice($invoiceData);
+        $invoice->status = 'Not started yet';
 
-            // Save the invoice to the database
-            $invoice->save();
+        $invoice->save();
 
-            // Attach the selected jobs to the invoice
-            $invoice->jobs()->attach($data['job_ids']);
-
-            DB::commit();
-
-            return redirect()->route('invoices.index')->with('success', 'Invoice created successfully');
-        } catch (\Exception $e) {
-            DB::rollBack();
-            return redirect()->route('invoices.index')->with('error', 'Failed to create invoice. Please check your inputs and try again.');
+        if (isset($invoiceData['jobs']) && is_array($invoiceData['jobs'])) {
+            // Iterate through the jobs and associate them with the invoice
+            foreach ($invoiceData['jobs'] as $jobData) {
+                $job = new Job([
+                    'file' => $jobData['file'],
+                    'width' => $jobData['width'],
+                    'height' => $jobData['height'],
+                ]);
+                $invoice->jobs()->save($job);
+            }
         }
+
+        return response()->json([
+            'message' => 'Invoice created successfully',
+            'invoice' => $invoice,
+        ]);
     }
 }

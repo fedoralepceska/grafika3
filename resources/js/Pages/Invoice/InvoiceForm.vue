@@ -61,7 +61,12 @@
             </div>
         </div>
         <div>
-            <DragAndDrop/>
+            <DragAndDrop ref="dragAndDrop"/>
+        </div>
+        <div>
+            <ul>
+                <li v-for="i in invoices">{{ i }}</li>
+            </ul>
         </div>
     </MainLayout>
 </template>
@@ -85,6 +90,7 @@ export default {
                 comment: '',
             },
             clients: [],
+            invoices: [],
             selectedClientPhone: '',
             selectedClientCompany: '',
 
@@ -92,9 +98,18 @@ export default {
     },
     created() {
         // Fetch clients when component is created
+        this.fetchInvoices();
         this.fetchClients();
     },
     methods: {
+        async fetchInvoices() {
+            try {
+                let response = await axios.get('/invoices'); // Adjust this endpoint to your API route
+                this.invoices = response.data;
+            } catch (error) {
+                console.error("Failed to fetch invoices:", error);
+            }
+        },
         async fetchClients() {
             try {
                 let response = await axios.get('/clients'); // Adjust this endpoint to your API route
@@ -115,6 +130,18 @@ export default {
         },
         async submitForm() {
             this.invoice.status = "NOT_STARTED_YET";
+            this.invoice.jobs = [];
+
+            // Push the job objects created in the DragAndDrop component to the jobs array
+            for (const job of this.$refs.dragAndDrop.jobs) {
+                console.log(job);
+                this.invoice.jobs.push({
+                    width: job.width,
+                    height: job.height,
+                    file: job.file,
+                    // You can add other job-related properties here
+                });
+            }
             try {
                 let response = await axios.post('/invoices', this.invoice); // Adjust this endpoint to your API route
                 alert('Invoice created successfully!');

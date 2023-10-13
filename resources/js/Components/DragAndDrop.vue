@@ -21,6 +21,26 @@ export default {
         };
     },
     methods: {
+        async createJob(imageFile, width, height) {
+            try {
+                const formData = new FormData();
+                formData.append('file', imageFile); // Append the image file
+                formData.append('width', width);
+                formData.append('height', height);
+
+                const response = await axios.post('/jobs', formData, {
+                    headers: {
+                        'Content-Type': 'multipart/form-data',
+                    },
+                });
+
+                const createdJob = response.data.job;
+                // Handle the response as needed
+            } catch (error) {
+                console.error('Error creating job:', error);
+                // Handle errors
+            }
+        },
         handleFileDrop(event) {
             event.preventDefault();
             const files = event.dataTransfer.files;
@@ -43,16 +63,20 @@ export default {
                     const width = img.width;
                     const height = img.height;
 
+                    this.createJob(file, width, height);
+
                     const job = {
                         imageData: imageData,
                         width: width,
                         height: height,
+                        file: file
                     };
 
                     this.jobs.push({
                         imageData: imageData, // Store the image data
                         width: width,
                         height: height,
+                        file: file
                     });
                 };
             };
