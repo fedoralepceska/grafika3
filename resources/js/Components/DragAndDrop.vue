@@ -15,6 +15,7 @@
 </template>
 
 <script>
+import { useToast } from 'vue-toastification';
 export default {
     name: "DragAndDrop",
     data() {
@@ -37,7 +38,8 @@ export default {
                 });
 
                 const createdJob = response.data.job;
-                // Handle the response as needed
+                const toast = useToast();
+                toast.success('This is a success message');
             } catch (error) {
                 console.error('Error creating job:', error);
                 // Handle errors
