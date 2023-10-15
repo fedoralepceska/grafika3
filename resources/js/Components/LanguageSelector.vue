@@ -32,7 +32,6 @@
 
 <script>
 import {getCurrentLocale, setCurrentLocale} from "@/locale.js";
-import i18n from "@/i18n.js";
 
 export default {
     data() {
@@ -48,7 +47,6 @@ export default {
         },
         changeLocale(locale) {
             setCurrentLocale(locale);
-            i18n.global.locale = locale; // Set the current locale
             this.currentLocale = locale;
             this.dropdownOpen = false;
         },
