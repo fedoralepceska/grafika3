@@ -66,20 +66,6 @@
                 </div>
             </div>
         </div>
-        <div>
-            <div v-for="(invoice, index) in invoices" :key="index">
-                <h2>{{ invoice.invoice_title }}</h2>
-                <p>Start Date: {{ invoice.start_date }}</p>
-                <p>End Date: {{ invoice.end_date }}</p>
-                <ul>
-                    <li v-for="(job, jobIndex) in invoice.jobs" :key="jobIndex">
-                        <img :src="job.imageData" alt="Job Image" />
-                        <span>Width: {{ job.width }}</span>
-                        <span>Height: {{ job.height }}</span>
-                    </li>
-                </ul>
-            </div>
-        </div>
     </MainLayout>
 </template>
 

@@ -30,6 +30,8 @@ const showingNavigationDropdown = ref(false);
                     </div>
 
                     <div class="hidden sm:flex sm:items-center sm:ml-6">
+                        <!-- Language selector -->
+                        <LanguageSelector/>
                         <!-- Settings Dropdown -->
                         <div class="ml-3 relative">
                             <Dropdown align="right" width="48">
@@ -140,9 +142,10 @@ const showingNavigationDropdown = ref(false);
 
 <script>
 import AuthenticatedLayout from "@/Layouts/AuthenticatedLayout.vue";
+import LanguageSelector from "@/Components/LanguageSelector.vue";
 export default {
     name: "MainLayout",
-    components: {AuthenticatedLayout}
+    components: {AuthenticatedLayout, LanguageSelector}
 
 }
 
