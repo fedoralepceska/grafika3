@@ -1,6 +1,6 @@
 <template>
     <MainLayout>
-        <div class="pl-7 pr-7">
+        <div class="pl-7 pr-7 mb-5">
             <div class="header pt-10 pb-4">
                 <div class="left mr-10">
                     <img src="/images/List.png" alt="UserLogo" class="image-icon" />
@@ -10,8 +10,8 @@
                     <h3 class="text-white">Invoice / Create New Invoice</h3>
                 </div>
             </div>
-            <div class="grid grid-cols-2 gap-4">
-                <div class="dark-gray client-form">
+            <div class="wrapper">
+                <div class="right dark-gray client-form">
                     <div class="form-container p15">
                         <form @submit.prevent="submitForm">
                             <div class="two-column-layout">
@@ -28,11 +28,11 @@
                                         </select>
                                     </div>
                                     <div class="form-group">
-                                        <label for="client_email">Company:</label>
+                                        <label for="client_email">Contact Name:</label>
                                         <span id="client_email">{{ selectedClientCompany }}</span>
                                     </div>
                                     <div class="form-group">
-                                        <label for="client_email">Contact:</label>
+                                        <label for="client_email">Contact Number:</label>
                                         <span id="client_email">{{ selectedClientPhone }}</span>
                                     </div>
 
@@ -61,8 +61,42 @@
                     </div>
                 </div>
 
-                <div class="DragAndDrop ">
+                <div class="left pl-5">
                     <DragAndDrop ref="dragAndDrop"/>
+                </div>
+            </div>
+        </div>
+        <div class="pl-7 pr-7">
+            <div class="wrapper2 gap-4">
+                <div class="left2">
+                    <div class="orderInfo dark-gray">
+                        <h2 class="sub-title">ORDER INFO</h2>
+                    </div>
+                    <div>
+                        <!--DROPDOWN OPTIONS AND SYNC BUTTON-->
+                    </div>
+                </div>
+                <div class="right2">
+                    <div class="Order dark-gray">
+                        <h2 class="sub-title">ORDER LINES</h2>
+                        <table v-if="$refs.dragAndDrop?.jobs?.length > 0">
+                            <thead>
+                            <tr>
+                                <th>Image</th>
+                                <th>Width</th>
+                                <th>Height</th>
+                            </tr>
+                            </thead>
+                            <tbody>
+                            <tr v-for="(job, index) in $refs.dragAndDrop?.jobs" :key="index">
+                                <td><img :src="job.imageData" alt="Job Image" class="jobImg" /></td>
+                                <td>{{ job.width }}</td>
+                                <td>{{ job.height }}</td>
+                                <!-- Add options form here -->
+                            </tr>
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
         </div>
@@ -180,7 +214,23 @@ export default {
 .right-column {
     margin-left: 20px;
 }
-
+.wrapper{
+    display: flex;
+}
+.wrapper2{
+    display: flex;
+}
+.left2{
+    width: 30%;
+}
+.right2{
+    width: 70%;
+}
+.Order,.orderInfo{
+    padding: 20px;
+    border-radius: 5px;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+}
 .header{
     margin-left: 20px;
     display: flex;
@@ -188,15 +238,14 @@ export default {
 }
 .dark-gray {
     background-color: $dark-gray;
-    justify-content: left;
-    align-items: center;
-    min-height: 50vh;
 }
 
 .client-form {
     width: 100%;
     max-width: 1000px;
-
+    justify-content: left;
+    align-items: center;
+    min-height: 50vh;
     padding: 20px;
     border-radius: 5px;
     box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
@@ -237,6 +286,27 @@ export default {
     justify-content: end;
 }
 
+table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 20px;
+}
 
+th, td {
+    border: 1px solid #ccc;
+    padding: 8px;
+    text-align: center;
+}
+
+th {
+    background-color: #f0f0f0;
+}
+
+.jobImg {
+    width: 50px;
+    height: 50px;
+    display: block;
+    margin: 0 auto;
+}
 
 </style>

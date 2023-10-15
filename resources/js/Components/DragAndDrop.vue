@@ -1,25 +1,17 @@
 <template>
-    <div class="drop-zone text-white" @dragover.prevent @drop="handleFileDrop">
-        <p>Drag and drop files here</p>
-    </div>
+    <div class="FileBox dark-gray">
+        <div class="drop-zone text-white" @dragover.prevent @drop="handleFileDrop">
+            <p>Drag and drop files here</p>
 
-    <table v-if="jobs.length > 0">
-        <thead>
-        <tr>
-            <th>Image</th>
-            <th>Width</th>
-            <th>Height</th>
-        </tr>
-        </thead>
-        <tbody>
-        <tr v-for="(job, index) in jobs" :key="index">
-            <td><img :src="job.imageData" alt="Job Image" class="jobImg" /></td>
-            <td>{{ job.width }}</td>
-            <td>{{ job.height }}</td>
-            <!-- Add options form here -->
-        </tr>
-        </tbody>
-    </table>
+            <input type="file" accept=".jpg, .jpeg, .png" @change="handleFileBrowse" style="display: none;" ref="fileInput" />
+
+
+
+        </div>
+        <div class="pt-5 d-flex ">
+            <button @click="browseForFiles" class="dark-gray text-white border rounded-corners py-2 px-5 ">Browse</button>
+        </div>
+    </div>
 </template>
 
 <script>
@@ -60,6 +52,19 @@ export default {
                 this.calculateImageDimensions(file);
             }
         },
+        handleFileBrowse(event) {
+            const files = event.target.files;
+
+            for (let i = 0; i < files.length; i++) {
+                const file = files[i];
+                this.calculateImageDimensions(file);
+            }
+        },
+
+        browseForFiles() {
+            this.$refs.fileInput.click();
+
+        },
         calculateImageDimensions(file) {
             const reader = new FileReader();
 
@@ -93,6 +98,16 @@ export default {
 </script>
 
 <style scoped lang="scss">
+.dark-gray{
+    background-color: $dark-gray;
+}
+
+.FileBox{
+    padding: 20px;
+    border-radius: 5px;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+}
+
 .drop-zone {
     display: flex;
     border: 5px dashed #ccc;
@@ -105,27 +120,14 @@ export default {
     background-color: $light-gray;
 }
 
-table {
-    width: 100%;
-    border-collapse: collapse;
-    margin-top: 20px;
+.rounded-corners {
+    border-radius: 15px;
 }
 
-th, td {
-    border: 1px solid #ccc;
-    padding: 8px;
-    text-align: center;
-}
-
-th {
-    background-color: #f0f0f0;
-}
-
-.jobImg {
-    width: 50px;
-    height: 50px;
-    display: block;
-    margin: 0 auto;
+.d-flex {
+    display: flex;
+    justify-content: center;
+    align-items: center;
 }
 
 </style>

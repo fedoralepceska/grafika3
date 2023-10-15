@@ -6,8 +6,8 @@
                     <img src="/images/UserLogo.png" alt="UserLogo" class="image-icon" />
                 </div>
                 <div class="right">
-                    <h1 class="page-title">{{ $t('client') }}</h1>
-                    <h3 class="text-white">{{ $t('client') }} / {{ $t('addNewClient') }}</h3>
+                    <h1 class="page-title">Client</h1>
+                    <h3 class="text-white">Client / Add New Client</h3>
                 </div>
             </div>
             <div class="dark-gray client-form ">
@@ -18,24 +18,24 @@
                     <form @submit.prevent="addClient">
                         <!-- Form fields for Name, Company, Email, and Phone -->
                         <div class="form-group">
-                            <label for="name">{{ $t('name') }}:</label>
+                            <label for="name">Client:</label>
                             <input type="text" id="name" class="text-gray-700" v-model="client.name" required>
                         </div>
                         <div class="form-group">
-                            <label for="name">{{ $t('company') }}:</label>
+                            <label for="name">Contact Name:</label>
                             <input type="text" id="name" class="text-gray-700" v-model="client.company" required>
                         </div>
                         <div class="form-group">
-                            <label for="name">{{ $t('email') }}:</label>
-                            <input type="text" id="name" class="text-gray-700" v-model="client.email" required>
+                            <label for="name">Contact Number:</label>
+                            <input type="text" id="name" class="text-gray-700" v-model="client.phone" required>
                         </div>
                         <div class="form-group">
-                            <label for="name">{{ $t('phone') }}:</label>
-                            <input type="text" id="name" class="text-gray-700" v-model="client.phone" required>
+                            <label for="name">Email:</label>
+                            <input type="text" id="name" class="text-gray-700" v-model="client.email" required>
                         </div>
                         <!-- Other form fields... -->
                         <div class="button-container mt-10">
-                            <PrimaryButton type="submit">{{ $t('addClient') }}</PrimaryButton>
+                            <PrimaryButton type="submit">Add Client</PrimaryButton>
                         </div>
                     </form>
                 </div>
