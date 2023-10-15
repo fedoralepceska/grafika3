@@ -1,7 +1,7 @@
 <template>
     <div class="FileBox dark-gray">
         <div class="drop-zone text-white" @dragover.prevent @drop="handleFileDrop">
-            <p>Drag and drop files here</p>
+            <p>{{ $t('dragAndDrop') }}</p>
 
             <input type="file" accept=".jpg, .jpeg, .png" @change="handleFileBrowse" style="display: none;" ref="fileInput" />
 
@@ -9,7 +9,7 @@
 
         </div>
         <div class="pt-5 d-flex ">
-            <button @click="browseForFiles" class="dark-gray text-white border rounded-corners py-2 px-5 ">Browse</button>
+            <button @click="browseForFiles" class="dark-gray text-white border rounded-corners py-2 px-5 ">{{ $t('browse') }}</button>
         </div>
     </div>
 </template>

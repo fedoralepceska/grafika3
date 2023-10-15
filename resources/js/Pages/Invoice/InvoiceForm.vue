@@ -16,7 +16,7 @@
                         <form @submit.prevent="submitForm">
                             <div class="two-column-layout">
                                 <div class="left-column">
-                                    <h2 class="sub-title">{{ $t('clientDetails') }}</h2>
+                                    <h2 class="sub-title uppercase">{{ $t('clientDetails') }}</h2>
                                     <div class="form-group">
                                         <label for="invoice_title">{{ $t('invoiceTitle') }}:</label>
                                         <input type="text" v-model="invoice.invoice_title" id="invoice_title" class="text-gray-700" required>
@@ -42,20 +42,20 @@
                                     </div>
                                 </div>
                                 <div class="right-column">
-                                    <h2 class="sub-title">SHIPPING DETAILS</h2>
+                                    <h2 class="sub-title uppercase">{{ $t('shippingDetails') }}</h2>
                                     <div class="form-group">
-                                        <label for="start_date">Start Date:</label>
+                                        <label for="start_date">{{ $t('startDate') }}:</label>
                                         <input type="date" v-model="invoice.start_date" id="start_date" class="text-gray-700" required>
                                     </div>
                                     <div class="form-group">
-                                        <label for="end_date">End Date:</label>
+                                        <label for="end_date">{{ $t('endDate') }}:</label>
                                         <input type="date" v-model="invoice.end_date" id="end_date" class="text-gray-700" required>
                                     </div>
                                 </div>
                             </div>
                             <!-- Submit Button -->
                             <div class="button-container mt-10">
-                                <PrimaryButton type="submit">Create Invoice</PrimaryButton>
+                                <PrimaryButton type="submit">{{ $t('createInvoice') }}</PrimaryButton>
                             </div>
                         </form>
                     </div>
@@ -70,7 +70,7 @@
             <div class="wrapper2 gap-4">
                 <div class="left2">
                     <div class="orderInfo dark-gray">
-                        <h2 class="sub-title">ORDER INFO</h2>
+                        <h2 class="sub-title uppercase">{{ $t('orderInfo') }}</h2>
                     </div>
                     <div>
                         <!--DROPDOWN OPTIONS AND SYNC BUTTON-->
@@ -78,13 +78,13 @@
                 </div>
                 <div class="right2">
                     <div class="Order dark-gray">
-                        <h2 class="sub-title">ORDER LINES</h2>
+                        <h2 class="sub-title uppercase">{{ $t('orderLines') }}</h2>
                         <table v-if="$refs.dragAndDrop?.jobs?.length > 0">
                             <thead>
                             <tr>
-                                <th>Image</th>
-                                <th>Width</th>
-                                <th>Height</th>
+                                <th>{{ $t('image') }}</th>
+                                <th>{{ $t('width') }}</th>
+                                <th>{{ $t('height') }}</th>
                             </tr>
                             </thead>
                             <tbody>
