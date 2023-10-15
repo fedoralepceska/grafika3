@@ -6,8 +6,8 @@
                     <img src="/images/List.png" alt="UserLogo" class="image-icon" />
                 </div>
                 <div class="right">
-                    <h1 class="page-title">Invoice</h1>
-                    <h3 class="text-white">Invoice / Create New Invoice</h3>
+                    <h1 class="page-title">{{ $t('invoice') }}</h1>
+                    <h3 class="text-white">{{ $t('invoice') }} / {{ $t('createNewInvoice') }}</h3>
                 </div>
             </div>
             <div class="wrapper">
@@ -16,28 +16,28 @@
                         <form @submit.prevent="submitForm">
                             <div class="two-column-layout">
                                 <div class="left-column">
-                                    <h2 class="sub-title">CLIENT DETAILS</h2>
+                                    <h2 class="sub-title">{{ $t('clientDetails') }}</h2>
                                     <div class="form-group">
-                                        <label for="invoice_title">Invoice Title:</label>
+                                        <label for="invoice_title">{{ $t('invoiceTitle') }}:</label>
                                         <input type="text" v-model="invoice.invoice_title" id="invoice_title" class="text-gray-700" required>
                                     </div>
                                     <div class="form-group">
-                                        <label for="client">Client:</label>
+                                        <label for="client">{{ $t('client') }}:</label>
                                         <select v-model="invoice.client_id" @change="onClientSelected" id="client" class="text-gray-700" required>
                                             <option v-for="client in clients" :key="client.id" :value="client.id">{{ client.name }}</option>
                                         </select>
                                     </div>
                                     <div class="form-group">
-                                        <label for="client_email">Contact Name:</label>
+                                        <label for="client_email">{{ $t('company') }}:</label>
                                         <span id="client_email">{{ selectedClientCompany }}</span>
                                     </div>
                                     <div class="form-group">
-                                        <label for="client_email">Contact Number:</label>
+                                        <label for="client_email">{{ $t('phone') }}:</label>
                                         <span id="client_email">{{ selectedClientPhone }}</span>
                                     </div>
 
                                     <div class="form-group">
-                                        <label for="comment">Comment:</label>
+                                        <label for="comment">{{ $t('comment') }}:</label>
                                         <textarea v-model="invoice.comment" id="comment" class="text-gray-700"></textarea>
                                     </div>
                                 </div>

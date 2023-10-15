@@ -6,36 +6,36 @@
                     <img src="/images/UserLogo.png" alt="UserLogo" class="image-icon" />
                 </div>
                 <div class="right">
-                    <h1 class="page-title">Client</h1>
-                    <h3 class="text-white">Client / Add New Client</h3>
+                    <h1 class="page-title">{{ $t('client') }}</h1>
+                    <h3 class="text-white">{{ $t('client') }} / {{ $t('addNewClient') }}</h3>
                 </div>
             </div>
             <div class="dark-gray client-form ">
                 <div class="form-container p15">
                     <h2 class="sub-title">
-                        CLIENT DETAILS
+                        {{ $t('clientDetails') }}
                     </h2>
                     <form @submit.prevent="addClient">
                         <!-- Form fields for Name, Company, Email, and Phone -->
                         <div class="form-group">
-                            <label for="name">Name:</label>
+                            <label for="name">{{ $t('client') }}:</label>
                             <input type="text" id="name" class="text-gray-700" v-model="client.name" required>
                         </div>
                         <div class="form-group">
-                            <label for="name">Company:</label>
+                            <label for="name">{{ $t('company') }}:</label>
                             <input type="text" id="name" class="text-gray-700" v-model="client.company" required>
                         </div>
                         <div class="form-group">
-                            <label for="name">Email:</label>
-                            <input type="text" id="name" class="text-gray-700" v-model="client.email" required>
+                            <label for="name">{{ $t('phone') }}:</label>
+                            <input type="text" id="name" class="text-gray-700" v-model="client.phone" required>
                         </div>
                         <div class="form-group">
-                            <label for="name">Phone:</label>
-                            <input type="text" id="name" class="text-gray-700" v-model="client.phone" required>
+                            <label for="name">{{ $t('email') }}:</label>
+                            <input type="text" id="name" class="text-gray-700" v-model="client.email" required>
                         </div>
                         <!-- Other form fields... -->
                         <div class="button-container mt-10">
-                            <PrimaryButton type="submit">Add Client</PrimaryButton>
+                            <PrimaryButton type="submit">{{ $t('addClient') }}</PrimaryButton>
                         </div>
                     </form>
                 </div>
