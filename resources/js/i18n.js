@@ -25,7 +25,11 @@ const messages = {
         orderLines: 'Order lines',
         image: 'Image',
         width: 'Width',
-        height: 'Height'
+        height: 'Height',
+        toast: {
+            success: 'Successfully created invoice.',
+            error: 'Failed to create invoice.'
+        }
     },
     mk: {
         // Define your Macedonian translations here
@@ -52,7 +56,11 @@ const messages = {
         orderLines: 'Налог и ставки',
         image: 'Слика',
         width: 'Ширина',
-        height: 'Висина'
+        height: 'Висина',
+        toast: {
+            success: 'Налогот е успешно креиран.',
+            error: 'Настана грешка при креирање на налогот.'
+        }
     },
 };
 

@@ -108,6 +108,7 @@ import axios from 'axios';
 import MainLayout from "@/Layouts/MainLayout.vue";
 import PrimaryButton from "@/Components/PrimaryButton.vue";
 import DragAndDrop from "@/Components/DragAndDrop.vue";
+import {useToast} from "vue-toastification";
 
 export default {
     name: "InvoiceForm",
@@ -163,6 +164,7 @@ export default {
         async submitForm() {
             this.invoice.status = "NOT_STARTED_YET";
             this.invoice.jobs = [];
+            const toast = useToast();
 
             // Push the job objects created in the DragAndDrop component to the jobs array
             for (const job of this.$refs.dragAndDrop.jobs) {
@@ -183,11 +185,11 @@ export default {
                     },
                 });
 
-                alert('Invoice created successfully!');
+                toast.success('Invoice created successfully');
                 // You might want to reset the form or navigate the user to another page
             } catch (error) {
                 console.error("Failed to create invoice:", error);
-                alert('Failed to create invoice. Please check your inputs and try again.');
+                toast.error('Error creating job');
             }
         },
     },
