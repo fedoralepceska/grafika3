@@ -48,6 +48,8 @@
 import axios from 'axios';
 import PrimaryButton from "@/Components/PrimaryButton.vue";
 import MainLayout from "@/Layouts/MainLayout.vue";
+import {useToast} from "vue-toastification";
+
 
 
 export default {
@@ -64,19 +66,20 @@ export default {
     },
     methods: {
         addClient() {
+            const toast = useToast();
             axios.defaults.baseURL = "http://127.0.0.1:8000";
             axios
                 .post('/clients', this.client)
                 .then((response) => {
                     // Handle successful response
                     console.log('Client added successfully:', response.data);
-
+                    toast.success("Client added successfully.")
 
                 })
                 .catch((error) => {
                     // Handle errors, including validation errors
                     console.error('Error adding client:', error);
-
+                    toast.error("Error adding client!")
 
                 });
         },

@@ -84,7 +84,7 @@
                                 <th>{{ $t('width') }}</th>
                                 <th>{{ $t('height') }}</th>
                                 <th>ID</th>
-                                <th v-if="updatedJobs.length > 0">Material</th>
+                                <th v-if="updatedJobs.length > 0">Order Info</th>
                             </tr>
                             </thead>
                             <tbody>
@@ -103,7 +103,17 @@
                                     <td>{{ job.width }}</td>
                                     <td>{{ job.height }}</td>
                                     <td>{{ job.id }}</td>
-                                    <td>{{ job.materials }}</td>
+                                    <div class="ultra-light-orange mt-3">
+                                        <div class="orange p-1 pl-3 text-white">
+                                            Materials
+                                            <button class="toggle-button" @click="toggleMaterials">+</button>
+                                        </div>
+                                        <transition name="slide-fade">
+                                            <div v-if="showMaterials" class="form-group">
+                                                <div>{{ job.materials }}</div>
+                                            </div>
+                                        </transition>
+                                    </div>
                                     <!-- Add options form here -->
                                 </tr>
                             </template>
@@ -140,7 +150,8 @@ export default {
             invoices: [],
             selectedClientPhone: '',
             selectedClientCompany: '',
-            updatedJobs: []
+            updatedJobs: [],
+            showMaterials: false,
         };
     },
     created() {
@@ -174,6 +185,9 @@ export default {
                 this.selectedClientPhone = '';
                 this.selectedClientCompany= '';
             }
+        },
+        toggleMaterials() {
+            this.showMaterials = !this.showMaterials;
         },
         async submitForm() {
             this.invoice.status = "NOT_STARTED_YET";
@@ -217,6 +231,28 @@ export default {
 </script>
 
 <style scoped lang="scss">
+
+.slide-fade-enter-active, .slide-fade-leave-active {
+    transition: all 0.1s;
+}
+
+.slide-fade-enter, .slide-fade-leave-to {
+    opacity: 0;
+    height: 0;
+    overflow: hidden;
+}
+
+.toggle-button {
+    background: none;
+    color: $white;
+}
+.ultra-light-orange{
+    background-color: rgba(199,165,103,0.2);
+}
+.orange{
+    background-color: $orange;
+}
+
 
 .two-column-layout {
     display: grid;
@@ -305,7 +341,7 @@ export default {
 }
 .button-container{
     display: flex;
-    justify-content: end;
+    justify-content: flex-end;
 }
 
 table {

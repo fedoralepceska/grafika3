@@ -1,7 +1,23 @@
 <template>
     <div class="order-info-box">
-        <div class="dropdowns">
-            <div class="form-group">
+
+        <div class="ultra-light-blue mt-3">
+            <div class="sub-title blue p-1 pl-3 text-white">PRINT</div>
+            <div class="form-group mt-2 p-2">
+                <!--SECTION FOR SMALL FORMAT MATERIALS-->
+            </div>
+        </div>
+
+        <div class="ultra-light-red mt-3">
+            <div class="sub-title red p-1 pl-3 text-white">CUT</div>
+            <div class="form-group mt-2 p-2">
+                <!--SECTION FOR SMALL FORMAT MATERIALS-->
+            </div>
+        </div>
+
+        <div class="ultra-light-orange mt-3">
+            <div class="sub-title orange p-1 pl-3 text-white">MATERIALS</div>
+            <div class="form-group mt-2 p-2">
                 <label>{{ $t('material') }}</label><br>
                 <select v-model="selectedMaterial">
                     <option v-for="material in materials" :key="material" :value="material">
@@ -11,20 +27,32 @@
             </div>
         </div>
 
-        <div>
+        <div class="ultra-light-orange mt-3">
+            <div class="sub-title orange p-1 pl-3 text-white">SMALL FORMAT</div>
+            <div class="form-group mt-2 p-2">
+                    <!--SECTION FOR SMALL FORMAT MATERIALS-->
+            </div>
+        </div>
+
+        <div class="ultra-light-green mt-3">
+            <h2 class="sub-title green p-1 pl-3 text-white" >ACTIONS</h2>
             <div v-for="(action, index) in actions" :key="index">
-                <div class="form-group">
+                <div class="form-group mt-2 p-2">
                     <label>{{ $t('action') }} {{ index + 1 }}</label><br>
                     <select v-model="action.selectedAction">
                         <option v-for="actionOption in actionOptions" :key="actionOption" :value="actionOption">
                             {{ $t(`actions.${actionOption}`) }}
                         </option>
                     </select>
+                    <button class="addBtn" @click="addAction">+</button>
+                    <button v-if="index > 0" class="removeBtn"
+                    @click="removeAction(index)">-</button>
                 </div>
             </div>
         </div>
-        <SecondaryButton class="btn" @click="addAction">+</SecondaryButton>
+        <div class="button-container">
         <PrimaryButton class="mt-5" @click="syncAll">Sync All</PrimaryButton>
+        </div>
     </div>
 </template>
 
@@ -66,6 +94,10 @@ export default {
         addAction() {
             this.actions.push({}); // Add a new empty action
         },
+        removeAction(index) {
+            // Remove the action at the specified index
+            this.actions.splice(index, 1);
+        },
         syncAll() {
             const toast = useToast();
             axios.post('/sync-all-jobs',
@@ -100,6 +132,50 @@ export default {
 </script>
 
 <style scoped lang="scss">
+.ultra-light-green {
+    background-color: rgba(121, 173, 84, 0.2);
+}
+.ultra-light-orange{
+    background-color: rgba(199,165,103,0.2);
+}
+.ultra-light-blue{
+    background-color: rgba(102,171,203,0.2);
+}
+.ultra-light-red{
+    background-color: rgba(196,128,130,0.2);
+}
+.green{
+    background-color: $green;
+}
+
+.orange{
+    background-color: $orange;
+}
+.blue{
+    background-color: $blue;
+}
+.light-green{
+    background-color: $light-green;
+}
+.red{
+    background-color: $red;
+}
+.addBtn{
+    color: $light-green;
+    margin:5px;
+    padding: 2px 7px;
+    border: 2px $green solid;
+}
+.removeBtn{
+    color: red;
+    margin:5px;
+    padding: 2px 7px;
+    border: 2px $red solid;
+}
+.sub-title{
+    width: 100%;
+    margin: 0;
+}
 .form-group label {
     margin-bottom: 10px;
     color: $white;
@@ -108,13 +184,17 @@ export default {
     display: flex;
     flex-direction: row;
 }
-.btn {
-    margin-top: 20px;
+.button {
     align-content: center;
     align-self: center;
+    border-radius: 75%;
 }
 .sameColumn {
     display: flex;
     flex-direction: column;
+}
+.button-container{
+    display: flex;
+    justify-content: flex-end;
 }
 </style>
