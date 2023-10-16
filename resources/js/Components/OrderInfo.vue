@@ -11,6 +11,19 @@
             </div>
         </div>
 
+        <div>
+            <div v-for="(action, index) in actions" :key="index">
+                <div class="form-group">
+                    <label>{{ $t('action') }} {{ index + 1 }}</label><br>
+                    <select v-model="action.selectedAction">
+                        <option v-for="actionOption in actionOptions" :key="actionOption" :value="actionOption">
+                            {{ $t(`actions.${actionOption}`) }}
+                        </option>
+                    </select>
+                </div>
+            </div>
+        </div>
+        <SecondaryButton class="btn" @click="addAction">+</SecondaryButton>
         <PrimaryButton class="mt-5" @click="syncAll">Sync All</PrimaryButton>
     </div>
 </template>
@@ -19,9 +32,10 @@
 import { useI18n } from 'vue-i18n';
 import PrimaryButton from "@/Components/PrimaryButton.vue";
 import {useToast} from "vue-toastification";
+import SecondaryButton from "@/Components/SecondaryButton.vue";
 export default {
     name: "OrderInfo",
-    components: {PrimaryButton},
+    components: {SecondaryButton, PrimaryButton},
     props: {
         jobs: Array
     },
@@ -29,6 +43,8 @@ export default {
         return {
             selectedMaterial: '',
             selectedAction: '',
+            actions: [{}], // Start with an empty action
+            actionOptions: this.generateActionOptions(),
             materials: this.generateMaterials()
         }
     },
@@ -39,6 +55,16 @@ export default {
                 materials.push(`Material ${i}`);
             }
             return materials;
+        },
+        generateActionOptions() {
+            const actions = [];
+            for (let i = 1; i <= 28; i++) {
+                actions.push(`Action ${i}`);
+            }
+            return actions;
+        },
+        addAction() {
+            this.actions.push({}); // Add a new empty action
         },
         syncAll() {
             const toast = useToast();
@@ -77,5 +103,18 @@ export default {
 .form-group label {
     margin-bottom: 10px;
     color: $white;
+}
+.sameRow {
+    display: flex;
+    flex-direction: row;
+}
+.btn {
+    margin-top: 20px;
+    align-content: center;
+    align-self: center;
+}
+.sameColumn {
+    display: flex;
+    flex-direction: column;
 }
 </style>
