@@ -38,6 +38,7 @@ export default {
                 });
 
                 const createdJob = response.data.job;
+                return createdJob;
             } catch (error) {
                 // Handle errors
             }
@@ -73,17 +74,18 @@ export default {
                 const img = new Image();
                 img.src = imageData;
 
-                img.onload = () => {
+                img.onload = async () => {
                     const width = img.width;
                     const height = img.height;
 
-                    this.createJob(file, width, height);
+                    const tempJob = await this.createJob(file, width, height);
 
                     const job = {
                         imageData: imageData,
                         width: width,
                         height: height,
                         file: file,
+                        id: tempJob.id
                     };
 
                     this.jobs.push(job); // Correct variable name

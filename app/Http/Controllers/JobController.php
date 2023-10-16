@@ -40,4 +40,23 @@ class JobController extends Controller
 
         return response()->json(['message' => 'Job created successfully', 'job' => $job]);
     }
+
+    public function syncAllJobs(Request $request): \Illuminate\Http\JsonResponse
+    {
+        // Validate the request and ensure the selected material is provided
+        $request->validate([
+            'selectedMaterial' => 'required|string', // Adjust validation rules as needed
+        ]);
+
+        $selectedMaterial = $request->input('selectedMaterial');
+        $jobIds = $request->input('jobs');
+
+        // Update all jobs with the selected material
+        $updatedJobsCount = Job::whereIn('id', $jobIds)->where('materials', '<>', $selectedMaterial)->update(['materials' => $selectedMaterial]);
+
+        return response()->json([
+            'message' => "Synced $updatedJobsCount jobs with material: $selectedMaterial",
+            'updatedJobsCount' => $updatedJobsCount,
+        ]);
+    }
 }

@@ -71,9 +71,7 @@
                 <div class="left2">
                     <div class="orderInfo dark-gray">
                         <h2 class="sub-title uppercase">{{ $t('orderInfo') }}</h2>
-                    </div>
-                    <div>
-                        <!--DROPDOWN OPTIONS AND SYNC BUTTON-->
+                        <OrderInfo v-if="$refs.dragAndDrop?.jobs?.length > 0" :jobs="$refs.dragAndDrop.jobs"/>
                     </div>
                 </div>
                 <div class="right2">
@@ -85,6 +83,7 @@
                                 <th>{{ $t('image') }}</th>
                                 <th>{{ $t('width') }}</th>
                                 <th>{{ $t('height') }}</th>
+                                <th>ID</th>
                             </tr>
                             </thead>
                             <tbody>
@@ -92,6 +91,7 @@
                                 <td><img :src="job.imageData" alt="Job Image" class="jobImg" /></td>
                                 <td>{{ job.width }}</td>
                                 <td>{{ job.height }}</td>
+                                <td>{{ job.id }}</td>
                                 <!-- Add options form here -->
                             </tr>
                             </tbody>
@@ -109,10 +109,11 @@ import MainLayout from "@/Layouts/MainLayout.vue";
 import PrimaryButton from "@/Components/PrimaryButton.vue";
 import DragAndDrop from "@/Components/DragAndDrop.vue";
 import {useToast} from "vue-toastification";
+import OrderInfo from "@/Components/OrderInfo.vue";
 
 export default {
     name: "InvoiceForm",
-    components: {DragAndDrop, MainLayout, PrimaryButton },
+    components: {OrderInfo, DragAndDrop, MainLayout, PrimaryButton },
     data() {
         return {
             invoice: {
