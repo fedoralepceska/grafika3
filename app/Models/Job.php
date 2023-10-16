@@ -48,7 +48,7 @@ class Job extends Model
         'machinePrint' => MachinePrint::class,
     ];
 
-    public function jobActions(): BelongsToMany
+    public function actions(): BelongsToMany
     {
         return $this->belongsToMany(JobAction::class)->withPivot('status');
     }

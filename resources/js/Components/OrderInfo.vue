@@ -100,10 +100,26 @@ export default {
         },
         syncAll() {
             const toast = useToast();
+
+            const jobsWithActions = this.jobs.map(job => {
+                const actions = this.actions.map(action => {
+                    return {
+                        action_id: action.selectedAction,
+                        status: 'Not started yet', // Default status
+                    };
+                });
+
+                return {
+                    job_id: job.id,
+                    actions: actions,
+                };
+            });
+
             axios.post('/sync-all-jobs',
                 {
                 selectedMaterial: this.selectedMaterial,
-                jobs: this.jobs.map(job => job.id)
+                jobs: this.jobs.map(job => job.id),
+                jobsWithActions: jobsWithActions
                 })
                 .then(response => {
                     // Handle the response

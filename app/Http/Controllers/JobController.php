@@ -2,11 +2,26 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\JobAction;
+use App\Models\Invoice;
 use App\Models\Job;
 use Illuminate\Http\Request;
+use Inertia\Inertia;
 
 class JobController extends Controller
 {
+    public function index()
+    {
+        $jobs = Job::with('actions')->get()->toArray(); // Eager load jobs related to invoices
+
+        if (request()->wantsJson()) {
+            return response()->json($jobs);
+        }
+
+        return Inertia::render('Invoice/InvoiceForm', [
+            'jobs' => $jobs,
+        ]);
+    }
     public function store(Request $request)
     {
         // Validate the request data
@@ -50,9 +65,25 @@ class JobController extends Controller
 
         $selectedMaterial = $request->input('selectedMaterial');
         $jobIds = $request->input('jobs');
+        $jobsWithActions = $request->input('jobsWithActions');
 
         // Update all jobs with the selected material
         $updatedJobsCount = Job::whereIn('id', $jobIds)->where('materials', '<>', $selectedMaterial)->update(['materials' => $selectedMaterial]);
+
+        foreach ($jobsWithActions as $jobWithActions) {
+            $job = Job::findOrFail($jobWithActions['job_id']);
+            $job->actions()->sync([]);
+
+            $actions = [];
+            foreach ($jobWithActions['actions'] as $actionData) {
+                $actions[] = new JobAction([
+                    'name' => $actionData['action_id'],
+                    'status' => $actionData['status'],
+                ]);
+            }
+
+            $job->actions()->saveMany($actions);
+        }
 
         return response()->json([
             'message' => "Synced $updatedJobsCount jobs with material: $selectedMaterial",

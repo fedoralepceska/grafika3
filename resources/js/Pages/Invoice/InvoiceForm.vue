@@ -110,7 +110,20 @@
                                         </div>
                                         <transition name="slide-fade">
                                             <div v-if="showMaterials" class="form-group">
-                                                <div>{{ job.materials }}</div>
+                                                <div>{{ $t(`materials.${job.materials}`) }}</div>
+                                            </div>
+                                        </transition>
+                                    </div>
+                                    <div class="ultra-light-green mt-3">
+                                        <div class="green p-1 pl-3 text-white">
+                                            Actions
+                                            <button class="toggle-button" @click="toggleActions">+</button>
+                                        </div>
+                                        <transition name="slide-fade">
+                                            <div v-if="showActions" class="text-white">
+                                                <div v-for="action in actions(job.id)" :key="action">
+                                                    <span>{{ $t(`actions.${action}`) }}</span>
+                                                </div>
                                             </div>
                                         </transition>
                                     </div>
@@ -152,12 +165,15 @@ export default {
             selectedClientCompany: '',
             updatedJobs: [],
             showMaterials: false,
+            showActions: false,
+            newJobs: []
         };
     },
-    created() {
+    async created() {
         // Fetch clients when component is created
-        this.fetchInvoices();
-        this.fetchClients();
+        await this.fetchInvoices();
+        await this.fetchClients();
+        await this.fetchJobs();
     },
     methods: {
         async fetchInvoices() {
@@ -176,6 +192,14 @@ export default {
                 console.error("Failed to fetch clients:", error);
             }
         },
+        async fetchJobs() {
+            try {
+                let response = await axios.get('/jobs');
+                this.newJobs = response.data;
+            } catch (error) {
+                console.error("Failed to fetch jobs:", error);
+            }
+        },
         async onClientSelected() {
             const selectedClient = this.clients.find(client => client.id === this.invoice.client_id);
             if (selectedClient) {
@@ -189,6 +213,24 @@ export default {
         toggleMaterials() {
             this.showMaterials = !this.showMaterials;
         },
+        toggleActions() {
+            this.showActions = !this.showActions;
+        },
+        actions(id) {
+            this.fetchJobs();
+            const job = this.newJobs.find(job => job.id === id);
+            // Check if the job exists
+            if (job) {
+                // Assuming actions is an array of objects containing name and status properties
+                const jobActions = job.actions;
+
+                // If there are actions, you can map them to an array of names
+                if (jobActions && jobActions.length > 0) {
+                    return jobActions.map(action => action.name);
+                }
+            }
+            return 'No actions'; // Return a default value if there are no actions for the job
+        },
         async submitForm() {
             this.invoice.status = "NOT_STARTED_YET";
             this.invoice.jobs = [];
@@ -196,7 +238,6 @@ export default {
 
             // Push the job objects created in the DragAndDrop component to the jobs array
             for (const job of this.$refs.dragAndDrop.jobs) {
-                console.log(job.file);
                 let finalJob;
                 finalJob = {
                     width: job.width,
@@ -249,11 +290,16 @@ export default {
 .ultra-light-orange{
     background-color: rgba(199,165,103,0.2);
 }
+.ultra-light-green {
+    background-color: rgba(121, 173, 84, 0.2);
+}
 .orange{
     background-color: $orange;
 }
 
-
+.green {
+    background-color: $green;
+}
 .two-column-layout {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
