@@ -50,7 +50,19 @@ export default {
                 .then(response => {
                     // Handle the response
                     toast.success(`Successfully synced ${this.jobs.length} jobs!`);
-                    // You can perform other actions as needed
+                    axios.post('/get-jobs-by-ids', {
+                        jobs: this.jobs.map(job => job.id)
+                    })
+                        .then(response => {
+                            // Handle the response with the updated jobs
+                            this.$emit('jobs-updated', response.data.jobs);
+
+                            // You can emit these updated jobs or handle them as needed
+                        })
+                        .catch(error => {
+                            // Handle errors
+                            toast.error("Couldn't fetch updated jobs");
+                        });
                 })
                 .catch(error => {
                     // Handle errors

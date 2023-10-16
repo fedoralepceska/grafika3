@@ -59,4 +59,15 @@ class JobController extends Controller
             'updatedJobsCount' => $updatedJobsCount,
         ]);
     }
+
+    public function getJobsByIds(Request $request)
+    {
+        // Retrieve the array of job IDs from the request
+        $jobIds = $request->input('jobs', []);
+
+        // Fetch the jobs with matching IDs
+        $jobs = Job::whereIn('id', $jobIds)->get();
+
+        return response()->json(['jobs' => $jobs]);
+    }
 }

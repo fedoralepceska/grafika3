@@ -71,7 +71,7 @@
                 <div class="left2">
                     <div class="orderInfo dark-gray">
                         <h2 class="sub-title uppercase">{{ $t('orderInfo') }}</h2>
-                        <OrderInfo v-if="$refs.dragAndDrop?.jobs?.length > 0" :jobs="$refs.dragAndDrop.jobs"/>
+                        <OrderInfo v-if="$refs.dragAndDrop?.jobs?.length > 0" @jobs-updated="updateJobs" :jobs="$refs.dragAndDrop.jobs"/>
                     </div>
                 </div>
                 <div class="right2">
@@ -84,16 +84,29 @@
                                 <th>{{ $t('width') }}</th>
                                 <th>{{ $t('height') }}</th>
                                 <th>ID</th>
+                                <th v-if="updatedJobs.length > 0">Material</th>
                             </tr>
                             </thead>
                             <tbody>
-                            <tr v-for="(job, index) in $refs.dragAndDrop?.jobs" :key="index">
-                                <td><img :src="job.imageData" alt="Job Image" class="jobImg" /></td>
-                                <td>{{ job.width }}</td>
-                                <td>{{ job.height }}</td>
-                                <td>{{ job.id }}</td>
-                                <!-- Add options form here -->
-                            </tr>
+                            <template v-if="updatedJobs.length === 0">
+                                <tr v-for="(job, index) in $refs.dragAndDrop?.jobs" :key="index">
+                                    <td><img :src="job.imageData" alt="Job Image" class="jobImg" /></td>
+                                    <td>{{ job.width }}</td>
+                                    <td>{{ job.height }}</td>
+                                    <td>{{ job.id }}</td>
+                                    <!-- Add options form here -->
+                                </tr>
+                            </template>
+                            <template v-else>
+                                <tr v-for="(job, index) in updatedJobs" :key="index">
+                                    <td><img :src="getImageUrl(job.id)" alt="Job Image" class="jobImg" /></td>
+                                    <td>{{ job.width }}</td>
+                                    <td>{{ job.height }}</td>
+                                    <td>{{ job.id }}</td>
+                                    <td>{{ job.materials }}</td>
+                                    <!-- Add options form here -->
+                                </tr>
+                            </template>
                             </tbody>
                         </table>
                     </div>
@@ -127,7 +140,7 @@ export default {
             invoices: [],
             selectedClientPhone: '',
             selectedClientCompany: '',
-
+            updatedJobs: []
         };
     },
     created() {
@@ -174,9 +187,9 @@ export default {
                 finalJob = {
                     width: job.width,
                     height: job.height,
-                    file: job.file
+                    file: job.file,
+                    id: job.id
                 }
-                console.log(this.invoice.jobs);
                 this.invoice.jobs.push(finalJob);
             }
             try {
@@ -193,6 +206,12 @@ export default {
                 toast.error('Error creating job');
             }
         },
+        updateJobs(updatedJobs) {
+            this.updatedJobs = updatedJobs;
+        },
+        getImageUrl(id) {
+            return this.$refs.dragAndDrop.jobs.find(j => j.id === id).imageData;
+        }
     },
 };
 </script>
