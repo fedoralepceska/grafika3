@@ -86,7 +86,10 @@ export default {
                         height: height,
                         file: file,
                         id: tempJob?.id,
-                        materials: tempJob?.materials
+                        materials: tempJob?.materials,
+                        materialsSmall: tempJob?.materialsSmall,
+                        machinePrint: tempJob?.machinePrint,
+                        machinesCut: tempJob?.machineCut
                     };
 
                     this.jobs.push(job); // Correct variable name

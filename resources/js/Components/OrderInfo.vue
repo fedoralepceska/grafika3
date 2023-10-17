@@ -4,14 +4,24 @@
         <div class="ultra-light-blue mt-3">
             <div class="sub-title blue p-1 pl-3 text-white">PRINT</div>
             <div class="form-group mt-2 p-2">
-                <!--SECTION FOR SMALL FORMAT MATERIALS-->
+                <label>{{ $t('machineP') }}</label><br>
+                <select v-model="selectedMachinePrint">
+                    <option v-for="machine in machinesPrint" :key="machine" :value="machine">
+                        {{ $t(`machinePrint.${machine}`) }}
+                    </option>
+                </select>
             </div>
         </div>
 
         <div class="ultra-light-red mt-3">
             <div class="sub-title red p-1 pl-3 text-white">CUT</div>
             <div class="form-group mt-2 p-2">
-                <!--SECTION FOR SMALL FORMAT MATERIALS-->
+                <label>{{ $t('machineC') }}</label><br>
+                <select v-model="selectedMachineCut">
+                    <option v-for="machine in machinesCut" :key="machine" :value="machine">
+                        {{ $t(`machineCut.${machine}`) }}
+                    </option>
+                </select>
             </div>
         </div>
 
@@ -30,7 +40,12 @@
         <div class="ultra-light-orange mt-3">
             <div class="sub-title orange p-1 pl-3 text-white">SMALL FORMAT</div>
             <div class="form-group mt-2 p-2">
-                    <!--SECTION FOR SMALL FORMAT MATERIALS-->
+                <label>{{ $t('materialSmallFormat') }}</label><br>
+                <select v-model="selectedMaterialSmall">
+                    <option v-for="material in materialsSmall" :key="material" :value="material">
+                        {{ $t(`materialsSmall.${material}`) }}
+                    </option>
+                </select>
             </div>
         </div>
 
@@ -70,17 +85,44 @@ export default {
     data() {
         return {
             selectedMaterial: '',
+            selectedMaterialSmall: '',
+            selectedMachineCut: '',
+            selectedMachinePrint: '',
             selectedAction: '',
             actions: [{}], // Start with an empty action
             actionOptions: this.generateActionOptions(),
-            materials: this.generateMaterials()
+            materials: this.generateMaterials(),
+            materialsSmall: this.generateMaterialsSmall(),
+            machinesPrint: this.generateMachinesPrint(),
+            machinesCut: this.generateMachinesCut()
         }
     },
     methods: {
+        generateMachinesPrint() {
+            const materials = [];
+            for (let i = 1; i <= 10; i++) {
+                materials.push(`Machine print ${i}`);
+            }
+            return materials;
+        },
+        generateMachinesCut() {
+            const materials = [];
+            for (let i = 1; i <= 2; i++) {
+                materials.push(`Machine cut ${i}`);
+            }
+            return materials;
+        },
         generateMaterials() {
             const materials = [];
             for (let i = 1; i <= 28; i++) {
                 materials.push(`Material ${i}`);
+            }
+            return materials;
+        },
+        generateMaterialsSmall() {
+            const materials = [];
+            for (let i = 1; i <= 34; i++) {
+                materials.push(`Material small ${i}`);
             }
             return materials;
         },
@@ -118,6 +160,9 @@ export default {
             axios.post('/sync-all-jobs',
                 {
                 selectedMaterial: this.selectedMaterial,
+                selectedMachinePrint: this.selectedMachinePrint,
+                selectedMachineCut: this.selectedMachineCut,
+                selectedMaterialsSmall: this.selectedMaterialSmall,
                 jobs: this.jobs.map(job => job.id),
                 jobsWithActions: jobsWithActions
                 })

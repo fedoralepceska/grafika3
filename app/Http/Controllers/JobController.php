@@ -60,16 +60,31 @@ class JobController extends Controller
     {
         // Validate the request and ensure the selected material is provided
         $request->validate([
-            'selectedMaterial' => 'required|string', // Adjust validation rules as needed
+            'selectedMaterial' => 'required|string',
+            'selectedMaterialsSmall' => 'required|string',
+            'selectedMachineCut' => 'required|string',
+            'selectedMachinePrint' => 'required|string',
         ]);
 
         $selectedMaterial = $request->input('selectedMaterial');
+        $selectedMaterialSmall = $request->input('selectedMaterialsSmall');
+        $selectedMachineCut = $request->input('selectedMachineCut');
+        $selectedMachinePrint = $request->input('selectedMachinePrint');
         $jobIds = $request->input('jobs');
         $jobsWithActions = $request->input('jobsWithActions');
 
         // Update all jobs with the selected material
-        $updatedJobsCount = Job::whereIn('id', $jobIds)->where('materials', '<>', $selectedMaterial)->update(['materials' => $selectedMaterial]);
-
+        $updatedJobsCount = Job::whereIn('id', $jobIds)
+            ->where('materials', '<>', $selectedMaterial)
+            ->where('materialsSmall', '<>', $selectedMaterialSmall)
+            ->where('machineCut', '<>', $selectedMachineCut)
+            ->where('machinePrint', '<>', $selectedMachinePrint)
+            ->update([
+                'materials' => $selectedMaterial,
+                'materialsSmall' => $selectedMaterialSmall,
+                'machineCut' => $selectedMachineCut,
+                'machinePrint' => $selectedMachinePrint,
+            ]);
         foreach ($jobsWithActions as $jobWithActions) {
             $job = Job::findOrFail($jobWithActions['job_id']);
             $job->actions()->sync([]);

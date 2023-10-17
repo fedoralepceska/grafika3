@@ -114,6 +114,17 @@
                                             </div>
                                         </transition>
                                     </div>
+                                    <div class="ultra-light-orange mt-3">
+                                        <div class="orange p-1 pl-3 text-white">
+                                            {{ $t('materialSmallFormat') }}
+                                            <button class="toggle-button" @click="toggleMaterialsSmall">+</button>
+                                        </div>
+                                        <transition name="slide-fade">
+                                            <div v-if="showMaterialsSmall" class="form-group">
+                                                <div>{{ $t(`materialsSmall.${job.materialsSmall}`) }}</div>
+                                            </div>
+                                        </transition>
+                                    </div>
                                     <div class="ultra-light-green mt-3">
                                         <div class="green p-1 pl-3 text-white">
                                             Actions
@@ -127,7 +138,28 @@
                                             </div>
                                         </transition>
                                     </div>
-                                    <!-- Add options form here -->
+                                    <div class="ultra-light-blue mt-3">
+                                        <div class="blue p-1 pl-3 text-white">
+                                            {{ $t('machineP') }}
+                                            <button class="toggle-button" @click="toggleMachinePrint">+</button>
+                                        </div>
+                                        <transition name="slide-fade">
+                                            <div v-if="showMachinePrint" class="form-group">
+                                                <div>{{ $t(`machinePrint.${job.machinePrint}`) }}</div>
+                                            </div>
+                                        </transition>
+                                    </div>
+                                    <div class="ultra-light-red mt-3">
+                                        <div class="red p-1 pl-3 text-white">
+                                            {{ $t('machineC') }}
+                                            <button class="toggle-button" @click="toggleMachineCut">+</button>
+                                        </div>
+                                        <transition name="slide-fade">
+                                            <div v-if="showMachineCut" class="form-group">
+                                                <div>{{ $t(`machineCut.${job.machineCut}`) }}</div>
+                                            </div>
+                                        </transition>
+                                    </div>
                                 </tr>
                             </template>
                             </tbody>
@@ -165,6 +197,9 @@ export default {
             selectedClientCompany: '',
             updatedJobs: [],
             showMaterials: false,
+            showMaterialsSmall: false,
+            showMachineCut: false,
+            showMachinePrint: false,
             showActions: false,
             newJobs: []
         };
@@ -210,8 +245,17 @@ export default {
                 this.selectedClientCompany= '';
             }
         },
+        toggleMachineCut() {
+            this.showMachineCut = !this.showMachineCut;
+        },
+        toggleMachinePrint() {
+            this.showMachinePrint = !this.showMachinePrint;
+        },
         toggleMaterials() {
             this.showMaterials = !this.showMaterials;
+        },
+        toggleMaterialsSmall() {
+            this.showMaterialsSmall = !this.showMaterialsSmall;
         },
         toggleActions() {
             this.showActions = !this.showActions;
@@ -293,10 +337,24 @@ export default {
 .ultra-light-green {
     background-color: rgba(121, 173, 84, 0.2);
 }
+.ultra-light-blue{
+    background-color: rgba(102,171,203,0.2);
+}
+.ultra-light-red{
+    background-color: rgba(196,128,130,0.2);
+}
+.blue{
+    background-color: $blue;
+}
+.light-green{
+    background-color: $light-green;
+}
+.red{
+    background-color: $red;
+}
 .orange{
     background-color: $orange;
 }
-
 .green {
     background-color: $green;
 }
