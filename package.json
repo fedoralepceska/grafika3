@@ -21,6 +21,7 @@
     "dependencies": {
         "vue-i18n": "^9.5.0",
         "vue-toastification": "^2.0.0-rc.5",
+        "vuetify": "^3.3.22",
         "vuex": "^4.1.0"
     }
 }

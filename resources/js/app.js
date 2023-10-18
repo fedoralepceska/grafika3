@@ -6,11 +6,19 @@ import { createInertiaApp } from '@inertiajs/vue3';
 import { resolvePageComponent } from 'laravel-vite-plugin/inertia-helpers';
 import { ZiggyVue } from '../../vendor/tightenco/ziggy/dist/vue.m';
 import Toast from "vue-toastification";
+import {createVuetify} from 'vuetify';
+import * as components from 'vuetify/components'
+import * as directives from 'vuetify/directives'
 // Import the CSS or use your own!
 import "vue-toastification/dist/index.css";
 import i18n from './i18n';
 
 const appName = import.meta.env.VITE_APP_NAME || 'Laravel';
+
+const vuetify = createVuetify({
+    components,
+    directives
+})
 
 createInertiaApp({
     title: (title) => `${title} - ${appName}`,
@@ -20,6 +28,7 @@ createInertiaApp({
             .use(plugin)
             .use(i18n)
             .use(Toast)
+            .use(vuetify)
             .use(ZiggyVue, Ziggy)
             .mount(el);
     },
