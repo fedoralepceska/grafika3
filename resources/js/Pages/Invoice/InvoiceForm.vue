@@ -77,88 +77,123 @@
                 <div class="right2">
                     <div class="Order dark-gray">
                         <h2 class="sub-title uppercase">{{ $t('orderLines') }}</h2>
-                        <table v-if="$refs.dragAndDrop?.jobs?.length > 0">
-                            <thead>
-                            <tr>
-                                <th>{{ $t('image') }}</th>
-                                <th>{{ $t('width') }}</th>
-                                <th>{{ $t('height') }}</th>
-                                <th>ID</th>
-                                <th v-if="updatedJobs.length > 0">Order Info</th>
-                            </tr>
-                            </thead>
+                        <table class="border" v-if="$refs.dragAndDrop?.jobs?.length > 0">
                             <tbody>
                             <template v-if="updatedJobs.length === 0">
                                 <tr v-for="(job, index) in $refs.dragAndDrop?.jobs" :key="index">
-                                    <td><img :src="job.imageData" alt="Job Image" class="jobImg" /></td>
-                                    <td>{{ job.width }}</td>
-                                    <td>{{ job.height }}</td>
-                                    <td>{{ job.id }}</td>
-                                    <!-- Add options form here -->
+
+                                    <!--FILE INFO BEFORE SYNCING-->
+                                    <div class="bg-gray-500 text-white">
+                                        <td class="light-gray ">#{{ index + 1 }}</td>
+                                        <td>{{$t('name')}}: </td>
+                                        <td>ID: {{ job.id }}</td>
+                                    </div>
+
+
+                                    <div class="flex text-white">
+                                        <td><img :src="getImageUrl(job.id)" alt="Job Image" class="jobImg" /></td>
+                                        <td>{{ $t('width') }}: {{ job.width }} </td>
+                                        <td>{{ $t('height') }}: {{ job.height }}</td>
+                                        <td>{{$t('Quantity')}}: </td>
+                                        <td>{{$t('Copies')}}:</td>
+                                    </div>
+
+                                    <div class="flex " >
+                                        <td class="flex items-center bg-gray-200 ">
+                                            <img src="/images/shipping.png" class="w-10 h-10 pr-1" alt="Shipping">
+                                            {{ $t('Shipping') }}: </td>
+                                    </div>
+
                                 </tr>
                             </template>
                             <template v-else>
                                 <tr v-for="(job, index) in updatedJobs" :key="index">
-                                    <td><img :src="getImageUrl(job.id)" alt="Job Image" class="jobImg" /></td>
-                                    <td>{{ job.width }}</td>
-                                    <td>{{ job.height }}</td>
-                                    <td>{{ job.id }}</td>
-                                    <div class="ultra-light-orange mt-3">
-                                        <div class="orange p-1 pl-3 text-white">
-                                            Materials
-                                            <button class="toggle-button" @click="toggleMaterials">+</button>
-                                        </div>
-                                        <transition name="slide-fade">
-                                            <div v-if="showMaterials" class="form-group">
-                                                <div>{{ $t(`materials.${job.materials}`) }}</div>
-                                            </div>
-                                        </transition>
+                                    <!--ORDER INDEX, NAME AND ADDITIONAL INFO-->
+                                    <div class="bg-gray-500 text-white">
+                                        <td class="light-gray ">#{{ index + 1 }}</td>
+                                        <td>{{$t('name')}}: </td>
+                                        <td>ID: {{ job.id }}</td>
                                     </div>
-                                    <div class="ultra-light-orange mt-3">
-                                        <div class="orange p-1 pl-3 text-white">
-                                            {{ $t('materialSmallFormat') }}
-                                            <button class="toggle-button" @click="toggleMaterialsSmall">+</button>
-                                        </div>
-                                        <transition name="slide-fade">
-                                            <div v-if="showMaterialsSmall" class="form-group">
-                                                <div>{{ $t(`materialsSmall.${job.materialsSmall}`) }}</div>
-                                            </div>
-                                        </transition>
+
+                                    <!--FILE INFO-->
+                                    <div class="flex text-white">
+                                        <td><img :src="getImageUrl(job.id)" alt="Job Image" class="jobImg" /></td>
+                                        <td>{{ $t('width') }}: {{ job.width }} </td>
+                                        <td>{{ $t('height') }}: {{ job.height }}</td>
+                                        <td>{{$t('Quantity')}}: </td>
+                                        <td>{{$t('Copies')}}:</td>
                                     </div>
-                                    <div class="ultra-light-green mt-3">
-                                        <div class="green p-1 pl-3 text-white">
-                                            Actions
-                                            <button class="toggle-button" @click="toggleActions">+</button>
-                                        </div>
-                                        <transition name="slide-fade">
-                                            <div v-if="showActions" class="text-white">
-                                                <div v-for="action in actions(job.id)" :key="action">
-                                                    <span>{{ $t(`actions.${action}`) }}</span>
+
+                                    <!--SHIPPING INFO-->
+                                    <div class="flex " >
+                                        <td class="flex items-center bg-gray-200 ">
+                                            <img src="/images/shipping.png" class="w-10 h-10 pr-1" alt="Shipping">
+                                            {{ $t('Shipping') }}: </td>
+                                    </div>
+
+                                    <!--ORDER INFO-->
+                                    <div>
+                                        <div class="flex gap-5 justify-center" >
+                                            <div class="jobInfo mt-3 mb-5" >
+                                                <div class="blue p-1 pl-1 text-white">
+                                                    {{ $t('machineP') }}
+                                                    <button class="toggle-button" @click="toggleMachinePrint">&#9207;</button>
                                                 </div>
+                                                <transition name="slide-fade">
+                                                    <div v-if="showMachinePrint" class="ultra-light-blue form-group pl-1 pt-1 pb-1">
+                                                        <div>&#9659; {{ $t(`machinePrint.${job.machinePrint}`) }}</div>
+                                                    </div>
+                                                </transition>
                                             </div>
-                                        </transition>
-                                    </div>
-                                    <div class="ultra-light-blue mt-3">
-                                        <div class="blue p-1 pl-3 text-white">
-                                            {{ $t('machineP') }}
-                                            <button class="toggle-button" @click="toggleMachinePrint">+</button>
+                                            <div class="jobInfo mt-3 mb-5">
+                                                <div class="red p-1 pl-1 text-white">
+                                                    {{ $t('machineC') }}
+                                                    <button class="toggle-button" @click="toggleMachineCut">&#9207;</button>
+                                                </div>
+                                                <transition name="slide-fade">
+                                                    <div v-if="showMachineCut" class="ultra-light-red form-group pl-1 pt-1 pb-1">
+                                                        <div>&#9659; {{ $t(`machineCut.${job.machineCut}`) }}</div>
+                                                    </div>
+                                                </transition>
+                                            </div>
+                                            <div class="jobInfo mt-3 mb-5">
+                                                <div class="orange p-1 pl-1 text-white">
+                                                    {{ $t('materialLargeFormat') }}
+                                                    <button class="toggle-button" @click="toggleMaterials">&#9207;</button>
+                                                </div>
+                                                <transition name="slide-fade">
+                                                    <div v-if="showMaterials" class="ultra-light-orange form-group pl-1 pt-1 pb-1">
+                                                        <div>&#9659; {{ $t(`materials.${job.materials}`) }}</div>
+                                                    </div>
+                                                </transition>
+                                            </div>
+                                            <div class="jobInfo mt-3 mb-5">
+                                                <div class="orange p-1 pl-1 text-white">
+                                                    {{ $t('materialSmallFormat') }}
+                                                    <button class="toggle-button" @click="toggleMaterialsSmall">&#9207;</button>
+                                                </div>
+                                                <transition name="slide-fade">
+                                                    <div v-if="showMaterialsSmall" class="ultra-light-orange form-group pl-1 pt-1 pb-1">
+                                                        <div>&#9659; {{ $t(`materialsSmall.${job.materialsSmall}`) }}</div>
+                                                    </div>
+                                                </transition>
+                                            </div>
                                         </div>
-                                        <transition name="slide-fade">
-                                            <div v-if="showMachinePrint" class="form-group">
-                                                <div>{{ $t(`machinePrint.${job.machinePrint}`) }}</div>
+                                        <div class="pl-14 pr-14">
+                                            <div class="jobInfo mt-3 mb-5">
+                                                <div class="green p-1 pl-1 text-white">
+                                                    {{$t('ACTIONS')}}
+                                                    <button class="toggle-button" @click="toggleActions">&#9207;</button>
+                                                </div>
+                                                <transition name="slide-fade">
+                                                    <div v-if="showActions" class="ultra-light-green text-white pl-1 pt-1 pb-1">
+                                                        <div v-for="action in actions(job.id)" :key="action">
+                                                            <span>&#9659; {{ $t(`actions.${action}`) }}</span>
+                                                        </div>
+                                                    </div>
+                                                </transition>
                                             </div>
-                                        </transition>
-                                    </div>
-                                    <div class="ultra-light-red mt-3">
-                                        <div class="red p-1 pl-3 text-white">
-                                            {{ $t('machineC') }}
-                                            <button class="toggle-button" @click="toggleMachineCut">+</button>
                                         </div>
-                                        <transition name="slide-fade">
-                                            <div v-if="showMachineCut" class="form-group">
-                                                <div>{{ $t(`machineCut.${job.machineCut}`) }}</div>
-                                            </div>
-                                        </transition>
                                     </div>
                                 </tr>
                             </template>
@@ -316,15 +351,25 @@ export default {
 </script>
 
 <style scoped lang="scss">
-
-.slide-fade-enter-active, .slide-fade-leave-active {
-    transition: all 0.1s;
+.light-gray{
+    background-color: $light-gray;
 }
 
-.slide-fade-enter, .slide-fade-leave-to {
-    opacity: 0;
-    height: 0;
+.slide-fade-enter-active, .slide-fade-leave-active {
+    transition: max-height 0.5s ease-in-out;
+}
+
+.slide-fade-enter-to, .slide-fade-leave-from {
     overflow: hidden;
+    max-height: 1000px;
+}
+.slide-fade-enter-from, .slide-fade-leave-to {
+    overflow: hidden;
+    max-height: 0;
+}
+.jobInfo{
+    min-width: 200px;
+
 }
 
 .toggle-button {
@@ -455,12 +500,16 @@ table {
 }
 
 th, td {
-    border: 1px solid #ccc;
-    padding: 8px;
-    text-align: center;
-}
 
+    padding: 10px;
+    text-align: center;
+
+}
+tr{
+    border: 1px solid white;
+}
 th {
+
     background-color: #f0f0f0;
 }
 

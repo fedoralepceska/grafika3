@@ -61,6 +61,8 @@ const messages = {
             'Material 27': 'Филм фолија',
             'Material 28': 'Платно за знаме',
         },
+        MATERIALS:"MATERIALS",
+        materialLargeFormat:'Materials',
         materialSmallFormat: "Material - small format",
         materialsSmall: {
             'Material small 1': 'Меморандум А4 (80гр)',
@@ -98,12 +100,12 @@ const messages = {
             'Material small 33': 'Пластична ID картичка',
             'Material small 34': 'Кунздрукт 300гр / 330x480',
         },
-        machineC: "Machine cut",
+        machineC: "Machine CUT",
         machineCut: {
             'Machine cut 1': 'Summa cutter',
             'Machine cut 2': 'AHC',
         },
-        machineP: "Machine print",
+        machineP: "Machine PRINT",
         machinePrint: {
             'Machine print 1': 'Mimaki UV',
             'Machine print 2': 'Pitney bowe s di380',
@@ -116,6 +118,7 @@ const messages = {
             'Machine print 9': 'Cannon B&W imagePress 1125',
             'Machine print 10': 'HP Injet X476W',
         },
+        ACTIONS: 'ACTIONS',
         action: 'Action',
         actions: {
             'Action 1': 'Сечење на зунд',
@@ -153,7 +156,10 @@ const messages = {
             'Action 33': 'Перфорација',
             'Action 34': 'Врзување врвка',
             'Action 35': 'Штанцање (машинско)',
-        }
+        },
+        Quantity:'Quantity',
+        Copies:'Copies',
+        Shipping:'Shipping'
     },
     mk: {
         // Define your Macedonian translations here
@@ -216,6 +222,8 @@ const messages = {
             'Material 27': 'Филм фолија',
             'Material 28': 'Платно за знаме',
         },
+        MATERIALS:"МАТЕРИЈАЛИ",
+        materialLargeFormat:'Материјали',
         materialSmallFormat: "Материјал - мал формат",
         materialsSmall: {
             'Material small 1': 'Меморандум А4 (80гр)',
@@ -253,10 +261,12 @@ const messages = {
             'Material small 33': 'Пластична ID картичка',
             'Material small 34': 'Кунздрукт 300гр / 330x480',
         },
+        machineC: "Машини CUT",
         machineCut: {
             'Machine cut 1': 'Summa cutter',
             'Machine cut 2': 'AHC',
         },
+        machineP: "Машини PRINT",
         machinePrint: {
             'Machine print 1': 'Mimaki UV',
             'Machine print 2': 'Pitney bowe s di380',
@@ -268,8 +278,10 @@ const messages = {
             'Machine print 8': 'Durst p10',
             'Machine print 9': 'Cannon B&W imagePress 1125',
             'Machine print 10': 'HP Injet X476W',
+
         },
-        action: 'Акција',
+        ACTIONS:'ДОРАБОТКИ',
+        action: 'Доработка',
         actions: {
             'Action 1': 'Сечење на зунд',
             'Action 2': 'Лепење на форекс 3мм',
@@ -306,7 +318,10 @@ const messages = {
             'Action 33': 'Перфорација',
             'Action 34': 'Врзување врвка',
             'Action 35': 'Штанцање (машинско)',
-        }
+        },
+        Quantity:'Количина',
+        Copies:'Копии',
+        Shipping:'Достава'
     },
 };
 

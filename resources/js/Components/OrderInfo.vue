@@ -2,7 +2,7 @@
     <div class="order-info-box">
 
         <div class="ultra-light-blue mt-3">
-            <div class="sub-title blue p-1 pl-3 text-white">PRINT</div>
+            <div class="sub-title blue p-1 pl-3 text-white">{{$t('PRINT')}}</div>
             <div class="form-group mt-2 p-2">
                 <label>{{ $t('machineP') }}</label><br>
                 <select v-model="selectedMachinePrint">
@@ -14,7 +14,7 @@
         </div>
 
         <div class="ultra-light-red mt-3">
-            <div class="sub-title red p-1 pl-3 text-white">CUT</div>
+            <div class="sub-title red p-1 pl-3 text-white">{{$t('CUT')}}</div>
             <div class="form-group mt-2 p-2">
                 <label>{{ $t('machineC') }}</label><br>
                 <select v-model="selectedMachineCut">
@@ -26,7 +26,7 @@
         </div>
 
         <div class="ultra-light-orange mt-3">
-            <div class="sub-title orange p-1 pl-3 text-white">MATERIALS</div>
+            <div class="sub-title orange p-1 pl-3 text-white">{{$t('MATERIALS')}}</div>
             <div class="form-group mt-2 p-2">
                 <label>{{ $t('material') }}</label><br>
                 <select v-model="selectedMaterial">
@@ -38,7 +38,7 @@
         </div>
 
         <div class="ultra-light-orange mt-3">
-            <div class="sub-title orange p-1 pl-3 text-white">SMALL FORMAT</div>
+            <div class="sub-title orange p-1 pl-3 text-white">{{$t('MATERIALS')}}</div>
             <div class="form-group mt-2 p-2">
                 <label>{{ $t('materialSmallFormat') }}</label><br>
                 <select v-model="selectedMaterialSmall">
@@ -50,7 +50,7 @@
         </div>
 
         <div class="ultra-light-green mt-3">
-            <h2 class="sub-title green p-1 pl-3 text-white" >ACTIONS</h2>
+            <h2 class="sub-title green p-1 pl-3 text-white" >{{$t('ACTIONS')}}</h2>
             <div v-for="(action, index) in actions" :key="index">
                 <div class="form-group mt-2 p-2">
                     <label>{{ $t('action') }} {{ index + 1 }}</label><br>
