@@ -9,7 +9,7 @@
     <div class="order-info-box">
         <div class="ultra-light-blue mt-3">
             <div class="sub-title blue p-1 pl-3 text-white">{{$t('PRINT')}}</div>
-            <div class="form-group mt-2 p-2">
+            <div class="form-group mt-2 p-2 text-black">
                 <label>{{ $t('machineP') }}</label><br>
                 <select v-model="selectedMachinePrint">
                     <option v-for="machine in machinesPrint" :key="machine" :value="machine">
@@ -21,7 +21,7 @@
 
         <div class="ultra-light-red mt-3">
             <div class="sub-title red p-1 pl-3 text-white">{{$t('CUT')}}</div>
-            <div class="form-group mt-2 p-2">
+            <div class="form-group mt-2 p-2 text-black">
                 <label>{{ $t('machineC') }}</label><br>
                 <select v-model="selectedMachineCut">
                     <option v-for="machine in machinesCut" :key="machine" :value="machine">
@@ -33,7 +33,7 @@
 
         <div class="ultra-light-orange mt-3">
             <div class="sub-title orange p-1 pl-3 text-white">{{$t('MATERIALS')}}</div>
-            <div class="form-group mt-2 p-2">
+            <div class="form-group mt-2 p-2 text-black">
                 <label>{{ $t('material') }}</label><br>
                 <select v-model="selectedMaterial">
                     <option v-for="material in materials" :key="material" :value="material">
@@ -45,7 +45,7 @@
 
         <div class="ultra-light-orange mt-3">
             <div class="sub-title orange p-1 pl-3 text-white">{{$t('MATERIALS')}}</div>
-            <div class="form-group mt-2 p-2">
+            <div class="form-group mt-2 p-2 text-black">
                 <label>{{ $t('materialSmallFormat') }}</label><br>
                 <select v-model="selectedMaterialSmall">
                     <option v-for="material in materialsSmall" :key="material" :value="material">
@@ -58,7 +58,7 @@
         <div class="ultra-light-green mt-3">
             <h2 class="sub-title green p-1 pl-3 text-white" >{{$t('ACTIONS')}}</h2>
             <div v-for="(action, index) in actions" :key="index">
-                <div class="form-group mt-2 p-2">
+                <div class="form-group mt-2 p-2 text-black">
                     <label>{{ $t('action') }} {{ index + 1 }}</label><br>
                     <select v-model="action.selectedAction">
                         <option v-for="actionOption in actionOptions" :key="actionOption" :value="actionOption">

@@ -99,7 +99,7 @@
                                     </div>
 
                                     <div class="flex " >
-                                        <td class="flex items-center bg-gray-200 ">
+                                        <td class="flex items-center bg-gray-200 text-black ">
                                             <img src="/images/shipping.png" class="w-10 h-10 pr-1" alt="Shipping">
                                             {{ $t('Shipping') }}: </td>
                                     </div>
@@ -126,7 +126,7 @@
 
                                     <!--SHIPPING INFO-->
                                     <div class="flex " >
-                                        <td class="flex items-center bg-gray-200 ">
+                                        <td class="flex items-center bg-gray-200 text-black ">
                                             <img src="/images/shipping.png" class="w-10 h-10 pr-1" alt="Shipping">
                                             {{ $t('Shipping') }}: </td>
                                     </div>
@@ -140,7 +140,7 @@
                                                     <button class="toggle-button" @click="toggleMachinePrint">&#9207;</button>
                                                 </div>
                                                 <transition name="slide-fade">
-                                                    <div v-if="showMachinePrint" class="ultra-light-blue form-group pl-1 pt-1 pb-1">
+                                                    <div v-if="showMachinePrint" class="ultra-light-blue form-group pl-1 pt-1 pb-1 ">
                                                         <div>&#9659; {{ $t(`machinePrint.${job.machinePrint}`) }}</div>
                                                     </div>
                                                 </transition>
