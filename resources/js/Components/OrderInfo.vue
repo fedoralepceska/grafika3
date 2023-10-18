@@ -65,8 +65,16 @@
                 </div>
             </div>
         </div>
+        <div class="multiselect-dropdown">
+            <label class="block mb-2 mt-2 text-sm font-medium text-gray-900 dark:text-white">{{ $t('syncJobs') }}</label><br>
+            <select v-model="selectedJobs" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" multiple>
+                <option v-for="(job, index) in jobs" :key="index" :value="job.id">
+                    #{{ index + 1 }}
+                </option>
+            </select>
+        </div>
         <div class="button-container">
-        <PrimaryButton class="mt-5" @click="syncAll">Sync All</PrimaryButton>
+        <PrimaryButton class="mt-5" @click="syncAll">{{ numberOfSelectedJobs ? $t('syncJobs') : $t('syncAllJobs') }}</PrimaryButton>
         </div>
     </div>
 </template>
@@ -89,12 +97,27 @@ export default {
             selectedMachineCut: '',
             selectedMachinePrint: '',
             selectedAction: '',
+            selectedJobs: [],
             actions: [{}], // Start with an empty action
             actionOptions: this.generateActionOptions(),
             materials: this.generateMaterials(),
             materialsSmall: this.generateMaterialsSmall(),
             machinesPrint: this.generateMachinesPrint(),
             machinesCut: this.generateMachinesCut()
+        }
+    },
+    computed: {
+        // logic which helps in displaying the right button label
+        numberOfSelectedJobs() {
+            if (!this.selectedJobs.length) {
+                return false;
+            }
+            else if (this.selectedJobs.length === this.jobs.length) {
+                return false;
+            }
+            else {
+                return true;
+            }
         }
     },
     methods: {
@@ -143,7 +166,19 @@ export default {
         syncAll() {
             const toast = useToast();
 
-            const jobsWithActions = this.jobs.map(job => {
+            // Define the array of job IDs to sync
+            let jobIdsToSync;
+
+            if (this.selectedJobs.length > 0) {
+                // Sync only selected jobs if there are selected jobs
+                jobIdsToSync = this.selectedJobs;
+            } else {
+                // Sync all jobs if no jobs are selected
+                jobIdsToSync = this.jobs.map(job => job.id);
+            }
+
+            // Create jobsWithActions based on the selected job IDs
+            const jobsWithActions = jobIdsToSync.map(jobId => {
                 const actions = this.actions.map(action => {
                     return {
                         action_id: action.selectedAction,
@@ -152,25 +187,25 @@ export default {
                 });
 
                 return {
-                    job_id: job.id,
+                    job_id: jobId,
                     actions: actions,
                 };
             });
 
-            axios.post('/sync-all-jobs',
-                {
+            // Perform the synchronization
+            axios.post('/sync-all-jobs', {
                 selectedMaterial: this.selectedMaterial,
                 selectedMachinePrint: this.selectedMachinePrint,
                 selectedMachineCut: this.selectedMachineCut,
                 selectedMaterialsSmall: this.selectedMaterialSmall,
-                jobs: this.jobs.map(job => job.id),
-                jobsWithActions: jobsWithActions
-                })
+                jobs: jobIdsToSync,
+                jobsWithActions: jobsWithActions,
+            })
                 .then(response => {
                     // Handle the response
-                    toast.success(`Successfully synced ${this.jobs.length} jobs!`);
+                    toast.success(`Successfully synced ${jobIdsToSync.length} jobs!`);
                     axios.post('/get-jobs-by-ids', {
-                        jobs: this.jobs.map(job => job.id)
+                        jobs: jobIdsToSync,
                     })
                         .then(response => {
                             // Handle the response with the updated jobs

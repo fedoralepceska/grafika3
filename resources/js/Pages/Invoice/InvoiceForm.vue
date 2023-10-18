@@ -107,7 +107,7 @@
                                 </tr>
                             </template>
                             <template v-else>
-                                <tr v-for="(job, index) in updatedJobs" :key="index">
+                                <tr v-for="(job, index) in mergedJobs" :key="index">
                                     <!--ORDER INDEX, NAME AND ADDITIONAL INFO-->
                                     <div class="bg-gray-500 text-white">
                                         <td class="light-gray ">#{{ index + 1 }}</td>
@@ -245,6 +245,11 @@ export default {
         await this.fetchClients();
         await this.fetchJobs();
     },
+    computed: {
+        mergedJobs() {
+            return this.mergeArraysByUniqueId(this.updatedJobs, this.newJobs, 'id');
+        }
+    },
     methods: {
         async fetchInvoices() {
             try {
@@ -310,6 +315,35 @@ export default {
             }
             return 'No actions'; // Return a default value if there are no actions for the job
         },
+        mergeArraysByUniqueId(updatedJobs, newJobs, uniqueId) {
+            const result = [];
+
+            // Create a map to store newJobs by their uniqueId for efficient lookups
+            const newJobsMap = new Map();
+            newJobs.forEach((job) => {
+                newJobsMap.set(job[uniqueId], job);
+            });
+
+            updatedJobs.forEach((job) => {
+                const newJob = newJobsMap.get(job[uniqueId]);
+                if (newJob) {
+                    // Merge properties from newJob into updated job
+                    const mergedJob = { ...job, ...newJob };
+                    result.push(mergedJob);
+                    newJobsMap.delete(job[uniqueId]); // Mark as used
+                } else {
+                    result.push(job);
+                }
+            });
+
+            // Add any remaining newJobs to the result
+            newJobsMap.forEach((job) => {
+                result.push(job);
+            });
+
+            return result;
+        },
+
         async submitForm() {
             this.invoice.status = "NOT_STARTED_YET";
             this.invoice.jobs = [];

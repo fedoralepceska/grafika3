@@ -64,6 +64,8 @@ const messages = {
         MATERIALS:"MATERIALS",
         materialLargeFormat:'Materials',
         materialSmallFormat: "Material - small format",
+        syncJobs: 'Sync jobs',
+        syncAllJobs: 'Sync all jobs',
         materialsSmall: {
             'Material small 1': 'Меморандум А4 (80гр)',
             'Material small 2': 'Офсет 80гр / А4',
@@ -225,6 +227,8 @@ const messages = {
         MATERIALS:"МАТЕРИЈАЛИ",
         materialLargeFormat:'Материјали',
         materialSmallFormat: "Материјал - мал формат",
+        syncJobs: 'Ажурирај',
+        syncAllJobs: 'Ажурирај ги сите',
         materialsSmall: {
             'Material small 1': 'Меморандум А4 (80гр)',
             'Material small 2': 'Офсет 80гр / А4',
