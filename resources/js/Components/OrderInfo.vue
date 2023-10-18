@@ -1,6 +1,12 @@
 <template>
+    <div class="light-gray p-2">
+        <label class="block mb-2 mt-2 text-sm font-medium text-gray-900 dark:text-white">{{ $t('syncJobs') }}</label>
+        <div class="card flex justify-content-center pt-2 w-25">
+            <MultiSelect v-model="selectedJobs" display="chip" :options="jobs.map((job, index) => ({ id: index+1, name: job }))" optionLabel="id" placeholder="Select Jobs"
+                         :maxSelectedLabels="3" class="dark-gray w-full md:w-20rem" />
+        </div>
+    </div>
     <div class="order-info-box">
-
         <div class="ultra-light-blue mt-3">
             <div class="sub-title blue p-1 pl-3 text-white">{{$t('PRINT')}}</div>
             <div class="form-group mt-2 p-2">
@@ -65,14 +71,7 @@
                 </div>
             </div>
         </div>
-        <div class="multiselect-dropdown">
-            <label class="block mb-2 mt-2 text-sm font-medium text-gray-900 dark:text-white">{{ $t('syncJobs') }}</label><br>
-            <select v-model="selectedJobs" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" multiple>
-                <option v-for="(job, index) in jobs" :key="index" :value="job.id">
-                    #{{ index + 1 }}
-                </option>
-            </select>
-        </div>
+
         <div class="button-container">
         <PrimaryButton class="mt-5" @click="syncAll">{{ numberOfSelectedJobs ? $t('syncJobs') : $t('syncAllJobs') }}</PrimaryButton>
         </div>
@@ -84,9 +83,14 @@ import { useI18n } from 'vue-i18n';
 import PrimaryButton from "@/Components/PrimaryButton.vue";
 import {useToast} from "vue-toastification";
 import SecondaryButton from "@/Components/SecondaryButton.vue";
+import MultiSelect from 'primevue/multiselect';
+import 'primevue/resources/themes/lara-dark-blue/theme.css'; // Import PrimeVue theme CSS
+
+
+
 export default {
     name: "OrderInfo",
-    components: {SecondaryButton, PrimaryButton},
+    components: {SecondaryButton, PrimaryButton,MultiSelect },
     props: {
         jobs: Array
     },
@@ -228,6 +232,7 @@ export default {
 </script>
 
 <style scoped lang="scss">
+
 .ultra-light-green {
     background-color: rgba(121, 173, 84, 0.2);
 }
@@ -253,8 +258,14 @@ export default {
 .light-green{
     background-color: $light-green;
 }
+.dark-gray{
+    background-color: $dark-gray;
+}
 .red{
     background-color: $red;
+}
+.light-gray{
+    background-color: $light-gray;
 }
 .addBtn{
     color: $light-green;
