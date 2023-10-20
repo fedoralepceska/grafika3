@@ -112,20 +112,30 @@ const showingNavigationDropdown = ref(false);
             </div>
         </nav>
         <!-- SIDEBAR START-->
-
-        <!-- SIDEBAR END-->
-
-        <slot/>
+        <div class="flex">
+            <div @mouseover="showSidebar = true" @mouseleave="showSidebar = false">
+                <SideMenu :showSidebar="showSidebar" class="md:block w-1/6"
+                />
+            </div>
+            <div class="w-5/6">
+                <slot/>
+            </div>
+        </div>
     </div>
 </template>
 
 <script>
 import AuthenticatedLayout from "@/Layouts/AuthenticatedLayout.vue";
 import LanguageSelector from "@/Components/LanguageSelector.vue";
+import SideMenu from "@/Components/SideMenu.vue";
 export default {
     name: "MainLayout",
-    components: {AuthenticatedLayout, LanguageSelector}
-
+    components: {AuthenticatedLayout, LanguageSelector, SideMenu},
+    data() {
+        return {
+            showSidebar: true
+        }
+    },
 }
 
 </script>
@@ -138,5 +148,13 @@ export default {
     }
     .dark-gray{
         background-color: $dark-gray;
+    }
+
+    .slide-fade-enter-active, .slide-fade-leave-active {
+        transition: all 0.3s ease;
+    }
+    .slide-fade-enter, .slide-fade-leave-to /* .slide-fade-leave-active in <2.1.8 */ {
+        transform: translateX(-100%);
+        opacity: 0;
     }
 </style>

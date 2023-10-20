@@ -50,8 +50,6 @@ import PrimaryButton from "@/Components/PrimaryButton.vue";
 import MainLayout from "@/Layouts/MainLayout.vue";
 import {useToast} from "vue-toastification";
 
-
-
 export default {
     components: {MainLayout, PrimaryButton},
     data() {

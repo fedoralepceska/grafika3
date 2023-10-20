@@ -9,6 +9,7 @@ import Toast from "vue-toastification";
 import {createVuetify} from 'vuetify';
 import * as components from 'vuetify/components'
 import * as directives from 'vuetify/directives'
+import '@mdi/font/css/materialdesignicons.min.css';
 // Import the CSS or use your own!
 import "vue-toastification/dist/index.css";
 import i18n from './i18n';
