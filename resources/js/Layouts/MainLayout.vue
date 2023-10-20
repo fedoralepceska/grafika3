@@ -113,11 +113,10 @@ const showingNavigationDropdown = ref(false);
         </nav>
         <!-- SIDEBAR START-->
         <div class="flex">
-            <div @mouseover="showSidebar = true" @mouseleave="showSidebar = false">
-                <SideMenu :showSidebar="showSidebar" class="md:block w-1/6"
-                />
+            <div >
+                <SideMenu  class="md:block w-1/6"/>
             </div>
-            <div class="w-5/6">
+            <div class="w-6/6">
                 <slot/>
             </div>
         </div>

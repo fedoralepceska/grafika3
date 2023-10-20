@@ -1,46 +1,35 @@
 <template>
-    <div class="bg-gray-800 text-white h-screen w-64 px-4 py-6"
-         :class="showSidebar ? 'streched' : 'shrinked'"
-         @mouseover="showMenuText = true"
-         @mouseleave="showMenuText = false"
+    <div
+        class="side dark-gray text-white h-screen  px-4 py-6"
+        :class="{ 'streched': isSidebarStreched, 'shrinked': !isSidebarStreched }"
+        @click="isSidebarStreched = !isSidebarStreched"
     >
         <!-- Main Menu Items -->
-        <div v-for="item in menuItems" :key="item.title" class="hover:bg-gray-700 rounded">
-            <div class="flex items-center">
-                <v-icon class="text-xl mr-4">{{ item.icon }}</v-icon>
-                <div v-if="showSidebar">{{ item.title }}</div>
-            </div>
-        </div>
+        <div
+            v-for="(item, index) in menuItems"
+            :key="item.title"
+            class="hover:bg-gray-800 rounded"
 
-        <!-- Submenus -->
-        <!-- Submenus -->
-        <v-list-group
-            v-for="submenu in submenus"
-            :key="submenu.title"
-            class="my-2"
-            active-class="bg-gray-700"
-            value="true"
         >
-            <template v-slot:activator>
-                <div class="hover-item hover:bg-gray-700 rounded flex items-center"
-                     @mouseover="handleMouseOver"
-                     @mouseleave="handleMouseLeave"
-                >
-                    <v-icon class="text-xl mr-4">{{ submenu.icon }}</v-icon>
-                    <div v-if="showSidebar">{{ submenu.title }}</div>
-                </div>
-            </template>
+            <div class="flex items-center pb-2 pt-2">
+                <v-icon class="text-xl mr-4">{{ item.icon }}</v-icon>
+                <div  @click="clickHandler(index)" v-if="isSidebarStreched">{{ item.title }}</div>
+            </div>
 
-        <!-- Wrap submenu items with v-list-item -->
-            <div v-if="isHovered">
-                <v-list-item v-for="item in submenu.items" :key="item.title" class="show hover:bg-gray-700 rounded">
+            <!-- Display submenus when a menu item is clicked -->
+            <div v-if="item === activeItem && item.submenu" class="submenu">
+                <v-list-item
+                    v-for="(submenuItem, submenuIndex) in item.submenu"
+                    :key="submenuIndex"
+                    class="show hover:bg-gray-100 rounded"
+                    @click="submenuClickHandler(submenuItem)"
+                >
                     <div class="flex items-center">
-                        <div v-if="showSidebar">{{ item.title }}</div>
+                        <div v-if="isSidebarStreched ">{{ submenuItem.title }}</div>
                     </div>
                 </v-list-item>
             </div>
-        </v-list-group>
-
+        </div>
     </div>
 </template>
 
@@ -49,39 +38,110 @@ export default {
     name: "SideMenu",
     data() {
         return {
-            showMenuText: false,
-            isHovered: false,
+            showMenuText: true,
+            isSidebarStreched: false,
             menuItems: [
-                { title: "Home", icon: "mdi-home" },
-                // ... Add more single items here
-            ],
-            submenus: [
                 {
-                    title: "Customer Management",
-                    icon: "mdi-account-group",
-                    items: [
-                        { title: "Dashboard", icon: "mdi-view-dashboard" },
-                        // ... Add more submenu items here
+                    title: "Home",
+                    icon: "mdi-home",
+                    clickable: true,
+                },
+                {
+                    title: "Invoice",
+                    icon: "mdi-home",
+                    clickable: true,
+                    submenu: [
+                        { title: "Create Invoice", icon: "mdi-worker" },
+                        { title: "All Invoices", icon: "mdi-account" },
+                        { title: "Completed Invoices", icon: "mdi-worker" },
                     ],
                 },
-                // ... Add more submenus here
+                {
+                    title: "Production",
+                    icon: "mdi-home",
+                    clickable: true,
+                    submenu: [
+                        { title: "View all", icon: "mdi-worker" },
+                        { title: "Sector 1", icon: "mdi-account" },
+                        { title: "Sector 2", icon: "mdi-account" },
+                        { title: "Sector 3", icon: "mdi-account" },
+                        { title: "Sector 4", icon: "mdi-account" },
+                    ],
+                },
+                {
+                    title: "Client",
+                    icon: "mdi-home",
+                    clickable: true,
+                    submenu: [
+                        { title: "Add a client", icon: "mdi-worker" },
+                        { title: "Create an account", icon: "mdi-account" },
+                    ],
+                },
+                {
+                    title: "Materials",
+                    icon: "mdi-home",
+                    clickable: true,
+                    submenu: [
+                        { title: "Add material", icon: "mdi-worker" },
+                        { title: "View materials", icon: "mdi-account" },
+                    ],
+                },
+                {
+                    title: "Catalog",
+                    icon: "mdi-home",
+                    clickable: true,
+                    submenu: [
+                        { title: "View catalog", icon: "mdi-worker" },
+                        { title: "Add new item", icon: "mdi-account" },
+                    ],
+                },
+
+                {
+                    title: "Analytics",
+                    icon: "mdi-home",
+                    clickable: true,
+                    submenu: [
+                        { title: "User analytics", icon: "mdi-worker" },
+                        { title: "Client analytics", icon: "mdi-account" },
+                    ],
+                },
+                {
+                    title: "Finance",
+                    icon: "mdi-home",
+                    clickable: true,
+                    submenu: [
+                        { title: "Invoiced", icon: "mdi-worker" },
+                        { title: "Uninvoiced", icon: "mdi-account" },
+                    ],
+                },
+
+
+                // ... Add more single items here
             ],
+            activeItem: null, // Track the active menu item
         };
     },
-    props: {
-        showSidebar: Boolean
-    },
     methods: {
-        handleMouseOver() {
-            this.isHovered = true;
+        clickHandler(index) {
+            const menuItem = this.menuItems[index];
+            if (menuItem.clickable) {
+                // Toggle the submenu when a clickable menu item is clicked
+                if (this.activeItem === menuItem) {
+                    this.activeItem = null;
+                }
+                else {
+                    this.activeItem = menuItem;
+                }
+            }
+            // Toggle sidebar stretching when any menu item is clicked
+            this.isSidebarStreched = !this.isSidebarStreched;
         },
-        handleMouseLeave() {
-            this.isHovered = false;
-        }
-    }
+        submenuClickHandler(submenuItem) {
+            // Handle submenu item click as needed (e.g., navigate to a route)
+        },
+    },
 };
 </script>
-
 <style scoped lang="scss">
 .shrinked {
     width: 60px;
@@ -89,9 +149,11 @@ export default {
 .streched {
     width: 250px;
 }
-@media (max-width: 768px) {
-    .hidden {
-        display: block;
-    }
+.dark-gray{
+    background-color: $dark-gray;
+}
+.light-gray{
+    background-color: $light-gray;
 }
 </style>
+
