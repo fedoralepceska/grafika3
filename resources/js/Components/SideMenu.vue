@@ -48,17 +48,17 @@ export default {
                 },
                 {
                     title: "Invoice",
-                    icon: "mdi-home",
+                    icon: "mdi-receipt-text",
                     clickable: true,
                     submenu: [
-                        { title: "Create Invoice", icon: "mdi-worker" },
+                        { title: "Create Invoice", icon: "mdi-receipt" },
                         { title: "All Invoices", icon: "mdi-account" },
                         { title: "Completed Invoices", icon: "mdi-worker" },
                     ],
                 },
                 {
                     title: "Production",
-                    icon: "mdi-home",
+                    icon: "mdi-factory",
                     clickable: true,
                     submenu: [
                         { title: "View all", icon: "mdi-worker" },
@@ -70,7 +70,7 @@ export default {
                 },
                 {
                     title: "Client",
-                    icon: "mdi-home",
+                    icon: "mdi-account-supervisor",
                     clickable: true,
                     submenu: [
                         { title: "Add a client", icon: "mdi-worker" },
@@ -79,7 +79,7 @@ export default {
                 },
                 {
                     title: "Materials",
-                    icon: "mdi-home",
+                    icon: "mdi-palette-swatch",
                     clickable: true,
                     submenu: [
                         { title: "Add material", icon: "mdi-worker" },
@@ -88,7 +88,7 @@ export default {
                 },
                 {
                     title: "Catalog",
-                    icon: "mdi-home",
+                    icon: "mdi-notebook-outline",
                     clickable: true,
                     submenu: [
                         { title: "View catalog", icon: "mdi-worker" },
@@ -98,7 +98,7 @@ export default {
 
                 {
                     title: "Analytics",
-                    icon: "mdi-home",
+                    icon: "mdi-google-analytics",
                     clickable: true,
                     submenu: [
                         { title: "User analytics", icon: "mdi-worker" },
@@ -107,7 +107,7 @@ export default {
                 },
                 {
                     title: "Finance",
-                    icon: "mdi-home",
+                    icon: "mdi-currency-usd",
                     clickable: true,
                     submenu: [
                         { title: "Invoiced", icon: "mdi-worker" },

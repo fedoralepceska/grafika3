@@ -116,7 +116,7 @@ const showingNavigationDropdown = ref(false);
             <div >
                 <SideMenu  class="md:block w-1/6"/>
             </div>
-            <div class="w-6/6">
+            <div class="width">
                 <slot/>
             </div>
         </div>
@@ -155,5 +155,8 @@ export default {
     .slide-fade-enter, .slide-fade-leave-to /* .slide-fade-leave-active in <2.1.8 */ {
         transform: translateX(-100%);
         opacity: 0;
+    }
+    .width {
+        width: 100%;
     }
 </style>
