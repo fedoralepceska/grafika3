@@ -84,7 +84,7 @@ import PrimaryButton from "@/Components/PrimaryButton.vue";
 import {useToast} from "vue-toastification";
 import SecondaryButton from "@/Components/SecondaryButton.vue";
 import MultiSelect from 'primevue/multiselect';
-import 'primevue/resources/themes/lara-dark-blue/theme.css'; // Import PrimeVue theme CSS
+import 'primevue/resources/themes/lara-light-blue/theme.css'; // Import PrimeVue theme CSS
 
 
 

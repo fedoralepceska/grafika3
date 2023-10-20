@@ -49,7 +49,7 @@
                                     </div>
                                     <div class="form-group">
                                         <label for="end_date">{{ $t('endDate') }}:</label>
-                                        <input type="date" v-model="invoice.end_date" id="end_date" class="text-gray-700" required>
+                                        <input type="date" v-model="invoice.end_date" id="end_date" class="text-gray-700 "  required>
                                     </div>
                                 </div>
                             </div>
