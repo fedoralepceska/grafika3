@@ -102,6 +102,7 @@ export default {
             selectedMachinePrint: '',
             selectedAction: '',
             selectedJobs: [],
+            idMapping: {},
             actions: [{}], // Start with an empty action
             actionOptions: this.generateActionOptions(),
             materials: this.generateMaterials(),
@@ -109,6 +110,12 @@ export default {
             machinesPrint: this.generateMachinesPrint(),
             machinesCut: this.generateMachinesCut()
         }
+    },
+    mounted() {
+        this.jobs.forEach((job, index) => {
+            this.idMapping[index + 1] = job.id;
+        });
+        console.log(this.idMapping);
     },
     computed: {
         // logic which helps in displaying the right button label
@@ -175,14 +182,14 @@ export default {
 
             if (this.selectedJobs.length > 0) {
                 // Sync only selected jobs if there are selected jobs
-                jobIdsToSync = this.selectedJobs;
+                jobIdsToSync = this.selectedJobs.map(customId => this.idMapping[customId.id]);
             } else {
                 // Sync all jobs if no jobs are selected
                 jobIdsToSync = this.jobs.map(job => job.id);
             }
 
             // Create jobsWithActions based on the selected job IDs
-            const jobsWithActions = jobIdsToSync.map(jobId => {
+            const jobsWithActions = jobIdsToSync.map(job => {
                 const actions = this.actions.map(action => {
                     return {
                         action_id: action.selectedAction,
@@ -191,7 +198,7 @@ export default {
                 });
 
                 return {
-                    job_id: jobId,
+                    job_id: job,
                     actions: actions,
                 };
             });
