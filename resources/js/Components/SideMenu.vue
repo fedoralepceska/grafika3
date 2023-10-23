@@ -1,6 +1,6 @@
 <template>
     <div
-        class="side dark-gray text-white h-screen  px-4 py-6"
+        class="side dark-gray text-white  px-4 py-6"
         :class="{ 'streched': isSidebarStreched, 'shrinked': !isSidebarStreched }"
         @click="isSidebarStreched = !isSidebarStreched"
     >
@@ -21,11 +21,12 @@
                 <v-list-item
                     v-for="(submenuItem, submenuIndex) in item.submenu"
                     :key="submenuIndex"
-                    class="show hover:bg-gray-100 rounded"
+                    class="show hover:bg-gray-400 rounded"
+
                     @click="submenuClickHandler(submenuItem)"
                 >
                     <div class="flex items-center">
-                        <div v-if="isSidebarStreched ">{{ submenuItem.title }}</div>
+                        <div v-if="isSidebarStreched" >{{ submenuItem.title }}</div>
                     </div>
                 </v-list-item>
             </div>
@@ -75,6 +76,8 @@ export default {
                     submenu: [
                         { title: "Add a client", icon: "mdi-worker" },
                         { title: "Create an account", icon: "mdi-account" },
+                        { title: "Client orders", icon: "mdi-account" },
+
                     ],
                 },
                 {
@@ -103,6 +106,7 @@ export default {
                     submenu: [
                         { title: "User analytics", icon: "mdi-worker" },
                         { title: "Client analytics", icon: "mdi-account" },
+
                     ],
                 },
                 {
@@ -143,11 +147,16 @@ export default {
 };
 </script>
 <style scoped lang="scss">
+
 .shrinked {
     width: 60px;
 }
 .streched {
     width: 250px;
+}
+.side{
+    min-height: 220vh;
+    max-height: 500vh;
 }
 .dark-gray{
     background-color: $dark-gray;

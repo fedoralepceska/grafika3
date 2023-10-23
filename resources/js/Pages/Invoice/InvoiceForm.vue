@@ -1,7 +1,7 @@
 <template>
     <MainLayout>
-        <div class="pl-7 pr-7 mb-5">
-            <div class="header pt-10 pb-4">
+        <div class="pl-7 pr-7">
+            <div class="header pt-3 pb-4">
                 <div class="left mr-10">
                     <img src="/images/List.png" alt="UserLogo" class="image-icon" />
                 </div>
@@ -10,8 +10,10 @@
                     <h3 class="text-white">{{ $t('invoice') }} / {{ $t('createNewInvoice') }}</h3>
                 </div>
             </div>
-            <div class="wrapper">
-                <div class="right dark-gray client-form">
+        </div>
+        <div class="pl-2 pr-2 ml-2 mr-2 dark-gray">
+            <div class="wrapper  p-5">
+                <div class="right light-gray client-form">
                     <div class="form-container p15">
                         <form @submit.prevent="submitForm">
                             <div class="two-column-layout">
@@ -65,17 +67,15 @@
                     <DragAndDrop ref="dragAndDrop"/>
                 </div>
             </div>
-        </div>
-        <div class="pl-7 pr-7">
-            <div class="wrapper2 gap-4">
+            <div class="wrapper2 p-5 gap-4">
                 <div class="left2">
-                    <div class="orderInfo dark-gray">
+                    <div class="orderInfo light-gray">
                         <h2 class="sub-title uppercase">{{ $t('orderInfo') }}</h2>
                         <OrderInfo v-if="$refs.dragAndDrop?.jobs?.length > 0" @jobs-updated="updateJobs" :jobs="$refs.dragAndDrop.jobs"/>
                     </div>
                 </div>
                 <div class="right2">
-                    <div class="Order dark-gray">
+                    <div class="Order light-gray">
                         <h2 class="sub-title uppercase">{{ $t('orderLines') }}</h2>
                         <table class="border" v-if="$refs.dragAndDrop?.jobs?.length > 0">
                             <tbody>
@@ -107,7 +107,7 @@
                                 </tr>
                             </template>
                             <template v-else>
-                                <tr v-for="(job, index) in mergedJobs" :key="index">
+                                <tr v-for="(job, index) in updatedJobs" :key="index">
                                     <!--ORDER INDEX, NAME AND ADDITIONAL INFO-->
                                     <div class="bg-gray-500 text-white">
                                         <td class="light-gray ">#{{ index + 1 }}</td>
@@ -214,9 +214,10 @@ import DragAndDrop from "@/Components/DragAndDrop.vue";
 import {useToast} from "vue-toastification";
 import OrderInfo from "@/Components/OrderInfo.vue";
 
+
 export default {
     name: "InvoiceForm",
-    components: {OrderInfo, DragAndDrop, MainLayout, PrimaryButton },
+    components: { OrderInfo, DragAndDrop, MainLayout, PrimaryButton },
     data() {
         return {
             invoice: {
@@ -469,7 +470,6 @@ export default {
 }
 .Order,.orderInfo{
     padding: 20px;
-    border-radius: 5px;
     box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
 }
 .header{
@@ -488,7 +488,6 @@ export default {
     align-items: center;
     min-height: 50vh;
     padding: 20px;
-    border-radius: 5px;
     box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
 }
 .page-title {

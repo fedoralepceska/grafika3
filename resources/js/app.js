@@ -13,7 +13,7 @@ import '@mdi/font/css/materialdesignicons.min.css';
 // Import the CSS or use your own!
 import "vue-toastification/dist/index.css";
 import i18n from './i18n';
-import PrimeVue from 'primevue/config';
+
 
 
 
@@ -33,7 +33,6 @@ createInertiaApp({
             .use(i18n)
             .use(Toast)
             .use(vuetify)
-            .use(PrimeVue)
             .use(ZiggyVue, Ziggy)
             .mount(el);
     },

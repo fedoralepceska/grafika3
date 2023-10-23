@@ -1,23 +1,33 @@
 <template>
-    <div class="FileBox dark-gray">
-        <div class="drop-zone text-white" @dragover.prevent @drop="handleFileDrop">
-            <p>{{ $t('dragAndDrop') }}</p>
+    <div class="FileBox light-gray">
+        <TabsWrapper>
+            <Tab title="Art">
+                <div class="flex pb-10 justify-center gap-4">
+                    <div class="drop-zone text-white" @dragover.prevent @drop="handleFileDrop">
+                        <p>{{ $t('dragAndDrop') }}</p>
 
-            <input type="file" accept=".jpg, .jpeg, .png" @change="handleFileBrowse" style="display: none;" ref="fileInput" />
+                        <input type="file" accept=".jpg, .jpeg, .png" @change="handleFileBrowse" style="display: none;" ref="fileInput" />
 
-
-
-        </div>
-        <div class="pt-5 d-flex ">
-            <button @click="browseForFiles" class="dark-gray text-white border rounded-corners py-2 px-5 ">{{ $t('browse') }}</button>
-        </div>
+                    </div>
+                    <div class="ultra-light-gray p-1 rounded d-flex">
+                        <div class="text-white pb-10">No files selected..</div>
+                        <button @click="browseForFiles" class="bg-white rounded text-black py-2 px-5 ">{{ $t('browse') }}</button>
+                    </div>
+                </div>
+            </Tab>
+            <Tab title="Notes" class="text">THE INVOICE COMMENT SHOULD BE SHOWN HERE</Tab>
+        </TabsWrapper>
     </div>
 </template>
 
 <script>
 import { useToast } from 'vue-toastification';
+import Tab from "@/Components/Tab.vue";
+import TabsWrapper from "@/Components/TabsWrapper.vue";
 export default {
     name: "DragAndDrop",
+    components: {TabsWrapper,Tab},
+
     data() {
         return {
             jobs: [],
@@ -106,33 +116,34 @@ export default {
 .dark-gray{
     background-color: $dark-gray;
 }
+.ultra-light-gray{
+    background-color: $ultra-light-gray;
+}
 
 .FileBox{
-    padding: 20px;
     border-radius: 5px;
     box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
 }
 
 .drop-zone {
     display: flex;
-    border: 5px dashed #ccc;
-    border-radius: 25px;
+    border: 3px dashed #ccc;
+    border-radius: 10px;
     align-items: center;
-    font-size: 25px;
+    font-size: 18px;
     justify-content: center;
-    width: 450px;
-    height: 250px;
-    background-color: $light-gray;
+    width: 320px;
+    height: 150px;
+    background-color: $ultra-light-gray;
 }
 
-.rounded-corners {
-    border-radius: 15px;
-}
+
 
 .d-flex {
     display: flex;
     justify-content: center;
     align-items: center;
+    flex-direction: column;
 }
 
 </style>
