@@ -15,7 +15,10 @@
                     </div>
                 </div>
             </Tab>
-            <Tab title="Notes" icon="mdi-chat" class="text">THE INVOICE COMMENT SHOULD BE SHOWN HERE</Tab>
+            <Tab title="Notes" icon="mdi-chat" class="text">
+                <span class="text-white">Add your notes here:</span>
+                <textarea v-model="localComment" @input="updateComment"></textarea>
+            </Tab>
         </TabsWrapper>
     </div>
 </template>
@@ -28,12 +31,25 @@ export default {
     name: "DragAndDrop",
     components: {TabsWrapper,Tab},
 
+    props: {
+        invoiceComment: String
+    },
+
     data() {
         return {
             jobs: [],
+            localComment: this.invoiceComment,
         };
     },
+    watch: {
+        invoiceComment: function(newVal) {
+            this.localComment = newVal;
+        }
+    },
     methods: {
+        updateComment() {
+            this.$emit('commentUpdated', this.localComment);
+        },
         async createJob(imageFile, width, height) {
             try {
                 const formData = new FormData();
@@ -144,6 +160,12 @@ export default {
     justify-content: center;
     align-items: center;
     flex-direction: column;
+}
+
+.text {
+    display: flex;
+    flex-direction: column;
+    padding: 10px;
 }
 
 </style>

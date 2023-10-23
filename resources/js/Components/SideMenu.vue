@@ -12,7 +12,7 @@
 
         >
             <div class="flex items-center pb-2 pt-2">
-                <v-icon class="text-xl mr-4">{{ item.icon }}</v-icon>
+                <v-icon class="icon text-xl mr-4">{{ item.icon }}</v-icon>
                 <div  @click="clickHandler(index)" v-if="isSidebarStreched">{{ item.title }}</div>
             </div>
 
@@ -163,6 +163,10 @@ export default {
 }
 .light-gray{
     background-color: $light-gray;
+}
+
+.icon {
+    color: $green;
 }
 </style>
 

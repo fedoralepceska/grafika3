@@ -37,11 +37,6 @@
                                         <label for="client_email">{{ $t('phone') }}:</label>
                                         <span id="client_email">{{ selectedClientPhone }}</span>
                                     </div>
-
-                                    <div class="form-group">
-                                        <label for="comment">{{ $t('comment') }}:</label>
-                                        <textarea v-model="invoice.comment" id="comment" class="text-gray-700"></textarea>
-                                    </div>
                                 </div>
                                 <div class="right-column">
                                     <h2 class="sub-title uppercase">{{ $t('shippingDetails') }}</h2>
@@ -64,7 +59,7 @@
                 </div>
 
                 <div class="left pl-5">
-                    <DragAndDrop ref="dragAndDrop"/>
+                    <DragAndDrop ref="dragAndDrop" :invoiceComment="invoice.comment" @commentUpdated="handleCommentUpdate"/>
                 </div>
             </div>
             <div class="wrapper2 p-5 gap-4">
@@ -252,6 +247,9 @@ export default {
         }
     },
     methods: {
+        handleCommentUpdate(updatedComment) {
+            this.invoice.comment = updatedComment;
+        },
         async fetchInvoices() {
             try {
                 let response = await axios.get('/invoices'); // Adjust this endpoint to your API route
