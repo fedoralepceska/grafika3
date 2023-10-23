@@ -1,13 +1,14 @@
 <template>
     <div class="tabs">
         <ul class="tabs__header">
-            <li v-for="title in tabTitles"
-                :key="title"
-                :class="{selected: title == selectedTitle}"
-                @click="selectedTitle = title"
-
+            <li v-for="tab in tabs"
+                :key="tab.props.title"
+                :class="{selected: tab.props.title === selectedTitle}"
+                class="uppercase font-weight-bold"
+                @click="selectedTitle = tab.props.title"
             >
-                {{title}}
+                {{tab.props.title}}
+                <v-icon>{{tab.props.icon}}</v-icon>
             </li>
         </ul>
         <slot/>
@@ -19,6 +20,8 @@ import {ref, provide} from "vue";
 export default {
 
     setup(props, {slots}){
+    const tabs = ref(slots.default())
+    // probably not needed
     const tabTitles = ref(slots.default().map((tab)=> tab.props.title))
     const selectedTitle = ref(tabTitles.value[0])
 
@@ -26,6 +29,7 @@ export default {
         return{
             selectedTitle,
             tabTitles,
+            tabs
         }
     }
 }

@@ -1,7 +1,7 @@
 <template>
     <div class="FileBox light-gray">
         <TabsWrapper>
-            <Tab title="Art">
+            <Tab title="Art" icon="mdi-file-image">
                 <div class="flex pb-10 justify-center gap-4">
                     <div class="drop-zone text-white" @dragover.prevent @drop="handleFileDrop">
                         <p>{{ $t('dragAndDrop') }}</p>
@@ -15,7 +15,7 @@
                     </div>
                 </div>
             </Tab>
-            <Tab title="Notes" class="text">THE INVOICE COMMENT SHOULD BE SHOWN HERE</Tab>
+            <Tab title="Notes" icon="mdi-chat" class="text">THE INVOICE COMMENT SHOULD BE SHOWN HERE</Tab>
         </TabsWrapper>
     </div>
 </template>
