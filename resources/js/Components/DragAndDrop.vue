@@ -6,7 +6,7 @@
                     <div class="drop-zone text-white" @dragover.prevent @drop="handleFileDrop">
                         <p>{{ $t('dragAndDrop') }}</p>
 
-                        <input type="file" accept=".jpg, .jpeg, .png" @change="handleFileBrowse" style="display: none;" ref="fileInput" />
+                        <input type="file" accept=".jpg, .jpeg, .png" @change="handleFileBrowse" style="display: none;" ref="fileInput" multiple />
 
                     </div>
                     <div class="ultra-light-gray p-1 rounded d-flex">

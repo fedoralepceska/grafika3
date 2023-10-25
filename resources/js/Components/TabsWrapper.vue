@@ -46,7 +46,7 @@ export default {
 }
 
 .tabs__header li {
-    width: 250px;
+    min-width: 260px;
     text-align: center;
     padding: 10px 20px;
     background-color: $gray;

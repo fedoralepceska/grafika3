@@ -13,7 +13,7 @@ import '@mdi/font/css/materialdesignicons.min.css';
 // Import the CSS or use your own!
 import "vue-toastification/dist/index.css";
 import i18n from './i18n';
-
+import Multiselect from '@vueform/multiselect'
 
 
 
@@ -32,6 +32,7 @@ createInertiaApp({
             .use(plugin)
             .use(i18n)
             .use(Toast)
+            .use(Multiselect)
             .use(vuetify)
             .use(ZiggyVue, Ziggy)
             .mount(el);

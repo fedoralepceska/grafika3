@@ -1,79 +1,75 @@
 <template>
     <div class="light-gray p-2">
-        <label class="block mb-2 mt-2 text-sm font-medium text-gray-900 dark:text-white">{{ $t('syncJobs') }}</label>
-        <div class="card flex justify-content-center pt-2 w-25">
-            <MultiSelect v-model="selectedJobs" display="chip" :options="jobs.map((job, index) => ({ id: index+1, name: job }))" optionLabel="id" placeholder="Select Jobs"
-                         :maxSelectedLabels="3" class="dark-gray w-full md:w-20rem" />
+        <div>
+            <label class="text-white">{{ $t('syncJobs') }}</label>
+            <Multiselect
+                v-model="selectedJobs"
+                :options="jobs.map((job, index) => ({ id: index + 1, name: job }))"
+                mode="tags"
+                display="chip"
+                :close-on-select="false"
+                :create-option="true"
+                optionLabel="id"
+                :maxSelectedLabels="3"
+                placeholder="Select Jobs"
+            />
+
         </div>
     </div>
     <div class="order-info-box">
-        <div class="ultra-light-blue mt-3">
-            <div class="sub-title blue p-1 pl-3 text-white">{{$t('PRINT')}}</div>
-            <div class="form-group mt-2 p-2 text-black">
-                <label>{{ $t('machineP') }}</label><br>
-                <select v-model="selectedMachinePrint">
-                    <option v-for="machine in machinesPrint" :key="machine" :value="machine">
-                        {{ $t(`machinePrint.${machine}`) }}
-                    </option>
-                </select>
-            </div>
+        <div class="form-group mt-2 p-2 text-black sameRow">
+            <label class="label-fixed-width">{{ $t('machineP') }}</label>
+            <select v-model="selectedMachinePrint" class="select-fixed-width">
+                <option v-for="machine in machinesPrint" :key="machine" :value="machine">
+                    {{ $t(`machinePrint.${machine}`) }}
+                </option>
+            </select>
         </div>
 
-        <div class="ultra-light-red mt-3">
-            <div class="sub-title red p-1 pl-3 text-white">{{$t('CUT')}}</div>
-            <div class="form-group mt-2 p-2 text-black">
-                <label>{{ $t('machineC') }}</label><br>
-                <select v-model="selectedMachineCut">
-                    <option v-for="machine in machinesCut" :key="machine" :value="machine">
-                        {{ $t(`machineCut.${machine}`) }}
-                    </option>
-                </select>
-            </div>
+        <div class="form-group mt-2 p-2 text-black sameRow">
+            <label class="label-fixed-width">{{ $t('machineC') }}</label>
+            <select v-model="selectedMachineCut" class="select-fixed-width">
+                <option v-for="machine in machinesCut" :key="machine" :value="machine">
+                    {{ $t(`machineCut.${machine}`) }}
+                </option>
+            </select>
         </div>
 
-        <div class="ultra-light-orange mt-3">
-            <div class="sub-title orange p-1 pl-3 text-white">{{$t('MATERIALS')}}</div>
-            <div class="form-group mt-2 p-2 text-black">
-                <label>{{ $t('material') }}</label><br>
-                <select v-model="selectedMaterial">
-                    <option v-for="material in materials" :key="material" :value="material">
-                        {{ $t(`materials.${material}`) }}
-                    </option>
-                </select>
-            </div>
+        <div class="form-group mt-2 p-2 text-black sameRow">
+            <label class="label-fixed-width">{{ $t('material') }}</label>
+            <select v-model="selectedMaterial" class="select-fixed-width">
+                <option v-for="material in materials" :key="material" :value="material">
+                    {{ $t(`materials.${material}`) }}
+                </option>
+            </select>
         </div>
 
-        <div class="ultra-light-orange mt-3">
-            <div class="sub-title orange p-1 pl-3 text-white">{{$t('MATERIALS')}}</div>
-            <div class="form-group mt-2 p-2 text-black">
-                <label>{{ $t('materialSmallFormat') }}</label><br>
-                <select v-model="selectedMaterialSmall">
-                    <option v-for="material in materialsSmall" :key="material" :value="material">
-                        {{ $t(`materialsSmall.${material}`) }}
-                    </option>
-                </select>
-            </div>
+        <div class="form-group mt-2 p-2 text-black sameRow">
+            <label class="label-fixed-width">{{ $t('materialSmallFormat') }}</label>
+            <select v-model="selectedMaterialSmall" class="select-fixed-width">
+                <option v-for="material in materialsSmall" :key="material" :value="material">
+                    {{ $t(`materialsSmall.${material}`) }}
+                </option>
+            </select>
         </div>
 
-        <div class="ultra-light-green mt-3">
-            <h2 class="sub-title green p-1 pl-3 text-white" >{{$t('ACTIONS')}}</h2>
-            <div v-for="(action, index) in actions" :key="index">
-                <div class="form-group mt-2 p-2 text-black">
-                    <label>{{ $t('action') }} {{ index + 1 }}</label><br>
-                    <select v-model="action.selectedAction">
-                        <option v-for="actionOption in actionOptions" :key="actionOption" :value="actionOption">
-                            {{ $t(`actions.${actionOption}`) }}
-                        </option>
-                    </select>
-                    <button class="addBtn" @click="addAction">+</button>
-                    <button v-if="index > 0" class="removeBtn"
-                    @click="removeAction(index)">-</button>
-                </div>
+        <div v-for="(action, index) in actions" :key="index">
+            <div class="form-group mt-2 p-2 text-black sameRow">
+                <label class="label-fixed-width">{{ $t('action') }} {{ index + 1 }}</label>
+                <select v-model="action.selectedAction" class="select-fixed-width">
+                    <option v-for="actionOption in actionOptions" :key="actionOption" :value="actionOption">
+                        {{ $t(`actions.${actionOption}`) }}
+                    </option>
+                </select>
+                <button class="addBtn" @click="addAction"><span class="mdi mdi-plus-circle"></span></button>
+                <button v-if="index > 0" class="removeBtn" @click="removeAction(index)"><span class="mdi mdi-minus-circle"></span></button>
             </div>
         </div>
 
         <div class="button-container">
-        <PrimaryButton class="mt-5" @click="syncAll">{{ numberOfSelectedJobs ? $t('syncJobs') : $t('syncAllJobs') }}</PrimaryButton>
+            <PrimaryButton class="mt-5" @click="syncAll">
+                {{ numberOfSelectedJobs ? $t('syncJobs') : $t('syncAllJobs') }}
+            </PrimaryButton>
         </div>
     </div>
 </template>
@@ -81,16 +77,14 @@
 <script>
 import { useI18n } from 'vue-i18n';
 import PrimaryButton from "@/Components/PrimaryButton.vue";
-import {useToast} from "vue-toastification";
+import { useToast } from "vue-toastification";
 import SecondaryButton from "@/Components/SecondaryButton.vue";
-import MultiSelect from 'primevue/multiselect';
-import 'primevue/resources/themes/lara-light-blue/theme.css'; // Import PrimeVue theme CSS
-
-
+import Multiselect from '@vueform/multiselect'
+import "@vueform/multiselect/themes/default.css";
 
 export default {
     name: "OrderInfo",
-    components: {SecondaryButton, PrimaryButton,MultiSelect },
+    components: { Multiselect,SecondaryButton, PrimaryButton },
     props: {
         jobs: Array
     },
@@ -103,7 +97,7 @@ export default {
             selectedAction: '',
             selectedJobs: [],
             idMapping: {},
-            actions: [{}], // Start with an empty action
+            actions: [{}],
             actionOptions: this.generateActionOptions(),
             materials: this.generateMaterials(),
             materialsSmall: this.generateMaterialsSmall(),
@@ -118,7 +112,6 @@ export default {
         console.log(this.idMapping);
     },
     computed: {
-        // logic which helps in displaying the right button label
         numberOfSelectedJobs() {
             if (!this.selectedJobs.length) {
                 return false;
@@ -168,10 +161,9 @@ export default {
             return actions;
         },
         addAction() {
-            this.actions.push({}); // Add a new empty action
+            this.actions.push({});
         },
         removeAction(index) {
-            // Remove the action at the specified index
             this.actions.splice(index, 1);
         },
         syncAll() {
@@ -193,17 +185,14 @@ export default {
                 const actions = this.actions.map(action => {
                     return {
                         action_id: action.selectedAction,
-                        status: 'Not started yet', // Default status
+                        status: 'Not started yet'
                     };
                 });
-
                 return {
                     job_id: job,
                     actions: actions,
                 };
             });
-
-            // Perform the synchronization
             axios.post('/sync-all-jobs', {
                 selectedMaterial: this.selectedMaterial,
                 selectedMachinePrint: this.selectedMachinePrint,
@@ -213,102 +202,66 @@ export default {
                 jobsWithActions: jobsWithActions,
             })
                 .then(response => {
-                    // Handle the response
                     toast.success(`Successfully synced ${jobIdsToSync.length} jobs!`);
                     axios.post('/get-jobs-by-ids', {
                         jobs: jobIdsToSync,
                     })
                         .then(response => {
-                            // Handle the response with the updated jobs
                             this.$emit('jobs-updated', response.data.jobs);
-
-                            // You can emit these updated jobs or handle them as needed
                         })
                         .catch(error => {
-                            // Handle errors
                             toast.error("Couldn't fetch updated jobs");
                         });
                 })
                 .catch(error => {
-                    // Handle errors
                     toast.error("Couldn't sync jobs");
                 });
         }
     }
-}
+};
 </script>
 
 <style scoped lang="scss">
-
-.ultra-light-green {
-    background-color: rgba(121, 173, 84, 0.2);
-}
-.ultra-light-orange{
-    background-color: rgba(199,165,103,0.2);
-}
-.ultra-light-blue{
-    background-color: rgba(102,171,203,0.2);
-}
-.ultra-light-red{
-    background-color: rgba(196,128,130,0.2);
-}
-.green{
-    background-color: $green;
-}
-
-.orange{
-    background-color: $orange;
-}
-.blue{
-    background-color: $blue;
-}
-.light-green{
-    background-color: $light-green;
-}
-.dark-gray{
-    background-color: $dark-gray;
-}
-.red{
-    background-color: $red;
-}
-.light-gray{
+.light-gray {
     background-color: $light-gray;
 }
-.addBtn{
-    color: $light-green;
-    margin:5px;
-    padding: 2px 7px;
-    border: 2px $green solid;
-}
-.removeBtn{
-    color: red;
-    margin:5px;
-    padding: 2px 7px;
-    border: 2px $red solid;
-}
-.sub-title{
-    width: 100%;
-    margin: 0;
-}
-.form-group label {
-    margin-bottom: 10px;
-    color: $white;
-}
+
 .sameRow {
     display: flex;
-    flex-direction: row;
+    align-items: center;
+    margin-bottom: 1rem;
 }
-.button {
-    align-content: center;
-    align-self: center;
-    border-radius: 75%;
+
+.form-group label {
+    margin-right: 1rem;
+    color: $white;
 }
-.sameColumn {
-    display: flex;
-    flex-direction: column;
+
+.addBtn {
+    color: $light-green;
+    margin-left: 8px;
+    cursor: pointer;
 }
-.button-container{
+
+.removeBtn {
+    color: #c95050;
+    margin-left: 7px;
+    cursor: pointer;
+}
+
+.button-container {
     display: flex;
     justify-content: flex-end;
+    margin:5px;
+    padding: 5px;
 }
+
+.label-fixed-width {
+    width: 11rem;
+}
+
+.select-fixed-width {
+    width: 15rem;
+}
+
 </style>

@@ -14,7 +14,7 @@
         <div class="pl-2 pr-2 ml-2 mr-2 dark-gray">
             <div class="wrapper  p-5">
                 <div class="right light-gray client-form">
-                    <div class="form-container p15">
+                    <div class="form-container ">
                         <form @submit.prevent="submitForm">
                             <div class="two-column-layout">
                                 <div class="left-column">
@@ -50,10 +50,6 @@
                                     </div>
                                 </div>
                             </div>
-                            <!-- Submit Button -->
-                            <div class="button-container mt-10">
-                                <PrimaryButton type="submit">{{ $t('createInvoice') }}</PrimaryButton>
-                            </div>
                         </form>
                     </div>
                 </div>
@@ -65,8 +61,23 @@
             <div class="wrapper2 p-5 gap-4">
                 <div class="left2">
                     <div class="orderInfo light-gray">
-                        <h2 class="sub-title uppercase">{{ $t('orderInfo') }}</h2>
-                        <OrderInfo v-if="$refs.dragAndDrop?.jobs?.length > 0" @jobs-updated="updateJobs" :jobs="$refs.dragAndDrop.jobs"/>
+
+                            <TabsWrapper>
+                                <Tab title="ADD" icon="mdi mdi-plus-circle">
+                                    <TabsWrapperV2>
+                                        <TabV2 title="Manual" icon="mdi mdi-gesture-tap">
+                                             <OrderInfo v-if="$refs.dragAndDrop?.jobs?.length > 0" @jobs-updated="updateJobs" :jobs="$refs.dragAndDrop.jobs"/>
+                                        </TabV2>
+                                        <TabV2 title="From Catalog" icon="mdi mdi-book-open-variant">
+
+                                        </TabV2>
+                                    </TabsWrapperV2>
+                                </Tab>
+
+                                <Tab title="SHIPPING" icon="mdi mdi-truck">
+
+                                </Tab>
+                            </TabsWrapper>
                     </div>
                 </div>
                 <div class="right2">
@@ -75,26 +86,28 @@
                         <table class="border" v-if="$refs.dragAndDrop?.jobs?.length > 0">
                             <tbody>
                             <template v-if="updatedJobs.length === 0">
-                                <tr v-for="(job, index) in $refs.dragAndDrop?.jobs" :key="index">
+                                <tr v-for="(job, index) in $refs.dragAndDrop?.jobs" :key="index" >
 
                                     <!--FILE INFO BEFORE SYNCING-->
-                                    <div class="bg-gray-500 text-white">
-                                        <td class="light-gray ">#{{ index + 1 }}</td>
+                                    <div class=" text-white">
+                                        <td class="text-black bg-gray-200 font-weight-black ">#{{ index + 1 }}</td>
                                         <td>{{$t('name')}}: </td>
                                         <td>ID: {{ job.id }}</td>
-                                    </div>
 
-
-                                    <div class="flex text-white">
-                                        <td><img :src="getImageUrl(job.id)" alt="Job Image" class="jobImg" /></td>
                                         <td>{{ $t('width') }}: {{ job.width }} </td>
                                         <td>{{ $t('height') }}: {{ job.height }}</td>
                                         <td>{{$t('Quantity')}}: </td>
                                         <td>{{$t('Copies')}}:</td>
                                     </div>
 
+
+                                    <div class="flex text-white">
+                                        <td><img :src="getImageUrl(job.id)" alt="Job Image" class="jobImg thumbnail" /></td>
+
+                                    </div>
+
                                     <div class="flex " >
-                                        <td class="flex items-center bg-gray-200 text-black ">
+                                        <td class="flex items-center bg-gray-200 text-black " >
                                             <img src="/images/shipping.png" class="w-10 h-10 pr-1" alt="Shipping">
                                             {{ $t('Shipping') }}: </td>
                                     </div>
@@ -104,76 +117,35 @@
                             <template v-else>
                                 <tr v-for="(job, index) in updatedJobs" :key="index">
                                     <!--ORDER INDEX, NAME AND ADDITIONAL INFO-->
-                                    <div class="bg-gray-500 text-white">
-                                        <td class="light-gray ">#{{ index + 1 }}</td>
+                                    <div class=" text-white">
+                                        <td class="text-black bg-gray-200 font-weight-black ">#{{ index + 1 }}</td>
                                         <td>{{$t('name')}}: </td>
                                         <td>ID: {{ job.id }}</td>
-                                    </div>
-
-                                    <!--FILE INFO-->
-                                    <div class="flex text-white">
-                                        <td><img :src="getImageUrl(job.id)" alt="Job Image" class="jobImg" /></td>
                                         <td>{{ $t('width') }}: {{ job.width }} </td>
                                         <td>{{ $t('height') }}: {{ job.height }}</td>
                                         <td>{{$t('Quantity')}}: </td>
                                         <td>{{$t('Copies')}}:</td>
                                     </div>
 
-                                    <!--SHIPPING INFO-->
-                                    <div class="flex " >
-                                        <td class="flex items-center bg-gray-200 text-black ">
-                                            <img src="/images/shipping.png" class="w-10 h-10 pr-1" alt="Shipping">
-                                            {{ $t('Shipping') }}: </td>
+                                    <!--FILE INFO-->
+                                    <div class="flex text-white">
+                                        <td><img :src="getImageUrl(job.id)" alt="Job Image" class="jobImg thumbnail" /></td>
+                                        <td>
+                                            {{ $t('machineP') }}: {{ $t(`machinePrint.${job.machinePrint}`) }}
+                                        </td>
+                                        <td>
+                                            {{ $t('machineC') }}: {{ $t(`machineCut.${job.machineCut}`) }}
+                                        </td>
+                                        <td>
+                                            {{ $t('materialLargeFormat') }}: {{ $t(`materials.${job.materials}`) }} {{ $t(`materialsSmall.${job.materialsSmall}`) }}
+                                        </td>
+                                        <td>
+
+                                        </td>
                                     </div>
 
                                     <!--ORDER INFO-->
                                     <div>
-                                        <div class="flex gap-5 justify-center" >
-                                            <div class="jobInfo mt-3 mb-5" >
-                                                <div class="blue p-1 pl-1 text-white">
-                                                    {{ $t('machineP') }}
-                                                    <button class="toggle-button" @click="toggleMachinePrint">&#9207;</button>
-                                                </div>
-                                                <transition name="slide-fade">
-                                                    <div v-if="showMachinePrint" class="ultra-light-blue form-group pl-1 pt-1 pb-1 ">
-                                                        <div>&#9659; {{ $t(`machinePrint.${job.machinePrint}`) }}</div>
-                                                    </div>
-                                                </transition>
-                                            </div>
-                                            <div class="jobInfo mt-3 mb-5">
-                                                <div class="red p-1 pl-1 text-white">
-                                                    {{ $t('machineC') }}
-                                                    <button class="toggle-button" @click="toggleMachineCut">&#9207;</button>
-                                                </div>
-                                                <transition name="slide-fade">
-                                                    <div v-if="showMachineCut" class="ultra-light-red form-group pl-1 pt-1 pb-1">
-                                                        <div>&#9659; {{ $t(`machineCut.${job.machineCut}`) }}</div>
-                                                    </div>
-                                                </transition>
-                                            </div>
-                                            <div class="jobInfo mt-3 mb-5">
-                                                <div class="orange p-1 pl-1 text-white">
-                                                    {{ $t('materialLargeFormat') }}
-                                                    <button class="toggle-button" @click="toggleMaterials">&#9207;</button>
-                                                </div>
-                                                <transition name="slide-fade">
-                                                    <div v-if="showMaterials" class="ultra-light-orange form-group pl-1 pt-1 pb-1">
-                                                        <div>&#9659; {{ $t(`materials.${job.materials}`) }}</div>
-                                                    </div>
-                                                </transition>
-                                            </div>
-                                            <div class="jobInfo mt-3 mb-5">
-                                                <div class="orange p-1 pl-1 text-white">
-                                                    {{ $t('materialSmallFormat') }}
-                                                    <button class="toggle-button" @click="toggleMaterialsSmall">&#9207;</button>
-                                                </div>
-                                                <transition name="slide-fade">
-                                                    <div v-if="showMaterialsSmall" class="ultra-light-orange form-group pl-1 pt-1 pb-1">
-                                                        <div>&#9659; {{ $t(`materialsSmall.${job.materialsSmall}`) }}</div>
-                                                    </div>
-                                                </transition>
-                                            </div>
-                                        </div>
                                         <div class="pl-14 pr-14">
                                             <div class="jobInfo mt-3 mb-5">
                                                 <div class="green p-1 pl-1 text-white">
@@ -190,10 +162,24 @@
                                             </div>
                                         </div>
                                     </div>
+
+                                    <!--SHIPPING INFO-->
+                                    <div class="flex " >
+                                        <td class="flex items-center bg-gray-200 text-black ">
+                                            <img src="/images/shipping.png" class="w-10 h-10 pr-1" alt="Shipping">
+                                            {{ $t('Shipping') }}: </td>
+
+                                    </div>
                                 </tr>
                             </template>
                             </tbody>
                         </table>
+                    </div>
+                    <div class="light-gray ">
+                        <!-- Submit Button -->
+                        <div class="button-container mt-2 p-1">
+                            <PrimaryButton type="submit">{{ $t('createInvoice') }}</PrimaryButton>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -208,11 +194,14 @@ import PrimaryButton from "@/Components/PrimaryButton.vue";
 import DragAndDrop from "@/Components/DragAndDrop.vue";
 import {useToast} from "vue-toastification";
 import OrderInfo from "@/Components/OrderInfo.vue";
-
+import TabsWrapper from "@/Components/TabsWrapper.vue";
+import Tab from "@/Components/Tab.vue";
+import TabV2 from "@/Components/TabV2.vue";
+import TabsWrapperV2 from "@/Components/TabsWrapperV2.vue";
 
 export default {
     name: "InvoiceForm",
-    components: { OrderInfo, DragAndDrop, MainLayout, PrimaryButton },
+    components: {TabsWrapperV2,TabV2, TabsWrapper,Tab, OrderInfo, DragAndDrop, MainLayout, PrimaryButton },
     data() {
         return {
             invoice: {
@@ -461,13 +450,12 @@ export default {
     display: flex;
 }
 .left2{
-    width: 30%;
+    width: 38%;
 }
 .right2{
-    width: 70%;
+    width: 63%;
 }
 .Order,.orderInfo{
-    padding: 20px;
     box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
 }
 .header{
@@ -484,8 +472,8 @@ export default {
     max-width: 1000px;
     justify-content: left;
     align-items: center;
-    min-height: 50vh;
-    padding: 20px;
+    min-height: 20vh;
+    padding: 5px;
     box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
 }
 .page-title {
@@ -537,6 +525,7 @@ th, td {
 
 }
 tr{
+    margin-bottom: 5px;
     border: 1px solid white;
 }
 th {
@@ -545,10 +534,24 @@ th {
 }
 
 .jobImg {
-    width: 50px;
-    height: 50px;
-    display: block;
+    width: 60px;
+    height: 60px;
     margin: 0 auto;
+    display: flex;
+}
+.thumbnail {
+    top:-50px;
+    left:-35px;
+    display:block;
+    z-index:999;
+    cursor: pointer;
+    -webkit-transition-property: all;
+    -webkit-transition-duration: 0.3s;
+    -webkit-transition-timing-function: ease;
+}
+.thumbnail:hover {
+    transform: scale(4);
+
 }
 
 </style>
