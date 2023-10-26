@@ -66,7 +66,7 @@
                                 <Tab title="ADD" icon="mdi mdi-plus-circle">
                                     <TabsWrapperV2>
                                         <TabV2 title="Manual" icon="mdi mdi-gesture-tap">
-                                             <OrderInfo v-if="$refs.dragAndDrop?.jobs?.length > 0" @jobs-updated="updateJobs" :jobs="$refs.dragAndDrop.jobs"/>
+                                             <OrderInfo  @jobs-updated="updateJobs" :jobs="$refs?.dragAndDrop?.jobs"/>
                                         </TabV2>
                                         <TabV2 title="From Catalog" icon="mdi mdi-book-open-variant">
 

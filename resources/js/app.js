@@ -14,6 +14,8 @@ import '@mdi/font/css/materialdesignicons.min.css';
 import "vue-toastification/dist/index.css";
 import i18n from './i18n';
 import Multiselect from '@vueform/multiselect'
+import VueSidebarMenu from 'vue-sidebar-menu'
+
 
 
 
@@ -33,6 +35,7 @@ createInertiaApp({
             .use(i18n)
             .use(Toast)
             .use(Multiselect)
+            .use(VueSidebarMenu)
             .use(vuetify)
             .use(ZiggyVue, Ziggy)
             .mount(el);
