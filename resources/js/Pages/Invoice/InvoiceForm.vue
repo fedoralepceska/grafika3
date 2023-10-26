@@ -2,12 +2,12 @@
     <MainLayout>
         <div class="pl-7 pr-7">
             <div class="header pt-3 pb-4">
-                <div class="left mr-10">
+                <div class="left mr-3">
                     <img src="/images/List.png" alt="UserLogo" class="image-icon" />
                 </div>
                 <div class="right">
                     <h1 class="page-title">{{ $t('invoice') }}</h1>
-                    <h3 class="text-white">{{ $t('invoice') }} / {{ $t('createNewInvoice') }}</h3>
+                    <h3 class="text-white"><span class="green-text">{{ $t('invoice') }}</span> / {{ $t('createNewInvoice') }}</h3>
                 </div>
             </div>
         </div>
@@ -425,6 +425,9 @@ export default {
 .green {
     background-color: $green;
 }
+.green-text{
+    color: $green;
+}
 .two-column-layout {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
@@ -459,7 +462,6 @@ export default {
     box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
 }
 .header{
-    margin-left: 20px;
     display: flex;
     align-items: center;
 }
@@ -477,13 +479,14 @@ export default {
     box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
 }
 .page-title {
-    font-size: 34px;
+    font-size: 24px;
     display: flex;
     align-items: center;
     color: $white;
 }
 .sub-title{
     font-size: 20px;
+    font-weight: bold;
     margin-bottom: 20px;
     display: flex;
     align-items: center;
@@ -491,8 +494,8 @@ export default {
 }
 
 .image-icon {
-    margin-left: 10px;
-    max-width: 60px;
+    margin-left: 2px;
+    max-width: 40px;
 }
 .form-group {
     display: flex;
