@@ -1,5 +1,5 @@
 <template>
-    <sidebar-menu :menu="menu" />
+    <sidebar-menu :menu="menu" :disable-hover="true" :collapsed="true"/>
 </template>
 
 <script>
@@ -10,7 +10,7 @@ export default {
             menu: [
 
                 {
-                    href: '/',
+                    href: '/dashboard',
                     title: 'Dashboard',
                     icon: 'fa fa-user',
                 },

@@ -66,7 +66,7 @@
                                 <Tab title="ADD" icon="mdi mdi-plus-circle">
                                     <TabsWrapperV2>
                                         <TabV2 title="Manual" icon="mdi mdi-gesture-tap">
-                                             <OrderInfo  @jobs-updated="updateJobs" :jobs="$refs?.dragAndDrop?.jobs"/>
+                                             <OrderInfo v-if="$refs.dragAndDrop?.jobs?.length > 0" @jobs-updated="updateJobs" :jobs="$refs.dragAndDrop.jobs"/>
                                         </TabV2>
                                         <TabV2 title="From Catalog" icon="mdi mdi-book-open-variant">
 
@@ -91,7 +91,7 @@
                                     <!--FILE INFO BEFORE SYNCING-->
                                     <div class=" text-white">
                                         <td class="text-black bg-gray-200 font-weight-black ">#{{ index + 1 }}</td>
-                                        <td>{{$t('name')}}: </td>
+                                        <td>{{$t('name')}}: <input  type="text"></td>
                                         <td>ID: {{ job.id }}</td>
 
                                         <td>{{ $t('width') }}: {{ job.width }} </td>
