@@ -91,7 +91,7 @@
                                     <!--FILE INFO BEFORE SYNCING-->
                                     <div class=" text-white">
                                         <td class="text-black bg-gray-200 font-weight-black ">#{{ index + 1 }}</td>
-                                        <td>{{$t('name')}}: </td>
+                                        <td>{{$t('name')}}: <input  type="text"></td>
                                         <td>ID: {{ job.id }}</td>
 
                                         <td>{{ $t('width') }}: {{ job.width }} </td>

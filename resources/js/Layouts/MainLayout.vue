@@ -116,7 +116,7 @@ const showingNavigationDropdown = ref(false);
             <div >
                 <SideMenu  class="md:block w-1/6"/>
             </div>
-            <div class="width">
+            <div class="width ">
                 <slot/>
             </div>
         </div>
@@ -158,5 +158,6 @@ export default {
     }
     .width {
         width: 100%;
+        margin-left: 70px;
     }
 </style>
