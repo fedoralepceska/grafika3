@@ -554,7 +554,10 @@ th {
 }
 .thumbnail:hover {
     transform: scale(4);
+}
 
+input, select {
+    height: 36px;
 }
 
 </style>

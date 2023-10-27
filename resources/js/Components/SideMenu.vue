@@ -17,7 +17,7 @@ export default {
                 {
                     href: '',
                     title: 'Invoice',
-                    icon: 'mdi-receipt-text',
+                    icon: 'fas fa-receipt',
                     child: [
                         {
                             href: '/invoices',

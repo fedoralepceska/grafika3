@@ -4,13 +4,12 @@
             <label class="text-white">{{ $t('syncJobs') }}</label>
             <Multiselect
                 v-model="selectedJobs"
-                :options="jobs.map((job, index) => ({ id: index + 1, name: job }))"
-                mode="tags"
-                display="chip"
+                :options="jobs.map((job, index) => ({ valueProp: index + 1, label: index + 1, name: job }))"
+                mode="multiple"
                 :close-on-select="false"
-                :create-option="true"
-                optionLabel="id"
-                :maxSelectedLabels="3"
+                :group-select="false"
+                :groups="false"
+                track-by="label"
                 placeholder="Select Jobs"
             />
 
@@ -262,6 +261,11 @@ export default {
 
 .select-fixed-width {
     width: 15rem;
+}
+
+input, select, .multiselect {
+    height: 36px;
+    min-height: 26px;
 }
 
 </style>

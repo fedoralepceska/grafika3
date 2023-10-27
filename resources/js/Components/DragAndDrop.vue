@@ -10,8 +10,23 @@
 
                     </div>
                     <div class="ultra-light-gray p-1 rounded d-flex">
-                        <div class="text-white pb-10">No files selected..</div>
-                        <button @click="browseForFiles" class="bg-white rounded text-black py-2 px-5 ">{{ $t('browse') }}</button>
+                        <div class="text-white pb-10">{{ jobs.length ? `${jobs.length} jobs selected` : 'No files selected..' }}</div>
+                        <button @click="browseForFiles" class="bg-white rounded text-black py-2 px-5">{{ $t('browse') }}</button>
+                    </div>
+                </div>
+                <div class="ultra-light-gray rounded flex p-4 justify-between text-center">
+                    <div class="text-white flex flex-wrap align-center">Files: {{ jobs.length }}
+                        Uploaded: {{ calculateTotalFileSize() }}MB<br>
+                    </div>
+                    <div class="position-relative">
+                        <button @mouseover="showPopover = true"
+                                @mouseout="showPopover = false"
+                                class="bg-white rounded text-black py-2 px-5">Details</button>
+                        <div v-if="showPopover" class="popover">
+                            <div v-for="job in jobs" :key="job.file.name">
+                                {{ job.file.name }} ({{ jobSize(job.file.size) }}MB)
+                            </div>
+                        </div>
                     </div>
                 </div>
             </Tab>
@@ -38,6 +53,7 @@ export default {
     data() {
         return {
             jobs: [],
+            showPopover: false,
             localComment: this.invoiceComment,
         };
     },
@@ -63,10 +79,9 @@ export default {
                     },
                 });
 
-                const createdJob = response.data.job;
-                return createdJob;
+                return response.data.job;
             } catch (error) {
-                // Handle errors
+                return error;
             }
         },
         handleFileDrop(event) {
@@ -91,6 +106,19 @@ export default {
             this.$refs.fileInput.click();
 
         },
+
+        calculateTotalFileSize() {
+            let size = 0;
+            this.jobs.forEach(j => size += j.file.size);
+            return this.jobSize(size);
+        },
+
+        jobSize(size) {
+            const megabyteToByte = 1048576;
+            size/=megabyteToByte;
+            return size.toFixed(2);
+        },
+
         calculateImageDimensions(file) {
             const reader = new FileReader();
 
@@ -166,6 +194,15 @@ export default {
     display: flex;
     flex-direction: column;
     padding: 10px;
+}
+
+.popover {
+    border: 1px solid #ccc;
+    padding: 10px;
+    right: 1px;
+    position: absolute;
+    background-color: white;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
 }
 
 </style>
