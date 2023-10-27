@@ -42,10 +42,6 @@ class Job extends Model
 
     protected array $enumCasts = [
         'status' => InvoiceStatus::class,
-        'materials' => Material::class,
-        'materialsSmall' => MaterialSmall::class,
-        'machineCut' => MachineCut::class,
-        'machinePrint' => MachinePrint::class,
     ];
 
     public function actions(): BelongsToMany

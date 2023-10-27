@@ -131,13 +131,14 @@
                                     <div class="flex text-white">
                                         <td><img :src="getImageUrl(job.id)" alt="Job Image" class="jobImg thumbnail" /></td>
                                         <td>
-                                            {{ $t('machineP') }}: {{ $t(`machinePrint.${job.machinePrint}`) }}
+                                            {{ $t('machineP') }}: {{ job.machinePrint === 'Machine print 1' ? '' : $t(`machinePrint.${job.machinePrint}`) }}
                                         </td>
                                         <td>
-                                            {{ $t('machineC') }}: {{ $t(`machineCut.${job.machineCut}`) }}
+                                            {{ $t('machineC') }}: {{ job.machineCut === 'Machine cut 1' ? '' : $t(`machine cut.${job.machineCut}`) }}
                                         </td>
                                         <td>
-                                            {{ $t('materialLargeFormat') }}: {{ $t(`materials.${job.materials}`) }} {{ $t(`materialsSmall.${job.materialsSmall}`) }}
+                                            {{ $t('materialLargeFormat') }}: {{ job.materials === 'Material 1' ? '' : $t(`materials.${job.materials}`) }}
+                                            {{ $t('materialLargeFormat') }}: {{ job.materialsSmall === 'Material small 1' ? '' : $t(`materialsSmall.${job.materialsSmall}`) }}
                                         </td>
                                         <td>
 

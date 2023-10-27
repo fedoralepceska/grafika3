@@ -2,16 +2,14 @@
     <div class="light-gray p-2">
         <div>
             <label class="text-white">{{ $t('syncJobs') }}</label>
-            <Multiselect
-                v-model="selectedJobs"
-                :options="jobs.map((job, index) => ({ valueProp: index + 1, label: index + 1, name: job }))"
-                mode="multiple"
-                :close-on-select="false"
-                :group-select="false"
-                :groups="false"
-                track-by="label"
-                placeholder="Select Jobs"
-            />
+            <div>
+                <label>{{ $t('syncJobs') }}</label><br>
+                <select v-model="selectedJobs" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" multiple>
+                    <option v-for="(job, index) in jobs" :key="index" :value="job.id">
+                        #{{ index + 1 }}
+                    </option>
+                </select>
+            </div>
 
         </div>
     </div>
@@ -111,6 +109,9 @@ export default {
         console.log(this.idMapping);
     },
     computed: {
+        jobIds() {
+          return this.jobs.map(j => j.id);
+        },
         numberOfSelectedJobs() {
             if (!this.selectedJobs.length) {
                 return false;
@@ -168,17 +169,16 @@ export default {
         syncAll() {
             const toast = useToast();
 
-            // Define the array of job IDs to sync
             let jobIdsToSync;
-
             if (this.selectedJobs.length > 0) {
+                console.log('1', this.selectedJobs);
                 // Sync only selected jobs if there are selected jobs
-                jobIdsToSync = this.selectedJobs.map(customId => this.idMapping[customId.id]);
+                jobIdsToSync = this.selectedJobs;
             } else {
+                console.log('2', this.jobs);
                 // Sync all jobs if no jobs are selected
                 jobIdsToSync = this.jobs.map(job => job.id);
             }
-
             // Create jobsWithActions based on the selected job IDs
             const jobsWithActions = jobIdsToSync.map(job => {
                 const actions = this.actions.map(action => {
@@ -192,6 +192,7 @@ export default {
                     actions: actions,
                 };
             });
+            console.log(jobIdsToSync);
             axios.post('/sync-all-jobs', {
                 selectedMaterial: this.selectedMaterial,
                 selectedMachinePrint: this.selectedMachinePrint,
@@ -206,7 +207,11 @@ export default {
                         jobs: jobIdsToSync,
                     })
                         .then(response => {
-                            this.$emit('jobs-updated', response.data.jobs);
+                            const tempJobs = this.jobs.filter(job =>
+                                !response.data.jobs.some(responseJob => responseJob.id !== job.id)
+                            );
+
+                            this.$emit('jobs-updated', response.data.jobs.concat(tempJobs));
                         })
                         .catch(error => {
                             toast.error("Couldn't fetch updated jobs");

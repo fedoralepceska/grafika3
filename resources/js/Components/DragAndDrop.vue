@@ -134,6 +134,8 @@ export default {
 
                     const tempJob = await this.createJob(file, width, height);
 
+                    console.log(tempJob);
+
                     const job = {
                         imageData: imageData,
                         width: width,
