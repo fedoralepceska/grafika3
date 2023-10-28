@@ -99,6 +99,7 @@ export default {
             } catch (error) {
                 console.error('Error deleting material:', error);
             }
+            window.location.reload();
         },
         async saveChanges() {
             if (!this.editMode) {
@@ -134,6 +135,7 @@ export default {
                 material.editablePricePerUnit = null;
             });
             this.editMode = false;
+            window.location.reload();
         },
     },
 };
