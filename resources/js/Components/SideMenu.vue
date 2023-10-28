@@ -25,6 +25,21 @@ export default {
                         },
                     ],
                 },
+                {
+                    href: '',
+                    title: 'Materials',
+                    icon: 'fa-solid fa-boxes-stacked',
+                    child: [
+                        {
+                            href: '/smallFormat/materials/create',
+                            title: 'Add Small Format Material',
+                        },
+                        {
+                            href: '/SmallFormatMaterials',
+                            title: 'View Small Format Material',
+                        },
+                    ],
+                },
             ],
         }
     },

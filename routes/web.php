@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\JobController;
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\SmallFormatMaterialController;
 use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
@@ -46,8 +47,19 @@ Route::resource('invoices', \App\Http\Controllers\InvoiceController::class)
     ->only(['index', 'store'])
     ->middleware(['auth', 'verified']);
 
-Route::resource('jobs', \App\Http\Controllers\JobController::class)
-    ->only(['index', 'store'])
-    ->middleware(['auth', 'verified']);
+
+
+Route::get('/materials/create', 'SmallFormatMaterialController@create')->name('materials.create');
+
+
+Route::middleware(['auth', 'verified'])->group(function () {
+    Route::get('/SmallFormatMaterials', [SmallFormatMaterialController::class, 'index'])->name('materials.index');
+    Route::get('/smallFormat/materials/create', [SmallFormatMaterialController::class, 'create'])->name('materials.create');
+    Route::post('/materials', [SmallFormatMaterialController::class, 'store'])->name('materials.store');
+    Route::get('/materials/{material}/edit', [SmallFormatMaterialController::class, 'edit'])->name('materials.edit');
+    Route::put('/materials/{material}', [SmallFormatMaterialController::class, 'update'])->name('materials.update');
+    Route::delete('/materials/{material}', [SmallFormatMaterialController::class, 'destroy'])->name('materials.destroy');
+});
+
 
 require __DIR__.'/auth.php';

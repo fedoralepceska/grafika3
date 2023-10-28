@@ -161,7 +161,15 @@ const messages = {
         },
         Quantity:'Quantity',
         Copies:'Copies',
-        Shipping:'Shipping'
+        Shipping:'Shipping',
+        materialDetails: 'Material Details', //MKTODO
+        addNewMaterialSmall: 'Add Small Format Material', //MKTODO
+        quantity: 'Quantity', //MKTODO
+        addMaterial: 'Add Material', //MKTODO
+        SmallFormatMaterials: 'Small Format Materials', //MKTODO
+        listofsmallformat: 'List of Small Format Materials', //mkdtodo
+        pricePerUnit: 'Price per unit', //mktood
+
     },
     mk: {
         // Define your Macedonian translations here
