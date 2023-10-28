@@ -33,6 +33,24 @@
                             <label for="name">{{ $t('email') }}:</label>
                             <input type="text" id="name" class="text-gray-700" v-model="client.email" required>
                         </div>
+                        <div class="mt-12">
+                            <h2 class="sub-title">{{ $t('otherContacts') }}</h2>
+                            <div v-for="(contact, index) in client.contacts" :key="index">
+                                <div class="flex mt-2 p-2 text-black">
+                                    <label class="label-fixed-width">{{ $t('contact') }} {{ index + 1 }}</label>
+                                    <!-- Fields for contact details -->
+                                    <input v-model="contact.name" class="contact-input" type="text" placeholder="Name">
+                                    <input v-model="contact.email" class="contact-input" type="email" placeholder="Email">
+                                    <input v-model="contact.phone" class="contact-input" type="text" placeholder="Phone">
+                                    <button class="addBtn" @click="addContact" v-if="index === client.contacts.length - 1">
+                                        <span class="mdi mdi-plus-circle"></span>
+                                    </button>
+                                    <button class="removeBtn" @click="removeContact(index)" v-else>
+                                        <span class="mdi mdi-minus-circle"></span>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
                         <!-- Other form fields... -->
                         <div class="button-container mt-10">
                             <PrimaryButton type="submit">{{ $t('addClient') }}</PrimaryButton>
@@ -59,6 +77,9 @@ export default {
                 company: '',
                 email: '',
                 phone: '',
+                contacts: [
+                    { name: '', email: '', phone: '' }
+                ]
             },
         };
     },
@@ -80,6 +101,12 @@ export default {
                     toast.error("Error adding client!")
 
                 });
+        },
+        addContact() {
+            this.client.contacts.push({ name: '', email: '', phone: '' });
+        },
+        removeContact(index) {
+            this.client.contacts.splice(index, 1);
         },
 
     },
@@ -142,5 +169,33 @@ export default {
     justify-content: end;
 }
 
+.addBtn {
+    color: $light-green;
+    margin-left: 8px;
+    cursor: pointer;
+}
+
+.removeBtn {
+    color: #c95050;
+    margin-left: 7px;
+    cursor: pointer;
+}
+
+label {
+    color: $white;
+}
+
+select, option, input {
+    color: black;
+}
+
+.contact-input {
+    width: 50%;
+}
+
+.label-fixed-width {
+    width: 11rem;
+    align-self: center;
+}
 
 </style>

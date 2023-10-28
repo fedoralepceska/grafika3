@@ -3,7 +3,9 @@
 namespace App\Http\Controllers;
 
 use App\Models\Client;
+use App\Models\Invoice;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Validator;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -14,7 +16,7 @@ class ClientController extends Controller
      */
     public function index()
     {
-        $clients = Client::all();
+        $clients = Client::with('contacts')->get();
         if (request()->wantsJson()) {
             return response()->json($clients);
         }
@@ -22,7 +24,6 @@ class ClientController extends Controller
             'clients' => $clients
         ]);
     }
-
     /**
      * Show the form for creating a new resource.
      */
@@ -36,7 +37,7 @@ class ClientController extends Controller
      */
     public function store(Request $request)
     {
-        // Validate the incoming request data
+        // Validate the incoming request data for the client
         $validatedData = $request->validate([
             'name' => 'required|string',
             'company' => 'required|string',
@@ -52,9 +53,31 @@ class ClientController extends Controller
         $client->phone = $validatedData['phone'];
         $client->save();
 
-        // Return a response, redirect, or perform any other action
+        // Get the client's ID
+        $clientId = $client->id;
+
+        // Validate and save the contacts associated with this client
+        $contacts = $request->input('contacts');
+
+        foreach ($contacts as $contact) {
+            // Validate the contact data (name, email, phone)
+            $validatedContact = Validator::make($contact, [
+                'name' => 'required|string',
+                'email' => 'required|email',
+                'phone' => 'required|string|max:20',
+            ])->validate();
+
+            // Save the contact associated with the client
+            $client->contacts()->create([
+                'name' => $validatedContact['name'],
+                'email' => $validatedContact['email'],
+                'phone' => $validatedContact['phone'],
+            ]);
+        }
+
         return response()->json(['message' => 'Client added successfully'], 201);
     }
+
 
     /**
      * Display the specified resource.

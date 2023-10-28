@@ -162,13 +162,16 @@ const messages = {
         Quantity:'Quantity',
         Copies:'Copies',
         Shipping:'Shipping',
-        materialDetails: 'Material Details', //MKTODO
-        addNewMaterialSmall: 'Add Small Format Material', //MKTODO
-        quantity: 'Quantity', //MKTODO
-        addMaterial: 'Add Material', //MKTODO
-        SmallFormatMaterials: 'Small Format Materials', //MKTODO
-        listofsmallformat: 'List of Small Format Materials', //mkdtodo
-        pricePerUnit: 'Price per unit', //mktood
+        materialDetails: 'Material Details',
+        addNewMaterialSmall: 'Add Small Format Material',
+        quantity: 'Quantity',
+        addMaterial: 'Add Material',
+        SmallFormatMaterials: 'Small Format Materials',
+        listofsmallformat: 'List of Small Format Materials',
+        pricePerUnit: 'Price per unit',
+        contact: 'Contact',
+        contacts: 'Contacts',
+        otherContacts: 'Other contacts'
 
     },
     mk: {
@@ -333,7 +336,17 @@ const messages = {
         },
         Quantity:'Количина',
         Copies:'Копии',
-        Shipping:'Достава'
+        Shipping:'Достава',
+        materialDetails: 'Детали за материјал',
+        addNewMaterialSmall: 'Додади материјал - мал формат',
+        quantity: 'Количина',
+        addMaterial: 'Додади материјал',
+        SmallFormatMaterials: 'Материјали - мал формат',
+        listofsmallformat: 'Листа на материјали - мал формат',
+        pricePerUnit: 'Цена по парче',
+        contact: 'Контакт',
+        contacts: 'Контакти',
+        otherContacts: 'Останати контакти'
     },
 };
 

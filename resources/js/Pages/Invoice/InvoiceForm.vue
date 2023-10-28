@@ -274,18 +274,7 @@ export default {
                 this.selectedClientCompany= '';
             }
         },
-        toggleMachineCut() {
-            this.showMachineCut = !this.showMachineCut;
-        },
-        toggleMachinePrint() {
-            this.showMachinePrint = !this.showMachinePrint;
-        },
-        toggleMaterials() {
-            this.showMaterials = !this.showMaterials;
-        },
-        toggleMaterialsSmall() {
-            this.showMaterialsSmall = !this.showMaterialsSmall;
-        },
+
         toggleActions() {
             this.showActions = !this.showActions;
         },

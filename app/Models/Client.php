@@ -15,4 +15,9 @@ class Client extends Model
         'email',
         'phone',
     ];
+
+    public function contacts(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(Contact::class);
+    }
 }
