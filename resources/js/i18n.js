@@ -8,6 +8,7 @@ const messages = {
         email: 'Email',
         phone: 'Client number',
         client: 'Client',
+        allClients: 'All clients',
         clientDetails: 'Client details',
         addNewClient :'Add new client',
         addClient: 'Add client',
@@ -167,7 +168,7 @@ const messages = {
         quantity: 'Quantity',
         addMaterial: 'Add Material',
         SmallFormatMaterials: 'Small Format Materials',
-        listofsmallformat: 'List of Small Format Materials',
+        listOfSmallFormat: 'List of Small Format Materials',
         pricePerUnit: 'Price per unit',
         contact: 'Contact',
         contacts: 'Contacts',
@@ -182,6 +183,7 @@ const messages = {
         email: 'Е-пошта',
         phone: 'Телефон',
         client: 'Клиент',
+        allClients: 'Сите клиенти',
         clientDetails: 'Детали за клиент',
         addNewClient :'Додади нов клиент',
         addClient: 'Додади клиент',
@@ -342,11 +344,11 @@ const messages = {
         quantity: 'Количина',
         addMaterial: 'Додади материјал',
         SmallFormatMaterials: 'Материјали - мал формат',
-        listofsmallformat: 'Листа на материјали - мал формат',
+        listOfSmallFormat: 'Листа на материјали - мал формат',
         pricePerUnit: 'Цена по парче',
         contact: 'Контакт',
         contacts: 'Контакти',
-        otherContacts: 'Останати контакти'
+        otherContacts: 'Останати контакти',
     },
 };
 

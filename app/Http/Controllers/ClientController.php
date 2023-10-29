@@ -20,7 +20,7 @@ class ClientController extends Controller
         if (request()->wantsJson()) {
             return response()->json($clients);
         }
-        return Inertia::render('Client/ClientForm', [
+        return Inertia::render('Client/Index', [
             'clients' => $clients
         ]);
     }
@@ -29,7 +29,7 @@ class ClientController extends Controller
      */
     public function create()
     {
-        //
+        return Inertia::render('Client/ClientForm');
     }
 
     /**
@@ -100,7 +100,14 @@ class ClientController extends Controller
      */
     public function update(Request $request, Client $client)
     {
-        //
+        $validatedData = $request->validate([
+            'phone' => 'required|integer',
+            'email' => 'required|string',
+        ]);
+
+        $client->update($validatedData);
+
+        return redirect()->route('clients.index');
     }
 
     /**
@@ -108,6 +115,8 @@ class ClientController extends Controller
      */
     public function destroy(Client $client)
     {
-        //
+        $client->delete();
+
+        return redirect()->route('clients.index');
     }
 }
