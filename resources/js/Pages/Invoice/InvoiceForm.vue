@@ -50,6 +50,10 @@
                                     </div>
                                 </div>
                             </div>
+                            <!-- BUTTON MUST BE IN THE FORM TAG -->
+                            <div class="button-container mt-10 p-1">
+                                <PrimaryButton onclick="submitForm()" type="submit">{{ $t('createInvoice') }}</PrimaryButton>
+                            </div>
                         </form>
                     </div>
                 </div>
@@ -178,9 +182,10 @@
                     </div>
                     <div class="light-gray ">
                         <!-- Submit Button -->
-                        <div class="button-container mt-2 p-1">
-                            <PrimaryButton type="submit">{{ $t('createInvoice') }}</PrimaryButton>
-                        </div>
+                        <!-- BUTTON MUST BE IN THE FORM TAG -->
+<!--                        <div class="button-container mt-2 p-1">-->
+<!--                            <PrimaryButton onclick="submitForm()" type="submit">{{ $t('createInvoice') }}</PrimaryButton>-->
+<!--                        </div>-->
                     </div>
                 </div>
             </div>

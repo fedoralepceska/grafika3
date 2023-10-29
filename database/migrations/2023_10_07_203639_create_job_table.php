@@ -20,8 +20,8 @@ return new class extends Migration
             $table->string('file');
             $table->integer('estimatedTime');
             $table->string('shippingInfo');
-            $table->enum('materials', Material::values()); // Assuming you have an enum for Material
-            $table->enum('materialsSmall', MaterialSmall::values()); // Assuming you have an enum for MaterialSmall
+            $table->enum('materials', Material::values())->nullable(); // Assuming you have an enum for Material
+            $table->enum('materialsSmall', MaterialSmall::values())->nullable(); // Assuming you have an enum for MaterialSmall
             $table->enum('machineCut', MachineCut::values()); // Assuming you have an enum for MachineCut
             $table->enum('machinePrint', MachinePrint::values()); // Assuming you have an enum for MachinePrint
             $table->enum('status', InvoiceStatus::values()); // Assuming you have an enum for InvoiceStatus

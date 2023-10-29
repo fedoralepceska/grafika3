@@ -60,8 +60,8 @@ class JobController extends Controller
     {
         // Validate the request and ensure the selected material is provided
         $request->validate([
-            'selectedMaterial' => 'required|string',
-            'selectedMaterialsSmall' => 'required|string',
+            'selectedMaterial',
+            'selectedMaterialsSmall',
             'selectedMachineCut' => 'required|string',
             'selectedMachinePrint' => 'required|string',
         ]);
@@ -80,8 +80,8 @@ class JobController extends Controller
             ->where('machineCut', '<>', $selectedMachineCut)
             ->where('machinePrint', '<>', $selectedMachinePrint)
             ->update([
-                'materials' => $selectedMaterial,
-                'materialsSmall' => $selectedMaterialSmall,
+                'materials' => $selectedMaterial || null,
+                'materialsSmall' => $selectedMaterialSmall || null,
                 'machineCut' => $selectedMachineCut,
                 'machinePrint' => $selectedMachinePrint,
             ]);

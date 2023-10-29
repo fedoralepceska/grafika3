@@ -58,6 +58,11 @@ Route::middleware(['auth', 'verified'])->group(function() {
     Route::delete('/clients/{client}', [ClientController::class, 'destroy'])->name('clients.destroy');
 });
 
+Route::resource('jobs', \App\Http\Controllers\JobController::class)
+    ->only(['index', 'store'])
+    ->middleware(['auth', 'verified']);
+
+
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/SmallFormatMaterials', [SmallFormatMaterialController::class, 'index'])->name('materials.index');
     Route::get('/smallFormat/materials/create', [SmallFormatMaterialController::class, 'create'])->name('materials.create');
