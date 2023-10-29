@@ -24,32 +24,35 @@
                                 <thead>
                                 <tr>
                                     <th>Name</th>
-                                    <th >Phone</th>
+                                    <th>Phone</th>
                                     <th>E-mail</th>
-
                                 </tr>
                                 </thead>
                                 <tbody>
-                                <tr v-for="client in clients" :key="client.id">
-                                    <td>{{ client.name }}</td>
-                                    <td v-if="editMode">
-                                        <input type="text" class="text-black" v-model="client.editablePhone" />
-                                    </td>
-                                    <td v-else>
-                                        {{client.phone}}
-                                    </td>
-                                    <td v-if="editMode">
-                                        <input type="text" v-model="client.editableEmail"  class="text-black"/>
-                                    </td>
-                                    <td v-else>
-                                        {{client.email}}
-                                    </td>
-                                    <td class="centered">
-                                        <SecondaryButton @click="deleteClient(client)" class="delete">Delete</SecondaryButton>
-                                    </td>
-                                </tr>
+                                <template v-for="client in clients">
+                                    <tr>
+                                        <td @mouseover="toggleRow(client.id)">{{ client.name }}</td>
+                                        <td><input v-if="editMode" type="text" v-model="client.editablePhone" class="text-black" /><span v-else>{{ client.phone }}</span></td>
+                                        <td><input v-if="editMode" type="text" v-model="client.editableEmail" class="text-black" /><span v-else>{{ client.email }}</span></td>
+                                        <td class="centered">
+                                            <SecondaryButton @click="deleteClient(client)" class="delete">Delete</SecondaryButton>
+                                        </td>
+                                    </tr>
+                                    <tr v-if="clientExpanded === client.id && client.contacts.length">
+                                        <td :colspan="editMode ? 4 : 3">
+                                            <div class="contact-info">
+                                                <div v-for="contact in client.contacts" :key="contact.id">
+                                                    <div><strong>Contact Name:</strong> {{ contact.name }}</div>
+                                                    <div><strong>Contact Phone:</strong> {{ contact.phone }}</div>
+                                                    <div><strong>Contact E-mail:</strong> {{ contact.email }}</div>
+                                                </div>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                </template>
                                 </tbody>
                             </table>
+
                         </div>
                     </div>
                 </div>
@@ -75,6 +78,7 @@ export default {
     data() {
         return {
             editMode: false,
+            clientExpanded: null
         };
     },
     methods: {
@@ -89,6 +93,13 @@ export default {
                         client.editableEmail = client.email;
                     }
                 });
+            }
+        },
+        toggleRow(id) {
+            if (this.clientExpanded === id) {
+                this.clientExpanded = null;
+            } else {
+                this.clientExpanded = id;
             }
         },
         async deleteClient(client) {
