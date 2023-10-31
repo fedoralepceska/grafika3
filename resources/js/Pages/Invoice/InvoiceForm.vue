@@ -136,10 +136,10 @@
                                     <div class="flex text-white">
                                         <td><img :src="getImageUrl(job.id)" alt="Job Image" class="jobImg thumbnail" /></td>
                                         <td>
-                                            {{ $t('machineP') }}: {{ $t(`machinePrint.${job.machinePrint}`) }}
+                                            {{ job.machinePrint === null ? '' : $t('machineP') + ':' + $t(`machinePrint.${job.machinePrint}`) }}
                                         </td>
                                         <td>
-                                            {{ $t('machineC') }}: {{ $t(`machineCut.${job.machineCut}`) }}
+                                            {{ job.machineCut === null ? '' : $t('machineC') + ':' + $t(`machineCut.${job.machineCut}`) }}
                                         </td>
                                         <td>
                                             {{ job.materials === null ? '' : $t('materialLargeFormat') + ':' + $t(`materials.${job.materials}`) }}
@@ -160,9 +160,14 @@
                                                 </div>
                                                 <transition name="slide-fade">
                                                     <div v-if="showActions" class="ultra-light-green text-white pl-1 pt-1 pb-1">
-                                                        <div v-for="action in actions(job.id)" :key="action">
-                                                            <span>&#9659; {{ $t(`actions.${action}`) }}</span>
-                                                        </div>
+                                                        <template v-if="actions(job.id)">
+                                                            <div v-for="action in actions(job.id)" :key="action">
+                                                                <span>&#9659; {{ $t(`actions.${action}`) }}</span>
+                                                            </div>
+                                                        </template>
+                                                        <template v-else>
+                                                            <span></span>
+                                                        </template>
                                                     </div>
                                                 </transition>
                                             </div>
@@ -290,7 +295,7 @@ export default {
                 }
             }
 
-            return 'No actions'; // Return a default value if there are no actions for the job
+            return false; // Return a default value if there are no actions for the job
         },
 
         async submitForm() {
