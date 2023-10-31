@@ -41,13 +41,13 @@ export default {
                     ],
                 },
                 {
-                    href: '',
+                    href: '/clients',
                     title: 'Clients',
-                    icon: 'fa-solid fa-user-group',
+                    icon: 'fa-solid fa-users',
                     child: [
                         {
-                            href: '/clients',
-                            title: 'Add a new client',
+                            href: '/clients/create',
+                            title: 'Add new client',
                         },
                     ],
                 },

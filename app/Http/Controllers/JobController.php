@@ -60,8 +60,10 @@ class JobController extends Controller
     {
         // Validate the request and ensure the selected material is provided
         $request->validate([
-            'selectedMaterial' => 'required|string',
-            'selectedMaterialsSmall' => 'required|string',
+            'selectedMaterial',
+            'selectedMaterialsSmall',
+            'quantity' => 'required',
+            'copies' => 'required',
             'selectedMachineCut' => 'required|string',
             'selectedMachinePrint' => 'required|string',
         ]);
@@ -70,21 +72,22 @@ class JobController extends Controller
         $selectedMaterialSmall = $request->input('selectedMaterialsSmall');
         $selectedMachineCut = $request->input('selectedMachineCut');
         $selectedMachinePrint = $request->input('selectedMachinePrint');
+        $quantity = $request->input('quantity');
+        $copies = $request->input('copies');
+        $shipping = $request->input('shipping');
         $jobIds = $request->input('jobs');
         $jobsWithActions = $request->input('jobsWithActions');
 
         // Update all jobs with the selected material
-        $updatedJobsCount = Job::whereIn('id', $jobIds)
-            ->where('materials', '<>', $selectedMaterial)
-            ->where('materialsSmall', '<>', $selectedMaterialSmall)
-            ->where('machineCut', '<>', $selectedMachineCut)
-            ->where('machinePrint', '<>', $selectedMachinePrint)
-            ->update([
-                'materials' => $selectedMaterial,
-                'materialsSmall' => $selectedMaterialSmall,
-                'machineCut' => $selectedMachineCut,
-                'machinePrint' => $selectedMachinePrint,
-            ]);
+        Job::whereIn('id', $jobIds)->update([
+            'materials' => $selectedMaterial,
+            'materialsSmall' => $selectedMaterialSmall,
+            'machineCut' => $selectedMachineCut,
+            'machinePrint' => $selectedMachinePrint,
+            'quantity' => $quantity,
+            'copies' => $copies,
+            'shippingInfo' => $shipping
+        ]);
         foreach ($jobsWithActions as $jobWithActions) {
             $job = Job::findOrFail($jobWithActions['job_id']);
             $job->actions()->sync([]);
@@ -101,8 +104,7 @@ class JobController extends Controller
         }
 
         return response()->json([
-            'message' => "Synced $updatedJobsCount jobs with material: $selectedMaterial",
-            'updatedJobsCount' => $updatedJobsCount,
+            'message' => "Synced jobs with material: $selectedMaterial",
         ]);
     }
 

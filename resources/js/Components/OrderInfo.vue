@@ -5,7 +5,7 @@
             <div>
                 <label>{{ $t('syncJobs') }}</label><br>
                 <select v-model="selectedJobs" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" multiple>
-                    <option v-for="(job, index) in jobs" :key="index" :value="job.id">
+                    <option v-for="(job, index) in jobs" :key="index" :value="job">
                         #{{ index + 1 }}
                     </option>
                 </select>
@@ -34,7 +34,7 @@
 
         <div class="form-group mt-2 p-2 text-black sameRow">
             <label class="label-fixed-width">{{ $t('material') }}</label>
-            <select v-model="selectedMaterial" class="select-fixed-width">
+            <select v-model="selectedMaterial" :disabled="selectedMaterialSmall !== ''" class="select-fixed-width">
                 <option v-for="material in materials" :key="material" :value="material">
                     {{ $t(`materials.${material}`) }}
                 </option>
@@ -43,7 +43,7 @@
 
         <div class="form-group mt-2 p-2 text-black sameRow">
             <label class="label-fixed-width">{{ $t('materialSmallFormat') }}</label>
-            <select v-model="selectedMaterialSmall" class="select-fixed-width">
+            <select v-model="selectedMaterialSmall" :disabled="selectedMaterial !== ''" class="select-fixed-width">
                 <option v-for="material in materialsSmall" :key="material" :value="material">
                     {{ $t(`materialsSmall.${material}`) }}
                 </option>
@@ -63,9 +63,21 @@
             </div>
         </div>
 
-        <div class="button-container">
+        <div class="form-group mt-2 p-2 text-black sameRow">
+            <label class="label-fixed-width">{{ $t('Quantity') }}</label>
+            <input type="number" v-model="quantity">
+        </div>
+        <div class="form-group mt-2 p-2 text-black sameRow">
+            <label class="label-fixed-width">{{ $t('Copies') }}</label>
+            <input type="number" v-model="copies">
+        </div>
+
+        <div class="button-container rowButtons">
             <PrimaryButton class="mt-5" @click="syncAll">
-                {{ numberOfSelectedJobs ? $t('syncJobs') : $t('syncAllJobs') }}
+                {{ $t('syncAllJobs') }}
+            </PrimaryButton>
+            <PrimaryButton class="mt-5" @click="syncAll">
+                {{ $t('syncJobs') }}
             </PrimaryButton>
         </div>
     </div>
@@ -78,12 +90,14 @@ import { useToast } from "vue-toastification";
 import SecondaryButton from "@/Components/SecondaryButton.vue";
 import Multiselect from '@vueform/multiselect'
 import "@vueform/multiselect/themes/default.css";
+import store from '../orderStore.js';
 
 export default {
     name: "OrderInfo",
     components: { Multiselect,SecondaryButton, PrimaryButton },
     props: {
-        jobs: Array
+        jobs: Array,
+        shippingDetails: String
     },
     data() {
         return {
@@ -92,6 +106,8 @@ export default {
             selectedMachineCut: '',
             selectedMachinePrint: '',
             selectedAction: '',
+            quantity: 0,
+            copies: 0,
             selectedJobs: [],
             idMapping: {},
             actions: [{}],
@@ -116,12 +132,7 @@ export default {
             if (!this.selectedJobs.length) {
                 return false;
             }
-            else if (this.selectedJobs.length === this.jobs.length) {
-                return false;
-            }
-            else {
-                return true;
-            }
+            else return this.selectedJobs.length !== this.jobs.length;
         }
     },
     methods: {
@@ -168,50 +179,48 @@ export default {
         },
         syncAll() {
             const toast = useToast();
-
-            let jobIdsToSync;
-            if (this.selectedJobs.length > 0) {
-                console.log('1', this.selectedJobs);
-                // Sync only selected jobs if there are selected jobs
-                jobIdsToSync = this.selectedJobs;
-            } else {
-                console.log('2', this.jobs);
-                // Sync all jobs if no jobs are selected
-                jobIdsToSync = this.jobs.map(job => job.id);
+            let jobIds;
+            // Get all job ids
+            if (this.selectedJobs.length) {
+                jobIds = this.selectedJobs.map(job => job.id)
             }
-            // Create jobsWithActions based on the selected job IDs
-            const jobsWithActions = jobIdsToSync.map(job => {
-                const actions = this.actions.map(action => {
-                    return {
-                        action_id: action.selectedAction,
-                        status: 'Not started yet'
-                    };
-                });
+            else {
+                jobIds = this.jobs.map(job => job.id);
+            }
+
+            // Create jobsWithActions for all jobs
+            const jobsWithActions = jobIds.map(jobId => {
+                const actions = this.actions.map(action => ({
+                    action_id: action.selectedAction,
+                    status: 'Not started yet'
+                }));
+
                 return {
-                    job_id: job,
-                    actions: actions,
+                    job_id: jobId,
+                    actions: actions
                 };
             });
-            console.log(jobIdsToSync);
+
+            console.log(this.selectedMaterial, this.selectedMaterialSmall);
+
             axios.post('/sync-all-jobs', {
                 selectedMaterial: this.selectedMaterial,
                 selectedMachinePrint: this.selectedMachinePrint,
                 selectedMachineCut: this.selectedMachineCut,
                 selectedMaterialsSmall: this.selectedMaterialSmall,
-                jobs: jobIdsToSync,
+                quantity: this.quantity,
+                copies: this.copies,
+                shipping: store.state.shippingDetails,
+                jobs: jobIds,
                 jobsWithActions: jobsWithActions,
             })
                 .then(response => {
-                    toast.success(`Successfully synced ${jobIdsToSync.length} jobs!`);
+                    toast.success(`Successfully synced ${jobIds.length} jobs!`);
                     axios.post('/get-jobs-by-ids', {
-                        jobs: jobIdsToSync,
+                        jobs: jobIds,
                     })
                         .then(response => {
-                            const tempJobs = this.jobs.filter(job =>
-                                !response.data.jobs.some(responseJob => responseJob.id !== job.id)
-                            );
-
-                            this.$emit('jobs-updated', response.data.jobs.concat(tempJobs));
+                            this.$emit('jobs-updated', response.data.jobs);
                         })
                         .catch(error => {
                             toast.error("Couldn't fetch updated jobs");
@@ -221,6 +230,7 @@ export default {
                     toast.error("Couldn't sync jobs");
                 });
         }
+
     }
 };
 </script>
@@ -271,6 +281,12 @@ export default {
 input, select, .multiselect {
     height: 36px;
     min-height: 26px;
+}
+
+.rowButtons {
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
 }
 
 </style>

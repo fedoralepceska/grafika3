@@ -27,16 +27,14 @@ class Job extends Model
         'materialsSmall',
         'machineCut',
         'machinePrint',
-        'status'
+        'status',
+        'quantity',
+        'copies'
     ];
 
     protected $attributes = [
         'estimatedTime' => 0, // Set a default value for estimatedTime
         'shippingInfo' => '', // Set a default value for shippingInfo
-        'materials' => 'Material 1', // Set a default value for materials
-        'materialsSmall' => 'Material small 1', // Set a default value for materialsSmall
-        'machineCut' => 'Machine cut 1', // Set a default value for machineCut
-        'machinePrint' => 'Machine print 1', // Set a default value for machinePrint
         'status' => 'Not started yet', // Set a default value for status
     ];
 

@@ -11,12 +11,12 @@
     <div class="dark-gray p-5 text-white">
         <div class="form-container p-2 light-gray">
             <h2 class="sub-title">
-                {{ $t('listofsmallformat') }}
+                {{ $t('listOfSmallFormat') }}
             </h2>
 
             <div class="flex justify-end">
                 <button @click="toggleEditMode" class="bg-white rounded text-black py-2 px-5 m-1 ">{{ editMode ? 'Exit Edit Mode' : 'Edit Mode' }}</button>
-                <button @click="saveChanges(material)" v-if="editMode" class="blue rounded text-white py-2 px-5 m-1">Save Changes</button>
+                <button @click="saveChanges()" v-if="editMode" class="blue rounded text-white py-2 px-5 m-1">Save Changes<v-icon class="mdi mdi-check"></v-icon></button>
             </div>
 
             <table>
@@ -249,8 +249,5 @@ table th {
     background-color: $ultra-light-gray;
 
 }
-
-
-
 </style>
 

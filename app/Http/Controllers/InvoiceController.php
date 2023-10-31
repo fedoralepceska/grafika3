@@ -40,6 +40,7 @@ class InvoiceController extends Controller
             'start_date' => 'required|date',
             'end_date' => 'required|date',
             'comment' => 'string|nullable',
+            'jobs' => 'array',
         ]);
 
         $invoiceData = $request->all();
@@ -49,19 +50,11 @@ class InvoiceController extends Controller
         $invoice->status = 'Not started yet';
 
         $invoice->save();
-        $jobFiles = $request->jobs;
+        $jobs = $request->jobs;
+        foreach ($jobs as $job) {
+            $job_id = $job['id']; // Assuming 'id' holds the job ID
 
-        foreach ($jobFiles as $jobFile) {
-            $job = new Job([
-                'width' => $jobFile['width'],
-                'height' => $jobFile['height'],
-            ]);
-
-            $filename = time() . '_' . $jobFile['file']->getClientOriginalName();
-            $jobFile['file']->storeAs('public/uploads', $filename);
-            $job->file = $filename;
-            $job->save();
-            $invoice->jobs()->save($job);
+            $invoice->jobs()->attach($job_id);
         }
 
         return response()->json([
