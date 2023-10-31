@@ -21,6 +21,10 @@ export default {
                     child: [
                         {
                             href: '/invoices',
+                            title: 'View all invoices',
+                        },
+                        {
+                            href: '/invoices/create',
                             title: 'Create Invoice',
                         },
                     ],
@@ -41,10 +45,14 @@ export default {
                     ],
                 },
                 {
-                    href: '/clients',
+                    href: '',
                     title: 'Clients',
                     icon: 'fa-solid fa-users',
                     child: [
+                        {
+                            href: '/clients',
+                            title: 'View all clients',
+                        },
                         {
                             href: '/clients/create',
                             title: 'Add new client',

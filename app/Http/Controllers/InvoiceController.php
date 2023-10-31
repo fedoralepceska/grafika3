@@ -22,16 +22,15 @@ class InvoiceController extends Controller
             return response()->json($invoices);
         }
 
-        return Inertia::render('Invoice/InvoiceForm', [
+        return Inertia::render('Invoice/Index', [
             'invoices' => $invoices,
         ]);
     }
 
     public function create()
     {
-        return view('invoices.create');
+        return Inertia::render('Invoice/InvoiceForm');
     }
-
     public function store(Request $request)
     {
         $request->validate([

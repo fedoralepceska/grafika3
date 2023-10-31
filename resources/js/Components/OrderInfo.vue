@@ -216,6 +216,7 @@ export default {
             })
                 .then(response => {
                     toast.success(`Successfully synced ${jobIds.length} jobs!`);
+                    jobIds = this.jobs.map(job => job.id)
                     axios.post('/get-jobs-by-ids', {
                         jobs: jobIds,
                     })

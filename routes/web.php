@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\ClientController;
 use App\Http\Controllers\ContactController;
+use App\Http\Controllers\InvoiceController;
 use App\Http\Controllers\JobController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\SmallFormatMaterialController;
@@ -45,6 +46,11 @@ Route::resource('invoices', \App\Http\Controllers\InvoiceController::class)
     ->only(['index', 'store'])
     ->middleware(['auth', 'verified']);
 
+Route::middleware(['auth', 'verified'])->group(function() {
+    Route::get('/invoices', [InvoiceController::class, 'index'])->name('clients.index');
+    Route::get('/invoices/create', [InvoiceController::class, 'create'])->name('clients.create');
+    Route::post('/invoices', [InvoiceController::class, 'store'])->name('clients.store');
+});
 
 
 Route::get('/materials/create', 'SmallFormatMaterialController@create')->name('materials.create');
