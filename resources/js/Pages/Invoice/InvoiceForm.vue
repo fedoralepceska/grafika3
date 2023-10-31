@@ -100,8 +100,8 @@
 
                                         <td>{{ $t('width') }}: {{ job.width }} </td>
                                         <td>{{ $t('height') }}: {{ job.height }}</td>
-                                        <td>{{$t('Quantity')}}: </td>
-                                        <td>{{$t('Copies')}}:</td>
+                                        <td>{{$t('Quantity')}}: {{ job.quantity }}</td>
+                                        <td>{{$t('Copies')}}: {{ job.copies }}</td>
                                     </div>
 
 
@@ -127,22 +127,22 @@
                                         <td>ID: {{ job.id }}</td>
                                         <td>{{ $t('width') }}: {{ job.width }} </td>
                                         <td>{{ $t('height') }}: {{ job.height }}</td>
-                                        <td>{{$t('Quantity')}}: </td>
-                                        <td>{{$t('Copies')}}:</td>
+                                        <td>{{$t('Quantity')}}: {{ job.quantity }}</td>
+                                        <td>{{$t('Copies')}}: {{ job.copies }}</td>
                                     </div>
 
                                     <!--FILE INFO-->
                                     <div class="flex text-white">
                                         <td><img :src="getImageUrl(job.id)" alt="Job Image" class="jobImg thumbnail" /></td>
                                         <td>
-                                            {{ $t('machineP') }}: {{ job.machinePrint === 'Machine print 1' ? '' : $t(`machinePrint.${job.machinePrint}`) }}
+                                            {{ $t('machineP') }}: {{ $t(`machinePrint.${job.machinePrint}`) }}
                                         </td>
                                         <td>
-                                            {{ $t('machineC') }}: {{ job.machineCut === 'Machine cut 1' ? '' : $t(`machine cut.${job.machineCut}`) }}
+                                            {{ $t('machineC') }}: {{ $t(`machineCut.${job.machineCut}`) }}
                                         </td>
                                         <td>
-                                            {{ $t('materialLargeFormat') }}: {{ job.materials === 'Material 1' ? '' : $t(`materials.${job.materials}`) }}
-                                            {{ $t('materialLargeFormat') }}: {{ job.materialsSmall === 'Material small 1' ? '' : $t(`materialsSmall.${job.materialsSmall}`) }}
+                                            {{ job.materials === null ? '' : $t('materialLargeFormat') + ':' + $t(`materials.${job.materials}`) }}
+                                            {{ job.materialsSmall === null ? '' : $t('materialLargeFormat') + ':' +  $t(`materialsSmall.${job.materialsSmall}`) }}
                                         </td>
                                         <td>
 
@@ -230,7 +230,7 @@ export default {
             newJobs: []
         };
     },
-    async created() {
+    async mounted() {
         // Fetch clients when component is created
         await this.fetchInvoices();
         await this.fetchClients();

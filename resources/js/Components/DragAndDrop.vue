@@ -145,7 +145,9 @@ export default {
                         materials: tempJob?.materials,
                         materialsSmall: tempJob?.materialsSmall,
                         machinePrint: tempJob?.machinePrint,
-                        machinesCut: tempJob?.machineCut
+                        machinesCut: tempJob?.machineCut,
+                        quantity: tempJob?.quantity,
+                        copies: tempJob?.copies
                     };
 
                     this.jobs.push(job); // Correct variable name

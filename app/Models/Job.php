@@ -27,7 +27,9 @@ class Job extends Model
         'materialsSmall',
         'machineCut',
         'machinePrint',
-        'status'
+        'status',
+        'quantity',
+        'copies'
     ];
 
     protected $attributes = [

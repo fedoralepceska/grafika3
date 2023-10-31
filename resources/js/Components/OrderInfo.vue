@@ -63,6 +63,15 @@
             </div>
         </div>
 
+        <div class="form-group mt-2 p-2 text-black sameRow">
+            <label class="label-fixed-width">{{ $t('Quantity') }}</label>
+            <input type="number" v-model="quantity">
+        </div>
+        <div class="form-group mt-2 p-2 text-black sameRow">
+            <label class="label-fixed-width">{{ $t('Copies') }}</label>
+            <input type="number" v-model="copies">
+        </div>
+
         <div class="button-container">
             <PrimaryButton class="mt-5" @click="syncAll">
                 {{ numberOfSelectedJobs ? $t('syncJobs') : $t('syncAllJobs') }}
@@ -92,6 +101,8 @@ export default {
             selectedMachineCut: '',
             selectedMachinePrint: '',
             selectedAction: '',
+            quantity: 0,
+            copies: 0,
             selectedJobs: [],
             idMapping: {},
             actions: [{}],
@@ -192,13 +203,22 @@ export default {
                 selectedMachinePrint: this.selectedMachinePrint,
                 selectedMachineCut: this.selectedMachineCut,
                 selectedMaterialsSmall: this.selectedMaterialSmall,
+                quantity: this.quantity,
+                copies: this.copies,
                 jobs: jobIds,
                 jobsWithActions: jobsWithActions,
             })
                 .then(response => {
                     toast.success(`Successfully synced ${jobIds.length} jobs!`);
-                    // Handle your response here
-                    // ...
+                    axios.post('/get-jobs-by-ids', {
+                        jobs: jobIds,
+                    })
+                        .then(response => {
+                            this.$emit('jobs-updated', response.data.jobs);
+                        })
+                        .catch(error => {
+                            toast.error("Couldn't fetch updated jobs");
+                        });
                 })
                 .catch(error => {
                     toast.error("Couldn't sync jobs");
