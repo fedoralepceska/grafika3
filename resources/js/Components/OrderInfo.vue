@@ -39,6 +39,7 @@
                     {{ $t(`materials.${material}`) }}
                 </option>
             </select>
+            <button v-if="selectedMaterial !== ''" @click="clearSelection('selectedMaterial')" class="removeBtn"><span class="mdi mdi-minus-circle"></span></button>
         </div>
 
         <div class="form-group mt-2 p-2 text-black sameRow">
@@ -48,6 +49,8 @@
                     {{ $t(`materialsSmall.${material}`) }}
                 </option>
             </select>
+            <button v-if="selectedMaterialSmall !== ''" @click="clearSelection('selectedMaterialSmall')" class="removeBtn"><span class="mdi mdi-minus-circle"></span></button>
+
         </div>
 
         <div v-for="(action, index) in actions" :key="index">
@@ -176,6 +179,9 @@ export default {
         },
         removeAction(index) {
             this.actions.splice(index, 1);
+        },
+        clearSelection(fieldName) {
+            this[fieldName] = ''; // Reset the selected value to an empty string
         },
         syncAll() {
             const toast = useToast();
