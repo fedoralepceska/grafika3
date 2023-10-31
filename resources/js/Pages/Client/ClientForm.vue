@@ -2,16 +2,16 @@
     <MainLayout>
         <div  class="pl-7 pr-7">
             <div class="header pt-10 pb-4">
-                <div class="left mr-10">
+                <div class="left mr-3">
                     <img src="/images/UserLogo.png" alt="UserLogo" class="image-icon" />
                 </div>
                 <div class="right">
                     <h1 class="page-title">{{ $t('client') }}</h1>
-                    <h3 class="text-white">{{ $t('client') }} / {{ $t('addNewClient') }}</h3>
+                    <h3 class="text-white"><span class="green-text">{{ $t('client') }}</span> / {{ $t('addNewClient') }}</h3>
                 </div>
             </div>
-            <div class="dark-gray client-form ">
-                <div class="form-container p15">
+            <div class="dark-gray p-5 ">
+                <div class="form-container p-2 light-gray">
                     <h2 class="sub-title">
                         {{ $t('clientDetails') }}
                     </h2>
@@ -113,8 +113,13 @@ export default {
 };
 </script>
 <style scoped lang="scss">
+.green-text{
+    color: $green;
+}
+.light-gray{
+    background-color: $light-gray;
+}
 .header{
-    margin-left: 20px;
     display: flex;
     align-items: center;
 }
@@ -122,43 +127,46 @@ export default {
     background-color: $dark-gray;
     justify-content: left;
     align-items: center;
-    min-height: 50vh;
+    min-height: 20vh;
 }
 
 .client-form {
     width: 100%;
-    max-width: 600px;
-    padding: 20px;
-    border-radius: 5px;
+    max-width: 1000px;
+    justify-content: left;
+    align-items: center;
+    min-height: 20vh;
+    padding: 5px;
     box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
 }
 .page-title {
-    font-size: 34px;
+    font-size: 24px;
     display: flex;
     align-items: center;
     color: $white;
 }
 .sub-title{
     font-size: 20px;
+    font-weight: bold;
     margin-bottom: 20px;
     display: flex;
     align-items: center;
     color: $white;
-
 }
 
 .image-icon {
     margin-left: 10px;
-    max-width: 50px; /* Adjust the size as needed */
+    max-width: 40px; /* Adjust the size as needed */
 }
 .form-group {
     display: flex;
-    justify-content: space-between;
+    justify-content: right;
     align-items: center;
+    width: 350px;
     margin-bottom: 10px;
     color: $white;
+    padding-left: 40px;
 }
-
 .label {
     flex: 1;
     text-align: left;

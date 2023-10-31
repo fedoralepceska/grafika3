@@ -2,7 +2,7 @@
     <div class="FileBox light-gray">
         <TabsWrapper>
             <Tab title="Art" icon="mdi-file-image">
-                <div class="flex pb-10 justify-center gap-4">
+                <div class="flex pb-1 justify-center gap-4">
                     <div class="drop-zone text-white" @dragover.prevent @drop="handleFileDrop">
                         <p>{{ $t('dragAndDrop') }}</p>
 
@@ -14,11 +14,11 @@
                         <button @click="browseForFiles" class="bg-white rounded text-black py-2 px-5">{{ $t('browse') }}</button>
                     </div>
                 </div>
-                <div class="ultra-light-gray rounded flex p-4 justify-between text-center">
-                    <div class="text-white flex flex-wrap align-center">Files: {{ jobs.length }}
+                <div class="ultra-light-gray rounded flex  justify-between text-center m-6 ">
+                    <div class="text-white flex-wrap align-center d-flex p-2">Files: {{ jobs.length }}
                         Uploaded: {{ calculateTotalFileSize() }}MB<br>
                     </div>
-                    <div class="position-relative">
+                    <div class="position-relative p-2">
                         <button @mouseover="showPopover = true"
                                 @mouseout="showPopover = false"
                                 class="bg-white rounded text-black py-2 px-5">Details</button>
@@ -169,6 +169,7 @@ export default {
 }
 
 .FileBox{
+    min-height: 41vh;
     border-radius: 5px;
     box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
 }

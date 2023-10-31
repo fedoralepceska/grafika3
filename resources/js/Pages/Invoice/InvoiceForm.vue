@@ -19,32 +19,32 @@
                             <div class="two-column-layout">
                                 <div class="left-column">
                                     <h2 class="sub-title uppercase">{{ $t('clientDetails') }}</h2>
-                                    <div class="form-group">
+                                    <div class="form-group gap-4">
                                         <label for="invoice_title">{{ $t('invoiceTitle') }}:</label>
                                         <input type="text" v-model="invoice.invoice_title" id="invoice_title" class="text-gray-700" required>
                                     </div>
-                                    <div class="form-group">
+                                    <div class="form-group gap-4">
                                         <label for="client">{{ $t('client') }}:</label>
                                         <select v-model="invoice.client_id" @change="onClientSelected" id="client" class="text-gray-700" required>
                                             <option v-for="client in clients" :key="client.id" :value="client.id">{{ client.name }}</option>
                                         </select>
                                     </div>
-                                    <div class="form-group">
+                                    <div class="form-group gap-4">
                                         <label for="client_email">{{ $t('company') }}:</label>
                                         <span id="client_email">{{ selectedClientCompany }}</span>
                                     </div>
-                                    <div class="form-group">
+                                    <div class="form-group gap-4">
                                         <label for="client_email">{{ $t('phone') }}:</label>
                                         <span id="client_email">{{ selectedClientPhone }}</span>
                                     </div>
                                 </div>
                                 <div class="right-column">
                                     <h2 class="sub-title uppercase">{{ $t('shippingDetails') }}</h2>
-                                    <div class="form-group">
+                                    <div class="form-group gap-4">
                                         <label for="start_date">{{ $t('startDate') }}:</label>
                                         <input type="date" v-model="invoice.start_date" id="start_date" class="text-gray-700" required>
                                     </div>
-                                    <div class="form-group">
+                                    <div class="form-group gap-4">
                                         <label for="end_date">{{ $t('endDate') }}:</label>
                                         <input type="date" v-model="invoice.end_date" id="end_date" class="text-gray-700 "  required>
                                     </div>
@@ -460,8 +460,9 @@ export default {
 }
 .form-group {
     display: flex;
-    justify-content: space-between;
+    justify-content: right;
     align-items: center;
+    width: 350px;
     margin-bottom: 10px;
     color: $white;
 }
