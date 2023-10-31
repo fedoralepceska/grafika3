@@ -72,9 +72,12 @@
             <input type="number" v-model="copies">
         </div>
 
-        <div class="button-container">
+        <div class="button-container rowButtons">
             <PrimaryButton class="mt-5" @click="syncAll">
-                {{ numberOfSelectedJobs ? $t('syncJobs') : $t('syncAllJobs') }}
+                {{ $t('syncAllJobs') }}
+            </PrimaryButton>
+            <PrimaryButton class="mt-5" @click="syncAll">
+                {{ $t('syncJobs') }}
             </PrimaryButton>
         </div>
     </div>
@@ -176,9 +179,14 @@ export default {
         },
         syncAll() {
             const toast = useToast();
-            console.log(this.$props.jobs);
+            let jobIds;
             // Get all job ids
-            const jobIds = this.jobs.map(job => job.id);
+            if (this.selectedJobs.length) {
+                jobIds = this.selectedJobs.map(job => job.id)
+            }
+            else {
+                jobIds = this.jobs.map(job => job.id);
+            }
 
             // Create jobsWithActions for all jobs
             const jobsWithActions = jobIds.map(jobId => {
@@ -273,6 +281,12 @@ export default {
 input, select, .multiselect {
     height: 36px;
     min-height: 26px;
+}
+
+.rowButtons {
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
 }
 
 </style>
