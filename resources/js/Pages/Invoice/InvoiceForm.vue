@@ -78,8 +78,9 @@
                                 </TabsWrapperV2>
                             </Tab>
 
-                            <Tab title="SHIPPING" icon="mdi mdi-truck">
-
+                            <Tab title="SHIPPING" class="text" icon="mdi mdi-truck">
+                                <span class="text-white">Add the shipping information here:</span>
+                                <textarea v-model="shippingDetails" @input="emitShippingDetails"></textarea>
                             </Tab>
                         </TabsWrapper>
                     </div>
@@ -110,8 +111,8 @@
 
                                     </div>
 
-                                    <div class="flex " >
-                                        <td class="flex items-center bg-gray-200 text-black " >
+                                    <div class="flex">
+                                        <td class="flex items-center bg-gray-200 text-black">
                                             <img src="/images/shipping.png" class="w-10 h-10 pr-1" alt="Shipping">
                                             {{ $t('Shipping') }}: </td>
                                     </div>
@@ -172,20 +173,13 @@
                                     <div class="flex " >
                                         <td class="flex items-center bg-gray-200 text-black ">
                                             <img src="/images/shipping.png" class="w-10 h-10 pr-1" alt="Shipping">
-                                            {{ $t('Shipping') }}: </td>
+                                            {{ $t('Shipping') }}: {{ job.shippingInfo }}</td>
 
                                     </div>
                                 </tr>
                             </template>
                             </tbody>
                         </table>
-                    </div>
-                    <div class="light-gray ">
-                        <!-- Submit Button -->
-                        <!-- BUTTON MUST BE IN THE FORM TAG -->
-<!--                        <div class="button-container mt-2 p-1">-->
-<!--                            <PrimaryButton onclick="submitForm()" type="submit">{{ $t('createInvoice') }}</PrimaryButton>-->
-<!--                        </div>-->
                     </div>
                 </div>
             </div>
@@ -204,6 +198,8 @@ import TabsWrapper from "@/Components/TabsWrapper.vue";
 import Tab from "@/Components/Tab.vue";
 import TabV2 from "@/Components/TabV2.vue";
 import TabsWrapperV2 from "@/Components/TabsWrapperV2.vue";
+import store from '../../orderStore.js';
+
 
 export default {
     name: "InvoiceForm",
@@ -221,6 +217,7 @@ export default {
             invoices: [],
             selectedClientPhone: '',
             selectedClientCompany: '',
+            shippingDetails: '',
             updatedJobs: [],
             showMaterials: false,
             showMaterialsSmall: false,
@@ -236,12 +233,10 @@ export default {
         await this.fetchClients();
         await this.fetchJobs();
     },
-    computed: {
-        mergedJobs() {
-            return this.mergeArraysByUniqueId(this.updatedJobs, this.newJobs, 'id');
-        }
-    },
     methods: {
+        emitShippingDetails() {
+            store.commit('updateShippingDetails', this.shippingDetails);
+        },
         handleCommentUpdate(updatedComment) {
             this.invoice.comment = updatedComment;
         },
@@ -288,43 +283,14 @@ export default {
             const job = this.newJobs.find(job => job.id === id);
             // Check if the job exists
             if (job) {
-                // Assuming actions is an array of objects containing name and status properties
                 const jobActions = job.actions;
 
-                // If there are actions, you can map them to an array of names
                 if (jobActions && jobActions.length > 0) {
                     return jobActions.map(action => action.name);
                 }
             }
+
             return 'No actions'; // Return a default value if there are no actions for the job
-        },
-        mergeArraysByUniqueId(updatedJobs, newJobs, uniqueId) {
-            const result = [];
-
-            // Create a map to store newJobs by their uniqueId for efficient lookups
-            const newJobsMap = new Map();
-            newJobs.forEach((job) => {
-                newJobsMap.set(job[uniqueId], job);
-            });
-
-            updatedJobs.forEach((job) => {
-                const newJob = newJobsMap.get(job[uniqueId]);
-                if (newJob) {
-                    // Merge properties from newJob into updated job
-                    const mergedJob = { ...job, ...newJob };
-                    result.push(mergedJob);
-                    newJobsMap.delete(job[uniqueId]); // Mark as used
-                } else {
-                    result.push(job);
-                }
-            });
-
-            // Add any remaining newJobs to the result
-            newJobsMap.forEach((job) => {
-                result.push(job);
-            });
-
-            return result;
         },
 
         async submitForm() {
@@ -555,4 +521,10 @@ input, select {
     height: 36px;
 }
 
+.text {
+    display: flex;
+    flex-direction: column;
+    padding: 10px;
+    padding: 10px;
+}
 </style>

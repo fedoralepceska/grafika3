@@ -74,6 +74,7 @@ class JobController extends Controller
         $selectedMachinePrint = $request->input('selectedMachinePrint');
         $quantity = $request->input('quantity');
         $copies = $request->input('copies');
+        $shipping = $request->input('shipping');
         $jobIds = $request->input('jobs');
         $jobsWithActions = $request->input('jobsWithActions');
 
@@ -84,7 +85,8 @@ class JobController extends Controller
             'machineCut' => $selectedMachineCut,
             'machinePrint' => $selectedMachinePrint,
             'quantity' => $quantity,
-            'copies' => $copies
+            'copies' => $copies,
+            'shippingInfo' => $shipping
         ]);
         foreach ($jobsWithActions as $jobWithActions) {
             $job = Job::findOrFail($jobWithActions['job_id']);

@@ -87,12 +87,14 @@ import { useToast } from "vue-toastification";
 import SecondaryButton from "@/Components/SecondaryButton.vue";
 import Multiselect from '@vueform/multiselect'
 import "@vueform/multiselect/themes/default.css";
+import store from '../orderStore.js';
 
 export default {
     name: "OrderInfo",
     components: { Multiselect,SecondaryButton, PrimaryButton },
     props: {
-        jobs: Array
+        jobs: Array,
+        shippingDetails: String
     },
     data() {
         return {
@@ -127,12 +129,7 @@ export default {
             if (!this.selectedJobs.length) {
                 return false;
             }
-            else if (this.selectedJobs.length === this.jobs.length) {
-                return false;
-            }
-            else {
-                return true;
-            }
+            else return this.selectedJobs.length !== this.jobs.length;
         }
     },
     methods: {
@@ -205,6 +202,7 @@ export default {
                 selectedMaterialsSmall: this.selectedMaterialSmall,
                 quantity: this.quantity,
                 copies: this.copies,
+                shipping: store.state.shippingDetails,
                 jobs: jobIds,
                 jobsWithActions: jobsWithActions,
             })
