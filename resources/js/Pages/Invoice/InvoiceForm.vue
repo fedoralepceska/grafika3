@@ -227,7 +227,7 @@ export default {
             newJobs: []
         };
     },
-    async mounted() {
+    async created() {
         // Fetch clients when component is created
         await this.fetchInvoices();
         await this.fetchClients();

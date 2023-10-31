@@ -19,9 +19,11 @@ return new class extends Migration
             $table->string('invoice_title');
             $table->text('comment')->nullable();
             $table->enum('status', \App\Enums\InvoiceStatus::values());
+            $table->unsignedBigInteger('created_by')->nullable();
             $table->timestamps();
 
             $table->foreign('client_id')->references('id')->on('clients')->onDelete('cascade');
+            $table->foreign('created_by')->references('id')->on('users')->onDelete('cascade');
         });
     }
 

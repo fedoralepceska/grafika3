@@ -18,6 +18,7 @@ class Invoice extends Model
         'invoice_title',
         'comment',
         'status',
+        'created_by',
     ];
 
     protected $enumCasts = [

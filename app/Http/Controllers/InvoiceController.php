@@ -7,6 +7,7 @@ use App\Models\Client;
 use App\Models\Invoice;
 use App\Models\Job;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\Rules\In;
@@ -47,6 +48,7 @@ class InvoiceController extends Controller
         // Create the invoice
         $invoice = new Invoice($invoiceData);
         $invoice->status = 'Not started yet';
+        $invoice->created_by = Auth::id();
 
         $invoice->save();
         $jobs = $request->jobs;
