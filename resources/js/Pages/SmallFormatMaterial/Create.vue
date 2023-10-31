@@ -17,15 +17,15 @@
                     </h2>
                     <form @submit.prevent="addMaterial">
                         <!-- Form fields for Name and Quantity -->
-                        <div class="form-group">
+                        <div class="form-group gap-4">
                             <label for="name">{{ $t('name') }}:</label>
                             <input type="text" id="name" class="text-gray-700" v-model="material.name" required>
                         </div>
-                        <div class="form-group">
+                        <div class="form-group gap-4">
                             <label for="quantity">{{ $t('quantity') }}:</label>
                             <input type="number" id="quantity" class="text-gray-700" v-model="material.quantity" required>
                         </div>
-                        <div class="form-group">
+                        <div class="form-group gap-4">
                             <label for="price_per_unit">{{ $t('pricePerUnit') }}:</label>
                             <input type="number" id="price_per_unit" class="text-gray-700" v-model="material.price_per_unit" required>
                         </div>
@@ -130,7 +130,7 @@ export default {
     display: flex;
     justify-content: right;
     align-items: center;
-    width: 300px;
+    width: 340px;
     margin-bottom: 10px;
     color: $white;
 }

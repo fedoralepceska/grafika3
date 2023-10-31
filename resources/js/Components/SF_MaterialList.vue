@@ -25,7 +25,7 @@
                     <th>Name</th>
                     <th >Quantity</th>
                     <th>Price Per Unit</th>
-
+                    <th></th>
                 </tr>
                 </thead>
                 <tbody>
@@ -246,6 +246,7 @@ table th {
     color: white;
     border-top: 1px solid #ddd;
     border-bottom: 1px solid #ddd;
+    background-color: $ultra-light-gray;
 
 }
 

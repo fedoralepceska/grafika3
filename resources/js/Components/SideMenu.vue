@@ -40,6 +40,17 @@ export default {
                         },
                     ],
                 },
+                {
+                    href: '',
+                    title: 'Clients',
+                    icon: 'fa-solid fa-user-group',
+                    child: [
+                        {
+                            href: '/clients',
+                            title: 'Add a new client',
+                        },
+                    ],
+                },
             ],
         }
     },
