@@ -6,6 +6,7 @@ use App\Enums\JobAction;
 use App\Models\Invoice;
 use App\Models\Job;
 use Illuminate\Http\Request;
+use Imagick;
 use Inertia\Inertia;
 
 class JobController extends Controller
@@ -28,32 +29,38 @@ class JobController extends Controller
         $this->validate($request, [
             'width' => 'required|numeric',
             'height' => 'required|numeric',
-            'file' => 'required|image', // Ensure the file is an image
+            'file' => 'required|mimes:pdf', // Ensure the file is an image
         ]);
 
         // Handle file upload and storage
         if ($request->hasFile('file')) {
             $file = $request->file('file');
-            $filename = time() . '_' . $file->getClientOriginalName();
-            $file->storeAs('public/uploads', $filename);
+            $pdfPath = $file->store('public/uploads', ['disk' => 'local']); // Store the PDF file
+
+            $imagick = new Imagick();
+            $imagick->setOption('gs', "C:\Program Files\gs\gs10.02.0");
+            $imagick->readImage($file->getPathname().'[0]'); // Read the first page of the PDF
+            $imagick->setImageFormat('jpg'); // Convert PDF to JPG (you can use other formats too)
+            $imageFilename = time() . '_' . pathinfo($pdfPath, PATHINFO_FILENAME) . '.jpg'; // Unique image file name
+            $imagick->writeImage(storage_path('app/public/uploads/' . $imageFilename)); // Save the image
+            $imagick->clear();
+
+            // Create a new job
+            $job = new Job();
+            $job->file = $imageFilename; // Store the image file name
+            $job->width = $request -> input('width');
+            $job->height = $request -> input('height');
+
+            // Set other job properties if needed
+
+            $job->save(); // Save the job to the database
+
+            // Attach the job to the user or invoice as needed
+
+            return response()->json(['message' => 'Job created successfully', 'job' => $job]);
         } else {
             return response()->json(['message' => 'File not provided'], 400);
         }
-
-        // Create a new job
-        $job = new Job();
-        $job->width = $request->input('width');
-        $job->height = $request->input('height');
-        $job->file = $filename; // Store the file name
-
-        // Add fields and validation rules for other job properties
-
-        // Save the job to the database
-        $job->save();
-
-        // Attach the job to the user or invoice as needed
-
-        return response()->json(['message' => 'Job created successfully', 'job' => $job]);
     }
 
     public function syncAllJobs(Request $request): \Illuminate\Http\JsonResponse
