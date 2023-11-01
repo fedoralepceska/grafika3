@@ -103,15 +103,7 @@ export default {
                 }
             }
         },
-        // handleFileDrop(event) {
-        //     event.preventDefault();
-        //     const files = event.dataTransfer.files;
-        //
-        //     for (let i = 0; i < files.length; i++) {
-        //         const file = files[i];
-        //         this.calculateImageDimensions(file);
-        //     }
-        // },
+
         handleFileBrowse(event) {
             const toast = useToast();
             const files = event.target.files;
@@ -127,14 +119,6 @@ export default {
                 }
             }
         },
-        // handleFileBrowse(event) {
-        //     const files = event.target.files;
-        //
-        //     for (let i = 0; i < files.length; i++) {
-        //         const file = files[i];
-        //         this.calculateImageDimensions(file);
-        //     }
-        // },
 
         browseForFiles() {
             this.$refs.fileInput.click();
@@ -154,7 +138,6 @@ export default {
         },
 
         async calculatePDFDimensions(file) {
-            const pdfData = new Uint8Array(await file.arrayBuffer());
             const loadingTask = pdfjsLib?.getDocument(file);
 
             try {
@@ -201,43 +184,6 @@ export default {
                 };
 
                 this.jobs.push(job);
-            };
-
-            reader.readAsDataURL(file);
-        },
-        calculateImageDimensions(file) {
-            const reader = new FileReader();
-
-            reader.onload = (event) => {
-                const imageData = event.target.result;
-
-                const img = new Image();
-                img.src = imageData;
-
-                img.onload = async () => {
-                    const width = img.width;
-                    const height = img.height;
-
-                    const tempJob = await this.createJob(file, width, height);
-
-                    console.log(tempJob);
-
-                    const job = {
-                        imageData: imageData,
-                        width: width,
-                        height: height,
-                        file: file,
-                        id: tempJob?.id,
-                        materials: tempJob?.materials,
-                        materialsSmall: tempJob?.materialsSmall,
-                        machinePrint: tempJob?.machinePrint,
-                        machinesCut: tempJob?.machineCut,
-                        quantity: tempJob?.quantity,
-                        copies: tempJob?.copies
-                    };
-
-                    this.jobs.push(job);
-                };
             };
 
             reader.readAsDataURL(file);
