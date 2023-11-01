@@ -345,7 +345,7 @@ export default {
         },
         getImageUrl(id) {
             console.log(this.$refs.dragAndDrop.jobs.find(j => j.id === id).file);
-            return `/app/public/uploads/${this.$refs.dragAndDrop.jobs.find(j => j.id === id).file}`
+            return `/storage/uploads/${this.$refs.dragAndDrop.jobs.find(j => j.id === id).file}`
             // return this.$refs.dragAndDrop.jobs.find(j => j.id === id).file;
         }
     },
