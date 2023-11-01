@@ -170,6 +170,8 @@ const messages = {
         SmallFormatMaterials: 'Small Format Materials',
         listOfSmallFormat: 'List of Small Format Materials',
         pricePerUnit: 'Price per unit',
+        addNewMaterialLarge:'Add Large Format Material', //MKDTODO
+        listOfLargeFormat: 'List of Large Format Materials', //MKDTODO
         contact: 'Contact',
         contacts: 'Contacts',
         otherContacts: 'Other contacts'

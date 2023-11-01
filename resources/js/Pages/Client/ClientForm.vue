@@ -140,7 +140,7 @@ export default {
 }
 
 .image-icon {
-    margin-left: 10px;
+    margin-left: 2px;
     max-width: 40px; /* Adjust the size as needed */
 }
 .form-group {

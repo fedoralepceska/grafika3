@@ -92,7 +92,7 @@ export default {
     justify-content: left;
     align-items: center;
     min-height: 20vh;
-    width: 80vh;
+
 }
 .light-gray{
     background-color: $light-gray;
@@ -100,7 +100,7 @@ export default {
 
 .client-form {
     width: 100%;
-    max-width: 100px;
+    max-width: 1000px;
     justify-content: left;
     align-items: center;
     min-height: 20vh;
@@ -130,7 +130,7 @@ export default {
     display: flex;
     justify-content: right;
     align-items: center;
-    width: 340px;
+    width: 350px;
     margin-bottom: 10px;
     color: $white;
 }

@@ -1,14 +1,16 @@
 <template>
     <MainLayout>
         <div class="pl-7 pr-7">
-            <div class="dark-gray material-list">
-                <div class="form-container p15">
                     <div class="header pt-10 pb-4">
+                        <div class="left mr-3">
+                            <img src="/images/UserLogo.png" alt="UserLogo" class="image-icon" />
+                        </div>
                         <div class="right">
                             <h1 class="page-title">{{ $t('client') }}</h1>
                             <h3 class="text-white"> <span class="green-text">{{ $t('client') }}</span> / {{ $t('allClients') }}</h3>
                         </div>
                     </div>
+                <div class="form-container p15">
                     <div class="dark-gray p-5 text-white">
                         <div class="form-container p-2 light-gray">
                             <h2 class="sub-title">
@@ -52,7 +54,7 @@
                         </div>
                     </div>
                 </div>
-            </div>
+
         </div>
     </MainLayout>
 </template>

@@ -4,6 +4,7 @@ use App\Http\Controllers\ClientController;
 use App\Http\Controllers\ContactController;
 use App\Http\Controllers\InvoiceController;
 use App\Http\Controllers\JobController;
+use App\Http\Controllers\LargeFormatMaterialController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\SmallFormatMaterialController;
 use Illuminate\Foundation\Application;
@@ -76,6 +77,16 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/materials/{material}/edit', [SmallFormatMaterialController::class, 'edit'])->name('materials.edit');
     Route::put('/materials/{material}', [SmallFormatMaterialController::class, 'update'])->name('materials.update');
     Route::delete('/materials/{material}', [SmallFormatMaterialController::class, 'destroy'])->name('materials.destroy');
+    Route::get('/contacts', [ContactController::class, 'index'])->name('contact.index');
+});
+
+Route::middleware(['auth', 'verified'])->group(function () {
+    Route::get('/LargeFormatMaterial', [LargeFormatMaterialController::class, 'index'])->name('materials.index');
+    Route::get('/largeFormat/materials/create', [LargeFormatMaterialController::class, 'create'])->name('materials.create');
+    Route::post('/materials', [LargeFormatMaterialController::class, 'store'])->name('materials.store');
+    Route::get('/materials/{material}/edit', [LargeFormatMaterialController::class, 'edit'])->name('materials.edit');
+    Route::put('/materials/{material}', [LargeFormatMaterialController::class, 'update'])->name('materials.update');
+    Route::delete('/materials/{material}', [LargeFormatMaterialController::class, 'destroy'])->name('materials.destroy');
     Route::get('/contacts', [ContactController::class, 'index'])->name('contact.index');
 });
 
