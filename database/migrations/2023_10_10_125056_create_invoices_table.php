@@ -16,6 +16,7 @@ return new class extends Migration
             $table->date('start_date');
             $table->date('end_date');
             $table->unsignedBigInteger('client_id');
+            $table->unsignedBigInteger('contact_id');
             $table->string('invoice_title');
             $table->text('comment')->nullable();
             $table->enum('status', \App\Enums\InvoiceStatus::values());
@@ -23,6 +24,7 @@ return new class extends Migration
             $table->timestamps();
 
             $table->foreign('client_id')->references('id')->on('clients')->onDelete('cascade');
+            $table->foreign('contact_id')->references('id')->on('contacts')->onDelete('cascade');
             $table->foreign('created_by')->references('id')->on('users')->onDelete('cascade');
         });
     }

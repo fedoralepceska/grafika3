@@ -39,18 +39,12 @@ class ClientController extends Controller
     {
         // Validate the incoming request data for the client
         $validatedData = $request->validate([
-            'name' => 'required|string',
-            'company' => 'required|string',
-            'email' => 'required|string|email|unique:clients',
-            'phone' => 'required|string|max:20',
+            'name' => 'required|string'
         ]);
 
         // Create a new client record
         $client = new Client();
         $client->name = $validatedData['name'];
-        $client->company = $validatedData['company'];
-        $client->email = $validatedData['email'];
-        $client->phone = $validatedData['phone'];
         $client->save();
 
         // Get the client's ID

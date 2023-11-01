@@ -15,6 +15,7 @@ class Invoice extends Model
         'start_date',
         'end_date',
         'client_id',
+        'contact_id',
         'invoice_title',
         'comment',
         'status',

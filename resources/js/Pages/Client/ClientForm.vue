@@ -18,20 +18,8 @@
                     <form @submit.prevent="addClient">
                         <!-- Form fields for Name, Company, Email, and Phone -->
                         <div class="form-group">
-                            <label for="name">{{ $t('client') }}:</label>
-                            <input type="text" id="name" class="text-gray-700" v-model="client.name" required>
-                        </div>
-                        <div class="form-group">
                             <label for="name">{{ $t('company') }}:</label>
-                            <input type="text" id="name" class="text-gray-700" v-model="client.company" required>
-                        </div>
-                        <div class="form-group">
-                            <label for="name">{{ $t('phone') }}:</label>
-                            <input type="text" id="name" class="text-gray-700" v-model="client.phone" required>
-                        </div>
-                        <div class="form-group">
-                            <label for="name">{{ $t('email') }}:</label>
-                            <input type="text" id="name" class="text-gray-700" v-model="client.email" required>
+                            <input type="text" id="name" class="text-gray-700" v-model="client.name" required>
                         </div>
                         <div class="mt-12">
                             <h2 class="sub-title">{{ $t('otherContacts') }}</h2>
@@ -74,9 +62,6 @@ export default {
         return {
             client: {
                 name: '',
-                company: '',
-                email: '',
-                phone: '',
                 contacts: [
                     { name: '', email: '', phone: '' }
                 ]

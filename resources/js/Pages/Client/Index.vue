@@ -24,16 +24,12 @@
                                 <thead>
                                 <tr>
                                     <th>Name</th>
-                                    <th>Phone</th>
-                                    <th>E-mail</th>
                                 </tr>
                                 </thead>
                                 <tbody>
                                 <template v-for="client in clients">
                                     <tr>
                                         <td @mouseover="toggleRow(client.id)">{{ client.name }}</td>
-                                        <td><input v-if="editMode" type="text" v-model="client.editablePhone" class="text-black" /><span v-else>{{ client.phone }}</span></td>
-                                        <td><input v-if="editMode" type="text" v-model="client.editableEmail" class="text-black" /><span v-else>{{ client.email }}</span></td>
                                         <td class="centered">
                                             <SecondaryButton @click="deleteClient(client)" class="delete">Delete</SecondaryButton>
                                         </td>

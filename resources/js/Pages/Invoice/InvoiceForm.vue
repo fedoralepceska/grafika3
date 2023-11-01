@@ -25,8 +25,14 @@
                                     </div>
                                     <div class="form-group gap-4">
                                         <label for="client">{{ $t('client') }}:</label>
-                                        <select v-model="invoice.client_id" @change="onClientSelected" id="client" class="text-gray-700" required>
+                                        <select v-model="invoice.client_id" id="client" class="text-gray-700" required>
                                             <option v-for="client in clients" :key="client.id" :value="client.id">{{ client.name }}</option>
+                                        </select>
+                                    </div>
+                                    <div class="form-group gap-4" v-if="invoice.client_id !== ''">
+                                        <label for="contact">{{ $t('contact') }}:</label>
+                                        <select v-model="this.invoice.contact_id" @change="onClientSelected" id="contact" class="text-gray-700" required>
+                                            <option v-for="contact in client.contacts" :key="contact.id" :value="contact.id">{{ contact.name }}</option>
                                         </select>
                                     </div>
                                     <div class="form-group gap-4">
@@ -217,6 +223,7 @@ export default {
                 client_id: '',
                 invoice_title: '',
                 comment: '',
+                contact_id: 0
             },
             clients: [],
             invoices: [],
@@ -237,6 +244,11 @@ export default {
         await this.fetchInvoices();
         await this.fetchClients();
         await this.fetchJobs();
+    },
+    computed: {
+      client() {
+          return this.clients.find(c => this.invoice.client_id === c.id);
+      }
     },
     methods: {
         emitShippingDetails() {
@@ -270,10 +282,10 @@ export default {
             }
         },
         async onClientSelected() {
-            const selectedClient = this.clients.find(client => client.id === this.invoice.client_id);
-            if (selectedClient) {
-                this.selectedClientPhone = selectedClient.phone;
-                this.selectedClientCompany = selectedClient.company;
+            const contact = this.client.contacts.find(c => c.id === this.invoice.contact_id);
+            if (contact) {
+                this.selectedClientPhone = contact.phone;
+                this.selectedClientCompany = contact.name;
             } else {
                 this.selectedClientPhone = '';
                 this.selectedClientCompany= '';
