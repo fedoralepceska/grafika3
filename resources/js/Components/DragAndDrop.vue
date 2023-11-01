@@ -42,6 +42,8 @@
 import { useToast } from 'vue-toastification';
 import Tab from "@/Components/Tab.vue";
 import TabsWrapper from "@/Components/TabsWrapper.vue";
+import pdfjsLib from 'pdfjs-dist/build/pdf';
+
 export default {
     name: "DragAndDrop",
     components: {TabsWrapper,Tab},
@@ -85,20 +87,36 @@ export default {
             }
         },
         handleFileDrop(event) {
+            const toast = useToast();
+
             event.preventDefault();
             const files = event.dataTransfer.files;
 
             for (let i = 0; i < files.length; i++) {
                 const file = files[i];
-                this.calculateImageDimensions(file);
+                // Check if the file is a PDF
+                if (file.type === 'application/pdf') {
+                    this.convertPDFToImage(file);
+                } else {
+                    // Handle file type not supported (not a PDF)
+                    toast.error('Only PDF files are supported.');
+                }
             }
         },
+
         handleFileBrowse(event) {
+            const toast = useToast();
             const files = event.target.files;
 
             for (let i = 0; i < files.length; i++) {
                 const file = files[i];
-                this.calculateImageDimensions(file);
+                // Check if the file is a PDF
+                if (file.type === 'application/pdf') {
+                    this.convertPDFToImage(file);
+                } else {
+                    // Handle file type not supported (not a PDF)
+                    toast.error('Only PDF files are supported.');
+                }
             }
         },
 
@@ -119,39 +137,53 @@ export default {
             return size.toFixed(2);
         },
 
-        calculateImageDimensions(file) {
+        async calculatePDFDimensions(file) {
+            const loadingTask = pdfjsLib?.getDocument(file);
+
+            try {
+                const pdf = await loadingTask?.promise;
+                const page = await pdf.getPage(1);
+                const viewport = page.getViewport({ scale: 1 });
+                const width = viewport.width;
+                const height = viewport.height;
+
+                console.log('Width:', width, 'Height:', height);
+
+                return { width, height };
+            } catch (error) {
+                console.error('Error while loading the PDF:', error);
+                return { width: 0, height: 0 }; // Return default dimensions or handle error
+            }
+        },
+
+        async convertPDFToImage(file) {
             const reader = new FileReader();
 
-            reader.onload = (event) => {
-                const imageData = event.target.result;
+            reader.onload = async (event) => {
+                const fileData = event.target.result;
 
-                const img = new Image();
-                img.src = imageData;
+                // Calculate PDF dimensions
+                const { width, height } = await this.calculatePDFDimensions(file);
 
-                img.onload = async () => {
-                    const width = img.width;
-                    const height = img.height;
+                // Use createJob to convert the PDF to an image
+                const tempJob = await this.createJob(file, width, height);
 
-                    const tempJob = await this.createJob(file, width, height);
-
-                    console.log(tempJob);
-
-                    const job = {
-                        imageData: imageData,
-                        width: width,
-                        height: height,
-                        file: file,
-                        id: tempJob?.id,
-                        materials: tempJob?.materials,
-                        materialsSmall: tempJob?.materialsSmall,
-                        machinePrint: tempJob?.machinePrint,
-                        machinesCut: tempJob?.machineCut,
-                        quantity: tempJob?.quantity,
-                        copies: tempJob?.copies
-                    };
-
-                    this.jobs.push(job); // Correct variable name
+                const job = {
+                    imageData: fileData, // Save the file data for the image
+                    file: tempJob.file, // Save the PDF file
+                    width: width,
+                    height: height,
+                    id: tempJob?.id, // Add other job details as needed
+                    materials: tempJob?.materials,
+                    materialsSmall: tempJob?.materialsSmall,
+                    machinePrint: tempJob?.machinePrint,
+                    machinesCut: tempJob?.machineCut,
+                    quantity: tempJob?.quantity,
+                    copies: tempJob?.copies
+                    // ...
                 };
+
+                this.jobs.push(job);
             };
 
             reader.readAsDataURL(file);

@@ -344,7 +344,7 @@ export default {
             this.updatedJobs = updatedJobs;
         },
         getImageUrl(id) {
-            return this.$refs.dragAndDrop.jobs.find(j => j.id === id).imageData;
+            return `/storage/uploads/${this.$refs.dragAndDrop.jobs.find(j => j.id === id).file}`
         }
     },
 };
