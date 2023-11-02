@@ -15,8 +15,8 @@ return new class extends Migration
     {
         Schema::create('jobs', function (Blueprint $table) {
             $table->id();
-            $table->float('width');
-            $table->float('height');
+            $table->float('width')->nullable();
+            $table->float('height')->nullable();
             $table->string('file');
             $table->integer('estimatedTime');
             $table->string('shippingInfo');

@@ -69,6 +69,12 @@ Route::resource('jobs', \App\Http\Controllers\JobController::class)
     ->only(['index', 'store'])
     ->middleware(['auth', 'verified']);
 
+//Route::get('/jobs/{id}/image-dimensions', 'JobController@calculateImageDimensions');
+
+Route::middleware(['auth', 'verified'])->group(function () {
+    Route::get('/jobs/{id}/image-dimensions', [JobController::class, 'calculateImageDimensions'])->name('jobs.calculateImageDimensions');
+    Route::put('/jobs/{id}', [JobController::class, 'update'])->name('jobs.update');
+});
 
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/SmallFormatMaterials', [SmallFormatMaterialController::class, 'index'])->name('materials.index');

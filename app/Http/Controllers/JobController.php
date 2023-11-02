@@ -23,12 +23,21 @@ class JobController extends Controller
             'jobs' => $jobs,
         ]);
     }
+    public function show($id)
+    {
+        // Retrieve the job by its ID
+        $job = Job::with('actions')->find($id);
+
+        if (!$job) {
+            return response()->json(['message' => 'Job not found'], 404);
+        }
+
+        return response()->json($job);
+    }
     public function store(Request $request)
     {
         // Validate the request data
         $this->validate($request, [
-            'width' => 'required|numeric',
-            'height' => 'required|numeric',
             'file' => 'required|mimes:pdf', // Ensure the file is an image
         ]);
 
@@ -48,8 +57,6 @@ class JobController extends Controller
             // Create a new job
             $job = new Job();
             $job->file = $imageFilename; // Store the image file name
-            $job->width = $request -> input('width');
-            $job->height = $request -> input('height');
 
             // Set other job properties if needed
 
@@ -124,5 +131,51 @@ class JobController extends Controller
         $jobs = Job::whereIn('id', $jobIds)->get();
 
         return response()->json(['jobs' => $jobs]);
+    }
+
+    public function update(Request $request, $id)
+    {
+        // Retrieve the job by its ID
+        $job = Job::find($id);
+
+        if (!$job) {
+            return response()->json(['message' => 'Job not found'], 404);
+        }
+
+        // Validate and update the width and height
+        $this->validate($request, [
+            'width' => 'required',
+            'height' => 'required',
+        ]);
+
+        $job->update([
+            'width' => $request->input('width'),
+            'height' => $request->input('height'),
+        ]);
+
+        return response()->json(['message' => 'Job updated successfully']);
+    }
+
+    public function calculateImageDimensions($id): array
+    {
+        $job = Job::with('actions')->find($id);
+        // Construct the full path to the image in the storage directory
+        $fullImagePath = storage_path('app/public/uploads/' . $job->file);
+
+            // Check if the image file exists
+        if (file_exists($fullImagePath)) {
+            // Get the image dimensions using PHP's built-in functions
+            list($width, $height) = getimagesize($fullImagePath);
+            $dpi = $job->file->dpi ?? 96;
+
+            $widthInCm = ($width / $dpi) * 2.54;
+            $heightInCm = ($height / $dpi) * 2.54;
+
+            // Return the dimensions
+        return ['width' => $widthInCm, 'height' => $heightInCm];
+        } else {
+            // Handle the case where the image file does not exist
+            return ['width' => 0, 'height' => 0];
+        }
     }
 }
