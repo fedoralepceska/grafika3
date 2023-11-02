@@ -6,7 +6,7 @@
                     <div class="drop-zone text-white" @dragover.prevent @drop="handleFileDrop">
                         <p>{{ $t('dragAndDrop') }}</p>
 
-                        <input type="file" accept=".jpg, .jpeg, .png" @change="handleFileBrowse" style="display: none;" ref="fileInput" multiple />
+                        <input type="file" accept=".pdf, .tiff, .tif" @change="handleFileBrowse" style="display: none;" ref="fileInput" multiple />
 
                     </div>
                     <div class="ultra-light-gray p-1 rounded d-flex">
@@ -93,11 +93,11 @@ export default {
             for (let i = 0; i < files.length; i++) {
                 const file = files[i];
                 // Check if the file is a PDF
-                if (file.type === 'application/pdf') {
+                if (file.type === 'application/pdf' || file.type === 'image/tiff') {
                     this.convertPDFToImage(file);
                 } else {
                     // Handle file type not supported (not a PDF)
-                    toast.error('Only PDF files are supported.');
+                    toast.error('Only PDF and TIFF files are supported.');
                 }
             }
         },

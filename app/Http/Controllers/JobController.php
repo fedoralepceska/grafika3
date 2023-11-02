@@ -38,33 +38,55 @@ class JobController extends Controller
     {
         // Validate the request data
         $this->validate($request, [
-            'file' => 'required|mimes:pdf', // Ensure the file is an image
+            'file' => 'required|mimetypes:image/tiff,application/pdf', // Ensure the file is an image
         ]);
 
         // Handle file upload and storage
         if ($request->hasFile('file')) {
             $file = $request->file('file');
+            $fileExtension = $file->getClientOriginalExtension();
             $pdfPath = $file->store('public/uploads', ['disk' => 'local']); // Store the PDF file
 
-            $imagick = new Imagick();
-            $imagick->setOption('gs', "C:\Program Files\gs\gs10.02.0");
-            $imagick->readImage($file->getPathname().'[0]'); // Read the first page of the PDF
-            $imagick->setImageFormat('jpg'); // Convert PDF to JPG (you can use other formats too)
-            $imageFilename = time() . '_' . pathinfo($pdfPath, PATHINFO_FILENAME) . '.jpg'; // Unique image file name
-            $imagick->writeImage(storage_path('app/public/uploads/' . $imageFilename)); // Save the image
-            $imagick->clear();
+            if ($fileExtension === 'tiff' || $fileExtension === 'tif') {
+                // Handle TIFF file conversion to an image
+                $imagick = new Imagick();
+                $imagick->readImage($file->getPathname()); // Read the TIFF file
+                $imagick->setImageFormat('jpg'); // Convert TIFF to JPG (you can use other formats too)
+                $imageFilename = time() . '_' . pathinfo($pdfPath, PATHINFO_FILENAME) . '.jpg'; // Unique image file name
+                $imagick->writeImage(storage_path('app/public/uploads/' . $imageFilename)); // Save the image
+                $imagick->clear();
 
-            // Create a new job
-            $job = new Job();
-            $job->file = $imageFilename; // Store the image file name
+                // Create a new job
+                $job = new Job();
+                $job->file = $imageFilename; // Store the image file name
 
-            // Set other job properties if needed
+                // Set other job properties if needed
 
-            $job->save(); // Save the job to the database
+                $job->save(); // Save the job to the database
+                return response()->json(['message' => 'Job created successfully', 'job' => $job]);
+            }
 
-            // Attach the job to the user or invoice as needed
+            elseif ($fileExtension === 'pdf') {
+                $imagick = new Imagick();
+                $imagick->setOption('gs', "C:\Program Files\gs\gs10.02.0");
+                $imagick->readImage($file->getPathname() . '[0]'); // Read the first page of the PDF
+                $imagick->setImageFormat('jpg'); // Convert PDF to JPG (you can use other formats too)
+                $imageFilename = time() . '_' . pathinfo($pdfPath, PATHINFO_FILENAME) . '.jpg'; // Unique image file name
+                $imagick->writeImage(storage_path('app/public/uploads/' . $imageFilename)); // Save the image
+                $imagick->clear();
 
-            return response()->json(['message' => 'Job created successfully', 'job' => $job]);
+                // Create a new job
+                $job = new Job();
+                $job->file = $imageFilename; // Store the image file name
+
+                // Set other job properties if needed
+
+                $job->save(); // Save the job to the database
+
+                // Attach the job to the user or invoice as needed
+
+                return response()->json(['message' => 'Job created successfully', 'job' => $job]);
+            }
         } else {
             return response()->json(['message' => 'File not provided'], 400);
         }
@@ -168,11 +190,11 @@ class JobController extends Controller
             list($width, $height) = getimagesize($fullImagePath);
             $dpi = $job->file->dpi ?? 96;
 
-            $widthInCm = ($width / $dpi) * 2.54;
-            $heightInCm = ($height / $dpi) * 2.54;
+            $widthInMm = ($width / $dpi) * 25.4;
+            $heightInMm = ($height / $dpi) * 25.4;
 
             // Return the dimensions
-        return ['width' => $widthInCm, 'height' => $heightInCm];
+        return ['width' => $widthInMm, 'height' => $heightInMm];
         } else {
             // Handle the case where the image file does not exist
             return ['width' => 0, 'height' => 0];
