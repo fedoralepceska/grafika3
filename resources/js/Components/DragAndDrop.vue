@@ -6,7 +6,7 @@
                     <div class="drop-zone text-white" @dragover.prevent @drop="handleFileDrop">
                         <p>{{ $t('dragAndDrop') }}</p>
 
-                        <input type="file" accept=".jpg, .jpeg, .png" @change="handleFileBrowse" style="display: none;" ref="fileInput" multiple />
+                        <input type="file" accept=".pdf, .tiff, .tif" @change="handleFileBrowse" style="display: none;" ref="fileInput" multiple />
 
                     </div>
                     <div class="ultra-light-gray p-1 rounded d-flex">
@@ -24,7 +24,7 @@
                                 class="bg-white rounded text-black py-2 px-5">Details</button>
                         <div v-if="showPopover" class="popover">
                             <div v-for="job in jobs" :key="job.file.name">
-                                {{ job.file.name }} ({{ jobSize(job.file.size) }}MB)
+                                {{ job.file.name }} ({{ jobSize(job.fileSize) }}MB)
                             </div>
                         </div>
                     </div>
@@ -42,7 +42,7 @@
 import { useToast } from 'vue-toastification';
 import Tab from "@/Components/Tab.vue";
 import TabsWrapper from "@/Components/TabsWrapper.vue";
-import pdfjsLib from 'pdfjs-dist/build/pdf';
+import pdfjsLib from 'pdfjs-dist';
 
 export default {
     name: "DragAndDrop",
@@ -68,12 +68,10 @@ export default {
         updateComment() {
             this.$emit('commentUpdated', this.localComment);
         },
-        async createJob(imageFile, width, height) {
+        async createJob(imageFile) {
             try {
                 const formData = new FormData();
                 formData.append('file', imageFile); // Append the image file
-                formData.append('width', width);
-                formData.append('height', height);
 
                 const response = await axios.post('/jobs', formData, {
                     headers: {
@@ -95,11 +93,11 @@ export default {
             for (let i = 0; i < files.length; i++) {
                 const file = files[i];
                 // Check if the file is a PDF
-                if (file.type === 'application/pdf') {
+                if (file.type === 'application/pdf' || file.type === 'image/tiff') {
                     this.convertPDFToImage(file);
                 } else {
                     // Handle file type not supported (not a PDF)
-                    toast.error('Only PDF files are supported.');
+                    toast.error('Only PDF and TIFF files are supported.');
                 }
             }
         },
@@ -127,7 +125,7 @@ export default {
 
         calculateTotalFileSize() {
             let size = 0;
-            this.jobs.forEach(j => size += j.file.size);
+            this.jobs.forEach(j => size += j.fileSize);
             return this.jobSize(size);
         },
 
@@ -137,50 +135,39 @@ export default {
             return size.toFixed(2);
         },
 
-        async calculatePDFDimensions(file) {
-            const loadingTask = pdfjsLib?.getDocument(file);
-
-            try {
-                const pdf = await loadingTask?.promise;
-                const page = await pdf.getPage(1);
-                const viewport = page.getViewport({ scale: 1 });
-                const width = viewport.width;
-                const height = viewport.height;
-
-                console.log('Width:', width, 'Height:', height);
-
-                return { width, height };
-            } catch (error) {
-                console.error('Error while loading the PDF:', error);
-                return { width: 0, height: 0 }; // Return default dimensions or handle error
-            }
-        },
-
         async convertPDFToImage(file) {
             const reader = new FileReader();
+
+            console.log(file.size);
 
             reader.onload = async (event) => {
                 const fileData = event.target.result;
 
-                // Calculate PDF dimensions
-                const { width, height } = await this.calculatePDFDimensions(file);
-
                 // Use createJob to convert the PDF to an image
-                const tempJob = await this.createJob(file, width, height);
+                const tempJob = await this.createJob(file);
+
+                // Calculate PDF dimensions
+                const response = await axios.get(`/jobs/${tempJob.id}/image-dimensions`);
+
+                await axios.put(`/jobs/${tempJob.id}`, {
+                    width: response.data.width,
+                    height: response.data.height
+                });
+
 
                 const job = {
                     imageData: fileData, // Save the file data for the image
                     file: tempJob.file, // Save the PDF file
-                    width: width,
-                    height: height,
+                    width: response.data.width,
+                    height: response.data.height,
                     id: tempJob?.id, // Add other job details as needed
                     materials: tempJob?.materials,
                     materialsSmall: tempJob?.materialsSmall,
                     machinePrint: tempJob?.machinePrint,
                     machinesCut: tempJob?.machineCut,
                     quantity: tempJob?.quantity,
-                    copies: tempJob?.copies
-                    // ...
+                    copies: tempJob?.copies,
+                    fileSize: file.size
                 };
 
                 this.jobs.push(job);

@@ -73,7 +73,13 @@ Route::resource('jobs', \App\Http\Controllers\JobController::class)
     ->only(['index', 'store'])
     ->middleware(['auth', 'verified']);
 
-//Rotues For Small Format Materials
+//Route::get('/jobs/{id}/image-dimensions', 'JobController@calculateImageDimensions');
+
+Route::middleware(['auth', 'verified'])->group(function () {
+    Route::get('/jobs/{id}/image-dimensions', [JobController::class, 'calculateImageDimensions'])->name('jobs.calculateImageDimensions');
+    Route::put('/jobs/{id}', [JobController::class, 'update'])->name('jobs.update');
+});
+
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/SmallFormatMaterials', [SmallFormatMaterialController::class, 'index'])->name('materials.index');
     Route::get('/smallFormat/materials/create', [SmallFormatMaterialController::class, 'create'])->name('materials.create');

@@ -23,6 +23,7 @@
         "@mdi/font": "^7.3.67",
         "@vueform/multiselect": "^2.6.6",
         "font-awesome": "^4.7.0",
+        "pdf.js": "^0.1.0",
         "pdfjs": "^2.5.2",
         "pdfjs-dist": "^3.11.174",
         "vue-i18n": "^9.5.0",

@@ -105,8 +105,8 @@
                                         <td>{{$t('name')}}: <input  type="text"></td>
                                         <td>ID: {{ job.id }}</td>
 
-                                        <td>{{ $t('width') }}: {{ job.width }} </td>
-                                        <td>{{ $t('height') }}: {{ job.height }}</td>
+                                        <td>{{ $t('width') }}: {{ job.width.toFixed(2) }}mm</td>
+                                        <td>{{ $t('height') }}: {{ job.height.toFixed(2) }}mm</td>
                                         <td>{{$t('Quantity')}}: {{ job.quantity }}</td>
                                         <td>{{$t('Copies')}}: {{ job.copies }}</td>
                                     </div>
