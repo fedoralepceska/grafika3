@@ -1,7 +1,7 @@
 <template>
     <MainLayout>
         <div  class="pl-7 pr-7">
-            <div class="header pt-10 pb-4">
+            <div class="header pt-3 pb-4">
                 <div class="left mr-3">
                     <img src="/images/UserLogo.png" alt="UserLogo" class="image-icon" />
                 </div>

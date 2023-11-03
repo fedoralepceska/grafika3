@@ -22,6 +22,8 @@ class Invoice extends Model
         'created_by',
     ];
 
+
+
     protected $enumCasts = [
         'status' => InvoiceStatus::class,
     ];

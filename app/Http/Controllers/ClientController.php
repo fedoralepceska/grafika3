@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Client;
 use App\Models\Invoice;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 use Inertia\Inertia;
@@ -76,11 +77,19 @@ class ClientController extends Controller
     /**
      * Display the specified resource.
      */
-    public function show(Client $client)
+    public function show(Request $request)
     {
-        //
-    }
+        // Retrieve the job by its ID
+        $id = $request->input("id", 0);
 
+        $user = Client::find($id);
+
+        if (!$user) {
+            return response()->json(['message' => 'Client not found'], 404);
+        }
+
+        return response()->json($user);
+    }
     /**
      * Show the form for editing the specified resource.
      */

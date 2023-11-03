@@ -35,27 +35,30 @@ Route::get('/dashboard', function () {
     return Inertia::render('Dashboard');
 })->middleware(['auth', 'verified'])->name('dashboard');
 
+//Rotues For USER PROFILE
 Route::middleware('auth')->group(function () {
     Route::post('/sync-all-jobs', [JobController::class, 'syncAllJobs'])->name('jobs.syncAll');
     Route::post('/get-jobs-by-ids', [JobController::class, 'getJobsByIds'])->name('jobs.getJobsByIds');
+    Route::post('/get-user',[\App\Http\Controllers\Auth\RegisteredUserController::class, 'show']);
+    Route::post('/get-client',[ClientController::class, 'show']);
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
 });
 
+//Rotues For Invoices
 Route::resource('invoices', \App\Http\Controllers\InvoiceController::class)
     ->only(['index', 'store'])
     ->middleware(['auth', 'verified']);
-
 Route::middleware(['auth', 'verified'])->group(function() {
     Route::get('/invoices', [InvoiceController::class, 'index'])->name('clients.index');
     Route::get('/invoices/create', [InvoiceController::class, 'create'])->name('clients.create');
     Route::post('/invoices', [InvoiceController::class, 'store'])->name('clients.store');
+    Route::get('/invoices/{invoice}', [InvoiceController::class, 'show'])->name('invoices.show');
+
 });
 
-
-Route::get('/materials/create', 'SmallFormatMaterialController@create')->name('materials.create');
-
+//Rotues For Client
 Route::middleware(['auth', 'verified'])->group(function() {
     Route::get('/clients', [ClientController::class, 'index'])->name('clients.index');
     Route::get('/clients/create', [ClientController::class, 'create'])->name('clients.create');
@@ -65,11 +68,12 @@ Route::middleware(['auth', 'verified'])->group(function() {
     Route::delete('/clients/{client}', [ClientController::class, 'destroy'])->name('clients.destroy');
 });
 
+//Rotues For Jobs
 Route::resource('jobs', \App\Http\Controllers\JobController::class)
     ->only(['index', 'store'])
     ->middleware(['auth', 'verified']);
 
-
+//Rotues For Small Format Materials
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/SmallFormatMaterials', [SmallFormatMaterialController::class, 'index'])->name('materials.index');
     Route::get('/smallFormat/materials/create', [SmallFormatMaterialController::class, 'create'])->name('materials.create');
@@ -80,8 +84,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/contacts', [ContactController::class, 'index'])->name('contact.index');
 });
 
+//Rotues For Large Format Materials
 Route::middleware(['auth', 'verified'])->group(function () {
-    Route::get('/LargeFormatMaterial', [LargeFormatMaterialController::class, 'index'])->name('materials.index');
+    Route::get('/LargeFormatMaterials', [LargeFormatMaterialController::class, 'index'])->name('materials.index');
     Route::get('/largeFormat/materials/create', [LargeFormatMaterialController::class, 'create'])->name('materials.create');
     Route::post('/materials', [LargeFormatMaterialController::class, 'store'])->name('materials.store');
     Route::get('/materials/{material}/edit', [LargeFormatMaterialController::class, 'edit'])->name('materials.edit');

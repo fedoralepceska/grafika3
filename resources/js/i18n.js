@@ -174,7 +174,10 @@ const messages = {
         listOfLargeFormat: 'List of Large Format Materials', //MKDTODO
         contact: 'Contact',
         contacts: 'Contacts',
-        otherContacts: 'Other contacts'
+        otherContacts: 'Other contacts',
+        listOfAllInvoices: 'List Of All Invoices', //MKTODO
+        ViewAllInvoices: 'View All Invoices', //MKTODO
+        InvoiceDetails: 'Invoice Details', //MKTODO
 
     },
     mk: {

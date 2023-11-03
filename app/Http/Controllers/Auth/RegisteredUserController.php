@@ -49,4 +49,17 @@ class RegisteredUserController extends Controller
 
         return redirect(RouteServiceProvider::HOME);
     }
+    public function show(Request $request)
+    {
+        // Retrieve the job by its ID
+        $id = $request->input("id", 0);
+
+        $user = User::find($id);
+
+        if (!$user) {
+            return response()->json(['message' => 'User not found'], 404);
+        }
+
+        return response()->json($user);
+    }
 }
