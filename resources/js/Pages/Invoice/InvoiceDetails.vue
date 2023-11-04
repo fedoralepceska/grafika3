@@ -17,17 +17,18 @@
                     <h2 class="sub-title">{{ $t('Invoice Details') }}</h2>
                     <div class="border p-2">
                         <div class="invoice-details">
-                            <div class="invoice-title">{{ selectedInvoice.invoice_title }}</div>
-                            <div class="bold">{{ selectedInvoice.client.name }}</div>
-                            <div class="bold">#{{ selectedInvoice.id }}</div>
+                            <div class="invoice-title">{{ invoice?.invoice_title }}</div>
+<!--                            Here we should implement get client by id since the invoice only stores the client id-->
+<!--                            <div class="bold">{{ invoice?.client?.name }}</div>-->
+                            <div class="bold">#{{ invoice?.id }}</div>
                             <div>
-                                {{ $t('Start Date') }}: {{ selectedInvoice.start_date }}
+                                {{ $t('Start Date') }}: {{ invoice?.start_date }}
                             </div>
                             <div>
-                                {{ $t('End Date') }}: {{ selectedInvoice.end_date }}
+                                {{ $t('End Date') }}: {{ invoice?.end_date }}
                             </div>
                             <div>
-                                {{ $t('Status') }}: <span :class="getStatusColorClass(selectedInvoice.status)">{{ selectedInvoice.status }}</span>
+                                {{ $t('Status') }}: <span :class="getStatusColorClass(invoice?.status)">{{ invoice?.status }}</span>
                             </div>
                         </div>
                     </div>
@@ -45,6 +46,7 @@ export default {
     components: { MainLayout },
     computed: {
         getStatusColorClass() {
+            console.log(this.invoice);
             return (status) => {
                 if (status === "Not started yet") {
                     return "orange";
@@ -57,7 +59,7 @@ export default {
         },
     },
     props: {
-        selectedInvoice: Object,
+        invoice: Object,
     },
 };
 </script>

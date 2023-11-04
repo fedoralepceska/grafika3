@@ -54,7 +54,7 @@ Route::middleware(['auth', 'verified'])->group(function() {
     Route::get('/invoices', [InvoiceController::class, 'index'])->name('clients.index');
     Route::get('/invoices/create', [InvoiceController::class, 'create'])->name('clients.create');
     Route::post('/invoices', [InvoiceController::class, 'store'])->name('clients.store');
-    Route::get('/invoices/{invoice}', [InvoiceController::class, 'show'])->name('invoices.show');
+    Route::get('/invoices/{id}', [InvoiceController::class, 'show'])->name('invoices.show');
 
 });
 

@@ -64,9 +64,9 @@ class InvoiceController extends Controller
             'invoice' => $invoice,
         ]);
     }
-    public function show(Invoice $invoice)
+    public function show($id)
     {
-        $invoice->load('jobs', 'client_id');
+        $invoice = Invoice::with('jobs')->findOrFail($id);
 
         return Inertia::render('Invoice/InvoiceDetails', [
             'invoice' => $invoice,

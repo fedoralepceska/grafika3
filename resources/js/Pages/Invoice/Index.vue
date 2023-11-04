@@ -53,61 +53,46 @@
 </template>
 
 <script>
-import { ref, onMounted } from "vue";
-import PrimaryButton from "@/Components/PrimaryButton.vue";
-import SecondaryButton from "@/Components/SecondaryButton.vue";
 import axios from "axios";
 import MainLayout from "@/Layouts/MainLayout.vue";
+
 export default {
-    components: { MainLayout, SecondaryButton, PrimaryButton },
+    components: { MainLayout },
     props: {
         invoices: Array,
     },
-    setup(props) {
-        const userNames = ref({});
-        const clientNames = ref({});
-
-        const viewInvoice = (id) => {
-            router.push(`/invoices/${id}`);
+    data() {
+        return {
+            userNames: {},
+            clientNames: {}
         };
-
-        const fetchUserNames = async () => {
-            await Promise.all(
-                props.invoices.map(async (invoice) => {
-                    const response = await get_user(invoice);
-                    userNames.value[invoice.id] = response.name;
-                })
-            );
-        };
-        const fetchClientNames = async () => {
-            await Promise.all(
-                props.invoices.map(async (invoice) => {
-                    const response = await get_client(invoice);
-                    clientNames.value[invoice.id] = response.name;
-                })
-            );
-        };
-        const get_client = async (invoice) => {
-            const response = await axios.post("/get-client", { id: invoice.client_id });
-            return response.data;
-        };
-
-
-        const get_user = async (invoice) => {
-            const response = await axios.post("/get-user", { id: invoice.created_by });
-            return response.data;
-        };
-
-        onMounted(() => {
-            fetchUserNames();
-            fetchClientNames();
-        });
-
-
-
-        return { userNames, clientNames,viewInvoice  };
+    },
+    computed: {
+        // If you have computed properties, they would go here
     },
     methods: {
+        async fetchUserNames() {
+            const userRequests = this.invoices.map(async (invoice) => {
+                const response = await this.get_user(invoice);
+                this.userNames[invoice.id] = response.name;
+            });
+            await Promise.all(userRequests);
+        },
+        async fetchClientNames() {
+            const clientRequests = this.invoices.map(async (invoice) => {
+                const response = await this.get_client(invoice);
+                this.clientNames[invoice.id] = response.name;
+            });
+            await Promise.all(clientRequests);
+        },
+        async get_client(invoice) {
+            const response = await axios.post("/get-client", { id: invoice.client_id });
+            return response.data;
+        },
+        async get_user(invoice) {
+            const response = await axios.post("/get-user", { id: invoice.created_by });
+            return response.data;
+        },
         getStatusColorClass(status) {
             if (status === "Not started yet") {
                 return "orange";
@@ -117,7 +102,14 @@ export default {
                 return "green-text";
             }
         },
+        viewInvoice(id) {
+            this.$inertia.visit(`/invoices/${id}`);
+        }
     },
+    mounted() {
+        this.fetchUserNames();
+        this.fetchClientNames();
+    }
 };
 </script>
 <style scoped lang="scss">
