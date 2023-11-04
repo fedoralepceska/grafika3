@@ -178,7 +178,10 @@ const messages = {
         listOfAllInvoices: 'List Of All Invoices', //MKTODO
         ViewAllInvoices: 'View All Invoices', //MKTODO
         InvoiceDetails: 'Invoice Details', //MKTODO
-
+        InvoiceReview: 'Invoice Review', //MKDTO
+        totalm: 'Total m', //MKTODO
+        shippingTo: 'Shipping To', //MKTODO
+        jobPrice: 'Job Price', //MKTODO
     },
     mk: {
         // Define your Macedonian translations here
