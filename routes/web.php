@@ -37,8 +37,6 @@ Route::get('/dashboard', function () {
 
 //Rotues For USER PROFILE
 Route::middleware('auth')->group(function () {
-    Route::post('/sync-all-jobs', [JobController::class, 'syncAllJobs'])->name('jobs.syncAll');
-    Route::post('/get-jobs-by-ids', [JobController::class, 'getJobsByIds'])->name('jobs.getJobsByIds');
     Route::post('/get-user',[\App\Http\Controllers\Auth\RegisteredUserController::class, 'show']);
     Route::post('/get-client',[ClientController::class, 'show']);
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
@@ -76,6 +74,9 @@ Route::resource('jobs', \App\Http\Controllers\JobController::class)
 //Route::get('/jobs/{id}/image-dimensions', 'JobController@calculateImageDimensions');
 
 Route::middleware(['auth', 'verified'])->group(function () {
+    Route::post('/sync-jobs-shipping', [JobController::class, 'syncJobsWithShipping'])->name('jobs.syncJobsWithShipping');
+    Route::post('/sync-all-jobs', [JobController::class, 'syncAllJobs'])->name('jobs.syncAll');
+    Route::post('/get-jobs-by-ids', [JobController::class, 'getJobsByIds'])->name('jobs.getJobsByIds');
     Route::get('/jobs/{id}/image-dimensions', [JobController::class, 'calculateImageDimensions'])->name('jobs.calculateImageDimensions');
     Route::put('/jobs/{id}', [JobController::class, 'update'])->name('jobs.update');
 });

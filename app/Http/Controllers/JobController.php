@@ -110,7 +110,6 @@ class JobController extends Controller
         $selectedMachinePrint = $request->input('selectedMachinePrint');
         $quantity = $request->input('quantity');
         $copies = $request->input('copies');
-        $shipping = $request->input('shipping');
         $jobIds = $request->input('jobs');
         $jobsWithActions = $request->input('jobsWithActions');
 
@@ -122,7 +121,6 @@ class JobController extends Controller
             'machinePrint' => $selectedMachinePrint,
             'quantity' => $quantity,
             'copies' => $copies,
-            'shippingInfo' => $shipping
         ]);
         foreach ($jobsWithActions as $jobWithActions) {
             $job = Job::findOrFail($jobWithActions['job_id']);
@@ -141,6 +139,21 @@ class JobController extends Controller
 
         return response()->json([
             'message' => "Synced jobs with material: $selectedMaterial",
+        ]);
+    }
+
+    public function syncJobsWithShipping(Request $request): \Illuminate\Http\JsonResponse
+    {
+        $shipping = $request->input('shipping');
+        $jobIds = $request->input('jobs');
+
+        // Update all jobs with the selected material
+        Job::whereIn('id', $jobIds)->update([
+            'shippingInfo' => $shipping
+        ]);
+
+        return response()->json([
+            'message' => "Synced jobs with shipping: $shipping",
         ]);
     }
 

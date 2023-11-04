@@ -85,8 +85,7 @@
                             </Tab>
 
                             <Tab title="SHIPPING" class="text" icon="mdi mdi-truck">
-                                <span class="text-white">Add the shipping information here:</span>
-                                <textarea v-model="shippingDetails" @input="emitShippingDetails"></textarea>
+                                <OrderInfo v-if="$refs.dragAndDrop?.jobs?.length > 0" @jobs-updated="updateJobs" :shipping="true" :jobs="$refs.dragAndDrop.jobs"/>
                             </Tab>
                         </TabsWrapper>
                     </div>
@@ -158,7 +157,7 @@
 
                                     <!--ORDER INFO-->
                                     <div>
-                                        <div class="pl-14 pr-14">
+                                        <div class="pl-14 pr-14" v-if="actions(job.id)">
                                             <div class="jobInfo mt-3 mb-5">
                                                 <div class="green p-1 pl-1 text-white">
                                                     {{$t('ACTIONS')}}
@@ -166,18 +165,18 @@
                                                 </div>
                                                 <transition name="slide-fade">
                                                     <div v-if="showActions" class="ultra-light-green text-white pl-1 pt-1 pb-1">
-                                                        <template v-if="actions(job.id)">
+                                                        <template>
                                                             <div v-for="action in actions(job.id)" :key="action">
                                                                 <span>&#9659; {{ $t(`actions.${action}`) }}</span>
                                                             </div>
-                                                        </template>
-                                                        <template v-else>
-                                                            <span></span>
                                                         </template>
                                                     </div>
                                                 </transition>
                                             </div>
                                         </div>
+                                        <template v-else>
+                                            <span></span>
+                                        </template>
                                     </div>
 
                                     <!--SHIPPING INFO-->
@@ -229,7 +228,6 @@ export default {
             invoices: [],
             selectedClientPhone: '',
             selectedClientCompany: '',
-            shippingDetails: '',
             updatedJobs: [],
             showMaterials: false,
             showMaterialsSmall: false,
@@ -239,7 +237,7 @@ export default {
             newJobs: []
         };
     },
-    async created() {
+    async beforeMount() {
         // Fetch clients when component is created
         await this.fetchInvoices();
         await this.fetchClients();
@@ -251,9 +249,6 @@ export default {
       }
     },
     methods: {
-        emitShippingDetails() {
-            store.commit('updateShippingDetails', this.shippingDetails);
-        },
         handleCommentUpdate(updatedComment) {
             this.invoice.comment = updatedComment;
         },
