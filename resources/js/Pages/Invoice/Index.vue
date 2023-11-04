@@ -58,7 +58,6 @@ import PrimaryButton from "@/Components/PrimaryButton.vue";
 import SecondaryButton from "@/Components/SecondaryButton.vue";
 import axios from "axios";
 import MainLayout from "@/Layouts/MainLayout.vue";
-import { useRouter } from 'vue-router';
 export default {
     components: { MainLayout, SecondaryButton, PrimaryButton },
     props: {
@@ -67,7 +66,6 @@ export default {
     setup(props) {
         const userNames = ref({});
         const clientNames = ref({});
-        const router = useRouter();
 
         const viewInvoice = (id) => {
             router.push(`/invoices/${id}`);
