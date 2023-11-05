@@ -31,8 +31,7 @@
                             </div>
                             <div class="info">
                                 <div>Customer</div>
-                                <!--Here we should implement get client by id since the invoice only stores the client id-->
-                                <!--<div class="bold">{{ invoice?.client?.name }}</div>-->
+                                {{ client }}
                             </div>
                             <div class="info">
                                 <div>{{ $t('Start Date') }}</div>
@@ -44,7 +43,7 @@
                             </div>
                             <div class="info">
                                 <div>Created By</div>
-                                <div></div>
+                                <div>{{ user }}</div>
                             </div>
                         </div>
                         <div class="info pl-2">
@@ -63,7 +62,14 @@
                                <div class="invoice-title bg-white text-black bold pl-3 pr-3">
                                    #{{index+1}} {{job.name}}
                                </div>
-                               <img :src="getImageUrl(job.id)" alt="Job Image" class="jobImg thumbnail" />
+                               <button @click="toggleImagePopover(job)" class="view-image underline">Preview</button>
+                               <div v-if="showImagePopover" class="popover">
+                                   <div class="popover-content">
+                                       <img :src="getImageUrl(selectedJob.id)" alt="Job Image" />
+                                       <button @click="toggleImagePopover(null)" class="popover-close"><icon class="fa fa-close"/></button>
+                                   </div>
+                               </div>
+                               <!--                               <img :src="getImageUrl(job.id)" alt="Job Image" class="jobImg thumbnail" />-->
                                <div>{{job.file}}</div>
                                <div>{{$t('Height')}}: <span class="bold">{{job.height}}</span> </div>
                                <div>{{$t('Width')}}: <span class="bold">{{job.width}}</span> </div>
@@ -114,6 +120,14 @@ import axios from "axios";
 export default {
 
     components: { MainLayout },
+    data() {
+        return {
+            showImagePopover: false,
+            selectedJob: null,
+            user: null,
+            client: null
+        }
+    },
     computed: {
         getStatusColorClass() {
             console.log(this.invoice);
@@ -128,10 +142,26 @@ export default {
             };
         },
     },
+    beforeMount() {
+        this.get_client();
+        this.get_user();
+    },
     methods:{
         getImageUrl(id) {
             return `/storage/uploads/${this.invoice.jobs.find(j => j.id === id).file}`
-        }
+        },
+        toggleImagePopover(job) {
+            this.selectedJob = job;
+            this.showImagePopover = !this.showImagePopover;
+        },
+        async get_client() {
+            const response = await axios.post("/get-client", { id: this.invoice.client_id });
+            this.client = response.data.name;
+        },
+        async get_user() {
+            const response = await axios.post("/get-user", { id: this.invoice.created_by });
+            this.user = response.data.name;
+        },
     },
     props: {
         invoice: Object,
@@ -214,4 +244,31 @@ export default {
     color: white;
 }
 
+.popover {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background-color: rgba(0, 0, 0, 0.5);
+    z-index: 1000; /* high z-index to be on top of other content */
+}
+
+.popover-content {
+    width: 30%;
+    background: white;
+    padding: 20px;
+    border-radius: 8px;
+    position: relative;
+}
+
+.popover-close {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    color: black;
+}
 </style>
