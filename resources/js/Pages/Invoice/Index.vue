@@ -30,7 +30,7 @@
                             </div>
                             <div class="info">
                                 <div>Customer</div>
-                                <div class="bold">{{clientNames[invoice.id]}}</div>
+                                <div class="bold">{{ invoice.client.name }}</div>
                             </div>
                             <div class="info">
                                 <div>End Date</div>
@@ -38,7 +38,7 @@
                             </div>
                             <div class="info">
                                 <div>Created By</div>
-                                <div  class="bold">{{ userNames[invoice.id] }}</div>
+                                <div  class="bold">{{ invoice.user.name }}</div>
                             </div>
                             <div class="info">
                                 <div>Status</div>
@@ -61,38 +61,7 @@ export default {
     props: {
         invoices: Array,
     },
-    data() {
-        return {
-            userNames: {},
-            clientNames: {}
-        };
-    },
-    computed: {
-        // If you have computed properties, they would go here
-    },
     methods: {
-        async fetchUserNames() {
-            const userRequests = this.invoices.map(async (invoice) => {
-                const response = await this.get_user(invoice);
-                this.userNames[invoice.id] = response.name;
-            });
-            await Promise.all(userRequests);
-        },
-        async fetchClientNames() {
-            const clientRequests = this.invoices.map(async (invoice) => {
-                const response = await this.get_client(invoice);
-                this.clientNames[invoice.id] = response.name;
-            });
-            await Promise.all(clientRequests);
-        },
-        async get_client(invoice) {
-            const response = await axios.post("/get-client", { id: invoice.client_id });
-            return response.data;
-        },
-        async get_user(invoice) {
-            const response = await axios.post("/get-user", { id: invoice.created_by });
-            return response.data;
-        },
         getStatusColorClass(status) {
             if (status === "Not started yet") {
                 return "orange";
@@ -106,10 +75,6 @@ export default {
             this.$inertia.visit(`/invoices/${id}`);
         }
     },
-    mounted() {
-        this.fetchUserNames();
-        this.fetchClientNames();
-    }
 };
 </script>
 <style scoped lang="scss">

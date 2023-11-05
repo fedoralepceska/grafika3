@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Enums\InvoiceStatus;
+use App\Events\InvoiceCreated;
 use App\Models\Client;
 use App\Models\Invoice;
 use App\Models\Job;
@@ -17,7 +18,7 @@ class InvoiceController extends Controller
 {
     public function index()
     {
-        $invoices = Invoice::with('jobs')->get(); // Eager load jobs related to invoices
+        $invoices = Invoice::with(['jobs', 'user', 'client'])->get(); // Eager load jobs related to invoices
 
         if (request()->wantsJson()) {
             return response()->json($invoices);
@@ -52,6 +53,7 @@ class InvoiceController extends Controller
         $invoice->created_by = Auth::id();
 
         $invoice->save();
+        event(new InvoiceCreated($invoice));
         $jobs = $request->jobs;
         foreach ($jobs as $job) {
             $job_id = $job['id']; // Assuming 'id' holds the job ID
@@ -66,7 +68,7 @@ class InvoiceController extends Controller
     }
     public function show($id)
     {
-        $invoice = Invoice::with('jobs')->findOrFail($id);
+        $invoice = Invoice::with(['jobs', 'historyLogs', 'user', 'client'])->findOrFail($id);
 
         return Inertia::render('Invoice/InvoiceDetails', [
             'invoice' => $invoice,

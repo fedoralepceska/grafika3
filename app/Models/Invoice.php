@@ -42,4 +42,17 @@ class Invoice extends Model
     {
         return $this->belongsTo(Client::class);
     }
+
+    public function historyLogs()
+    {
+        return $this->hasMany(HistoryLog::class);
+    }
+
+    public function user() {
+        return $this->belongsTo(User::class, 'created_by');
+    }
+
+    public function client() {
+        return $this->belongsTo(Client::class, 'client_id');
+    }
 }
