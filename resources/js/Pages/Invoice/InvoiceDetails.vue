@@ -33,7 +33,7 @@
                             </h3>
                         </div>
                         <div class="buttons pt-3">
-                            <button class="btn download-order">Download All Proofs <span class="mdi mdi-cloud-download"></span></button>
+                            <button class="btn download-order" @click="downloadAllProofs">Download All Proofs <span class="mdi mdi-cloud-download"></span></button>
                             <button class="btn lock-order">Lock Order <span class="mdi mdi-lock"></span></button>
                             <button class="btn re-order">Re-Order <span class="mdi mdi-content-copy"></span></button>
                             <button class="btn go-to-steps">Go To Steps <span class="mdi mdi-arrow-right-bold-outline"></span> </button>
@@ -105,14 +105,15 @@
                                     <div class="invoice-title bg-white text-black bold p-3">
                                         #{{index+1}} {{job.name}}
                                     </div>
-                                    <button @click="toggleImagePopover(job)" class="view-image underline">Preview</button>
+                                    <button @click="toggleImagePopover(job)">
+                                        <img :src="getImageUrl(job.id)" alt="Job Image" class="jobImg thumbnail"/>
+                                    </button>
                                     <div v-if="showImagePopover" class="popover">
                                         <div class="popover-content bg-gray-700">
                                             <img :src="getImageUrl(selectedJob.id)" alt="Job Image" />
                                             <button @click="toggleImagePopover(null)" class="popover-close"><icon class="fa fa-close"/></button>
                                         </div>
                                     </div>
-                                    <!--                               <img :src="getImageUrl(job.id)" alt="Job Image" class="jobImg thumbnail" />-->
                                     <div>{{job.file}}</div>
                                     <div>{{$t('Height')}}: <span class="bold">{{job.height}}</span> </div>
                                     <div>{{$t('Width')}}: <span class="bold">{{job.width}}</span> </div>
@@ -160,6 +161,7 @@
 <script>
 import MainLayout from "@/Layouts/MainLayout.vue";
 import axios from "axios";
+import {useToast} from "vue-toastification";
 
 export default {
 
@@ -195,6 +197,32 @@ export default {
         },
         toggleSidebar() {
             this.isSidebarVisible = !this.isSidebarVisible;
+        },
+        async downloadAllProofs() {
+            const toast = useToast();
+            try {
+                const response = await axios.get('/invoice/download', {
+                    params: {
+                        clientName: this.invoice.client.name,
+                        invoiceId: this.invoice.id
+                    },
+                    responseType: 'blob' // important to handle binary data
+                });
+
+                // Create a new Blob object using the response data
+                const fileURL = window.URL.createObjectURL(new Blob([response.data]));
+                const fileLink = document.createElement('a');
+
+                fileLink.href = fileURL;
+                fileLink.setAttribute('download', `Invoice_${this.invoice.client.name}_${this.invoice.id}.zip`); // or any other name you want
+                document.body.appendChild(fileLink);
+
+                fileLink.click();
+
+                fileLink.remove(); // Clean up
+            } catch (error) {
+                toast.error('There was an error downloading the files: ', error);
+            }
         },
     },
     props: {
@@ -423,5 +451,10 @@ export default {
     padding: 10px;
     margin-bottom: 10px;
     font-weight: bold;
+}
+
+.jobImg {
+    width: 45px;
+    height: 45px;
 }
 </style>

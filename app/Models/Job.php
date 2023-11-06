@@ -21,6 +21,7 @@ class Job extends Model
         'width',
         'height',
         'file',
+        'originalFile',
         'estimatedTime',
         'shippingInfo',
         'materials',

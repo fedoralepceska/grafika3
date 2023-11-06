@@ -18,6 +18,7 @@ return new class extends Migration
             $table->float('width');
             $table->float('height');
             $table->string('file');
+            $table->string('originalFile');
             $table->integer('estimatedTime');
             $table->string('shippingInfo');
             $table->integer('quantity');

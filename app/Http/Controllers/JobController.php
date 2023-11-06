@@ -78,6 +78,7 @@ class JobController extends Controller
                 // Create a new job
                 $job = new Job();
                 $job->file = $imageFilename; // Store the image file name
+                $job->originalFile = $pdfPath;
 
                 // Set other job properties if needed
 

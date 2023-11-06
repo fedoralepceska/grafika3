@@ -51,7 +51,7 @@ Route::middleware(['auth', 'verified'])->group(function() {
     Route::get('/invoices/create', [InvoiceController::class, 'create'])->name('clients.create');
     Route::post('/invoices', [InvoiceController::class, 'store'])->name('clients.store');
     Route::get('/invoices/{id}', [InvoiceController::class, 'show'])->name('invoices.show');
-
+    Route::get('/invoice/download', [InvoiceController::class, 'downloadInvoiceFiles'])->name('invoice.download');
 });
 
 //Rotues For Client
