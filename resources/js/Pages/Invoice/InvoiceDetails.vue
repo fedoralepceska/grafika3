@@ -25,14 +25,14 @@
                     <div class="left mr-3">
                         <img src="/images/List.png" alt="InvoiceLogo" class="image-icon" />
                     </div>
-                    <div class="flex  right">
+                    <div class="flex right">
                         <div class="heading">
                             <h1 class="page-title">{{ $t('invoice') }}</h1>
                             <h3 class="text-white">
                                 <span class="green-text">{{ $t('invoice') }}</span> / {{ $t('InvoiceReview') }}
                             </h3>
                         </div>
-                        <div class="buttons">
+                        <div class="buttons pt-3">
                             <button class="btn download-order">Download All Proofs <span class="mdi mdi-cloud-download"></span></button>
                             <button class="btn lock-order">Lock Order <span class="mdi mdi-lock"></span></button>
                             <button class="btn re-order">Re-Order <span class="mdi mdi-content-copy"></span></button>
@@ -43,10 +43,20 @@
                         </div>
                     </div>
                 </div>
+                <div class="flex pb-2 justify-end">
+                    <div class="btn2"><span class="mdi mdi-image"></span> Revised Art Complete <input type="checkbox" class="blue border-white text-amber"></div>
+                    <div class="btn2"><span class="mdi mdi-fire"></span> RUSH <input type="checkbox" class="blue border-white text-amber"></div>
+                    <div class="btn2"><span class="mdi mdi-pause"></span> ON HOLD <input type="checkbox" class="blue border-white text-amber"></div>
+                    <div class="btn2"><span class="mdi mdi-thumb-up-outline"></span> Must Be Perfect <input type="checkbox" class="blue border-white text-amber"></div>
+                    <div class="btn2"><span class="mdi mdi-box-cutter"></span> Rip First <input type="checkbox" class="blue border-white text-amber"></div>
+                    <div class="btn2"><span class="mdi mdi-image"></span> Revised Art <input type="checkbox" class="blue border-white text-amber"></div>
+                    <div class="btn2"><span class="mdi mdi-image"></span> Additional Art <input type="checkbox" class="blue border-white text-amber"></div>
+                    <div class="btn2"><span class="mdi mdi-flag-outline"></span> Flags <input type="checkbox" class="blue border-white text-amber"></div>
+                </div>
                 <div class="dark-gray p-5 text-white">
                     <div class="form-container p-2 light-gray">
-                        <div class="border">
-                            <div class="invoice-details flex gap-20">
+                        <div class="InvoiceDetails">
+                            <div class="invoice-details flex gap-20 relative">
                                 <div class="invoice-title bg-white text-black bold p-3 ">{{ invoice?.invoice_title }}</div>
                                 <div class="info">
                                     <div>Order</div>
@@ -54,7 +64,7 @@
                                 </div>
                                 <div class="info">
                                     <div>Customer</div>
-                                    {{ invoice.client.name }}
+                                    <div class="bold">{{ invoice.client.name }}</div>
                                 </div>
                                 <div class="info">
                                     <div>{{ $t('Start Date') }}</div>
@@ -66,9 +76,19 @@
                                 </div>
                                 <div class="info">
                                     <div>Created By</div>
-                                    <div>{{ invoice.user.name }}</div>
+                                    <div class="bold">{{ invoice.user.name }}</div>
+                                </div>
+                                <div class="btns flex gap-2">
+                                    <div class="bt"><i class="fa-solid fa-pen-to-square"></i></div>
+                                    <div class="bt"><i class="fa-solid fa-table"></i></div>
+                                    <div class="bt"><i class="fa-solid fa-list-check"></i></div>
+                                    <div class="bt"><i class="fa-solid fa-eye"></i></div>
+                                    <div class="bt"><i class="fa-regular fa-note-sticky"></i></div>
+                                    <div class="bt"><i class="fa-solid fa-bars"></i></div>
+
                                 </div>
                             </div>
+
                             <div class="info pl-2">
                                 <div>{{ $t('Status') }}</div>
                                 <div>
@@ -82,12 +102,12 @@
                         <div class="jobDetails p-2">
                             <div v-for="(job,index) in invoice.jobs" class="border">
                                 <div class=" flex gap-10">
-                                    <div class="invoice-title bg-white text-black bold pl-3 pr-3">
+                                    <div class="invoice-title bg-white text-black bold p-3">
                                         #{{index+1}} {{job.name}}
                                     </div>
                                     <button @click="toggleImagePopover(job)" class="view-image underline">Preview</button>
                                     <div v-if="showImagePopover" class="popover">
-                                        <div class="popover-content">
+                                        <div class="popover-content bg-gray-700">
                                             <img :src="getImageUrl(selectedJob.id)" alt="Job Image" />
                                             <button @click="toggleImagePopover(null)" class="popover-close"><icon class="fa fa-close"/></button>
                                         </div>
@@ -103,14 +123,14 @@
                                     <div class="">
                                         {{$t('Material')}}:
                                         <span class="bold">
-                                        <span v-if="job.materials">{{job.materials}}</span>
-                                        <span v-else>{{job.materialsSmall}}</span>
+                                        <span v-if="job.materials">{{$t(`materials.${job.materials}`)}}</span>
+                                        <span v-else>{{($t`materialsSmall.${job.materialsSmall}`)}}</span>
                                      </span>
                                     </div>
                                     <div>{{$t('totalm')}}<sup>2</sup>: <span class="bold">{{job.height * job.width}}</span></div>
                                 </div>
 
-                                <div class="jobInfo flex justify-between">
+                                <div class="jobInfo relative">
                                     <div class="jobShippingInfo">
                                         <div class=" bg-white text-black bold ">
                                             <div class="flex" style="align-items: center;">
@@ -122,7 +142,7 @@
                                             </div>
                                         </div>
                                     </div>
-                                    <div class="jobPriceInfo bg-white text-black bold">
+                                    <div class="jobPriceInfo absolute right-0 bottom-0 bg-white text-black bold">
                                         <div class="p-2">
                                             {{$t('jobPrice')}}: <span class="bold">{{job.pricePerUnit*job.quantity}}.ден</span>
                                         </div>
@@ -184,6 +204,16 @@ export default {
 </script>
 
 <style scoped lang="scss">
+
+.popover-content[data-v-19f5b08d]{
+    background-color: #2d3748;
+}
+.fa-close::before{
+    color: white;
+}
+[type='checkbox']:checked{
+    border: 1px solid white;
+}
 .orange {
     color: $orange;
 }
@@ -201,6 +231,9 @@ export default {
 }
 .ultra-light-gray{
     background-color: $ultra-light-gray;
+}
+.blue{
+    background-color: $blue;
 }
 .header {
     display: flex;
@@ -239,16 +272,32 @@ export default {
     max-width: 40px;
 }
 .right{
-    gap: 33rem;
+    gap: 34.9rem;
 }
 .btn {
-    margin-right: 10px;
+    margin-right: 4px;
     padding: 10px 15px;
     border: none;
     cursor: pointer;
     font-weight: bold;
+    border-radius: 2px;
 }
-
+.btn2{
+    font-size: 14px;
+    margin-right: 4px;
+    padding: 7px 10px;
+    border: none;
+    cursor: pointer;
+    color: white;
+    background-color: $blue;
+    border-radius: 2px;
+}
+.btns{
+    position: absolute;
+    top: -11px;
+    right: 0;
+    padding: 0;
+}
 .lock-order, .download-order, .re-order{
     background-color: $blue;
     color: white;
@@ -257,7 +306,14 @@ export default {
     background-color: $orange;
     color: white;
 }
-
+.InvoiceDetails{
+    border-bottom: 2px dashed lightgray;
+}
+.bt{
+    font-size:45px ;
+    cursor: pointer;
+    padding: 0;
+}
 .popover {
     position: fixed;
     top: 0;
