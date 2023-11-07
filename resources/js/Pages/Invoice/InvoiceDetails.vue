@@ -79,10 +79,12 @@
                                     <div class="bold">{{ invoice.user.name }}</div>
                                 </div>
                                 <div class="btns flex gap-2">
-                                    <div class="bt"><i class="fa-solid fa-pen-to-square"></i></div>
-                                    <div class="bt"><i class="fa-solid fa-table"></i></div>
+                                    <div class="bt"><i class="fa-regular fa-pen-to-square"></i></div>
+                                    <div class="bt" @click="toggleSpreadsheetMode"
+                                    :class="{'text-white': spreadsheetMode, 'green-text': !spreadsheetMode}"
+                                    ><i class="fa-solid fa-table"></i></div>
                                     <div class="bt"><i class="fa-solid fa-list-check"></i></div>
-                                    <div class="bt"><i class="fa-solid fa-eye"></i></div>
+                                    <div class="bt"><i class="fa-regular fa-eye"></i></div>
                                     <div class="bt"><i class="fa-regular fa-note-sticky"></i></div>
                                     <div class="bt"><i class="fa-solid fa-bars"></i></div>
 
@@ -99,7 +101,7 @@
                     </div>
                     <div class="form-container  light-gray mt-2">
                         <div class="sub-title pl-2 ">{{$t('OrderLines')}}</div>
-                        <div class="jobDetails p-2">
+                        <div class="jobDetails p-2" v-if="spreadsheetMode">
                             <div v-for="(job,index) in invoice.jobs" class="border">
                                 <div class=" flex gap-10">
                                     <div class="invoice-title bg-white text-black bold p-3">
@@ -151,6 +153,62 @@
                                 </div>
                             </div>
                         </div>
+                        <div v-else class="spreadsheet">
+                            <div class="flex justify-end">
+                                <button @click="toggleEditMode" class="rounded text-black py-2 px-2 m-1"
+                                        :class="{ 'bg-white': !editMode, 'green text-white': editMode }">
+                                    {{ editMode ? 'Exit Edit Mode \u2612' : 'Edit Mode \u2610' }}
+                                </button>
+                                <button @click="saveChanges()" v-if="editMode" class="blue rounded text-white py-2 px-5 m-1">Save Changes<v-icon class="mdi mdi-check"></v-icon></button>
+                            </div>
+                            <table>
+
+                                <thead>
+                                <tr>
+                                    <th>Job Line</th>
+                                    <th>Job Name</th>
+                                    <th>File Name</th>
+                                    <th >Quantity</th>
+                                    <th>Dims (cm)</th>
+                                    <th>Scheduled Ship Date</th>
+                                    <th>Shipping Address</th>
+                                    <th>Job Status</th>
+                                    <th>Unit Price</th>
+                                    <th>Job Price</th>
+                                </tr>
+                                </thead>
+                                <tbody>
+                                <tr v-for="(job,index) in invoice.jobs" >
+                                    <td>#{{index+1}}</td>
+
+                                    <td v-if="editMode">
+                                        <input type="text" class="text-black" v-model="job.editableName" />
+                                    </td>
+                                    <td v-else>{{job.name}}</td>
+
+                                    <td>{{ job.file}}</td>
+                                    <td v-if="editMode">
+                                        <input type="text" class="text-black" v-model="job.editableQuantity" />
+                                    </td>
+                                    <td v-else>
+                                        {{job.quantity}}
+                                    </td>
+                                    <td>{{job.height}}x{{job.width}}</td>
+                                    <td>{{ invoice?.end_date}}</td>
+                                    <td>{{job.shippingInfo}}</td>
+                                    <td>{{job.status}}</td>
+                                    <td v-if="editMode">
+<!--                                        treba da se dodade proverka dali e small ili large material i stoto da se editira
+                                        job.materialsSmall.PricePerUnit ili job.materials.PricePerUnit-->
+                                        <input type="text" class="text-black" v-model="job.materials.editablePricePerUnit" />
+                                    </td>
+                                    <td v-else>{{job.materials.pricePerUnit}}</td>
+
+                                    <td>{{job.materials.pricePerUnit*job.quantity}}.ден</td>
+                                </tr>
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -171,6 +229,8 @@ export default {
             showImagePopover: false,
             selectedJob: null,
             isSidebarVisible: false,
+            editMode: false,
+            spreadsheetMode: true,
         }
     },
     computed: {
@@ -224,6 +284,36 @@ export default {
                 toast.error('There was an error downloading the files: ', error);
             }
         },
+        toggleEditMode() {
+            this.editMode = !this.editMode;
+            if (this.editMode) {
+                this.invoice.forEach((job) => {
+                    if (!job.editableQuantity || !job.editableName ||
+                        !job.materials.editablePricePerUnit) {
+                        job.editableQuantity = job.quantity;
+                        job.editableName = job.name;
+                        job.materials.editablePricePerUnit = job.materials.pricePerUnit
+                    }
+                });
+            }
+        },
+        toggleSpreadsheetMode(){
+            this.spreadsheetMode = !this.spreadsheetMode;
+        },
+        async saveChanges() {
+            if (!this.editMode) {
+                // Exit edit mode
+                return;
+            }
+
+            // Handle the save changes action
+
+
+            // Reset the editable fields and exit edit mode
+
+            this.editMode = false;
+            window.location.reload();
+        },
     },
     props: {
         invoice: Object,
@@ -262,6 +352,9 @@ export default {
 }
 .blue{
     background-color: $blue;
+}
+.green{
+    background-color: $green;
 }
 .header {
     display: flex;
@@ -452,9 +545,34 @@ export default {
     margin-bottom: 10px;
     font-weight: bold;
 }
-
 .jobImg {
     width: 45px;
     height: 45px;
+}
+/*
+spreadheet style
+*/
+table {
+    width: 100%;
+    border-collapse: collapse;
+    border-spacing: 0;
+    margin-bottom: 20px;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+}
+
+table th, table td {
+    padding: 10px;
+    border: 1px solid #ddd;
+    text-align: center;
+}
+
+table th {
+    color: white;
+    border-top: 1px solid #ddd;
+    border-bottom: 1px solid #ddd;
+    background-color: $ultra-light-gray;
+
 }
 </style>
