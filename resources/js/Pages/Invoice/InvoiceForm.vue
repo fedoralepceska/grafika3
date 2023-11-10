@@ -102,12 +102,12 @@
                                     <div class=" text-white">
                                         <td class="text-black bg-gray-200 font-weight-black ">#{{ index + 1 }}</td>
                                         <td>{{$t('name')}}: <input  type="text"></td>
-                                        <td>ID: {{ job.id }}</td>
+                                        <td>ID: <span class="bold">{{ job.id }}</span></td>
 
-                                        <td>{{ $t('width') }}: {{ job.width.toFixed(2) }}mm</td>
-                                        <td>{{ $t('height') }}: {{ job.height.toFixed(2) }}mm</td>
-                                        <td>{{$t('Quantity')}}: {{ job.quantity }}</td>
-                                        <td>{{$t('Copies')}}: {{ job.copies }}</td>
+                                        <td>{{ $t('width') }}: <span class="bold">{{ job.width.toFixed(2) }}mm</span></td>
+                                        <td>{{ $t('height') }}: <span class="bold">{{ job.height.toFixed(2) }}mm</span></td>
+                                        <td>{{$t('Quantity')}}: <span class="bold">{{ job.quantity }}</span></td>
+                                        <td>{{$t('Copies')}}: <span class="bold">{{ job.copies }}</span></td>
                                     </div>
 
 
@@ -128,20 +128,22 @@
                                 <tr v-for="(job, index) in updatedJobs" :key="index">
                                     <!--ORDER INDEX, NAME AND ADDITIONAL INFO-->
                                     <div class=" text-white">
-                                        <td class="text-black bg-gray-200 font-weight-black ">#{{ index + 1 }}</td>
+                                        <td class="text-black bg-gray-200 font-weight-black "><span class="bold">#{{ index + 1 }}</span></td>
                                         <td>{{$t('name')}}: </td>
-                                        <td>ID: {{ job.id }}</td>
-                                        <td>{{ $t('width') }}: {{ job.width }} </td>
-                                        <td>{{ $t('height') }}: {{ job.height }}</td>
-                                        <td>{{$t('Quantity')}}: {{ job.quantity }}</td>
-                                        <td>{{$t('Copies')}}: {{ job.copies }}</td>
+                                        <td>ID: <span class="bold">{{ job.id }}</span></td>
+                                        <td>{{ $t('width') }}: <span class="bold">{{ job.width }}</span> </td>
+                                        <td>{{ $t('height') }}: <span class="bold">{{ job.height }}</span></td>
+                                        <td>{{$t('Quantity')}}: <span class="bold">{{ job.quantity }}</span></td>
+                                        <td>{{$t('Copies')}}: <span class="bold">{{ job.copies }}</span></td>
                                     </div>
 
                                     <!--FILE INFO-->
                                     <div class="flex text-white">
                                         <td><img :src="getImageUrl(job.id)" alt="Job Image" class="jobImg thumbnail" /></td>
                                         <td>
-                                            {{ job.machinePrint === null ? '' : $t('machineP') + ':' + $t(`machinePrint.${job.machinePrint}`) }}
+                                            <div v-if="job.machinePrint">
+                                            {{  $t('machineP') }} : <span class="bold"> {{$t(`machinePrint.${job.machinePrint}`) }}</span>
+                                            </div>
                                         </td>
                                         <td>
                                             {{ job.machineCut === null ? '' : $t('machineC') + ':' + $t(`machineCut.${job.machineCut}`) }}
@@ -149,9 +151,6 @@
                                         <td>
                                             {{ job.materials === null ? '' : $t('materialLargeFormat') + ':' + $t(`materials.${job.materials}`) }}
                                             {{ job.materialsSmall === null ? '' : $t('materialLargeFormat') + ':' +  $t(`materialsSmall.${job.materialsSmall}`) }}
-                                        </td>
-                                        <td>
-
                                         </td>
                                     </div>
 
@@ -329,7 +328,10 @@ export default {
                 });
 
                 toast.success('Invoice created successfully');
-                // You might want to reset the form or navigate the user to another page
+                this.$inertia.visit(`/invoices/${response.data.id}`, {
+                    preserveState: true,
+                    preserveScroll: true,
+                });
             } catch (error) {
                 console.error("Failed to create invoice:", error);
                 toast.error('Error creating job');
@@ -346,6 +348,9 @@ export default {
 </script>
 
 <style scoped lang="scss">
+.bold{
+    font-weight: bolder;
+}
 .light-gray{
     background-color: $light-gray;
 }

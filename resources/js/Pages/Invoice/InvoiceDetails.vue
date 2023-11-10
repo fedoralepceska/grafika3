@@ -20,18 +20,20 @@
                     </div>
                 </div>
             </div>
-            <div class="left-column flex-1" style="width: 85%">
-                <div class="header pt-3 pb-4">
-                    <div class="left mr-3">
-                        <img src="/images/List.png" alt="InvoiceLogo" class="image-icon" />
-                    </div>
-                    <div class="flex right">
-                        <div class="heading">
+            <div class="left-column flex-1" style="width: 25%">
+                <div class="flex justify-between">
+                    <div class="header pt-3 pb-4">
+                        <div class="left mr-3">
+                            <img src="/images/List.png" alt="InvoiceLogo" class="image-icon" />
+                        </div>
+                        <div class="right">
                             <h1 class="page-title">{{ $t('invoice') }}</h1>
                             <h3 class="text-white">
                                 <span class="green-text">{{ $t('invoice') }}</span> / {{ $t('InvoiceReview') }}
                             </h3>
                         </div>
+                    </div>
+                    <div class="flex pt-4">
                         <div class="buttons pt-3">
                             <button class="btn download-order" @click="downloadAllProofs">Download All Proofs <span class="mdi mdi-cloud-download"></span></button>
                             <button class="btn lock-order">Lock Order <span class="mdi mdi-lock"></span></button>
@@ -81,19 +83,23 @@
                                 <div class="btns flex gap-2">
                                     <div class="bt"><i class="fa-regular fa-pen-to-square"></i></div>
                                     <div class="bt" @click="toggleSpreadsheetMode"
-                                    :class="{'text-white': spreadsheetMode, 'green-text': !spreadsheetMode}"
+                                         :class="{'text-white': spreadsheetMode, 'green-text': !spreadsheetMode}"
                                     ><i class="fa-solid fa-table"></i></div>
-                                    <div class="bt"><i class="fa-solid fa-list-check"></i></div>
+                                    <div class="bt" @click="toggleJobProcessMode"
+                                        :class="{'text-white': !jobProcessMode, 'green-text': jobProcessMode}"
+                                    ><i class="fa-solid fa-list-check"></i></div>
                                     <div class="bt"><i class="fa-regular fa-eye"></i></div>
                                     <div class="bt"><i class="fa-regular fa-note-sticky"></i></div>
                                     <div class="bt"><i class="fa-solid fa-bars"></i></div>
 
                                 </div>
                             </div>
-
                             <div class="info pl-2">
                                 <div>{{ $t('Status') }}</div>
                                 <div>
+<!--
+                                    WE SHOULD BE CHECKING IF JOB STATUS IS COMPLETED TODO
+-->
                                     <span class="bold" :class="getStatusColorClass(invoice?.status)">{{ invoice?.status }}</span>
                                 </div>
                             </div>
@@ -101,8 +107,9 @@
                     </div>
                     <div class="form-container  light-gray mt-2">
                         <div class="sub-title pl-2 ">{{$t('OrderLines')}}</div>
+                        <div v-for="(job,index) in invoice.jobs">
                         <div class="jobDetails p-2" v-if="spreadsheetMode">
-                            <div v-for="(job,index) in invoice.jobs" class="border">
+                            <div class="border">
                                 <div class=" flex gap-10">
                                     <div class="invoice-title bg-white text-black bold p-3">
                                         #{{index+1}} {{job.name}}
@@ -132,7 +139,9 @@
                                     </div>
                                     <div>{{$t('totalm')}}<sup>2</sup>: <span class="bold">{{job.height * job.width}}</span></div>
                                 </div>
-
+                                <div class="flex" v-if="jobProcessMode">
+                                    <OrderJobDetails :job="job"/>
+                                </div>
                                 <div class="jobInfo relative">
                                     <div class="jobShippingInfo">
                                         <div class=" bg-white text-black bold ">
@@ -140,7 +149,7 @@
                                                 <img src="/images/shipping.png" class="w-10 h-10 pr-1" alt="Shipping">
                                                 {{$t('Shipping')}}
                                             </div>
-                                            <div class="ultra-light-gray p-2">
+                                            <div class="ultra-light-gray p-2 text-white">
                                                 {{$t('shippingTo')}}: <span class="bold">{{job.shippingInfo}}</span>
                                             </div>
                                         </div>
@@ -153,61 +162,9 @@
                                 </div>
                             </div>
                         </div>
-                        <div v-else class="spreadsheet">
-                            <div class="flex justify-end">
-                                <button @click="toggleEditMode" class="rounded text-black py-2 px-2 m-1"
-                                        :class="{ 'bg-white': !editMode, 'green text-white': editMode }">
-                                    {{ editMode ? 'Exit Edit Mode \u2612' : 'Edit Mode \u2610' }}
-                                </button>
-                                <button @click="saveChanges()" v-if="editMode" class="blue rounded text-white py-2 px-5 m-1">Save Changes<v-icon class="mdi mdi-check"></v-icon></button>
-                            </div>
-                            <table>
-
-                                <thead>
-                                <tr>
-                                    <th>Job Line</th>
-                                    <th>Job Name</th>
-                                    <th>File Name</th>
-                                    <th >Quantity</th>
-                                    <th>Dims (cm)</th>
-                                    <th>Scheduled Ship Date</th>
-                                    <th>Shipping Address</th>
-                                    <th>Job Status</th>
-                                    <th>Unit Price</th>
-                                    <th>Job Price</th>
-                                </tr>
-                                </thead>
-                                <tbody>
-                                <tr v-for="(job,index) in invoice.jobs" >
-                                    <td>#{{index+1}}</td>
-
-                                    <td v-if="editMode">
-                                        <input type="text" class="text-black" v-model="job.editableName" />
-                                    </td>
-                                    <td v-else>{{job.name}}</td>
-
-                                    <td>{{ job.file}}</td>
-                                    <td v-if="editMode">
-                                        <input type="text" class="text-black" v-model="job.editableQuantity" />
-                                    </td>
-                                    <td v-else>
-                                        {{job.quantity}}
-                                    </td>
-                                    <td>{{job.height}}x{{job.width}}</td>
-                                    <td>{{ invoice?.end_date}}</td>
-                                    <td>{{job.shippingInfo}}</td>
-                                    <td>{{job.status}}</td>
-                                    <td v-if="editMode">
-<!--                                        treba da se dodade proverka dali e small ili large material i stoto da se editira
-                                        job.materialsSmall.PricePerUnit ili job.materials.PricePerUnit-->
-                                        <input type="text" class="text-black" v-model="job.materials.editablePricePerUnit" />
-                                    </td>
-                                    <td v-else>{{job.materials.pricePerUnit}}</td>
-
-                                    <td>{{job.materials.pricePerUnit*job.quantity}}.ден</td>
-                                </tr>
-                                </tbody>
-                            </table>
+                        <div class="flex justify-center" v-else>
+                            <OrderSpreadsheet :job="job" :invoice="invoice"/>
+                        </div>
                         </div>
                     </div>
                 </div>
@@ -220,22 +177,23 @@
 import MainLayout from "@/Layouts/MainLayout.vue";
 import axios from "axios";
 import {useToast} from "vue-toastification";
+import OrderJobDetails from "@/Pages/Invoice/OrderJobDetails.vue";
+import OrderSpreadsheet from "@/Components/OrderSpreadsheet.vue";
 
 export default {
 
-    components: { MainLayout },
+    components: {OrderSpreadsheet, OrderJobDetails, MainLayout },
     data() {
         return {
             showImagePopover: false,
             selectedJob: null,
             isSidebarVisible: false,
-            editMode: false,
-            spreadsheetMode: true,
+            spreadsheetMode:true,
+            jobProcessMode:false
         }
     },
     computed: {
         getStatusColorClass() {
-            console.log(this.invoice);
             return (status) => {
                 if (status === "Not started yet") {
                     return "orange";
@@ -257,6 +215,12 @@ export default {
         },
         toggleSidebar() {
             this.isSidebarVisible = !this.isSidebarVisible;
+        },
+        toggleSpreadsheetMode(){
+            this.spreadsheetMode = !this.spreadsheetMode;
+        },
+        toggleJobProcessMode(){
+            this.jobProcessMode = !this.jobProcessMode;
         },
         async downloadAllProofs() {
             const toast = useToast();
@@ -284,36 +248,6 @@ export default {
                 toast.error('There was an error downloading the files: ', error);
             }
         },
-        toggleEditMode() {
-            this.editMode = !this.editMode;
-            if (this.editMode) {
-                this.invoice.forEach((job) => {
-                    if (!job.editableQuantity || !job.editableName ||
-                        !job.materials.editablePricePerUnit) {
-                        job.editableQuantity = job.quantity;
-                        job.editableName = job.name;
-                        job.materials.editablePricePerUnit = job.materials.pricePerUnit
-                    }
-                });
-            }
-        },
-        toggleSpreadsheetMode(){
-            this.spreadsheetMode = !this.spreadsheetMode;
-        },
-        async saveChanges() {
-            if (!this.editMode) {
-                // Exit edit mode
-                return;
-            }
-
-            // Handle the save changes action
-
-
-            // Reset the editable fields and exit edit mode
-
-            this.editMode = false;
-            window.location.reload();
-        },
     },
     props: {
         invoice: Object,
@@ -322,7 +256,15 @@ export default {
 </script>
 
 <style scoped lang="scss">
-
+.circle {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+}
+.flexed{
+    justify-content: center;
+    align-items: center;
+}
 .popover-content[data-v-19f5b08d]{
     background-color: #2d3748;
 }
@@ -355,6 +297,9 @@ export default {
 }
 .green{
     background-color: $green;
+}
+.background{
+    background-color: $background-color;
 }
 .header {
     display: flex;
