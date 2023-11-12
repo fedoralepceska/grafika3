@@ -9,21 +9,24 @@ return new class extends Migration
     /**
      * Run the migrations.
      */
-    public function up()
+    public function up(): void
     {
-        Schema::create('small_format_materials', function (Blueprint $table) {
+        Schema::create('small_material', function (Blueprint $table) {
             $table->id();
+            $table->foreignId('small_format_material_id')->constrained(); // This creates the foreign key
             $table->string('name');
-            $table->integer('quantity');
             $table->double('width');
             $table->double('height');
-            $table->decimal('price_per_unit', 10, 2)->nullable();
+            $table->integer('quantity');
             $table->timestamps();
         });
     }
 
-    public function down()
+    /**
+     * Reverse the migrations.
+     */
+    public function down(): void
     {
-        Schema::dropIfExists('small_format_materials');
+        Schema::dropIfExists('small_material');
     }
 };

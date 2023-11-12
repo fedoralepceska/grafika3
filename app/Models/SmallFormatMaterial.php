@@ -12,9 +12,15 @@ class SmallFormatMaterial extends Model
     protected $fillable = [
         'name',
         'quantity',
+        'width',
+        'height',
         'price_per_unit',
     ];
 
+    public function smallMaterials()
+    {
+        return $this->hasMany(SmallMaterial::class);
+    }
 
 
 }

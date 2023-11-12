@@ -7,6 +7,7 @@ use App\Http\Controllers\JobController;
 use App\Http\Controllers\LargeFormatMaterialController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\SmallFormatMaterialController;
+use App\Http\Controllers\SmallMaterialController;
 use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
@@ -79,24 +80,37 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::put('/jobs/{id}', [JobController::class, 'update'])->name('jobs.update');
 });
 
+//Routes For Small Format Materials
 Route::middleware(['auth', 'verified'])->group(function () {
-    Route::get('/SmallFormatMaterials', [SmallFormatMaterialController::class, 'index'])->name('materials.index');
+    Route::get('/materials-small-format', [SmallFormatMaterialController::class, 'index'])->name('materials-small-format.index');
     Route::get('/smallFormat/materials/create', [SmallFormatMaterialController::class, 'create'])->name('materials.create');
-    Route::post('/materials', [SmallFormatMaterialController::class, 'store'])->name('materials.store');
+    Route::post('/materials-small-format', [SmallFormatMaterialController::class, 'store'])->name('materials.store');
     Route::get('/materials/{material}/edit', [SmallFormatMaterialController::class, 'edit'])->name('materials.edit');
-    Route::put('/materials/{material}', [SmallFormatMaterialController::class, 'update'])->name('materials.update');
-    Route::delete('/materials/{material}', [SmallFormatMaterialController::class, 'destroy'])->name('materials.destroy');
+    Route::put('/materials-small-format/{material}', [SmallFormatMaterialController::class, 'update'])->name('materials.update');
+    Route::delete('/materials-small-format/{material}', [SmallFormatMaterialController::class, 'destroy'])->name('materials.destroy');
     Route::get('/contacts', [ContactController::class, 'index'])->name('contact.index');
+    Route::get('/get-sf-materials', [SmallFormatMaterialController::class, 'getSFMaterials'])->name('getSFMaterials');
 });
+
+//Routes For Small Materials
+Route::middleware(['auth', 'verified'])->group(function () {
+    Route::get('/materials-small', [SmallMaterialController::class, 'index'])->name('materials-small.index');
+    Route::get('/small/materials/create', [SmallMaterialController::class, 'create'])->name('materials.create');
+    Route::post('/materials-small', [SmallMaterialController::class, 'store'])->name('materials.store');
+    Route::get('/materials-small/{material}/edit', [SmallMaterialController::class, 'edit'])->name('materials.edit');
+    Route::put('/materials-small/{material}', [SmallMaterialController::class, 'update'])->name('materials.update');
+    Route::delete('/materials-small/{material}', [SmallMaterialController::class, 'destroy'])->name('materials.destroy');
+});
+
 
 //Rotues For Large Format Materials
 Route::middleware(['auth', 'verified'])->group(function () {
-    Route::get('/LargeFormatMaterials', [LargeFormatMaterialController::class, 'index'])->name('materials.index');
+    Route::get('/materials-large', [LargeFormatMaterialController::class, 'index'])->name('materials.index');
     Route::get('/largeFormat/materials/create', [LargeFormatMaterialController::class, 'create'])->name('materials.create');
-    Route::post('/materials', [LargeFormatMaterialController::class, 'store'])->name('materials.store');
+    Route::post('/materials-large', [LargeFormatMaterialController::class, 'store'])->name('materials.store');
     Route::get('/materials/{material}/edit', [LargeFormatMaterialController::class, 'edit'])->name('materials.edit');
-    Route::put('/materials/{material}', [LargeFormatMaterialController::class, 'update'])->name('materials.update');
-    Route::delete('/materials/{material}', [LargeFormatMaterialController::class, 'destroy'])->name('materials.destroy');
+    Route::put('/materials-large-format/{material}', [LargeFormatMaterialController::class, 'update'])->name('materials.update');
+    Route::delete('/materials-large-format/{material}', [LargeFormatMaterialController::class, 'destroy']);
     Route::get('/contacts', [ContactController::class, 'index'])->name('contact.index');
 });
 

@@ -26,12 +26,14 @@ class SmallFormatMaterialController extends Controller
         $validatedData = $request->validate([
             'name' => 'required|string',
             'quantity' => 'required|integer',
+            'width' => 'required',
+            'height' => 'required',
             'price_per_unit' => 'required|numeric',
         ]);
 
         SmallFormatMaterial::create($validatedData);
 
-        return redirect()->route('materials.index');
+        return Inertia::location(route('materials-small.index'));
     }
 
     public function edit(SmallFormatMaterial $material)
@@ -58,5 +60,10 @@ class SmallFormatMaterialController extends Controller
         $material->delete();
 
         return redirect()->route('materials.index');
+    }
+    public function getSFMaterials()
+    {
+        $materials = SmallFormatMaterial::all();
+        return $materials;
     }
 }

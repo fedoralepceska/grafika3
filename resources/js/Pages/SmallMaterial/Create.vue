@@ -7,7 +7,7 @@
                 </div>
                 <div class="right">
                     <h1 class="page-title">{{ $t('material') }}</h1>
-                    <h3 class="text-white"> <span class="green-text">{{ $t('material') }}</span> / {{ $t('addNewMaterialLarge') }}</h3>
+                    <h3 class="text-white"> <span class="green-text">{{ $t('material') }}</span> / {{ $t('addNewMaterialSmall') }}</h3>
                 </div>
             </div>
             <div class="dark-gray p-5">
@@ -22,12 +22,24 @@
                             <input type="text" id="name" class="text-gray-700" v-model="material.name" required>
                         </div>
                         <div class="form-group gap-4">
+                            <label for="width">{{ $t('width') }}:</label>
+                            <input type="number" id="width" class="text-gray-700" v-model="material.width" required>
+                        </div>
+                        <div class="form-group gap-4">
+                            <label for="height">{{ $t('height') }}:</label>
+                            <input type="number" id="height" class="text-gray-700" v-model="material.height" required>
+                        </div>
+                        <div class="form-group gap-4">
                             <label for="quantity">{{ $t('quantity') }}:</label>
                             <input type="number" id="quantity" class="text-gray-700" v-model="material.quantity" required>
                         </div>
                         <div class="form-group gap-4">
-                            <label for="price_per_unit">{{ $t('pricePerUnit') }}:</label>
-                            <input type="number" id="price_per_unit" class="text-gray-700" v-model="material.price_per_unit" required>
+                            <label for="format">{{ $t('format') }}:</label>
+                            <select v-model="material.small_format_material_id" class="select-fixed-width text-black">
+                                <option v-for="format in formatsSF" class="text-black" :key="format" :value="format.id">
+                                    {{ format.name }}
+                                </option>
+                            </select>
                         </div>
                         <!-- Other form fields... -->
                         <div class="button-container mt-10">
@@ -54,27 +66,37 @@ export default {
             material: {
                 name: '',
                 quantity: 0,
-                price_per_unit: 0
+                width: 0.0,
+                height: 0.0,
+                small_format_material_id: ''
             },
+            formatsSF: []
         };
+    },
+    async beforeMount() {
+        await this.getSFMaterials();
     },
     methods: {
         addMaterial() {
             const toast = useToast();
             axios.defaults.baseURL = "http://127.0.0.1:8000";
+            console.log(this.material)
             axios
-                .post('/materials-large', this.material)
+                .post('/materials-small', this.material)
                 .then((response) => {
-                    // Handle successful response
                     toast.success("Material added successfully.");
-                    this.$inertia.visit('/materials-large');
+                    this.$inertia.visit('/materials-small');
                 })
                 .catch((error) => {
-                    // Handle errors, including validation errors
-                    console.error('Error adding material:', error);
                     toast.error("Error adding material.");
                 });
         },
+        async getSFMaterials() {
+            axios.defaults.baseURL = "http://127.0.0.1:8000";
+            const response = await axios.get('/get-sf-materials');
+            this.formatsSF = response.data;
+            return response.data;
+        }
     },
 };
 </script>
@@ -144,6 +166,10 @@ export default {
     display: flex;
     justify-content: end;
 }
-
-
+.dimension {
+    margin-bottom: 10px;
+}
+.select-fixed-width {
+    width: 12.5rem;
+}
 </style>

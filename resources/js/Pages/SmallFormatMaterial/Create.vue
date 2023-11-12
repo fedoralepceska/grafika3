@@ -22,6 +22,14 @@
                             <input type="text" id="name" class="text-gray-700" v-model="material.name" required>
                         </div>
                         <div class="form-group gap-4">
+                            <label for="width">{{ $t('width') }}:</label>
+                            <input type="number" id="width" class="text-gray-700" v-model="material.width" required>
+                        </div>
+                        <div class="form-group gap-4">
+                            <label for="height">{{ $t('height') }}:</label>
+                            <input type="number" id="height" class="text-gray-700" v-model="material.height" required>
+                        </div>
+                        <div class="form-group gap-4">
                             <label for="quantity">{{ $t('quantity') }}:</label>
                             <input type="number" id="quantity" class="text-gray-700" v-model="material.quantity" required>
                         </div>
@@ -54,6 +62,8 @@ export default {
             material: {
                 name: '',
                 quantity: 0,
+                width: 0.0,
+                height: 0.0,
                 price_per_unit: 0
             },
         };
@@ -63,15 +73,12 @@ export default {
             const toast = useToast();
             axios.defaults.baseURL = "http://127.0.0.1:8000";
             axios
-                .post('/materials', this.material)
+                .post('/materials-small-format', this.material)
                 .then((response) => {
-                    // Handle successful response
-                    console.log('Material added successfully:', response.data);
                     toast.success("Material added successfully.");
+                    this.$inertia.visit('/materials-small-format');
                 })
                 .catch((error) => {
-                    // Handle errors, including validation errors
-                    console.error('Error adding material:', error);
                     toast.error("Error adding material.");
                 });
         },
@@ -144,6 +151,10 @@ export default {
     display: flex;
     justify-content: end;
 }
-
-
+.dimension {
+    margin-bottom: 10px;
+}
+.select-fixed-width {
+    width: 15rem;
+}
 </style>

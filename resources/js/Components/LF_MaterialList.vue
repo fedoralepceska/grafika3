@@ -90,7 +90,7 @@ export default {
             }
 
             try {
-                await axios.delete(`/materials/${material.id}`);
+                await axios.delete(`/materials-large-format/${material.id}`);
                 // Remove the material from the materials array
                 const index = this.materials.findIndex((m) => m.id === material.id);
                 if (index !== -1) {
@@ -114,7 +114,7 @@ export default {
                     material.editablePricePerUnit !== material.price_per_unit
                 ) {
                     try {
-                        const response = await axios.put(`/materials/${material.id}`, {
+                        const response = await axios.put(`/materials-large-format/${material.id}`, {
                             quantity: material.editableQuantity,
                             price_per_unit: material.editablePricePerUnit,
                         });

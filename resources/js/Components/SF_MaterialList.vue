@@ -23,8 +23,8 @@
                 <thead>
                 <tr>
                     <th>Name</th>
-                    <th >Quantity</th>
-                    <th>Price Per Unit</th>
+                    <th>Quantity</th>
+                    <th v-if="materials.editablePricePerUnit">Price Per Unit</th>
                     <th></th>
                 </tr>
                 </thead>
@@ -37,12 +37,14 @@
                     <td v-else>
                         {{material.quantity}}
                     </td>
-                    <td v-if="editMode">
-                        <input type="text" v-model="material.editablePricePerUnit"  class="text-black"/>
-                    </td>
-                    <td v-else>
-                        {{material.price_per_unit}}
-                    </td>
+                    <template v-if="material.price_per_unit">
+                        <td v-if="editMode">
+                            <input type="text" v-model="material.editablePricePerUnit"  class="text-black"/>
+                        </td>
+                        <td v-else>
+                            {{material.price_per_unit}}
+                        </td>
+                    </template>
                     <td class="centered">
                         <SecondaryButton @click="deleteMaterial(material)" class="delete">Delete</SecondaryButton>
                     </td>
@@ -90,7 +92,13 @@ export default {
             }
 
             try {
-                await axios.delete(`/materials/${material.id}`);
+                console.log(material);
+                if (material.price_per_unit) {
+                    await axios.delete(`/materials-small-format/${material.id}`);
+                }
+                else {
+                    await axios.delete(`/materials-small/${material.id}`);
+                }
                 // Remove the material from the materials array
                 const index = this.materials.findIndex((m) => m.id === material.id);
                 if (index !== -1) {
@@ -114,7 +122,7 @@ export default {
                     material.editablePricePerUnit !== material.price_per_unit
                 ) {
                     try {
-                        const response = await axios.put(`/materials/${material.id}`, {
+                        const response = await axios.put(`/materials-small-format/${material.id}`, {
                             quantity: material.editableQuantity,
                             price_per_unit: material.editablePricePerUnit,
                         });
