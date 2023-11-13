@@ -48,8 +48,7 @@
                                     <h2 class="sub-title uppercase">{{ $t('shippingDetails') }}</h2>
                                     <div class="form-group gap-4">
                                         <label for="start_date">{{ $t('startDate') }}:</label>
-                                        <input type="date" v-model="invoice.start_date" id="start_date" class="text-gray-700" required>
-                                    </div>
+                                        <input type="date" :value="invoice.start_date" id="start_date" class="text-gray-700" readonly required>                                    </div>
                                     <div class="form-group gap-4">
                                         <label for="end_date">{{ $t('endDate') }}:</label>
                                         <input type="date" v-model="invoice.end_date" id="end_date" class="text-gray-700 "  required>
@@ -216,7 +215,7 @@ export default {
     data() {
         return {
             invoice: {
-                start_date: '',
+                start_date: this.getCurrentDate(),
                 end_date: '',
                 client_id: '',
                 invoice_title: '',
@@ -248,6 +247,18 @@ export default {
       }
     },
     methods: {
+        getCurrentDate() {
+            const today = new Date();
+            const year = today.getFullYear();
+            let month = today.getMonth() + 1;
+            let day = today.getDate();
+
+            // Add leading zero if month or day is a single digit
+            month = month < 10 ? '0' + month : month;
+            day = day < 10 ? '0' + day : day;
+
+            return `${year}-${month}-${day}`;
+        },
         handleCommentUpdate(updatedComment) {
             this.invoice.comment = updatedComment;
         },
@@ -305,6 +316,13 @@ export default {
         },
 
         async submitForm() {
+            // Check if the device is currently online
+            if (!navigator.onLine) {
+                // Handle the case when the device is offline
+                const toast = useToast();
+                toast.error('No internet connection. Please check your connection and try again.');
+                return;
+            }
             this.invoice.status = "NOT_STARTED_YET";
             this.invoice.jobs = [];
             const toast = useToast();
@@ -317,7 +335,7 @@ export default {
                     height: job.height,
                     file: job.file,
                     id: job.id
-                }
+                };
                 this.invoice.jobs.push(finalJob);
             }
             try {
