@@ -52,7 +52,7 @@ class JobController extends Controller
                 $imagick = new Imagick();
                 $imagick->readImage($file->getPathname()); // Read the TIFF file
                 $imagick->setImageFormat('jpg'); // Convert TIFF to JPG (you can use other formats too)
-                $imageFilename = time() . '_' . pathinfo($pdfPath, PATHINFO_FILENAME) . '.jpg'; // Unique image file name
+                $imageFilename = pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME) . '.jpg'; // Unique image file name
                 $imagick->writeImage(storage_path('app/public/uploads/' . $imageFilename)); // Save the image
                 $imagick->clear();
 

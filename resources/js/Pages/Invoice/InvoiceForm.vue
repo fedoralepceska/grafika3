@@ -100,7 +100,7 @@
                                     <!--FILE INFO BEFORE SYNCING-->
                                     <div class=" text-white">
                                         <td class="text-black bg-gray-200 font-weight-black ">#{{ index + 1 }}</td>
-                                        <td>{{$t('name')}}: <input  type="text"></td>
+                                        <td> Name: <span class="bold">{{ job.file }}</span></td>
                                         <td>ID: <span class="bold">{{ job.id }}</span></td>
 
                                         <td>{{ $t('width') }}: <span class="bold">{{ job.width.toFixed(2) }}mm</span></td>
@@ -307,7 +307,7 @@ export default {
             this.showActions = !this.showActions;
         },
         actions(id) {
-            this.fetchJobs();
+            // this.fetchJobs();
             const job = this.newJobs.find(job => job.id === id);
             // Check if the job exists
             if (job) {
@@ -352,7 +352,8 @@ export default {
                 });
 
                 toast.success('Invoice created successfully');
-                this.$inertia.visit(`/invoices/${response.data.id}`, {
+                console.log(response);
+                this.$inertia.visit(`/invoices/${response.data.invoice.id}`, {
                     preserveState: true,
                     preserveScroll: true,
                 });
