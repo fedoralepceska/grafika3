@@ -23,6 +23,7 @@ return new class extends Migration
             $table->string('shippingInfo');
             $table->integer('quantity');
             $table->integer('copies');
+            $table->double('price');
             $table->enum('materials', Material::values())->nullable(); // Assuming you have an enum for Material
             $table->enum('materialsSmall', MaterialSmall::values())->nullable(); // Assuming you have an enum for MaterialSmall
             $table->enum('machineCut', MachineCut::values()); // Assuming you have an enum for MachineCut

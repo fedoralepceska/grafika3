@@ -17,6 +17,12 @@ class SmallMaterialController extends Controller
         ]);
     }
 
+    public function getSmallMaterials(): \Illuminate\Database\Eloquent\Collection
+    {
+        $materials = SmallMaterial::all();
+        return $materials;
+    }
+
     public function create()
     {
         return Inertia::render('SmallMaterial/Create');

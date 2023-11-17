@@ -162,7 +162,7 @@ export default {
                     height: response.data.height,
                     id: tempJob?.id, // Add other job details as needed
                     materials: tempJob?.materials,
-                    materialsSmall: tempJob?.materialsSmall,
+                    materialsSmall: tempJob?.small_material_id,
                     machinePrint: tempJob?.machinePrint,
                     machinesCut: tempJob?.machineCut,
                     quantity: tempJob?.quantity,
