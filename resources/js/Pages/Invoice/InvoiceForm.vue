@@ -372,6 +372,10 @@ export default {
 </script>
 
 <style scoped lang="scss">
+input[data-v-81b90cf3], select[data-v-81b90cf3]{
+    width: 25vh;
+    border-radius: 3px;
+}
 .bold{
     font-weight: bolder;
 }
