@@ -23,7 +23,7 @@ export default {
         const tabs = ref(slots.default())
         // probably not needed
         const tabTitles = ref(slots.default().map((tab)=> tab.props.title))
-        const selectedTitle = ref(tabTitles.value[0])
+        const selectedTitle = ref(tabTitles.value[1])
 
         provide("selectedTitle", selectedTitle)
         return{

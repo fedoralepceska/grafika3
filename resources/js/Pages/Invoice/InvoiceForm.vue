@@ -145,11 +145,17 @@
                                             </div>
                                         </td>
                                         <td>
-                                            {{ job.machineCut === null ? '' : $t('machineC') + ':' + $t(`machineCut.${job.machineCut}`) }}
+                                            <div v-if="job.machineCut">
+                                                {{  $t('machineC') }} : <span class="bold"> {{$t(`machineCut.${job.machineCut}`) }}</span>
+                                            </div>
                                         </td>
                                         <td>
-                                            {{ job.materials === null ? '' : $t('materialLargeFormat') + ':' + $t(`materials.${job.materials}`) }}
-                                            {{ job.materialsSmall === null ? '' : $t('materialLargeFormat') + ':' +  $t(`materialsSmall.${job.materialsSmall}`) }}
+                                            <div v-if="job.materials">
+                                                {{  $t('materialLargeFormat') }} : <span class="bold"> {{$t(`materials.${job.materials}`) }}</span>
+                                            </div>
+                                            <div v-if="job.materialsSmall">
+                                                {{  $t('materialSmallFormat') }} : <span class="bold"> {{$t(`materialsSmall.${job.materialsSmall}`) }}</span>
+                                            </div>
                                         </td>
                                     </div>
 
