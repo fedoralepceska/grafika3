@@ -20,7 +20,7 @@ class SmallMaterial extends Model
 
     public function smallFormatMaterial(): \Illuminate\Database\Eloquent\Relations\BelongsTo
     {
-        return $this->belongsTo(SmallFormatMaterial::class);
+        return $this->belongsTo(SmallFormatMaterial::class, 'small_format_material_id');
     }
 
     // Relationship with other SmallMaterials

@@ -179,15 +179,18 @@ class JobController extends Controller
         }
 
         // Validate and update the width and height
-        $this->validate($request, [
-            'width' => 'required',
-            'height' => 'required',
+        $validatedData = $request->validate([
+            'width' => 'sometimes|required|numeric',
+            'height' => 'sometimes|required|numeric',
+            'quantity' => 'sometimes|required|numeric'
         ]);
 
-        $job->update([
-            'width' => $request->input('width'),
-            'height' => $request->input('height'),
-        ]);
+        // Update the job with only the validated data that's present in the request
+        $job->update($request->only([
+            'width',
+            'height',
+            'quantity'
+        ]));
 
         return response()->json(['message' => 'Job updated successfully']);
     }

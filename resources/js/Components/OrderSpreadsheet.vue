@@ -12,7 +12,6 @@
             <tr>
                 <th>Job Line</th>
                 <th>Job Name</th>
-                <th>File Name</th>
                 <th >Quantity</th>
                 <th>Dims (cm)</th>
                 <th>Scheduled Ship Date</th>
@@ -25,12 +24,6 @@
             <tbody>
             <tr v-for="(job,index) in invoice.jobs" >
                 <td>#{{index+1}}</td>
-
-                <td v-if="editMode">
-                    <input type="text" class="text-black" v-model="job.editableName" />
-                </td>
-                <td v-else>{{job.name}}</td>
-
                 <td>{{ job.file}}</td>
                 <td v-if="editMode">
                     <input type="text" class="text-black" v-model="job.editableQuantity" />
@@ -42,14 +35,8 @@
                 <td>{{ invoice?.end_date}}</td>
                 <td>{{job.shippingInfo}}</td>
                 <td>{{job.status}}</td>
-                <td v-if="editMode">
-                    <!--                                        treba da se dodade proverka dali e small ili large material i stoto da se editira
-                                                            job.materialsSmall.PricePerUnit ili job.materials.PricePerUnit-->
-                    <input type="text" class="text-black" v-model="job.materials.editablePricePerUnit" />
-                </td>
-                <td v-else>{{job.materials.pricePerUnit}}</td>
-
-                <td>{{job.materials.pricePerUnit*job.quantity}}.ден</td>
+                <td>{{ job.small_material.small_format_material.price_per_unit }}.ден</td>
+                <td>{{job.totalPrice.toFixed(2)}}.ден</td>
             </tr>
             </tbody>
         </table>
@@ -75,11 +62,8 @@ export default {
             this.editMode = !this.editMode;
             if (this.editMode) {
                 this.invoice.forEach((job) => {
-                    if (!job.editableQuantity || !job.editableName ||
-                        !job.materials.editablePricePerUnit) {
+                    if (!job.editableQuantity) {
                         job.editableQuantity = job.quantity;
-                        job.editableName = job.name;
-                        job.materials.editablePricePerUnit = job.materials.pricePerUnit
                     }
                 });
             }
@@ -91,10 +75,28 @@ export default {
             }
 
             // Handle the save changes action
+            const promises = this.invoice.jobs.map(async (job) => {
+                if (
+                    job.editableQuantity !== job.quantity
+                ) {
+                    try {
+                        const response = await axios.put(`/jobs/${job.id}`, {
+                            quantity: job.editableQuantity,
+                        });
+                        // Update the material with the response data
+                        job.quantity = response.data.quantity;
+                    } catch (error) {
+                        console.error('Error updating job:', error);
+                    }
+                }
+            });
 
+            await Promise.all(promises);
 
             // Reset the editable fields and exit edit mode
-
+            this.invoice.jobs.forEach((job) => {
+                job.editableQuantity = null;
+            });
             this.editMode = false;
             window.location.reload();
         },

@@ -107,8 +107,7 @@ class InvoiceController extends Controller
     }
     public function show($id)
     {
-        $invoice = Invoice::with(['jobs', 'historyLogs', 'user', 'client'])->findOrFail($id);
-
+        $invoice = Invoice::with(['jobs.small_material.smallFormatMaterial', 'historyLogs', 'user', 'client'])->findOrFail($id);
         // Append the totalPrice attribute to each job
         $invoice->jobs->each(function ($job) {
             $job->append('totalPrice');
