@@ -22,9 +22,9 @@
                                 <p><strong>Client:</strong> {{ invoice.client.name }}</p>
                                 <!-- Add other invoice details here -->
                             </div>
-                            <div class="status">
-                                <p>{{ invoice.status }}</p>
-                            </div>
+                        </div>
+                        <div class="status" :style="{ background: statusColor(invoice.status) }">
+                            <p>{{ invoice.status }}</p>
                         </div>
                     </div>
                 </div>
@@ -59,6 +59,16 @@ export default {
             const invoice = this.latestInvoices.find(i => i.id === invoiceId);
             console.log(invoice);
             return `/storage/uploads/${invoice.jobs.find(j => j.id === id).file}`
+        },
+        statusColor(status) {
+            switch(status) {
+                case 'Not started yet':
+                    return "#a36a03"
+                case 'In progress':
+                    return '#0073a9'
+                case 'Completed':
+                    return '#408a0b'
+            }
         }
     },
     mounted() {
@@ -123,9 +133,16 @@ export default {
 .box {
     display: flex;
     flex-direction: row;
+    margin-bottom: 1rem;
 }
 
 .body {
     padding: 1rem;
+    color: $white;
+}
+
+.status {
+    color: $white;
+    padding: 0.5rem;
 }
 </style>
