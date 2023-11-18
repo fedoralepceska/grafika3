@@ -54,7 +54,7 @@
 
 <script>
 import axios from 'axios';
-import PrimaryButton from "@/Components/PrimaryButton.vue";
+import PrimaryButton from "@/Components/buttons/PrimaryButton.vue";
 import MainLayout from "@/Layouts/MainLayout.vue";
 import { useToast } from "vue-toastification";
 

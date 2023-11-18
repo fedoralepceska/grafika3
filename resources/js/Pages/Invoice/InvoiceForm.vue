@@ -204,7 +204,7 @@
 <script>
 import axios from 'axios';
 import MainLayout from "@/Layouts/MainLayout.vue";
-import PrimaryButton from "@/Components/PrimaryButton.vue";
+import PrimaryButton from "@/Components/buttons/PrimaryButton.vue";
 import DragAndDrop from "@/Components/DragAndDrop.vue";
 import {useToast} from "vue-toastification";
 import OrderInfo from "@/Components/OrderInfo.vue";

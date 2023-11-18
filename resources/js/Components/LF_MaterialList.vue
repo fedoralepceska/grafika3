@@ -54,8 +54,8 @@
 </template>
 
 <script>
-import PrimaryButton from "@/Components/PrimaryButton.vue";
-import SecondaryButton from "@/Components/SecondaryButton.vue";
+import PrimaryButton from "@/Components/buttons/PrimaryButton.vue";
+import SecondaryButton from "@/Components/buttons/SecondaryButton.vue";
 import axios from "axios";
 
 

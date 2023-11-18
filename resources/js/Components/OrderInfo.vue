@@ -116,9 +116,9 @@
 
 <script>
 import { useI18n } from 'vue-i18n';
-import PrimaryButton from "@/Components/PrimaryButton.vue";
+import PrimaryButton from "@/Components/buttons/PrimaryButton.vue";
 import { useToast } from "vue-toastification";
-import SecondaryButton from "@/Components/SecondaryButton.vue";
+import SecondaryButton from "@/Components/buttons/SecondaryButton.vue";
 import Multiselect from '@vueform/multiselect'
 import "@vueform/multiselect/themes/default.css";
 import store from '../orderStore.js';

@@ -1,9 +1,9 @@
 <script setup>
 import GuestLayout from '@/Layouts/GuestLayout.vue';
-import InputError from '@/Components/InputError.vue';
-import InputLabel from '@/Components/InputLabel.vue';
-import PrimaryButton from '@/Components/PrimaryButton.vue';
-import TextInput from '@/Components/TextInput.vue';
+import InputError from '@/Components/inputs/InputError.vue';
+import InputLabel from '@/Components/inputs/InputLabel.vue';
+import PrimaryButton from '@/Components/buttons/PrimaryButton.vue';
+import TextInput from '@/Components/inputs/TextInput.vue';
 import { Head, useForm } from '@inertiajs/vue3';
 
 defineProps({
