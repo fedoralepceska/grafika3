@@ -71,7 +71,7 @@ class JobController extends Controller
                 $imagick->setOption('gs', "C:\Program Files\gs\gs10.02.0");
                 $imagick->readImage($file->getPathname() . '[0]'); // Read the first page of the PDF
                 $imagick->setImageFormat('jpg'); // Convert PDF to JPG (you can use other formats too)
-                $imageFilename = time() . '_' . pathinfo($pdfPath, PATHINFO_FILENAME) . '.jpg'; // Unique image file name
+                $imageFilename = pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME) . '.jpg'; // Unique image file name
                 $imagick->writeImage(storage_path('app/public/uploads/' . $imageFilename)); // Save the image
                 $imagick->clear();
 
