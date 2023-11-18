@@ -40,8 +40,8 @@
 
 <script>
 import { useToast } from 'vue-toastification';
-import Tab from "@/Components/Tab.vue";
-import TabsWrapper from "@/Components/TabsWrapper.vue";
+import Tab from "@/Components/tabs/Tab.vue";
+import TabsWrapper from "@/Components/tabs/TabsWrapper.vue";
 import pdfjsLib from 'pdfjs-dist';
 
 export default {

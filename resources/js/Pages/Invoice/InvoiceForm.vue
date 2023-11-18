@@ -75,7 +75,7 @@
                             <Tab title="ADD" icon="mdi mdi-plus-circle">
                                 <TabsWrapperV2>
                                     <TabV2 title="Manual" icon="mdi mdi-gesture-tap">
-                                        <OrderInfo v-if="$refs.dragAndDrop?.jobs?.length > 0" @jobs-updated="updateJobs" :jobs="$refs.dragAndDrop.jobs"/>
+                                        <OrderInfo @jobs-updated="updateJobs" :jobs="$refs.dragAndDrop.jobs"/>
                                     </TabV2>
                                     <TabV2 title="From Catalog" icon="mdi mdi-book-open-variant">
 
@@ -208,10 +208,10 @@ import PrimaryButton from "@/Components/PrimaryButton.vue";
 import DragAndDrop from "@/Components/DragAndDrop.vue";
 import {useToast} from "vue-toastification";
 import OrderInfo from "@/Components/OrderInfo.vue";
-import TabsWrapper from "@/Components/TabsWrapper.vue";
-import Tab from "@/Components/Tab.vue";
-import TabV2 from "@/Components/TabV2.vue";
-import TabsWrapperV2 from "@/Components/TabsWrapperV2.vue";
+import TabsWrapper from "@/Components/tabs/TabsWrapper.vue";
+import Tab from "@/Components/tabs/Tab.vue";
+import TabV2 from "@/Components/tabs/TabV2.vue";
+import TabsWrapperV2 from "@/Components/tabs/TabsWrapperV2.vue";
 import store from '../../orderStore.js';
 
 
