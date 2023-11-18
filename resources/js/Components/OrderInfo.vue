@@ -4,11 +4,13 @@
             <div>
                 <label class="text-white">{{ $t('syncJobs') }}</label>
                 <div>
-                    <select v-model="selectedJobs" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" multiple>
-                        <option v-for="(job, index) in jobs" :key="index" :value="job">
-                            #{{ index + 1 }}
-                        </option>
-                    </select>
+                        <v-select
+                            id="#select"
+                            multiple
+                            v-model="selectedJobs"
+                            :items="formattedJobOptions"
+                            class="select"
+                        ></v-select>
                 </div>
             </div>
         </div>
@@ -92,11 +94,13 @@
         <div>
             <label class="text-white">{{ $t('syncJobs') }}</label>
             <div>
-                <select v-model="selectedJobs" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" multiple>
-                    <option v-for="(job, index) in jobs" :key="index" :value="job">
-                        #{{ index + 1 }}
-                    </option>
-                </select>
+                <v-select
+                    id="#select"
+                    multiple
+                    v-model="selectedJobs"
+                    :items="formattedJobOptions"
+                    class="select"
+                ></v-select>
             </div>
         </div>
         <div class="button-container rowButtons">
@@ -121,7 +125,7 @@ import store from '../orderStore.js';
 
 export default {
     name: "OrderInfo",
-    components: { Multiselect,SecondaryButton, PrimaryButton },
+    components: { Multiselect, SecondaryButton, PrimaryButton },
     props: {
         jobs: Array,
         shippingDetails: String,
@@ -144,6 +148,11 @@ export default {
             materialsSmall: this.generateMaterialsSmall(),
             machinesPrint: this.generateMachinesPrint(),
             machinesCut: this.generateMachinesCut()
+        }
+    },
+    computed: {
+        formattedJobOptions() {
+            return this.jobs.map((job, index) => ({ value: job, title: `#${index + 1}` }));
         }
     },
     methods: {
@@ -341,6 +350,43 @@ input, select, .multiselect {
     display: flex;
     flex-direction: row;
     justify-content: space-between;
+}
+
+.v-select:hover .v-select__selections {
+    background-color: $light-gray !important;
+}
+.theme--light.v-menu .v-list-item--link:hover {
+    background-color: $light-gray !important;
+}
+
+/* To change the text color of the options when hovered */
+.theme--light.v-menu .v-list-item--link:hover .v-list-item__content {
+    color: $light-gray !important;
+}
+     /* Light theme styling for the dropdown content */
+ .theme--light #select .v-menu__content {
+     background-color: white !important; /* Set dropdown background to white */
+     color: black !important; /* Set dropdown text color to black */
+ }
+
+/* Light theme styling for the dropdown items */
+.theme--light #select .v-list-item {
+    background-color: white !important; /* Set option background to white */
+    color: black !important; /* Set option text color to black */
+}
+
+/* Light theme styling for the dropdown items on hover */
+.theme--light #select .v-list-item:hover {
+    background-color: #f5f5f5 !important; /* Light grey background for hovered items */
+    color: black !important; /* Maintain text color on hover */
+}
+
+.v-input__control {
+    background-color: white;
+}
+
+.v-input__control:hover {
+    background-color: white;
 }
 
 </style>

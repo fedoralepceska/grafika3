@@ -27,6 +27,7 @@
         "pdfjs": "^2.5.2",
         "pdfjs-dist": "^3.11.174",
         "vue-i18n": "^9.5.0",
+        "vue-select": "^4.0.0-beta.6",
         "vue-sidebar-menu": "^5.2.11",
         "vue-toastification": "^2.0.0-rc.5",
         "vuetify": "^3.3.22",
