@@ -108,6 +108,11 @@ class InvoiceController extends Controller
     {
         $invoice = Invoice::with(['jobs', 'historyLogs', 'user', 'client'])->findOrFail($id);
 
+        // Append the totalPrice attribute to each job
+        $invoice->jobs->each(function ($job) {
+            $job->append('totalPrice');
+        });
+
         return Inertia::render('Invoice/InvoiceDetails', [
             'invoice' => $invoice,
         ]);

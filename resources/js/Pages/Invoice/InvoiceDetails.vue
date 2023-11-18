@@ -156,7 +156,7 @@
                                         </div>
                                         <div class="jobPriceInfo absolute right-0 bottom-0 bg-white text-black bold">
                                             <div class="p-2">
-                                                {{$t('jobPrice')}}: <span class="bold">{{job.pricePerUnit*job.quantity}}.ден</span>
+                                                {{$t('jobPrice')}}: <span class="bold">{{job.totalPrice}} ден</span>
                                             </div>
                                         </div>
                                     </div>
