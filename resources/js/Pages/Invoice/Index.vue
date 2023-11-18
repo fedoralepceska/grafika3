@@ -14,9 +14,44 @@
             <div class="dark-gray p-2 text-white">
                 <div class="form-container p-2 ">
                     <h2 class="sub-title">
-                        {{ $t('listOfAllInvoices') }}
+                        {{ $t('listOfAllOrders') }}
                     </h2>
-                    <div class="border mb-1" v-for="invoice in invoices" :key="invoice.id">
+                    <div class="filter-container flex gap-4 pb-10">
+                        <div class="search">
+                            <label class="pr-3">Search orders </label>
+                            <input v-model="searchQuery" @input="applyFilter" placeholder="Enter order number or order name" class="text-black" style="width: 50vh; border-radius: 4px" />
+                        </div>
+                        <div class="status">
+                            <label class="pr-3">Filter orders</label>
+                            <select v-model="filterStatus" @change="applyFilter" class="text-black" >
+                                <option value="All" hidden>Status</option>
+                                <option value="All">All</option>
+                                <option value="Not started yet">Not started yet</option>
+                                <option value="In Progress">In Progress</option>
+                                <option value="Completed">Completed</option>
+                            </select>
+                        </div>
+                        <div class="client">
+                            <select v-model="filterClient" @change="applyFilter" class="text-black">
+                                <option value="All" hidden>Clients</option>
+                                <option value="All">All Clients</option>
+                                <option v-for="client in uniqueClients" :key="client">{{ client }}</option>
+                            </select>
+                        </div>
+                        <div class="date">
+                            <select v-model="sortOrder" @change="applyFilter" class="text-black">
+                                <option value="desc" hidden>Date</option>
+                                <option value="desc">Newest to Oldest</option>
+                                <option value="asc">Oldest to Newest</option>
+                            </select>
+                        </div>
+                        <div class="button">
+                            <button @click="navigateToCreateOrder" class="btn create-order">
+                                Create Order <i class="fa fa-plus"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="border mb-1" v-for="invoice in filteredInvoices" :key="invoice.id">
                         <div class="bg-white text-black flex justify-between">
                             <div class="p-2 bold">{{invoice.invoice_title}}</div>
                             <button class="flex items-center p-1" @click="viewInvoice(invoice.id)">
@@ -61,6 +96,33 @@ export default {
     props: {
         invoices: Array,
     },
+    data(){
+        return{
+            filterStatus:"All",
+            filterClient:"All",
+            searchQuery: "",
+            ortBy: "created_at",
+            sortOrder: "desc",
+        }
+    },
+    computed: {
+        filteredInvoices() {
+            const sortedInvoices = this.invoices.slice().sort((a, b) => {
+                const order = this.sortOrder === "asc" ? 1 : -1;
+                return order * (new Date(a.created_at) - new Date(b.created_at));
+            });
+
+            return sortedInvoices.filter(invoice => {
+                const statusCondition = this.filterStatus === "All" || invoice.status === this.filterStatus;
+                const clientCondition = this.filterClient === "All" || invoice.client.name === this.filterClient;
+                const searchCondition = !this.searchQuery || invoice.id.toString().includes(this.searchQuery) || invoice.invoice_title.toString().includes(this.searchQuery) ;
+                return statusCondition && clientCondition && searchCondition;
+            });
+        },
+        uniqueClients() {
+            return Array.from(new Set(this.invoices.map(invoice => invoice.client.name)));
+        },
+    },
     methods: {
         getStatusColorClass(status) {
             if (status === "Not started yet") {
@@ -71,13 +133,23 @@ export default {
                 return "green-text";
             }
         },
+        applyFilter() {
+            // Optionally, you can fetch filtered data from the server here
+        },
         viewInvoice(id) {
             this.$inertia.visit(`/invoices/${id}`);
+        },
+        navigateToCreateOrder(){
+            this.$inertia.visit(`/invoices/create`);
         }
     },
 };
 </script>
 <style scoped lang="scss">
+select{
+    width: 25vh;
+    border-radius: 3px;
+}
 .orange{
     color: $orange;
 }
@@ -136,6 +208,17 @@ export default {
 .button-container{
     display: flex;
     justify-content: end;
+}
+.btn {
+    padding: 9px 12px;
+    border: none;
+    cursor: pointer;
+    font-weight: bold;
+    border-radius: 2px;
+}
+.create-order{
+    background-color: $blue;
+    color: white;
 }
 </style>
 

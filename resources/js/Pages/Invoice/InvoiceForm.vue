@@ -352,7 +352,7 @@ export default {
                 });
 
                 toast.success('Invoice created successfully');
-                this.$inertia.visit(`/invoices/${response.data.id}`, {
+                this.$inertia.visit(`/invoices/${invoice.id}`, {
                     preserveState: true,
                     preserveScroll: true,
                 });

@@ -16,16 +16,16 @@ export default {
                 },
                 {
                     href: '',
-                    title: 'Invoice',
+                    title: 'Order',
                     icon: 'fas fa-receipt',
                     child: [
                         {
                             href: '/invoices',
-                            title: 'View all invoices',
+                            title: 'View all orders',
                         },
                         {
                             href: '/invoices/create',
-                            title: 'Create Invoice',
+                            title: 'Create Order',
                         },
                     ],
                 },

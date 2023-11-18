@@ -12,10 +12,10 @@ const messages = {
         clientDetails: 'Client details',
         addNewClient :'Add new client',
         addClient: 'Add client',
-        invoice: 'Invoice',
-        invoiceTitle: 'Invoice title',
-        createNewInvoice: 'Create new invoice',
-        createInvoice: 'Create invoice',
+        invoice: 'Order',
+        invoiceTitle: 'Order title',
+        createNewInvoice: 'Create new order',
+        createInvoice: 'Create order',
         comment: 'Comment',
         shippingDetails: 'Shipping details',
         startDate: 'Start date',
@@ -28,8 +28,8 @@ const messages = {
         width: 'Width',
         height: 'Height',
         toast: {
-            success: 'Successfully created invoice.',
-            error: 'Failed to create invoice.'
+            success: 'Successfully created order.',
+            error: 'Failed to create order.'
         },
         material: 'Material',
         materials: {
@@ -175,10 +175,10 @@ const messages = {
         contact: 'Contact',
         contacts: 'Contacts',
         otherContacts: 'Other contacts',
-        listOfAllInvoices: 'List Of All Invoices', //MKTODO
-        ViewAllInvoices: 'View All Invoices', //MKTODO
-        InvoiceDetails: 'Invoice Details', //MKTODO
-        InvoiceReview: 'Invoice Review', //MKDTO
+        listOfAllOrders: 'List Of All Orders', //MKTODO
+        ViewAllInvoices: 'View All Orders', //MKTODO
+        InvoiceDetails: 'Order Details', //MKTODO
+        InvoiceReview: 'Order Review', //MKDTO
         totalm: 'Total m', //MKTODO
         shippingTo: 'Shipping To', //MKTODO
         jobPrice: 'Job Price', //MKTODO
