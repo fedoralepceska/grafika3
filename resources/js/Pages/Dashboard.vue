@@ -2,18 +2,125 @@
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import MainLayout from "@/Layouts/MainLayout.vue";
 import { Head } from '@inertiajs/vue3';
+import LatestOrders from "@/Pages/Invoice/LatestOrders.vue";
+import StatusBox from "@/Components/StatusBox.vue";
 </script>
 
 <template>
     <Head title="Dashboard" />
 
     <MainLayout>
-        <div class="py-12">
-            <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
-                <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
-                    <div class="p-6 text-gray-900">You're logged in!</div>
-                </div>
+        <div class="status-boxes">
+            <StatusBox icon="fa-solid fa-gear fa-2xl" title="All jobs not shipped" number="0" color="#1497D5"/>
+            <StatusBox icon="fa-solid fa-cart-shopping fa-2xl" title="Entered today" :number="invoicesToday" color="#E6AE49"/>
+            <StatusBox icon="fa-solid fa-truck fa-2xl" title="Shipping today" number="0" color="#1497D5"/>
+            <StatusBox icon="fa-solid fa-triangle-exclamation fa-2xl" title="> 7 days old: NOT shipped" number="0" color="#A53D3F"/>
+        </div>
+        <div class="flex" style="padding: 30px">
+            <nav class="sidebar-menu">
+                <a href="/invoices/create" class="menu-item">
+                    <span class="fa-solid fa-plus"></span>
+                    <span class="text">NEW ORDER</span>
+                </a>
+                <a href="#" class="menu-item">
+                    <span class="fa-solid fa-gear"></span>
+                    <span class="text">SELECT MACHINE</span>
+                </a>
+                <a href="/clients/create" class="menu-item">
+                    <span class="fa-solid fa-plus"></span>
+                    <span class="text">NEW CUSTOMER</span>
+                </a>
+                <a href="/invoices" class="menu-item">
+                    <span class="fa-regular fa-folder"></span>
+                    <span class="text">OM DASHBOARD</span>
+                </a>
+                <a href="#" class="menu-item">
+                    <span class="fa-solid fa-circle-info"></span>
+                    <span class="text">PRODUCTION DASHBOARD</span>
+                </a>
+            </nav>
+            <div class="px-12">
+                <LatestOrders></LatestOrders>
             </div>
         </div>
+
     </MainLayout>
 </template>
+<script>
+export default {
+    data() {
+        return {
+            invoicesToday: 0
+        }
+    },
+    created() {
+        this.fetchInvoicesToday();
+    },
+    methods: {
+        fetchInvoicesToday() {
+            axios.get('/invoices/today/count') // Replace with your actual API endpoint
+                .then(response => {
+                    this.invoicesToday = response.data.count; // Adjust according to the response structure
+                })
+                .catch(error => {
+                    console.error('Error fetching the number of today\'s invoices:', error);
+                    // Handle the error appropriately
+                });
+        }
+    }
+}
+</script>
+<style scoped lang="scss">
+.status-boxes {
+    display: flex;
+    justify-content: space-around;
+    padding: 20px;
+    width: 100%;
+}
+.sidebar-menu {
+    background-color: $background-color; /* Dark background */
+    color: white;
+    padding: 0;
+    list-style: none;
+    width: fit-content;
+}
+
+.menu-item {
+    display: flex;
+    align-items: center;
+    padding: 10px 20px;
+    text-decoration: none;
+    color: white;
+    background-color: $light-gray; /* Slightly lighter than the sidebar for contrast */
+    border-bottom: 1px solid #555; /* Slight separation between items */
+    height: 100px;
+    margin-bottom: 20px;
+}
+
+.menu-item .icon {
+    margin-right: 10px;
+    /* Optionally, you can add a font-family if you're using a specific icon set */
+}
+
+.menu-item .text {
+    font-size: 1em;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+/* Hover effect */
+.menu-item:hover {
+    background-color: $dark-gray;
+}
+.text {
+    margin-left: 10px;
+}
+
+.flex {
+    display: flex;
+    flex-direction: row;
+}
+
+/* Adjustments for responsive design or specific styling might be necessary. */
+
+</style>

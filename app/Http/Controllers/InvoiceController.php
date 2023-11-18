@@ -8,6 +8,7 @@ use App\Models\Client;
 use App\Models\Invoice;
 use App\Models\Job;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -112,7 +113,6 @@ class InvoiceController extends Controller
         $invoice->jobs->each(function ($job) {
             $job->append('totalPrice');
         });
-
         return Inertia::render('Invoice/InvoiceDetails', [
             'invoice' => $invoice,
         ]);
@@ -175,5 +175,21 @@ class InvoiceController extends Controller
             // Handle the case where the ZIP could not be created
             return response()->json(['message' => 'Could not create zip file'], 500);
         }
+    }
+
+    public function latest()
+    {
+        $invoices = Invoice::with(['jobs', 'historyLogs', 'user', 'client'])
+            ->latest()
+            ->take(3)
+            ->get();
+
+        // Assuming each job has an 'image' attribute
+        return response()->json($invoices);
+    }
+
+    public function countToday() {
+        $count = Invoice::whereDate('created_at', Carbon::today())->count();
+        return response()->json(['count' => $count]);
     }
 }

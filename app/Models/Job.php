@@ -32,7 +32,6 @@ class Job extends Model
         'status',
         'quantity',
         'copies',
-        'price'
     ];
 
     protected $attributes = [
@@ -62,26 +61,35 @@ class Job extends Model
 
     public function getTotalPriceAttribute(): float|int
     {
-        // Ensure the small material and its related small format material are loaded.
-        $smallMaterial = $this->small_material()->with('smallFormatMaterial')->firstOrFail();
+        // Check if the small material is set
+        $smallMaterial = $this->small_material()->with('smallFormatMaterial')->first();
+
+        if ($smallMaterial === null) {
+            // Return a default value if no small material is set
+            return 0;
+        }
+
         // Calculate the number of used materials.
         $baseQuantity = $this->quantity;
         $materialQuantity = $smallMaterial->quantity;
         $usedMaterialResult = fdiv($baseQuantity, $materialQuantity);
+
         // Determine the remainder to adjust the count of used materials.
         $remainder = $baseQuantity % $materialQuantity;
-        if($remainder > 0) {
+        if ($remainder > 0) {
             $usedMaterialResult += ($remainder <= ($materialQuantity * 0.5)) ? 0.5 : 1;
         }
 
         // Calculate the total price.
         $PricePerMaterial = $smallMaterial->smallFormatMaterial->price_per_unit / $materialQuantity;
         $totalPrice = $PricePerMaterial * $usedMaterialResult * $this->copies;
+
         // Update the remaining quantity of small format materials.
         $usedFormats = $usedMaterialResult * $this->copies;
         $smallMaterial->smallFormatMaterial->decrement('quantity', $usedFormats);
-        $this -> price = 2.2;
+
         return $totalPrice;
     }
+
 
 }
