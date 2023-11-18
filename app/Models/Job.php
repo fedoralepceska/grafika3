@@ -12,6 +12,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Http\Request;
 
 class Job extends Model
 {
@@ -30,7 +31,8 @@ class Job extends Model
         'machinePrint',
         'status',
         'quantity',
-        'copies'
+        'copies',
+        'price'
     ];
 
     protected $attributes = [
@@ -51,5 +53,21 @@ class Job extends Model
     public function invoices(): BelongsToMany
     {
         return $this->belongsToMany(Invoice::class);
+    }
+
+    public function getTotalPriceAttribute(){
+        $usedMaterialRemainder = $this -> materialsSmall -> quantity / ($this -> materialsSmall -> quantity % 1);
+        $usedMaterialResult = floor( $this -> smallMaterial -> quantity / $this -> materialsSmall -> quantity);
+        if($usedMaterialRemainder < 0.5){
+            $usedMaterialRemainder = 0.5;
+        }elseif ($usedMaterialRemainder > 0.5){
+            $usedMaterialRemainder = 1;
+        }
+        $usedMaterialResult = $usedMaterialResult + $usedMaterialRemainder;
+        $usedMaterialsForJob = $usedMaterialResult *  $this -> materialsSmall -> quantity;
+        $PricePerMaterial = $this -> materialsSmall -> smallFormatMaterial -> price_per_unit / $this -> materialsSmall -> quantity;
+        $totalPrice = $PricePerMaterial * $usedMaterialsForJob * $this -> copies;
+        $usedFormats = $usedMaterialResult * $this -> copies;
+        $this -> materialsSmall -> smallFormatMaterial -> quantity = $this -> materialsSmall -> smallFormatMaterial -> quantity - $usedFormats;
     }
 }

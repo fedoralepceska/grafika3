@@ -34,7 +34,7 @@
             <div class="form-group mt-2 p-2 text-black sameRow">
                 <label class="label-fixed-width">{{ $t('material') }}</label>
                 <select v-model="selectedMaterial" :disabled="selectedMaterialSmall !== ''" class="select-fixed-width">
-                    <option v-for="material in materials" :key="material" :value="material">
+                    <option v-for="material in materials" :key="material.id" :value="material.id">
                         {{ $t(`materials.${material}`) }}
                     </option>
                 </select>
@@ -45,7 +45,7 @@
                 <label class="label-fixed-width">{{ $t('materialSmallFormat') }}</label>
                 <select v-model="selectedMaterialSmall" :disabled="selectedMaterial !== ''" class="select-fixed-width">
                     <option v-for="material in materialsSmall" :key="material" :value="material">
-                        {{ $t(`materialsSmall.${material}`) }}
+                        {{ material.name }} - {{ material.format }}
                     </option>
                 </select>
                 <button v-if="selectedMaterialSmall !== ''" @click="clearSelection('selectedMaterialSmall')" class="removeBtn"><span class="mdi mdi-minus-circle"></span></button>
@@ -168,12 +168,15 @@ export default {
             }
             return materials;
         },
-        generateMaterialsSmall() {
-            const materials = [];
-            for (let i = 1; i <= 34; i++) {
-                materials.push(`Material small ${i}`);
-            }
-            return materials;
+        async generateMaterialsSmall() {
+            const response = await axios.get('/get-materials-small');
+            console.log(response);
+            this.materialsSmall = response.data;
+            // const materials = [];
+            // for (let i = 1; i <= 34; i++) {
+            //     materials.push(`Material small ${i}`);
+            // }
+            // return materials;
         },
         generateActionOptions() {
             const actions = [];
@@ -219,7 +222,7 @@ export default {
                 selectedMaterial: this.selectedMaterial,
                 selectedMachinePrint: this.selectedMachinePrint,
                 selectedMachineCut: this.selectedMachineCut,
-                selectedMaterialsSmall: this.selectedMaterialSmall,
+                selectedMaterialsSmall: this.selectedMaterialSmall.id,
                 quantity: this.quantity,
                 copies: this.copies,
                 shipping: store.state.shippingDetails,

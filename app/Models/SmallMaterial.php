@@ -29,21 +29,7 @@ class SmallMaterial extends Model
         return $this->hasMany(SmallMaterial::class, 'small_format_material_id', 'small_format_material_id');
     }
 
-    // price for job
-    public function getTotalPriceAttribute(Job $job)
-    {
-        // Calculate total quantity needed for small materials
-        $totalQuantity = $job->copies * $this->quantity;
-
-        // Calculate total number of formats needed
-        $totalFormats = ceil($totalQuantity / $this->smallMaterialFormat->quantity);
-
-        // Calculate total price
-        $totalPrice = $totalFormats * $this->smallMaterialFormat->price_per_unit;
-
-        // Add 5% to the total price
-        $finalPrice = $totalPrice * 1.05;
-
-        return $finalPrice;
+    public function format() {
+        return $this->belongsTo(SmallFormatMaterial::class, 'small_format_material_id');
     }
 }

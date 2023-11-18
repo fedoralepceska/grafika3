@@ -107,64 +107,64 @@
                     </div>
                     <div class="form-container  light-gray mt-2">
                         <div class="sub-title pl-2 ">{{$t('OrderLines')}}</div>
-                        <div v-for="(job,index) in invoice.jobs">
-                        <div class="jobDetails p-2" v-if="spreadsheetMode">
-                            <div class="border">
-                                <div class=" flex gap-10">
-                                    <div class="invoice-title bg-white text-black bold p-3">
-                                        #{{index+1}} {{job.name}}
-                                    </div>
-                                    <button @click="toggleImagePopover(job)">
-                                        <img :src="getImageUrl(job.id)" alt="Job Image" class="jobImg thumbnail"/>
-                                    </button>
-                                    <div v-if="showImagePopover" class="popover">
-                                        <div class="popover-content bg-gray-700">
-                                            <img :src="getImageUrl(selectedJob.id)" alt="Job Image" />
-                                            <button @click="toggleImagePopover(null)" class="popover-close"><icon class="fa fa-close"/></button>
+                        <div v-for="(job,index) in invoice.jobs" v-if="spreadsheetMode">
+                            <div class="jobDetails p-2">
+                                <div class="border">
+                                    <div class=" flex gap-10">
+                                        <div class="invoice-title bg-white text-black bold p-3">
+                                            #{{index+1}} {{job.name}}
                                         </div>
-                                    </div>
-                                    <div>{{job.file}}</div>
-                                    <div>{{$t('Height')}}: <span class="bold">{{job.height}}</span> </div>
-                                    <div>{{$t('Width')}}: <span class="bold">{{job.width}}</span> </div>
-                                    <div>{{$t('Quantity')}}: <span class="bold">{{job.quantity}}</span> </div>
-                                    <div>{{$t('Copies')}}: <span class="bold">{{job.copies}}</span> </div>
-                                </div>
-                                <div class="flex p-2 gap-10">
-                                    <div class="">
-                                        {{$t('Material')}}:
-                                        <span class="bold">
-                                        <span v-if="job.materials">{{$t(`materials.${job.materials}`)}}</span>
-                                        <span v-else>{{($t`materialsSmall.${job.materialsSmall}`)}}</span>
-                                     </span>
-                                    </div>
-                                    <div>{{$t('totalm')}}<sup>2</sup>: <span class="bold">{{job.height * job.width}}</span></div>
-                                </div>
-                                <div class="flex" v-if="jobProcessMode">
-                                    <OrderJobDetails :job="job"/>
-                                </div>
-                                <div class="jobInfo relative">
-                                    <div class="jobShippingInfo">
-                                        <div class=" bg-white text-black bold ">
-                                            <div class="flex" style="align-items: center;">
-                                                <img src="/images/shipping.png" class="w-10 h-10 pr-1" alt="Shipping">
-                                                {{$t('Shipping')}}
-                                            </div>
-                                            <div class="ultra-light-gray p-2 text-white">
-                                                {{$t('shippingTo')}}: <span class="bold">{{job.shippingInfo}}</span>
+                                        <button @click="toggleImagePopover(job)">
+                                            <img :src="getImageUrl(job.id)" alt="Job Image" class="jobImg thumbnail"/>
+                                        </button>
+                                        <div v-if="showImagePopover" class="popover">
+                                            <div class="popover-content bg-gray-700">
+                                                <img :src="getImageUrl(selectedJob.id)" alt="Job Image" />
+                                                <button @click="toggleImagePopover(null)" class="popover-close"><icon class="fa fa-close"/></button>
                                             </div>
                                         </div>
+                                        <div>{{job.file}}</div>
+                                        <div>{{$t('Height')}}: <span class="bold">{{job.height}}</span> </div>
+                                        <div>{{$t('Width')}}: <span class="bold">{{job.width}}</span> </div>
+                                        <div>{{$t('Quantity')}}: <span class="bold">{{job.quantity}}</span> </div>
+                                        <div>{{$t('Copies')}}: <span class="bold">{{job.copies}}</span> </div>
                                     </div>
-                                    <div class="jobPriceInfo absolute right-0 bottom-0 bg-white text-black bold">
-                                        <div class="p-2">
-                                            {{$t('jobPrice')}}: <span class="bold">{{job.pricePerUnit*job.quantity}}.ден</span>
+                                    <div class="flex p-2 gap-10">
+                                        <div class="">
+                                            {{$t('Material')}}:
+                                            <span class="bold">
+                                            <span v-if="job.materials">{{$t(`materials.${job.materials}`)}}</span>
+                                            <span v-else>{{ job.small_material_id }}</span>
+                                         </span>
+                                        </div>
+                                        <div>{{$t('totalm')}}<sup>2</sup>: <span class="bold">{{job.height * job.width}}</span></div>
+                                    </div>
+                                    <div class="flex" v-if="jobProcessMode">
+                                        <OrderJobDetails :job="job"/>
+                                    </div>
+                                    <div class="jobInfo relative">
+                                        <div class="jobShippingInfo">
+                                            <div class=" bg-white text-black bold ">
+                                                <div class="flex" style="align-items: center;">
+                                                    <img src="/images/shipping.png" class="w-10 h-10 pr-1" alt="Shipping">
+                                                    {{$t('Shipping')}}
+                                                </div>
+                                                <div class="ultra-light-gray p-2 text-white">
+                                                    {{$t('shippingTo')}}: <span class="bold">{{job.shippingInfo}}</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="jobPriceInfo absolute right-0 bottom-0 bg-white text-black bold">
+                                            <div class="p-2">
+                                                {{$t('jobPrice')}}: <span class="bold">{{job.pricePerUnit*job.quantity}}.ден</span>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
                             </div>
                         </div>
                         <div class="flex justify-center" v-else>
-                            <OrderSpreadsheet :job="job" :invoice="invoice"/>
-                        </div>
+                            <OrderSpreadsheet :invoice="invoice"/>
                         </div>
                     </div>
                 </div>

@@ -7,8 +7,7 @@
             </button>
             <button @click="saveChanges()" v-if="editMode" class="blue rounded text-white py-2 px-5 m-1">Save Changes<v-icon class="mdi mdi-check"></v-icon></button>
         </div>
-        <table >
-
+        <table>
             <thead>
             <tr>
                 <th>Job Line</th>

@@ -108,12 +108,12 @@ export default {
 
             for (let i = 0; i < files.length; i++) {
                 const file = files[i];
-                // Check if the file is a PDF
-                if (file.type === 'application/pdf') {
+                // Check if the file is a PDF or tiff
+                if (file.type === 'application/pdf' || file.type === 'image/tiff') {
                     this.convertPDFToImage(file);
                 } else {
                     // Handle file type not supported (not a PDF)
-                    toast.error('Only PDF files are supported.');
+                    toast.error('Only PDF and TIFF files are supported.');
                 }
             }
         },
@@ -162,7 +162,7 @@ export default {
                     height: response.data.height,
                     id: tempJob?.id, // Add other job details as needed
                     materials: tempJob?.materials,
-                    materialsSmall: tempJob?.materialsSmall,
+                    materialsSmall: tempJob?.small_material_id,
                     machinePrint: tempJob?.machinePrint,
                     machinesCut: tempJob?.machineCut,
                     quantity: tempJob?.quantity,

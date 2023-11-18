@@ -52,7 +52,7 @@ class JobController extends Controller
                 $imagick = new Imagick();
                 $imagick->readImage($file->getPathname()); // Read the TIFF file
                 $imagick->setImageFormat('jpg'); // Convert TIFF to JPG (you can use other formats too)
-                $imageFilename = time() . '_' . pathinfo($pdfPath, PATHINFO_FILENAME) . '.jpg'; // Unique image file name
+                $imageFilename = pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME) . '.jpg'; // Unique image file name
                 $imagick->writeImage(storage_path('app/public/uploads/' . $imageFilename)); // Save the image
                 $imagick->clear();
 
@@ -117,7 +117,7 @@ class JobController extends Controller
         // Update all jobs with the selected material
         Job::whereIn('id', $jobIds)->update([
             'materials' => $selectedMaterial,
-            'materialsSmall' => $selectedMaterialSmall,
+            'small_material_id' => $selectedMaterialSmall,
             'machineCut' => $selectedMachineCut,
             'machinePrint' => $selectedMachinePrint,
             'quantity' => $quantity,
