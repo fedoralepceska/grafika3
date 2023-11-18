@@ -3,6 +3,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Invoice;
 use App\Models\SmallMaterial;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -19,7 +20,7 @@ class SmallMaterialController extends Controller
 
     public function getSmallMaterials(): \Illuminate\Database\Eloquent\Collection
     {
-        $materials = SmallMaterial::all();
+        $materials = SmallMaterial::with(['smallFormatMaterial'])->get();
         return $materials;
     }
 

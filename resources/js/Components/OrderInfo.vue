@@ -47,7 +47,7 @@
                 <label class="label-fixed-width">{{ $t('materialSmallFormat') }}</label>
                 <select v-model="selectedMaterialSmall" :disabled="selectedMaterial !== ''" class="select-fixed-width">
                     <option v-for="material in materialsSmall" :key="material" :value="material">
-                        {{ material.name }} - {{ material.format }}
+                        {{ material.name }} - {{ material.small_format_material.name }}
                     </option>
                 </select>
                 <button v-if="selectedMaterialSmall !== ''" @click="clearSelection('selectedMaterialSmall')" class="removeBtn"><span class="mdi mdi-minus-circle"></span></button>
