@@ -116,6 +116,26 @@ class InvoiceController extends Controller
             'invoice' => $invoice,
         ]);
     }
+    public function update(Request $request, $id)
+    {
+        // Retrieve the job by its ID
+        $invoice = Invoice::find($id);
+
+        if (!$invoice) {
+            return response()->json(['message' => 'Invoice not found'], 404);
+        }
+
+        $validatedData = $request->validate([
+            'perfect' => 'sometimes|required',
+        ]);
+
+        // Update the job with only the validated data that's present in the request
+        $invoice->update($request->only([
+            'perfect',
+        ]));
+
+        return response()->json(['message' => 'Invoice updated successfully']);
+    }
     public function downloadInvoiceFiles(Request $request)
     {
         $clientName = $request->query('clientName');

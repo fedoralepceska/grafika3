@@ -53,6 +53,7 @@ Route::middleware(['auth', 'verified'])->group(function() {
     Route::get('/invoices/create', [InvoiceController::class, 'create'])->name('invoices.create');
     Route::post('/invoices', [InvoiceController::class, 'store'])->name('invoices.store');
     Route::get('/invoices/{id}', [InvoiceController::class, 'show'])->name('invoices.show');
+    Route::put('/invoices/{id}', [InvoiceController::class, 'update'])->name('invoices.update');
     Route::get('/invoices/today/count', [InvoiceController::class, 'countToday'])->name('invoices.countToday');
     Route::get('/invoice/download', [InvoiceController::class, 'downloadInvoiceFiles'])->name('invoice.download');
 });

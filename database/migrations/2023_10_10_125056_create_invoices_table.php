@@ -19,6 +19,7 @@ return new class extends Migration
             $table->unsignedBigInteger('contact_id');
             $table->string('invoice_title');
             $table->text('comment')->nullable();
+            $table->boolean('perfect')->nullable();
             $table->enum('status', \App\Enums\InvoiceStatus::values());
             $table->unsignedBigInteger('created_by')->nullable();
             $table->timestamps();

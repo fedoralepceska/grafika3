@@ -49,14 +49,15 @@
                     <div class="btn2"><span class="mdi mdi-image"></span> Revised Art Complete <input type="checkbox" class="blue border-white text-amber"></div>
                     <div class="btn2"><span class="mdi mdi-fire"></span> RUSH <input type="checkbox" class="blue border-white text-amber"></div>
                     <div class="btn2"><span class="mdi mdi-pause"></span> ON HOLD <input type="checkbox" class="blue border-white text-amber"></div>
-                    <div class="btn2"><span class="mdi mdi-thumb-up-outline"></span> Must Be Perfect <input type="checkbox" class="blue border-white text-amber"></div>
+                    <div class="btn2"><span class="mdi mdi-thumb-up-outline"></span> Must Be Perfect <input type="checkbox" class="blue border-white text-amber" v-model="mustBePerfectChecked"></div>
                     <div class="btn2"><span class="mdi mdi-box-cutter"></span> Rip First <input type="checkbox" class="blue border-white text-amber"></div>
                     <div class="btn2"><span class="mdi mdi-image"></span> Revised Art <input type="checkbox" class="blue border-white text-amber"></div>
                     <div class="btn2"><span class="mdi mdi-image"></span> Additional Art <input type="checkbox" class="blue border-white text-amber"></div>
                     <div class="btn2"><span class="mdi mdi-flag-outline"></span> Flags <input type="checkbox" class="blue border-white text-amber"></div>
                 </div>
                 <div class="dark-gray p-5 text-white">
-                    <div class="form-container p-2 light-gray">
+                    <div v-if="invoice.perfect" class="ticket-note">Must Be Perfect</div>
+                    <div class="form-container p-2 light-gray" :style="invoice.perfect ? { 'background-color': '#a36a03' } : {}">
                         <div class="InvoiceDetails">
                             <div class="invoice-details flex gap-20 relative">
                                 <div class="invoice-title bg-white text-black bold p-3 ">{{ invoice?.invoice_title }}</div>
@@ -189,7 +190,8 @@ export default {
             selectedJob: null,
             isSidebarVisible: false,
             spreadsheetMode:true,
-            jobProcessMode:false
+            jobProcessMode:false,
+            backgroundColor: null,
         }
     },
     computed: {
@@ -203,6 +205,18 @@ export default {
                     return "green-text";
                 }
             };
+        },
+        mustBePerfectChecked: {
+            get() {
+                return this.invoice.perfect === 1
+            },
+            set(value) {
+                this.backgroundColor = "#a36a03";
+                this.invoice.perfect = value;
+                axios.put(`/invoices/${this.invoice.id}`, {
+                    perfect: value,
+                });
+            }
         },
     },
     methods:{
@@ -260,6 +274,16 @@ export default {
     width: 40px;
     height: 40px;
     border-radius: 50%;
+}
+.ticket-note {
+    background-color: #a36a03; /* Gold background */
+    color: $white;
+    font-weight: bold;
+    text-transform: uppercase;
+    border: 1px dashed black; /* Ticket-like dashed border */
+    padding: 4px;
+    text-align: center;
+    width: max-content;
 }
 .flexed{
     justify-content: center;

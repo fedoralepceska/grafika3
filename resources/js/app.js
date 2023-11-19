@@ -19,6 +19,8 @@ import i18n from './i18n';
 import Multiselect from '@vueform/multiselect'
 import VueSidebarMenu from 'vue-sidebar-menu'
 
+import store from "@/store.js";
+
 
 
 
@@ -40,6 +42,7 @@ createInertiaApp({
             .use(Multiselect)
             .use(VueSidebarMenu)
             .use(vuetify)
+            .use(store)
             .use(ZiggyVue, Ziggy)
             .mount(el);
     },
