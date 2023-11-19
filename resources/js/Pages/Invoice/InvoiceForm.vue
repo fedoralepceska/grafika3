@@ -75,7 +75,7 @@
                             <Tab title="ADD" icon="mdi mdi-plus-circle">
                                 <TabsWrapperV2>
                                     <TabV2 title="Manual" icon="mdi mdi-gesture-tap">
-                                        <OrderInfo @jobs-updated="updateJobs" :jobs="$refs.dragAndDrop.jobs"/>
+                                        <OrderInfo @jobs-updated="updateJobs" :jobs="$refs.dragAndDrop?.jobs"/>
                                     </TabV2>
                                     <TabV2 title="From Catalog" icon="mdi mdi-book-open-variant">
 
@@ -92,6 +92,7 @@
                 <div class="right2">
                     <div class="Order light-gray">
                         <h2 class="sub-title uppercase">{{ $t('orderLines') }}</h2>
+                        {{$refs.dragAndDrop?.jobs}}
                         <table class="border" v-if="$refs.dragAndDrop?.jobs?.length > 0">
                             <tbody>
                             <template v-if="updatedJobs.length === 0">

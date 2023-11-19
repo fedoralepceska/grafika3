@@ -152,7 +152,7 @@ export default {
     },
     computed: {
         formattedJobOptions() {
-            return this.jobs.map((job, index) => ({ value: job, title: `#${index + 1}` }));
+            return this.jobs?.map((job, index) => ({ value: job, title: `#${index + 1}` }));
         }
     },
     methods: {
@@ -211,7 +211,7 @@ export default {
                 jobIds = this.selectedJobs.map(job => job.id)
             }
             else {
-                jobIds = this.jobs.map(job => job.id);
+                jobIds = this.jobs?.map(job => job?.id);
             }
 
             // Create jobsWithActions for all jobs

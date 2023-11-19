@@ -16,13 +16,7 @@ import '@fortawesome/fontawesome-free/css/all.css'; // Font Awesome Free (SVG wi
 // Import the CSS or use your own!
 import "vue-toastification/dist/index.css";
 import i18n from './i18n';
-import Multiselect from '@vueform/multiselect'
 import VueSidebarMenu from 'vue-sidebar-menu'
-
-import store from "@/store.js";
-
-
-
 
 const appName = import.meta.env.VITE_APP_NAME || 'Laravel';
 
@@ -39,10 +33,8 @@ createInertiaApp({
             .use(plugin)
             .use(i18n)
             .use(Toast)
-            .use(Multiselect)
             .use(VueSidebarMenu)
             .use(vuetify)
-            .use(store)
             .use(ZiggyVue, Ziggy)
             .mount(el);
     },
