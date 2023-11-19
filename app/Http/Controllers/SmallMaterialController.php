@@ -26,7 +26,7 @@ class SmallMaterialController extends Controller
 
     public function create()
     {
-        return Inertia::render('SmallMaterial/Create');
+        return Inertia::render('SmallFormatMaterial/Create');
     }
 
     public function store(Request $request)

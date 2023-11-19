@@ -3,7 +3,7 @@
         <div class="pl-7 pr-7">
             <div class="dark-gray material-list">
                 <div class="form-container p15">
-                    <SF_MaterialList :materials="materials" />
+                    <SF_MaterialList :materialsSmall="materials" />
                 </div>
             </div>
         </div>

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\SmallFormatMaterial;
+use App\Models\SmallMaterial;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 
@@ -11,8 +12,10 @@ class SmallFormatMaterialController extends Controller
     public function index()
     {
         $materials = SmallFormatMaterial::all();
+        $materialsSmall = SmallMaterial::with(['smallFormatMaterial'])->get();
         return Inertia::render('SmallFormatMaterial/Index', [
             'materials' => $materials,
+            'smallMaterials' => $materialsSmall
         ]);
     }
 

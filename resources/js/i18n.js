@@ -32,6 +32,8 @@ const messages = {
             error: 'Failed to create order.'
         },
         material: 'Material',
+        smallMaterial: 'Small Material',
+        format: 'Format',
         materials: {
             'Material 1': 'Фолија со црна позадина',
             'Material 2': 'Фолија со бела позадина',
@@ -167,6 +169,7 @@ const messages = {
         addNewMaterialSmall: 'Add Small Format Material',
         quantity: 'Quantity',
         addMaterial: 'Add Material',
+        addSmallMaterial: 'Add Small Material',
         SmallFormatMaterials: 'Small Format Materials',
         listOfSmallFormat: 'List of Small Format Materials',
         pricePerUnit: 'Price per unit',
@@ -175,6 +178,7 @@ const messages = {
         contact: 'Contact',
         contacts: 'Contacts',
         otherContacts: 'Other contacts',
+        listOfSmallMaterials: 'List of small materials',
         listOfAllOrders: 'List Of All Orders', //MKTODO
         ViewAllInvoices: 'View All Orders', //MKTODO
         InvoiceDetails: 'Order Details', //MKTODO
@@ -215,6 +219,8 @@ const messages = {
             error: 'Настана грешка при креирање на налогот.'
         },
         material: 'Материјал',
+        smallMaterial: 'Мал Материјал',
+        format: 'Формат',
         materials: {
             'Material 1': 'Фолија со црна позадина',
             'Material 2': 'Фолија со бела позадина',
@@ -351,8 +357,10 @@ const messages = {
         addNewMaterialSmall: 'Додади материјал - мал формат',
         quantity: 'Количина',
         addMaterial: 'Додади материјал',
+        addSmallMaterial: 'Додади мал материјал',
         SmallFormatMaterials: 'Материјали - мал формат',
         listOfSmallFormat: 'Листа на материјали - мал формат',
+        listOfSmallMaterials: 'Листа на мали материјали',
         pricePerUnit: 'Цена по парче',
         contact: 'Контакт',
         contacts: 'Контакти',

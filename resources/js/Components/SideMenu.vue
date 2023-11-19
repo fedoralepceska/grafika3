@@ -35,28 +35,20 @@ export default {
                     icon: 'fa-solid fa-boxes-stacked',
                     child: [
                         {
+                            href: '/smallFormat/materials/create',
+                            title: 'Add Material - Small',
+                        },
+                        {
                             href: '/materials-small-format',
-                            title: 'View Material Format - Small',
-                        },
-                        {
-                            href: '/materials-small',
                             title: 'View Material - Small',
-                        },
-                        {
-                            href: '/materials-large',
-                            title: 'View Material Format - Large',
                         },
                         {
                             href: '/largeFormat/materials/create',
                             title: 'Add Material Format - Large',
                         },
                         {
-                            href: '/smallFormat/materials/create',
-                            title: 'Add Material Format - Small',
-                        },
-                        {
-                            href: '/small/materials/create',
-                            title: 'Add Material - Small',
+                            href: '/materials-large',
+                            title: 'View Material Format - Large',
                         },
                     ],
                 },

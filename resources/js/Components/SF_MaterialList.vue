@@ -24,7 +24,7 @@
                 <tr>
                     <th>Name</th>
                     <th>Quantity</th>
-                    <th v-if="materials.editablePricePerUnit">Price Per Unit</th>
+                    <th v-if="materials[0].price_per_unit">Price Per Unit</th>
                     <th></th>
                 </tr>
                 </thead>
@@ -53,18 +53,67 @@
             </table>
         </div>
     </div>
+    <div class="header pt-3 pb-4">
+        <div class="left mr-3">
+            <img src="/images/Materials.png" alt="MaterialLogo" class="image-icon" />
+        </div>
+        <div class="right">
+            <h1 class="page-title">{{ $t('smallMaterial') }}</h1>
+            <h3 class="text-white"> <span class="green-text">{{ $t('material') }}</span> / {{ $t('smallMaterial') }}</h3>
+        </div>
+    </div>
+    <div class="dark-gray p-5 text-white">
+        <div class="form-container p-2 light-gray">
+            <h2 class="sub-title">
+                {{ $t('listOfSmallMaterials') }}
+            </h2>
+
+            <div class="flex justify-end">
+                <button @click="toggleEditMode" class="bg-white rounded text-black py-2 px-5 m-1 ">{{ editMode ? 'Exit Edit Mode' : 'Edit Mode' }}</button>
+                <button @click="saveChangesSmall()" v-if="editMode" class="blue rounded text-white py-2 px-5 m-1">Save Changes<v-icon class="mdi mdi-check"></v-icon></button>
+            </div>
+
+            <table>
+                <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Quantity</th>
+                    <th>Material - Small Format</th>
+                    <th></th>
+                </tr>
+                </thead>
+                <tbody>
+                <tr v-for="material in smallMaterials" :key="material.id">
+                    <td>{{ material.name }}</td>
+                    <td v-if="editMode">
+                        <input type="text" class="text-black" v-model="material.editableQuantity" />
+                    </td>
+                    <td v-else>
+                        {{material.quantity}}
+                    </td>
+                    <td style="font-weight: bolder">{{ material.small_format_material.name }}</td>
+                    <td class="centered">
+                        <SecondaryButton @click="deleteMaterialSmall(material)" class="delete">Delete</SecondaryButton>
+                    </td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
 </template>
 
 <script>
 import PrimaryButton from "@/Components/buttons/PrimaryButton.vue";
 import SecondaryButton from "@/Components/buttons/SecondaryButton.vue";
 import axios from "axios";
+import {useToast} from "vue-toastification";
 
 
 export default {
     components: { SecondaryButton, PrimaryButton },
     props: {
         materials: Array,
+        smallMaterials: Array
     },
     data() {
         return {
@@ -109,18 +158,39 @@ export default {
             }
             window.location.reload();
         },
+        async deleteMaterialSmall(material) {
+            const toast = useToast();
+            const confirmed = confirm('Are you sure you want to delete this material?');
+            if (!confirmed) {
+                return;
+            }
+
+            try {
+                await axios.delete(`/materials-small/${material.id}`);
+                // Remove the material from the materials array
+                const index = this.smallMaterials.findIndex((m) => m.id === material.id);
+                if (index !== -1) {
+                    this.smallMaterials.splice(index, 1);
+                }
+                toast.success("Material successfully deleted!");
+            } catch (error) {
+                toast.error("Cannot delete material. Job with this material currently exists!");
+                console.error('Error deleting material:', error);
+            }
+            // window.location.reload();
+        },
         async saveChanges() {
             if (!this.editMode) {
                 // Exit edit mode
                 return;
             }
-
             // Handle the save changes action
             const promises = this.materials.map(async (material) => {
-                if (
+                if (material.price_per_unit && (
                     material.editableQuantity !== material.quantity ||
-                    material.editablePricePerUnit !== material.price_per_unit
+                    material.editablePricePerUnit !== material.price_per_unit)
                 ) {
+                    console.log(this.materials);
                     try {
                         const response = await axios.put(`/materials-small-format/${material.id}`, {
                             quantity: material.editableQuantity,
@@ -141,6 +211,33 @@ export default {
             this.materials.forEach((material) => {
                 material.editableQuantity = null;
                 material.editablePricePerUnit = null;
+            });
+            this.editMode = false;
+            window.location.reload();
+        },
+        async saveChangesSmall() {
+            if (!this.editMode) {
+                // Exit edit mode
+                return;
+            }
+            // Handle the save changes action
+            const promises = this.smallMaterials.map(async (material) => {
+                try {
+                    const response = await axios.put(`/materials-small/${material.id}`, {
+                        quantity: material.editableQuantity,
+                    });
+                    // Update the material with the response data
+                    material.quantity = response.data.quantity;
+                } catch (error) {
+                    console.error('Error updating material:', error);
+                }
+            });
+
+            await Promise.all(promises);
+
+            // Reset the editable fields and exit edit mode
+            this.smallMaterials.forEach((material) => {
+                material.editableQuantity = null;
             });
             this.editMode = false;
             window.location.reload();

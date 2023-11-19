@@ -3,7 +3,7 @@
         <div class="pl-7 pr-7">
             <div class="dark-gray material-list">
                 <div class="form-container p15">
-                    <SF_MaterialList :materials="materials" />
+                    <SF_MaterialList :materials="materials" :smallMaterials="smallMaterials" />
                 </div>
             </div>
         </div>
@@ -20,6 +20,7 @@ export default {
     },
     props: {
         materials: Array, // Pass the list of materials as a prop
+        smallMaterials: Array
     },
 };
 </script>
