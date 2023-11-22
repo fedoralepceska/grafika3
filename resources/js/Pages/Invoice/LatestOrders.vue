@@ -3,10 +3,13 @@
     <div class="container">
         <div class="invoices-container">
             <div v-for="invoice in latestInvoices" :key="invoice.id" class="box">
-                <div class="invoice-card" >
+                <div class="invoice-card">
                     <div class="invoice-details">
                         <div class="header">
                             <span class="order-number">Order PO: #{{ invoice.id }}</span>
+                            <button class="flex items-center p-1" @click="viewInvoice(invoice.id)">
+                                <i class="fa fa-eye bg-gray-300 p-2 rounded" aria-hidden="true"></i>
+                            </button>
                             <!-- Add other header details here -->
                         </div>
                         <div class="body">
@@ -69,7 +72,10 @@ export default {
                 case 'Completed':
                     return '#408a0b'
             }
-        }
+        },
+        viewInvoice(id) {
+            this.$inertia.visit(`/invoices/${id}`);
+        },
     },
     mounted() {
         this.fetchLatestInvoices();

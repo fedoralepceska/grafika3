@@ -205,7 +205,6 @@ import TabsWrapper from "@/Components/tabs/TabsWrapper.vue";
 import Tab from "@/Components/tabs/Tab.vue";
 import TabV2 from "@/Components/tabs/TabV2.vue";
 import TabsWrapperV2 from "@/Components/tabs/TabsWrapperV2.vue";
-import store from '../../orderStore.js';
 import Header from "@/Components/Header.vue";
 
 
@@ -555,7 +554,6 @@ input, select {
 .text {
     display: flex;
     flex-direction: column;
-    padding: 10px;
     padding: 10px;
 }
 </style>
