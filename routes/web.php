@@ -9,6 +9,7 @@ use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\SmallFormatMaterialController;
 use App\Http\Controllers\SmallMaterialController;
 use Illuminate\Foundation\Application;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
@@ -24,12 +25,14 @@ use Inertia\Inertia;
 */
 
 Route::get('/', function () {
-    return Inertia::render('Welcome', [
-        'canLogin' => Route::has('login'),
-        'canRegister' => Route::has('register'),
-        'laravelVersion' => Application::VERSION,
-        'phpVersion' => PHP_VERSION,
-    ]);
+    // Check if the user is logged in
+    if (Auth::check()) {
+        // Redirect to /dashboard if the user is logged in
+        return redirect()->to('/dashboard');
+    } else {
+        // Stay on / with the Login page if the user is not logged in
+        return Inertia::render('Auth/Login');
+    }
 });
 
 Route::get('/dashboard', function () {

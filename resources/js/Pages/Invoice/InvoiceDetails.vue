@@ -22,17 +22,7 @@
             </div>
             <div class="left-column flex-1" style="width: 25%">
                 <div class="flex justify-between">
-                    <div class="header pt-3 pb-4">
-                        <div class="left mr-3">
-                            <img src="/images/List.png" alt="InvoiceLogo" class="image-icon" />
-                        </div>
-                        <div class="right">
-                            <h1 class="page-title">{{ $t('invoice') }}</h1>
-                            <h3 class="text-white">
-                                <span class="green-text">{{ $t('invoice') }}</span> / {{ $t('InvoiceReview') }}
-                            </h3>
-                        </div>
-                    </div>
+                    <Header title="invoice" subtitle="InvoiceReview" icon="List.png"/>
                     <div class="flex pt-4">
                         <div class="buttons pt-3">
                             <button class="btn download-order" @click="downloadAllProofs">Download All Proofs <span class="mdi mdi-cloud-download"></span></button>
@@ -180,10 +170,11 @@ import axios from "axios";
 import {useToast} from "vue-toastification";
 import OrderJobDetails from "@/Pages/Invoice/OrderJobDetails.vue";
 import OrderSpreadsheet from "@/Components/OrderSpreadsheet.vue";
+import Header from "@/Components/Header.vue";
 
 export default {
 
-    components: {OrderSpreadsheet, OrderJobDetails, MainLayout },
+    components: {OrderSpreadsheet, OrderJobDetails, MainLayout, Header },
     data() {
         return {
             showImagePopover: false,
@@ -336,12 +327,6 @@ export default {
     min-height: 20vh;
     min-width: 80vh;
 }
-.page-title {
-    font-size: 24px;
-    display: flex;
-    align-items: center;
-    color: $white;
-}
 .sub-title {
     font-size: 20px;
     font-weight: bold;
@@ -356,10 +341,6 @@ export default {
 .jobPriceInfo{
     max-height: 40px;
     max-width: 180px;
-}
-.image-icon {
-    margin-left: 2px;
-    max-width: 40px;
 }
 .right{
     gap: 34.9rem;

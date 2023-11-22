@@ -1,13 +1,5 @@
 <template>
-    <div class="header pt-3 pb-4">
-        <div class="left mr-3">
-            <img src="/images/Materials.png" alt="MaterialLogo" class="image-icon" />
-        </div>
-        <div class="right">
-            <h1 class="page-title">{{ $t('material') }}</h1>
-            <h3 class="text-white"> <span class="green-text">{{ $t('material') }}</span> / {{ $t('LargeFormatMaterials') }}</h3>
-        </div>
-    </div>
+    <Header title="material" subtitle="LargeFormatMaterials" icon="Materials.png"/>
     <div class="dark-gray p-5 text-white">
         <div class="form-container p-2 light-gray">
             <h2 class="sub-title">
@@ -57,10 +49,11 @@
 import PrimaryButton from "@/Components/buttons/PrimaryButton.vue";
 import SecondaryButton from "@/Components/buttons/SecondaryButton.vue";
 import axios from "axios";
+import Header from "@/Components/Header.vue";
 
 
 export default {
-    components: { SecondaryButton, PrimaryButton },
+    components: { SecondaryButton, PrimaryButton, Header },
     props: {
         materials: Array,
     },
@@ -187,12 +180,6 @@ export default {
     padding: 5px;
     box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
 }
-.page-title {
-    font-size: 24px;
-    display: flex;
-    align-items: center;
-    color: $white;
-}
 .sub-title{
     font-size: 20px;
     font-weight: bold;
@@ -202,10 +189,6 @@ export default {
     color: $white;
 }
 
-.image-icon {
-    margin-left: 2px;
-    max-width: 40px;
-}
 .form-group {
     display: flex;
     justify-content: right;

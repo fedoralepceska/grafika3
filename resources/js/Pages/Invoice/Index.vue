@@ -1,16 +1,7 @@
 <template>
     <MainLayout>
         <div class="pl-7 pr-7">
-
-            <div class="header pt-3 pb-4">
-                <div class="left mr-3">
-                    <img src="/images/List.png" alt="InvoiceLogo" class="image-icon" />
-                </div>
-                <div class="right">
-                    <h1 class="page-title">{{ $t('invoice') }}</h1>
-                    <h3 class="text-white"> <span class="green-text">{{ $t('invoice') }}</span> / {{ $t('ViewAllInvoices') }}</h3>
-                </div>
-            </div>
+            <Header title="invoice" subtitle="ViewAllInvoices" icon="List.png"/>
             <div class="dark-gray p-2 text-white">
                 <div class="form-container p-2 ">
                     <h2 class="sub-title">
@@ -90,9 +81,10 @@
 <script>
 import axios from "axios";
 import MainLayout from "@/Layouts/MainLayout.vue";
+import Header from "@/Components/Header.vue";
 
 export default {
-    components: { MainLayout },
+    components: {Header, MainLayout },
     props: {
         invoices: Array,
     },
@@ -185,12 +177,6 @@ select{
 .ultra-light-gray{
     background-color: $ultra-light-gray;
 }
-.page-title {
-    font-size: 24px;
-    display: flex;
-    align-items: center;
-    color: $white;
-}
 .sub-title{
     font-size: 20px;
     font-weight: bold;
@@ -198,11 +184,6 @@ select{
     display: flex;
     align-items: center;
     color: $white;
-}
-
-.image-icon {
-    margin-left: 2px;
-    max-width: 40px;
 }
 
 .button-container{

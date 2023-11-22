@@ -1,15 +1,7 @@
 <template>
     <MainLayout>
         <div class="pl-7 pr-7">
-            <div class="header pt-3 pb-4">
-                <div class="left mr-3">
-                    <img src="/images/List.png" alt="UserLogo" class="image-icon" />
-                </div>
-                <div class="right">
-                    <h1 class="page-title">{{ $t('invoice') }}</h1>
-                    <h3 class="text-white"><span class="green-text">{{ $t('invoice') }}</span> / {{ $t('createNewInvoice') }}</h3>
-                </div>
-            </div>
+            <Header title="invoice" subtitle="createNewInvoice" icon="List.png"/>
         </div>
         <div class="pl-2 pr-2 ml-2 mr-2 dark-gray">
             <div class="wrapper  p-5">
@@ -214,11 +206,12 @@ import Tab from "@/Components/tabs/Tab.vue";
 import TabV2 from "@/Components/tabs/TabV2.vue";
 import TabsWrapperV2 from "@/Components/tabs/TabsWrapperV2.vue";
 import store from '../../orderStore.js';
+import Header from "@/Components/Header.vue";
 
 
 export default {
     name: "InvoiceForm",
-    components: {TabsWrapperV2,TabV2, TabsWrapper,Tab, OrderInfo, DragAndDrop, MainLayout, PrimaryButton },
+    components: {Header, TabsWrapperV2,TabV2, TabsWrapper,Tab, OrderInfo, DragAndDrop, MainLayout, PrimaryButton },
     data() {
         return {
             invoice: {
@@ -486,12 +479,6 @@ input[data-v-81b90cf3], select[data-v-81b90cf3]{
     padding: 5px;
     box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
 }
-.page-title {
-    font-size: 24px;
-    display: flex;
-    align-items: center;
-    color: $white;
-}
 .sub-title{
     font-size: 20px;
     font-weight: bold;
@@ -501,10 +488,6 @@ input[data-v-81b90cf3], select[data-v-81b90cf3]{
     color: $white;
 }
 
-.image-icon {
-    margin-left: 2px;
-    max-width: 40px;
-}
 .form-group {
     display: flex;
     justify-content: right;
