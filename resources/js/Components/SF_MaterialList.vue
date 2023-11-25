@@ -1,5 +1,12 @@
 <template>
-    <Header title="material" subtitle="SmallFormatMaterials" icon="Materials.png"/>
+    <div class="head">
+        <Header title="material" subtitle="SmallFormatMaterials" icon="Materials.png"/>
+        <div class="button">
+            <button @click="navigateToAddSmallMaterial" class="btn add-material">
+                Add New Material <i class="fa fa-plus"></i>
+            </button>
+        </div>
+    </div>
     <div class="dark-gray p-5 text-white">
         <div class="form-container p-2 light-gray">
             <h2 class="sub-title">
@@ -118,6 +125,9 @@ export default {
                     }
                 });
             }
+        },
+        navigateToAddSmallMaterial(){
+            this.$inertia.visit(`/smallFormat/materials/create`);
         },
         async deleteMaterial(material) {
             const confirmed = confirm('Are you sure you want to delete this material?');
@@ -329,6 +339,22 @@ table th {
     border-bottom: 1px solid #ddd;
     background-color: $ultra-light-gray;
 
+}
+.head{
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+.btn {
+    padding: 9px 12px;
+    border: none;
+    cursor: pointer;
+    font-weight: bold;
+    border-radius: 2px;
+}
+.add-material{
+    background-color: $blue;
+    color: white;
 }
 </style>
 

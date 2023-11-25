@@ -4,79 +4,75 @@
             <div class="pl-7 pr-7" style="flex-grow: 1">
                 <Header title="material" subtitle="addNewMaterialSmall" icon="Materials.png"/>
                 <div class="dark-gray p-5">
-                    <div class="form-container p-2 light-gray">
-                        <h2 class="sub-title">
-                            {{ $t('materialDetails') }}
-                        </h2>
-                        <form @submit.prevent="addMaterial">
-                            <!-- Form fields for Name and Quantity -->
-                            <div class="form-group gap-4">
-                                <label for="name">{{ $t('name') }}:</label>
-                                <input type="text" id="name" class="text-gray-700" v-model="material.name" required>
+                    <div class="form-container p-2 light-gray flex">
+                        <div class="format">
+                                <h2 class="sub-title">
+                                    {{ $t('smallFormatDetails') }}
+                                </h2>
+                                <form @submit.prevent="addMaterial">
+                                    <!-- Form fields for Name and Quantity -->
+                                    <div class="form-group gap-4">
+                                        <label for="name">{{ $t('name') }}:</label>
+                                        <input type="text" id="name" class="text-gray-700" v-model="material.name" required>
+                                    </div>
+                                    <div class="form-group gap-4">
+                                        <label for="width">{{ $t('width') }}:</label>
+                                        <input type="number" id="width" class="text-gray-700" v-model="material.width" required>
+                                    </div>
+                                    <div class="form-group gap-4">
+                                        <label for="height">{{ $t('height') }}:</label>
+                                        <input type="number" id="height" class="text-gray-700" v-model="material.height" required>
+                                    </div>
+                                    <div class="form-group gap-4">
+                                        <label for="quantity">{{ $t('quantity') }}:</label>
+                                        <input type="number" id="quantity" class="text-gray-700" v-model="material.quantity" required>
+                                    </div>
+                                    <div class="form-group gap-4">
+                                        <label for="price_per_unit">{{ $t('pricePerUnit') }}:</label>
+                                        <input type="number" id="price_per_unit" class="text-gray-700" v-model="material.price_per_unit" required>
+                                    </div>
+                                    <!-- Other form fields... -->
+                                    <div class="button-container mt-10">
+                                        <PrimaryButton type="submit">{{ $t('addFormat') }}</PrimaryButton>
+                                    </div>
+                                </form>
                             </div>
-                            <div class="form-group gap-4">
-                                <label for="width">{{ $t('width') }}:</label>
-                                <input type="number" id="width" class="text-gray-700" v-model="material.width" required>
-                            </div>
-                            <div class="form-group gap-4">
-                                <label for="height">{{ $t('height') }}:</label>
-                                <input type="number" id="height" class="text-gray-700" v-model="material.height" required>
-                            </div>
-                            <div class="form-group gap-4">
-                                <label for="quantity">{{ $t('quantity') }}:</label>
-                                <input type="number" id="quantity" class="text-gray-700" v-model="material.quantity" required>
-                            </div>
-                            <div class="form-group gap-4">
-                                <label for="price_per_unit">{{ $t('pricePerUnit') }}:</label>
-                                <input type="number" id="price_per_unit" class="text-gray-700" v-model="material.price_per_unit" required>
-                            </div>
-                            <!-- Other form fields... -->
-                            <div class="button-container mt-10">
-                                <PrimaryButton type="submit">{{ $t('addMaterial') }}</PrimaryButton>
-                            </div>
-                        </form>
-                    </div>
-                </div>
-            </div>
-            <div class="pl-7 pr-7" style="flex-grow: 1">
-                <Header title="material" subtitle="addSmallMaterial" icon="Materials.png"/>
-
-                <div class="dark-gray p-5">
-                    <div class="form-container p-2 light-gray">
-                        <h2 class="sub-title">
-                            {{ $t('materialDetails') }}
-                        </h2>
-                        <form @submit.prevent="addMaterialSmall">
-                            <!-- Form fields for Name and Quantity -->
-                            <div class="form-group gap-4">
-                                <label for="name">{{ $t('name') }}:</label>
-                                <input type="text" id="name" class="text-gray-700" v-model="materialSmall.name" required>
-                            </div>
-                            <div class="form-group gap-4">
-                                <label for="width">{{ $t('width') }}:</label>
-                                <input type="number" id="width" class="text-gray-700" v-model="materialSmall.width" required>
-                            </div>
-                            <div class="form-group gap-4">
-                                <label for="height">{{ $t('height') }}:</label>
-                                <input type="number" id="height" class="text-gray-700" v-model="materialSmall.height" required>
-                            </div>
-                            <div class="form-group gap-4">
-                                <label for="quantity">{{ $t('quantity') }}:</label>
-                                <input type="number" id="quantity" class="text-gray-700" v-model="materialSmall.quantity" required>
-                            </div>
-                            <div class="form-group gap-4">
-                                <label for="format">{{ $t('format') }}:</label>
-                                <select v-model="materialSmall.small_format_material_id" class="select-fixed-width text-black">
-                                    <option v-for="format in formatsSF" class="text-black" :key="format" :value="format.id">
-                                        {{ format.name }}
-                                    </option>
-                                </select>
-                            </div>
-                            <!-- Other form fields... -->
-                            <div class="button-container mt-10">
-                                <PrimaryButton type="submit">{{ $t('addMaterial') }}</PrimaryButton>
-                            </div>
-                        </form>
+                        <div class="material">
+                            <h2 class="sub-title">
+                                {{ $t('smallFormatMaterialDetails') }}
+                            </h2>
+                            <form @submit.prevent="addMaterialSmall">
+                                <!-- Form fields for Name and Quantity -->
+                                <div class="form-group gap-4">
+                                    <label for="name">{{ $t('name') }}:</label>
+                                    <input type="text" id="name" class="text-gray-700" v-model="materialSmall.name" required>
+                                </div>
+                                <div class="form-group gap-4">
+                                    <label for="width">{{ $t('width') }}:</label>
+                                    <input type="number" id="width" class="text-gray-700" v-model="materialSmall.width" required>
+                                </div>
+                                <div class="form-group gap-4">
+                                    <label for="height">{{ $t('height') }}:</label>
+                                    <input type="number" id="height" class="text-gray-700" v-model="materialSmall.height" required>
+                                </div>
+                                <div class="form-group gap-4">
+                                    <label for="quantity">{{ $t('quantity') }}:</label>
+                                    <input type="number" id="quantity" class="text-gray-700" v-model="materialSmall.quantity" required>
+                                </div>
+                                <div class="form-group gap-4">
+                                    <label for="format">{{ $t('format') }}:</label>
+                                    <select v-model="materialSmall.small_format_material_id" class="select-fixed-width text-black">
+                                        <option v-for="format in formatsSF" class="text-black" :key="format" :value="format.id">
+                                            {{ format.name }}
+                                        </option>
+                                    </select>
+                                </div>
+                                <!-- Other form fields... -->
+                                <div class="button-container mt-10">
+                                    <PrimaryButton type="submit">{{ $t('addMaterial') }}</PrimaryButton>
+                                </div>
+                            </form>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -157,7 +153,7 @@ export default {
 .flex {
     display: flex;
     flex-direction: row;
-    justify-content: space-between;
+    gap: 50vh;
 }
 .green-text{
     color: $green;
