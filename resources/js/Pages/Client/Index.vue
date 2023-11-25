@@ -25,13 +25,18 @@
                             <table>
                                 <thead>
                                 <tr>
-                                    <th>Name</th>
+                                    <th>Client Name</th>
+                                    <th></th>
                                 </tr>
                                 </thead>
                                 <tbody>
                                 <template v-for="client in clients">
                                     <tr>
-                                        <td @mouseover="toggleRow(client.id)">{{ client.name }}</td>
+                                        <td @click="toggleRow(client.id)" class="company">
+                                            {{ client.name }}
+                                            <i v-if="clientExpanded === client.id" class="fa-solid fa-chevron-up"></i>
+                                            <i v-else class="fa-solid fa-chevron-down"></i>
+                                        </td>
                                         <td class="centered">
                                             <SecondaryButton @click="deleteClient(client)" class="delete">Delete</SecondaryButton>
                                         </td>
@@ -39,10 +44,11 @@
                                     <tr v-if="clientExpanded === client.id && client.contacts.length">
                                         <td :colspan="editMode ? 4 : 3">
                                             <div class="contact-info">
-                                                <div v-for="contact in client.contacts" :key="contact.id">
-                                                    <div><strong>Contact Name:</strong> {{ contact.name }}</div>
-                                                    <div><strong>Contact Phone:</strong> {{ contact.phone }}</div>
-                                                    <div><strong>Contact E-mail:</strong> {{ contact.email }}</div>
+                                                <div v-for="(contact,index) in client.contacts" :key="contact.id" class="info mb-1">
+                                                    <div class="bg-white text-black pl-1"><strong>Contact #{{index+1}}</strong></div>
+                                                    <div>Contact Name: <strong>{{ contact.name }}</strong></div>
+                                                    <div>Contact Phone: <strong> {{ contact.phone }}</strong></div>
+                                                    <div>Contact E-mail: <strong> {{ contact.email }}</strong></div>
                                                 </div>
                                             </div>
                                         </td>
@@ -264,6 +270,14 @@ table th {
     color: white;
     border-top: 1px solid #ddd;
     border-bottom: 1px solid #ddd;
-
+    background-color: $ultra-light-gray;
+}
+.company{
+    cursor: pointer;
+}
+.info{
+    border: 2px solid white;
+    min-width: 90vh;
+    max-width: 100vh;
 }
 </style>

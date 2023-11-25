@@ -241,6 +241,12 @@ export default {
 };
 </script>
 <style scoped lang="scss">
+[type='text'], input:where(:not([type])), [type='email'], [type='url'],
+[type='password'], [type='number'], [type='date'], [type='datetime-local'],
+[type='month'], [type='search'], [type='tel'], [type='time'], [type='week'],
+[multiple], textarea, select{
+    border-radius: 3px;
+}
 .centered{
     text-align: center;
 }

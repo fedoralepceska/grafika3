@@ -98,6 +98,9 @@ export default {
 };
 </script>
 <style scoped lang="scss">
+select[data-v-375938f7], option[data-v-375938f7], input[data-v-375938f7]{
+    border-radius: 3px;
+}
 .green-text{
     color: $green;
 }
