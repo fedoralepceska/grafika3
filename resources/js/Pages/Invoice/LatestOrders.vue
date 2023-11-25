@@ -7,27 +7,33 @@
                     <div class="invoice-details">
                         <div class="header">
                             <span class="order-number">Order PO: #{{ invoice.id }}</span>
-                            <button class="flex items-center p-1" @click="viewInvoice(invoice.id)">
-                                <i class="fa fa-eye bg-gray-300 p-2 rounded" aria-hidden="true"></i>
-                            </button>
                             <!-- Add other header details here -->
                         </div>
-                        <div class="body">
-                            <div class="info">
-                                <p><strong>Order:</strong> #{{ invoice.id }}</p>
-                                <!-- Add other invoice details here -->
+                        <div class="body flex">
+                            <div class="left">
+                                <div class="info">
+                                    <p><strong>Order:</strong> #{{ invoice.id }}</p>
+                                    <!-- Add other invoice details here -->
+                                </div>
+                                <div class="info">
+                                    <p><strong>Client:</strong> {{ invoice.client.name }}</p>
+                                    <!-- Add other invoice details here -->
+                                </div>
+                                <div class="info">
+                                    <p><strong>Created By:</strong> {{ invoice.user.name }}</p>
+                                    <!-- Add other invoice details here -->
+                                </div>
                             </div>
-                            <div class="info">
-                                <p><strong>Created By:</strong> {{ invoice.user.name }}</p>
-                                <!-- Add other invoice details here -->
-                            </div>
-                            <div class="info">
-                                <p><strong>Client:</strong> {{ invoice.client.name }}</p>
-                                <!-- Add other invoice details here -->
+                            <div class="right">
+                                <p><strong>Start Date:</strong> {{ invoice.start_date }}</p>
+                                <p><strong>End Date:</strong> {{ invoice.end_date }}</p>
                             </div>
                         </div>
-                        <div class="status" :style="{ background: statusColor(invoice.status) }">
+                        <div class="status flex" :style="{ background: statusColor(invoice.status) }">
                             <p>{{ invoice.status }}</p>
+                            <button @click="viewInvoice(invoice.id)">
+                                <i class="fa fa-eye bg-gray-50 p-2 rounded text-black" aria-hidden="true"></i>
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -88,6 +94,7 @@ export default {
     display: flex;
     flex-direction: column;
     width: max-content;
+    background-color: $dark-gray;
 }
 
 .invoices-container {
@@ -97,15 +104,15 @@ export default {
 
 .invoice-card {
     align-items: center;
-    background: $dark-gray;
+    background: $light-gray;
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
     border-radius: 2px;
     overflow: hidden;
-    width: max-content;
+    min-width: 50vh;
 }
 
 .invoice-details {
-    width: 200px;
+    min-width: 40vh;
     flex-grow: 1;
 }
 
@@ -133,7 +140,7 @@ export default {
 
 .job-images img {
     width: 200px; /* Adjust as needed */
-    height: 120px; /* Adjust as needed */
+    height: 180px; /* Adjust as needed */
     margin: 0 1rem;
 }
 .box {
@@ -150,5 +157,6 @@ export default {
 .status {
     color: $white;
     padding: 0.5rem;
+    justify-content: space-between;
 }
 </style>

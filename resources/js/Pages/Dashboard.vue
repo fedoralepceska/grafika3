@@ -10,25 +10,25 @@ import StatusBox from "@/Components/StatusBox.vue";
     <Head title="Dashboard" />
 
     <MainLayout>
-        <div class="status-boxes">
-            <StatusBox icon="fa-solid fa-gear fa-2xl" title="All jobs not shipped" number="0" color="#1497D5"/>
-            <StatusBox icon="fa-solid fa-cart-shopping fa-2xl" title="Entered today" :number="invoicesToday" color="#E6AE49"/>
-            <StatusBox icon="fa-solid fa-truck fa-2xl" title="Shipping today" number="0" color="#1497D5"/>
-            <StatusBox icon="fa-solid fa-triangle-exclamation fa-2xl" title="> 7 days old: NOT shipped" number="0" color="#A53D3F"/>
+        <div class="status-boxes dark-gray">
+            <StatusBox icon="fa-solid fa-gear fa-2xl" title="All jobs not shipped" number="0" color="#1497D5" />
+            <StatusBox icon="fa-solid fa-cart-shopping fa-2xl" title="Entered today" :number="invoicesToday" color="#E6AE49" :border-color="dynamicColor2" />
+            <StatusBox icon="fa-solid fa-truck fa-2xl" title="Shipping today" number="0" color="#1497D5" />
+            <StatusBox icon="fa-solid fa-triangle-exclamation fa-2xl" title="> 7 days old: NOT shipped" number="0" color="#A53D3F" :border-color="dynamicColor"/>
         </div>
-        <div class="flex" style="padding: 30px">
-            <nav class="sidebar-menu">
+        <div class="flex dark-gray" style="padding: 25px">
+            <nav class="sidebar-menu dark-gray">
                 <a href="/invoices/create" class="menu-item">
                     <span class="fa-solid fa-plus"></span>
                     <span class="text">NEW ORDER</span>
                 </a>
                 <a href="#" class="menu-item">
-                    <span class="fa-solid fa-gear"></span>
+                    <span class="fa-solid fa-gears"></span>
                     <span class="text">SELECT MACHINE</span>
                 </a>
                 <a href="/clients/create" class="menu-item">
-                    <span class="fa-solid fa-plus"></span>
-                    <span class="text">NEW CUSTOMER</span>
+                     <span class="fa-solid fa-plus"></span>
+                     <span class="text">NEW CUSTOMER</span>
                 </a>
                 <a href="/invoices" class="menu-item">
                     <span class="fa-regular fa-folder"></span>
@@ -50,7 +50,9 @@ import StatusBox from "@/Components/StatusBox.vue";
 export default {
     data() {
         return {
-            invoicesToday: 0
+            invoicesToday: 0,
+            dynamicColor: '2px solid #A53D3F',
+            dynamicColor2: '2px solid #E6AE49'
         }
     },
     created() {
@@ -74,34 +76,36 @@ export default {
 .status-boxes {
     display: flex;
     justify-content: space-around;
-    padding: 20px;
+    padding: 15px;
     width: 100%;
 }
 .sidebar-menu {
     background-color: $background-color; /* Dark background */
     color: white;
-    padding: 0;
     list-style: none;
     width: fit-content;
 }
-
+.dark-gray{
+    background-color: $dark-gray;
+}
 .menu-item {
     display: flex;
+    flex-direction: column;
+    justify-content: center;
     align-items: center;
-    padding: 10px 20px;
+    padding: 10px 30px;
     text-decoration: none;
     color: white;
     background-color: $light-gray; /* Slightly lighter than the sidebar for contrast */
-    border-bottom: 1px solid #555; /* Slight separation between items */
     height: 100px;
     margin-bottom: 20px;
 }
-
-.menu-item .icon {
-    margin-right: 10px;
-    /* Optionally, you can add a font-family if you're using a specific icon set */
+.items{
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
 }
-
 .menu-item .text {
     font-size: 1em;
     text-transform: uppercase;
@@ -110,7 +114,7 @@ export default {
 
 /* Hover effect */
 .menu-item:hover {
-    background-color: $dark-gray;
+    background-color: $ultra-light-gray;
 }
 .text {
     margin-left: 10px;

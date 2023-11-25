@@ -1,11 +1,11 @@
 <template>
     <div class="status-box">
-        <div class="icon-container">
+        <div class="icon-container" :style="{border : borderColor}">
             <i :class="icon" :style="{ color: color }"/>
         </div>
         <div class="status-info">
-            <span class="status-number">{{ number }}</span>
-            <span class="status-text">{{ title }}</span>
+            <span class="status-number text-white">{{ number }}</span>
+            <span class="status-text text-white">{{ title }}</span>
         </div>
     </div>
 </template>
@@ -17,7 +17,11 @@ export default {
         icon: String,
         title: String,
         number: Number,
-        color: String
+        color: String,
+        borderColor:{
+            type:String,
+            default: '2px solid #0073a9',
+        }
     }
 }
 </script>
@@ -28,23 +32,20 @@ export default {
     align-items: center;
     background-color: $light-gray;
     border-radius: 2px;
-    padding: 10px;
-    justify-content: space-between;
+    padding-bottom: 10px;
+    justify-content: left;
     flex-grow: 1; /* Makes the boxes grow to fill the container */
-    margin: 0 10px;
+    margin: 0 5px;
+    height: 25vh;
+
 }
 
 .icon-container {
-    padding: 10px;
+    padding:  24px 20px;
     /* Use a background-color that matches your icons' background for the circle */
     border-radius: 50%;
     margin-right: 10px;
 }
-
-.status-info {
-    text-align: center;
-}
-
 .status-number {
     font-size: 1.5em;
     font-weight: bold;
