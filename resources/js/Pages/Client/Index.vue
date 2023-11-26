@@ -33,9 +33,9 @@
                                 <template v-for="client in clients">
                                     <tr>
                                         <td @click="toggleRow(client.id)" class="company">
-                                            {{ client.name }}
                                             <i v-if="clientExpanded === client.id" class="fa-solid fa-chevron-up"></i>
                                             <i v-else class="fa-solid fa-chevron-down"></i>
+                                            {{ client.name }}
                                         </td>
                                         <td class="centered">
                                             <SecondaryButton @click="deleteClient(client)" class="delete">Delete</SecondaryButton>
@@ -46,9 +46,9 @@
                                             <div class="contact-info">
                                                 <div v-for="(contact,index) in client.contacts" :key="contact.id" class="info mb-1">
                                                     <div class="bg-white text-black pl-1"><strong>Contact #{{index+1}}</strong></div>
-                                                    <div>Contact Name: <strong>{{ contact.name }}</strong></div>
-                                                    <div>Contact Phone: <strong> {{ contact.phone }}</strong></div>
-                                                    <div>Contact E-mail: <strong> {{ contact.email }}</strong></div>
+                                                    <div class="pl-2">Contact Name: <strong>{{ contact.name }}</strong></div>
+                                                    <div class="pl-2">Contact Phone: <strong> {{ contact.phone }}</strong></div>
+                                                    <div class="pl-2">Contact E-mail: <strong> {{ contact.email }}</strong></div>
                                                 </div>
                                             </div>
                                         </td>

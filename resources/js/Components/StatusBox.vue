@@ -45,6 +45,7 @@ export default {
     /* Use a background-color that matches your icons' background for the circle */
     border-radius: 50%;
     margin-right: 10px;
+    margin-left: 5px;
 }
 .status-number {
     font-size: 1.5em;

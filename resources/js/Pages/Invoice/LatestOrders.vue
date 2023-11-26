@@ -6,7 +6,7 @@
                 <div class="invoice-card">
                     <div class="invoice-details">
                         <div class="header">
-                            <span class="order-number">Order PO: #{{ invoice.id }}</span>
+                            <span class="order-number">{{ invoice.invoice_title }}</span>
                             <!-- Add other header details here -->
                         </div>
                         <div class="body flex">
@@ -24,7 +24,7 @@
                                     <!-- Add other invoice details here -->
                                 </div>
                             </div>
-                            <div class="right">
+                            <div class="info">
                                 <p><strong>Start Date:</strong> {{ invoice.start_date }}</p>
                                 <p><strong>End Date:</strong> {{ invoice.end_date }}</p>
                             </div>
