@@ -86,7 +86,13 @@ class Job extends Model
 
         // Update the remaining quantity of small format materials.
         $usedFormats = $usedMaterialResult * $this->copies;
-        $smallMaterial->smallFormatMaterial->decrement('quantity', $usedFormats);
+
+        // Check if there is enough quantity before decrementing
+        $remainingQuantity = max(0, $smallMaterial->smallFormatMaterial->quantity - $usedFormats);
+
+        // Update the quantity only if there's enough remaining quantity
+        $smallMaterial->smallFormatMaterial->update(['quantity' => $remainingQuantity]);
+
 
         return $totalPrice;
     }

@@ -50,7 +50,7 @@
             <div class="form-group mt-2 p-2 text-black sameRow">
                 <label class="label-fixed-width">{{ $t('materialSmallFormat') }}</label>
                 <select v-model="selectedMaterialSmall" :disabled="selectedMaterial !== ''" class="select-fixed-width">
-                    <option v-for="material in materialsSmall" :key="material" :value="material">
+                    <option v-for="material in materialsSmall" :key="material" :value="material" :disabled="material.small_format_material.quantity <= 0">
                         {{ material.name }} - {{ material.small_format_material.name }}
                     </option>
                 </select>
