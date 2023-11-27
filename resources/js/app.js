@@ -12,7 +12,7 @@ import * as directives from 'vuetify/directives'
 import '@mdi/font/css/materialdesignicons.min.css';
 import 'font-awesome/css/font-awesome.css';
 import '@fortawesome/fontawesome-free/css/all.css'; // Font Awesome Free (SVG with JS)
-
+import VueMultiselect from "vue-multiselect";
 // Import the CSS or use your own!
 import "vue-toastification/dist/index.css";
 import i18n from './i18n';
@@ -34,6 +34,7 @@ createInertiaApp({
             .use(i18n)
             .use(Toast)
             .use(VueSidebarMenu)
+            .use(VueMultiselect)
             .use(vuetify)
             .use(ZiggyVue, Ziggy)
             .mount(el);

@@ -2,15 +2,19 @@
     <div v-if="!$props.shipping">
         <div class="light-gray p-2">
             <div>
-                <label class="text-white">{{ $t('syncJobs') }}</label>
+                <div class="text-white">{{ $t('syncJobs') }}</div>
                 <div>
-                        <v-select
-                            id="#select"
-                            multiple
-                            v-model="selectedJobs"
-                            :items="formattedJobOptions"
-                            class="select"
-                        ></v-select>
+                    <VueMultiselect
+                        :searchable="false"
+                        v-model="selectedJobs"
+                        :options="formattedJobOptions"
+                        :multiple="true"
+                        label="title"
+                        track-by="value"
+                        :close-on-select="true"
+                        :show-labels="false"
+                        placeholder="Select Jobs">
+                    </VueMultiselect>
                 </div>
             </div>
         </div>
@@ -94,13 +98,24 @@
         <div>
             <label class="text-white">{{ $t('syncJobs') }}</label>
             <div>
-                <v-select
+<!--                <v-select
                     id="#select"
                     multiple
                     v-model="selectedJobs"
                     :items="formattedJobOptions"
                     class="select"
-                ></v-select>
+                ></v-select>-->
+                <VueMultiselect
+                    :searchable="false"
+                    v-model="selectedJobs"
+                    :options="formattedJobOptions"
+                    :multiple="true"
+                    label="title"
+                    track-by="value"
+                    :close-on-select="true"
+                    :show-labels="false"
+                    placeholder="Select Jobs">
+                </VueMultiselect>
             </div>
         </div>
         <div class="button-container rowButtons">
@@ -119,13 +134,11 @@ import { useI18n } from 'vue-i18n';
 import PrimaryButton from "@/Components/buttons/PrimaryButton.vue";
 import { useToast } from "vue-toastification";
 import SecondaryButton from "@/Components/buttons/SecondaryButton.vue";
-import Multiselect from '@vueform/multiselect'
-import "@vueform/multiselect/themes/default.css";
 import store from '../orderStore.js';
-
+import VueMultiselect from 'vue-multiselect'
 export default {
     name: "OrderInfo",
-    components: { Multiselect, SecondaryButton, PrimaryButton },
+    components: {VueMultiselect, SecondaryButton, PrimaryButton },
     props: {
         jobs: Array,
         shippingDetails: String,
@@ -152,7 +165,7 @@ export default {
     },
     computed: {
         formattedJobOptions() {
-            return this.jobs?.map((job, index) => ({ value: job, title: `#${index + 1}` }));
+            return this.jobs?.map((job, index) => ({ value: job.id, title: `#${index + 1}` }));
         }
     },
     methods: {
@@ -291,102 +304,74 @@ export default {
     }
 };
 </script>
-
-<style scoped lang="scss">
-.light-gray {
-    background-color: $light-gray;
+<style src="vue-multiselect/dist/vue-multiselect.css"></style>
+<style>
+.multiselect__tag {
+    background-color: #81c950;
 }
-
-.sameRow {
-    display: flex;
-    align-items: center;
-    margin-bottom: 1rem;
+.multiselect__option--highlight{
+    background-color: #81c950;
 }
-
-.sameColumn {
-    display: flex;
-    flex-direction: column;
-    margin-bottom: 1rem;
+.multiselect__option--selected.multiselect__option--highlight{
+    background-color: indianred;
 }
-
-.form-group label {
-    margin-right: 1rem;
-    color: $white;
-}
-
-.addBtn {
-    color: $light-green;
-    margin-left: 8px;
-    cursor: pointer;
-}
-
-.removeBtn {
-    color: #c95050;
-    margin-left: 7px;
-    cursor: pointer;
-}
-
-.button-container {
-    display: flex;
-    justify-content: flex-end;
-    margin:5px;
-    padding: 5px;
-}
-
-.label-fixed-width {
-    width: 11rem;
-}
-
-.select-fixed-width {
-    width: 15rem;
-}
-
-input, select, .multiselect {
-    height: 36px;
-    min-height: 26px;
-}
-
-.rowButtons {
-    display: flex;
-    flex-direction: row;
-    justify-content: space-between;
-}
-
-.v-select:hover .v-select__selections {
-    background-color: $light-gray !important;
-}
-.theme--light.v-menu .v-list-item--link:hover {
-    background-color: $light-gray !important;
-}
-
-/* To change the text color of the options when hovered */
-.theme--light.v-menu .v-list-item--link:hover .v-list-item__content {
-    color: $light-gray !important;
-}
-     /* Light theme styling for the dropdown content */
- .theme--light #select .v-menu__content {
-     background-color: white !important; /* Set dropdown background to white */
-     color: black !important; /* Set dropdown text color to black */
- }
-
-/* Light theme styling for the dropdown items */
-.theme--light #select .v-list-item {
-    background-color: white !important; /* Set option background to white */
-    color: black !important; /* Set option text color to black */
-}
-
-/* Light theme styling for the dropdown items on hover */
-.theme--light #select .v-list-item:hover {
-    background-color: #f5f5f5 !important; /* Light grey background for hovered items */
-    color: black !important; /* Maintain text color on hover */
-}
-
-.v-input__control {
-    background-color: white;
-}
-
-.v-input__control:hover {
-    background-color: white;
-}
-
 </style>
+    <style scoped lang="scss">
+    .light-gray {
+        background-color: $light-gray;
+    }
+    .sameRow {
+        display: flex;
+        align-items: center;
+        margin-bottom: 1rem;
+    }
+
+    .sameColumn {
+        display: flex;
+        flex-direction: column;
+        margin-bottom: 1rem;
+    }
+
+    .form-group label {
+        margin-right: 1rem;
+        color: $white;
+    }
+
+    .addBtn {
+        color: $light-green;
+        margin-left: 8px;
+        cursor: pointer;
+    }
+
+    .removeBtn {
+        color: #c95050;
+        margin-left: 7px;
+        cursor: pointer;
+    }
+
+    .button-container {
+        display: flex;
+        justify-content: flex-end;
+        margin:5px;
+        padding: 5px;
+    }
+
+    .label-fixed-width {
+        width: 11rem;
+    }
+
+    .select-fixed-width {
+        width: 15rem;
+    }
+
+    input, select, .multiselect {
+        height: 36px;
+        min-height: 26px;
+    }
+
+    .rowButtons {
+        display: flex;
+        flex-direction: row;
+        justify-content: space-between;
+    }
+    </style>
