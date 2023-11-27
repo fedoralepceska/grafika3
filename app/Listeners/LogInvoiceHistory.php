@@ -11,7 +11,7 @@ class LogInvoiceHistory
 {
     public function handle(InvoiceCreated $event)
     {
-        $action = "Invoice #{$event->invoice->id} with name {$event->invoice->invoice_title}, was created by user {$event->invoice->user->name} at " . now()->toDateTimeString();
+        $action = "Invoice created!";
 
         HistoryLog::create([
             'invoice_id' => $event->invoice->id,

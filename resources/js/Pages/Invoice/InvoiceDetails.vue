@@ -8,15 +8,7 @@
                 </button>
                 <div class="right-column">
                     <div class="order-history">
-                        <h3 class="order-history-title uppercase">{{ $t('Order History') }}</h3>
-                        <div class="history-subtitle">{{ invoice.invoice_title }} #{{ invoice.id }}</div>
-                        <div class="order-history-content">
-                            <ul class="order-history-list">
-                                <li v-for="log in invoice.history_logs" :key="log.id" class="order-history-item">
-                                     - <span class="log-action">{{ log.action }}</span>
-                                </li>
-                            </ul>
-                        </div>
+                        <OrderHistory :invoice="invoice"/>
                     </div>
                 </div>
             </div>
@@ -171,10 +163,11 @@ import {useToast} from "vue-toastification";
 import OrderJobDetails from "@/Pages/Invoice/OrderJobDetails.vue";
 import OrderSpreadsheet from "@/Components/OrderSpreadsheet.vue";
 import Header from "@/Components/Header.vue";
+import OrderHistory from "@/Pages/Invoice/OrderHistory.vue";
 
 export default {
 
-    components: {OrderSpreadsheet, OrderJobDetails, MainLayout, Header },
+    components: {OrderHistory, OrderSpreadsheet, OrderJobDetails, MainLayout, Header },
     data() {
         return {
             showImagePopover: false,
@@ -413,35 +406,6 @@ export default {
     color: black;
 }
 
-.order-history {
-    padding: 20px;
-}
-
-.order-history-title {
-    margin-bottom: 10px;
-    font-size: 1.2em;
-}
-
-.order-history-list {
-    list-style-type: none;
-    padding: 0;
-}
-
-.order-history-item {
-    padding: 5px 0;
-    border-bottom: 1px solid #444;
-    background-color: $ultra-light-gray;
-}
-
-.log-date {
-    font-weight: bold;
-    margin-right: 5px;
-}
-
-.log-action {
-    color: white;
-}
-
 .right-column {
     background-color: $background-color;
     color: white;
@@ -462,10 +426,16 @@ export default {
     top: 0;
     right: 0;
     bottom: 0;
-    width: 250px; /* Width of sidebar */
+    width: 350px; /* Width of sidebar */
     background-color: $background-color; /* Sidebar background color */
     z-index: 1000; /* Should be below the overlay */
     overflow-y: auto;
+    padding: 20px;
+    border: 1px solid $white;
+    border-radius: 12px;
+}
+
+.order-history {
     padding: 20px;
 }
 
