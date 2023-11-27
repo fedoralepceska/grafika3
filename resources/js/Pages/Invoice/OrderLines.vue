@@ -64,6 +64,27 @@
                         </div>
                     </td>
                 </div>
+                <!-- ACTIONS -->
+                <div>
+                    <div class="pl-14 pr-14" v-if="actions(job.id)">
+                        <div class="jobInfo mt-3 mb-5">
+                            <div class="green p-1 pl-1 text-white">
+                                {{$t('ACTIONS')}}
+                                <button class="toggle-button" @click="toggleActions">&#9207;</button>
+                            </div>
+                            <transition name="slide-fade">
+                                <div v-if="showActions" class="ultra-light-green text-white pl-1 pt-1 pb-1">
+                                    <div v-for="action in actions(job.id)" :key="action">
+                                        <span>&#9659; {{ $t(`actions.${action}`) }}</span>
+                                    </div>
+                                </div>
+                            </transition>
+                        </div>
+                    </div>
+                    <template v-else>
+                        <span></span>
+                    </template>
+                </div>
                 <!--SHIPPING INFO-->
                 <div class="flex">
                     <td class="flex items-center bg-gray-200 text-black">
@@ -86,10 +107,34 @@ export default {
         updatedJobs: Array
     },
 
+    data() {
+        return {
+            showActions: false
+        }
+    },
+
     methods: {
         getImageUrl(id) {
             return `/storage/uploads/${this.$props.jobs.find(j => j.id === id).file}`
-        }
+        },
+
+        toggleActions() {
+            this.showActions = !this.showActions;
+        },
+
+        actions(id) {
+            const job = this.updatedJobs.find(job => job.id === id);
+            console.log(job)
+            // Check if the job exists
+            if (job) {
+                const jobActions = job.actions;
+                console.log(jobActions.map(action => action.name));
+                if (jobActions && jobActions.length > 0) {
+                    return jobActions.map(action => action.name);
+                }
+            }
+            else return false; // Return a default value if there are no actions for the job
+        },
     }
 }
 </script>

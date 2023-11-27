@@ -164,7 +164,7 @@ class JobController extends Controller
         $jobIds = $request->input('jobs', []);
 
         // Fetch the jobs with matching IDs
-        $jobs = Job::whereIn('id', $jobIds)->get();
+        $jobs = Job::whereIn('id', $jobIds)->with('actions')->get()->toArray();
 
         return response()->json(['jobs' => $jobs]);
     }

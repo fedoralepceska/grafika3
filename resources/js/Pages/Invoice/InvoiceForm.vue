@@ -197,24 +197,6 @@ export default {
             }
         },
 
-        toggleActions() {
-            this.showActions = !this.showActions;
-        },
-        actions(id) {
-            // this.fetchJobs();
-            const job = this.newJobs.find(job => job.id === id);
-            // Check if the job exists
-            if (job) {
-                const jobActions = job.actions;
-
-                if (jobActions && jobActions.length > 0) {
-                    return jobActions.map(action => action.name);
-                }
-            }
-
-            return false; // Return a default value if there are no actions for the job
-        },
-
         async submitForm() {
             // Check if the device is currently online
             if (!navigator.onLine) {
