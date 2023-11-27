@@ -84,108 +84,7 @@
                 <div class="right2">
                     <div class="Order light-gray">
                         <h2 class="sub-title uppercase">{{ $t('orderLines') }}</h2>
-                        <table class="border" v-if="$refs.dragAndDrop?.jobs?.length > 0">
-                            <tbody>
-                            <template v-if="updatedJobs.length === 0">
-                                <tr v-for="(job, index) in $refs.dragAndDrop?.jobs" :key="index" >
-
-                                    <!--FILE INFO BEFORE SYNCING-->
-                                    <div class=" text-white">
-                                        <td class="text-black bg-gray-200 font-weight-black ">#{{ index + 1 }}</td>
-                                        <td> Name: <span class="bold">{{ job.file }}</span></td>
-                                        <td>ID: <span class="bold">{{ job.id }}</span></td>
-
-                                        <td>{{ $t('width') }}: <span class="bold">{{ job.width.toFixed(2) }}mm</span></td>
-                                        <td>{{ $t('height') }}: <span class="bold">{{ job.height.toFixed(2) }}mm</span></td>
-                                        <td>{{$t('Quantity')}}: <span class="bold">{{ job.quantity }}</span></td>
-                                        <td>{{$t('Copies')}}: <span class="bold">{{ job.copies }}</span></td>
-                                    </div>
-
-
-                                    <div class="flex text-white">
-                                        <td><img :src="getImageUrl(job.id)" alt="Job Image" class="jobImg thumbnail" /></td>
-
-                                    </div>
-
-                                    <div class="flex">
-                                        <td class="flex items-center bg-gray-200 text-black">
-                                            <img src="/images/shipping.png" class="w-10 h-10 pr-1" alt="Shipping">
-                                            {{ $t('Shipping') }}: </td>
-                                    </div>
-
-                                </tr>
-                            </template>
-                            <template v-else>
-                                <tr v-for="(job, index) in updatedJobs" :key="index">
-                                    <!--ORDER INDEX, NAME AND ADDITIONAL INFO-->
-                                    <div class=" text-white">
-                                        <td class="text-black bg-gray-200 font-weight-black "><span class="bold">#{{ index + 1 }}</span></td>
-                                        <td> Name: <span class="bold">{{ job.file }}</span></td>
-                                        <td>ID: <span class="bold">{{ job.id }}</span></td>
-                                        <td>{{ $t('width') }}: <span class="bold">{{ job.width }}</span> </td>
-                                        <td>{{ $t('height') }}: <span class="bold">{{ job.height }}</span></td>
-                                        <td>{{$t('Quantity')}}: <span class="bold">{{ job.quantity }}</span></td>
-                                        <td>{{$t('Copies')}}: <span class="bold">{{ job.copies }}</span></td>
-                                    </div>
-
-                                    <!--FILE INFO-->
-                                    <div class="flex text-white">
-                                        <td><img :src="getImageUrl(job.id)" alt="Job Image" class="jobImg thumbnail" /></td>
-                                        <td>
-                                            <div v-if="job.machinePrint">
-                                            {{  $t('machineP') }} : <span class="bold"> {{$t(`machinePrint.${job.machinePrint}`) }}</span>
-                                            </div>
-                                        </td>
-                                        <td>
-                                            <div v-if="job.machineCut">
-                                                {{  $t('machineC') }} : <span class="bold"> {{$t(`machineCut.${job.machineCut}`) }}</span>
-                                            </div>
-                                        </td>
-                                        <td>
-                                            <div v-if="job.materials">
-                                                {{  $t('materialLargeFormat') }} : <span class="bold"> {{$t(`materials.${job.materials}`) }}</span>
-                                            </div>
-                                            <div v-if="job.materialsSmall">
-                                                {{  $t('materialSmallFormat') }} : <span class="bold"> {{$t(`materialsSmall.${job.materialsSmall}`) }}</span>
-                                            </div>
-                                        </td>
-                                    </div>
-
-                                    <!--ORDER INFO-->
-                                    <div>
-                                        <div class="pl-14 pr-14" v-if="actions(job.id)">
-                                            <div class="jobInfo mt-3 mb-5">
-                                                <div class="green p-1 pl-1 text-white">
-                                                    {{$t('ACTIONS')}}
-                                                    <button class="toggle-button" @click="toggleActions">&#9207;</button>
-                                                </div>
-                                                <transition name="slide-fade">
-                                                    <div v-if="showActions" class="ultra-light-green text-white pl-1 pt-1 pb-1">
-                                                        <template>
-                                                            <div v-for="action in actions(job.id)" :key="action">
-                                                                <span>&#9659; {{ $t(`actions.${action}`) }}</span>
-                                                            </div>
-                                                        </template>
-                                                    </div>
-                                                </transition>
-                                            </div>
-                                        </div>
-                                        <template v-else>
-                                            <span></span>
-                                        </template>
-                                    </div>
-
-                                    <!--SHIPPING INFO-->
-                                    <div class="flex " >
-                                        <td class="flex items-center bg-gray-200 text-black ">
-                                            <img src="/images/shipping.png" class="w-10 h-10 pr-1" alt="Shipping">
-                                            {{ $t('Shipping') }}: {{ job.shippingInfo }}</td>
-
-                                    </div>
-                                </tr>
-                            </template>
-                            </tbody>
-                        </table>
+                        <OrderLines :jobs="$refs.dragAndDrop?.jobs" :updatedJobs="updatedJobs"/>
                     </div>
                 </div>
             </div>
@@ -205,11 +104,14 @@ import Tab from "@/Components/tabs/Tab.vue";
 import TabV2 from "@/Components/tabs/TabV2.vue";
 import TabsWrapperV2 from "@/Components/tabs/TabsWrapperV2.vue";
 import Header from "@/Components/Header.vue";
+import OrderLines from "@/Pages/Invoice/OrderLines.vue";
 
 
 export default {
     name: "InvoiceForm",
-    components: {Header, TabsWrapperV2,TabV2, TabsWrapper,Tab, OrderInfo, DragAndDrop, MainLayout, PrimaryButton },
+    components: {
+        OrderLines,
+        Header, TabsWrapperV2,TabV2, TabsWrapper,Tab, OrderInfo, DragAndDrop, MainLayout, PrimaryButton },
     data() {
         return {
             invoice: {
@@ -457,7 +359,7 @@ input[data-v-81b90cf3], select[data-v-81b90cf3]{
 .right2{
     width: 63%;
 }
-.Order,.orderInfo{
+.Order,.orderInfo {
     box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
 }
 .header{
@@ -500,50 +402,9 @@ input[data-v-81b90cf3], select[data-v-81b90cf3]{
     text-align: left;
     margin-right: 20px;
 }
-.button-container{
+.button-container {
     display: flex;
     justify-content: flex-end;
-}
-
-table {
-    width: 100%;
-    border-collapse: collapse;
-    margin-top: 20px;
-}
-
-th, td {
-
-    padding: 10px;
-    text-align: center;
-
-}
-tr{
-    margin-bottom: 5px;
-    border: 1px solid white;
-}
-th {
-
-    background-color: #f0f0f0;
-}
-
-.jobImg {
-    width: 60px;
-    height: 60px;
-    margin: 0 auto;
-    display: flex;
-}
-.thumbnail {
-    top:-50px;
-    left:-35px;
-    display:block;
-    z-index:999;
-    cursor: pointer;
-    -webkit-transition-property: all;
-    -webkit-transition-duration: 0.3s;
-    -webkit-transition-timing-function: ease;
-}
-.thumbnail:hover {
-    transform: scale(4);
 }
 
 input, select {
