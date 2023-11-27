@@ -221,7 +221,7 @@ export default {
             let jobIds;
             // Get all job ids
             if (this.selectedJobs.length) {
-                jobIds = this.selectedJobs.map(job => job.id)
+                jobIds = this.selectedJobs.map(job => job.value)
             }
             else {
                 jobIds = this.jobs?.map(job => job?.id);
@@ -273,7 +273,7 @@ export default {
             let jobIds;
             // Get all job ids
             if (this.selectedJobs.length) {
-                jobIds = this.selectedJobs.map(job => job.id)
+                jobIds = this.selectedJobs.map(job => job.value)
             }
             else {
                 jobIds = this.jobs.map(job => job.id);

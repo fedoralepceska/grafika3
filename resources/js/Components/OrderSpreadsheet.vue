@@ -13,7 +13,7 @@
                 <th>Job Line</th>
                 <th>Job Name</th>
                 <th >Quantity</th>
-                <th>Dims (cm)</th>
+                <th>Dims (mm)</th>
                 <th>Scheduled Ship Date</th>
                 <th>Shipping Address</th>
                 <th>Job Status</th>
@@ -35,7 +35,7 @@
                 <td>{{ invoice?.end_date}}</td>
                 <td>{{job.shippingInfo}}</td>
                 <td>{{job.status}}</td>
-                <td>{{ job.small_material.small_format_material.price_per_unit }}.ден</td>
+                <td>{{ job?.small_material?.small_format_material?.price_per_unit }}.ден</td>
                 <td>{{job.totalPrice.toFixed(2)}}.ден</td>
             </tr>
             </tbody>
