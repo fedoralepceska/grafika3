@@ -372,6 +372,7 @@ export default {
     .rowButtons {
         display: flex;
         flex-direction: row;
-        justify-content: space-between;
+        justify-content: right;
+        gap: 10px;
     }
     </style>

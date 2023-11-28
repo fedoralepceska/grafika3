@@ -67,7 +67,7 @@ const messages = {
         MATERIALS:"MATERIALS",
         materialLargeFormat:'Materials',
         materialSmallFormat: "Material - small format",
-        syncJobs: 'Sync jobs',
+        syncJobs: 'Sync selected jobs',
         syncAllJobs: 'Sync all jobs',
         materialsSmall: {
             'Material small 1': 'Меморандум А4 (80гр)',

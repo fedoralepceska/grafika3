@@ -66,16 +66,16 @@
                 </div>
                 <!-- ACTIONS -->
                 <div>
-                    <div class="pl-14 pr-14" v-if="actions(job.id)">
-                        <div class="jobInfo mt-3 mb-5">
-                            <div class="green p-1 pl-1 text-white">
+                    <div class="pl-20 pr-14" v-if="actions(job.id)">
+                        <div class="jobInfo mt-3 mb-5 bg-gray-800">
+                            <div class="green p-1 pl-1 text-white bg-gray-700" @click="toggleActions" style="cursor: pointer">
                                 {{$t('ACTIONS')}}
-                                <button class="toggle-button" @click="toggleActions">&#9207;</button>
+                                <button class="toggle-button" >&#9207;</button>
                             </div>
                             <transition name="slide-fade">
                                 <div v-if="showActions" class="ultra-light-green text-white pl-1 pt-1 pb-1">
-                                    <div v-for="action in actions(job.id)" :key="action">
-                                        <span>&#9659; {{ $t(`actions.${action}`) }}</span>
+                                    <div v-for="(action,index) in actions(job.id)" :key="action">
+                                        <span>{{index+1}}. <strong>{{ $t(`actions.${action}`) }}</strong></span>
                                     </div>
                                 </div>
                             </transition>
@@ -89,8 +89,12 @@
                 <div class="flex">
                     <td class="flex items-center bg-gray-200 text-black">
                         <img src="/images/shipping.png" class="w-10 h-10 pr-1" alt="Shipping">
-                        {{ $t('Shipping') }}: {{ job.shippingInfo }}</td>
-
+                        {{ $t('Shipping') }}:  <strong> {{ job.shippingInfo }}</strong></td>
+                    <div class="jobPriceInfo absolute right-0 bottom-0 bg-white text-black bold">
+                        <div class="p-2">
+                            {{$t('jobPrice')}}: <span class="bold">{{job.totalPrice.toFixed(2)}} ден.</span>
+                        </div>
+                    </div>
                 </div>
             </tr>
         </template>

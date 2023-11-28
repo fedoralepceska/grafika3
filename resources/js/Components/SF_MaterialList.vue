@@ -53,7 +53,7 @@
         </div>
     </div>
     <Header title="material" subtitle="smallMaterial" icon="Materials.png"/>
-    <div class="dark-gray p-5 text-white">
+    <div class="dark-gray p-5 text-white mb-4">
         <div class="form-container p-2 light-gray">
             <h2 class="sub-title">
                 {{ $t('listOfSmallMaterials') }}
