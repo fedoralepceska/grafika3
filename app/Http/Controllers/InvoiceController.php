@@ -20,10 +20,11 @@ use ZipArchive;
 
 class InvoiceController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        $invoices = Invoice::with(['jobs', 'user', 'client'])->get(); // Eager load jobs related to invoices
+        $query = Invoice::with(['jobs', 'user', 'client']);
 
+        $invoices = $query->latest()->paginate(10);
         if (request()->wantsJson()) {
             return response()->json($invoices);
         }

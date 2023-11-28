@@ -42,78 +42,54 @@
                             </button>
                         </div>
                     </div>
-                    <div class="border mb-1" v-for="invoice in filteredInvoices" :key="invoice.id">
-                        <div class="bg-white text-black flex justify-between">
-                            <div class="p-2 bold">{{invoice.invoice_title}}</div>
-                            <button class="flex items-center p-1" @click="viewInvoice(invoice.id)">
-                            <i class="fa fa-eye bg-gray-300 p-2 rounded" aria-hidden="true"></i>
-                            </button>
-                        </div>
-                        <div class="flex gap-40 p-2">
-                            <div class="info">
-                                <div>Order</div>
-                                <div class="bold">#{{invoice.id}}</div>
+                    <div v-if="invoices.data.length">
+                        <div class="border mb-1" v-for="invoice in invoices.data" :key="invoice.id">
+                            <div class="bg-white text-black flex justify-between">
+                                <div class="p-2 bold">{{invoice.invoice_title}}</div>
+                                <button class="flex items-center p-1" @click="viewInvoice(invoice.id)">
+                                <i class="fa fa-eye bg-gray-300 p-2 rounded" aria-hidden="true"></i>
+                                </button>
                             </div>
-                            <div class="info">
-                                <div>Customer</div>
-                                <div class="bold">{{ invoice.client.name }}</div>
-                            </div>
-                            <div class="info">
-                                <div>End Date</div>
-                                <div  class="bold">{{invoice.end_date}}</div>
-                            </div>
-                            <div class="info">
-                                <div>Created By</div>
-                                <div  class="bold">{{ invoice.user.name }}</div>
-                            </div>
-                            <div class="info">
-                                <div>Status</div>
-                                <div :class="getStatusColorClass(invoice.status)" class="bold" >{{invoice.status}}</div>
+                            <div class="flex gap-40 p-2">
+                                <div class="info">
+                                    <div>Order</div>
+                                    <div class="bold">#{{invoice.id}}</div>
+                                </div>
+                                <div class="info">
+                                    <div>Customer</div>
+                                    <div class="bold">{{ invoice.client.name }}</div>
+                                </div>
+                                <div class="info">
+                                    <div>End Date</div>
+                                    <div  class="bold">{{invoice.end_date}}</div>
+                                </div>
+                                <div class="info">
+                                    <div>Created By</div>
+                                    <div  class="bold">{{ invoice.user.name }}</div>
+                                </div>
+                                <div class="info">
+                                    <div>Status</div>
+                                    <div :class="getStatusColorClass(invoice.status)" class="bold" >{{invoice.status}}</div>
+                                </div>
                             </div>
                         </div>
                     </div>
                 </div>
+                <Pagination :pagination="invoices"/>
             </div>
         </div>
     </MainLayout>
 </template>
 
 <script>
-import axios from "axios";
 import MainLayout from "@/Layouts/MainLayout.vue";
 import Header from "@/Components/Header.vue";
+import Pagination from "@/Components/Pagination.vue"
 
 export default {
-    components: {Header, MainLayout },
+    components: {Header, MainLayout,Pagination },
     props: {
         invoices: Array,
-    },
-    data(){
-        return{
-            filterStatus:"All",
-            filterClient:"All",
-            searchQuery: "",
-            ortBy: "created_at",
-            sortOrder: "desc",
-        }
-    },
-    computed: {
-        filteredInvoices() {
-            const sortedInvoices = this.invoices.slice().sort((a, b) => {
-                const order = this.sortOrder === "asc" ? 1 : -1;
-                return order * (new Date(a.created_at) - new Date(b.created_at));
-            });
-
-            return sortedInvoices.filter(invoice => {
-                const statusCondition = this.filterStatus === "All" || invoice.status === this.filterStatus;
-                const clientCondition = this.filterClient === "All" || invoice.client.name === this.filterClient;
-                const searchCondition = !this.searchQuery || invoice.id.toString().includes(this.searchQuery) || invoice.invoice_title.toString().includes(this.searchQuery) ;
-                return statusCondition && clientCondition && searchCondition;
-            });
-        },
-        uniqueClients() {
-            return Array.from(new Set(this.invoices.map(invoice => invoice.client.name)));
-        },
     },
     methods: {
         getStatusColorClass(status) {
@@ -125,15 +101,12 @@ export default {
                 return "green-text";
             }
         },
-        applyFilter() {
-            // Optionally, you can fetch filtered data from the server here
-        },
         viewInvoice(id) {
             this.$inertia.visit(`/invoices/${id}`);
         },
         navigateToCreateOrder(){
             this.$inertia.visit(`/invoices/create`);
-        }
+        },
     },
 };
 </script>
