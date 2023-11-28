@@ -264,7 +264,9 @@ export default {
     color: $white;
     font-weight: bold;
     text-transform: uppercase;
-    border: 1px dashed black; /* Ticket-like dashed border */
+    border: 2px dashed white; /* Ticket-like dashed border */
+    border-bottom: none;
+    border-radius: 3px 3px 0 0 ;
     padding: 4px;
     text-align: center;
     width: max-content;
@@ -432,7 +434,8 @@ export default {
     overflow-y: auto;
     padding: 20px;
     border: 1px solid $white;
-    border-radius: 12px;
+    border-right:none;
+    border-radius: 4px 0 0 4px ;
 }
 
 .order-history {

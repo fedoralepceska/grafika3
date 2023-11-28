@@ -91,7 +91,7 @@ export default {
         content: '';
         position: absolute;
         top: 20px; // Adjust this value to match the vertical center of your circles
-        left: 70px;
+        left: 40px;
         right: 40px;
         height: 2px; // Thickness of the line
         background-color: $background-color; // Color of the line
