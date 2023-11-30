@@ -72,10 +72,10 @@
                                         :class="{'text-white': !jobProcessMode, 'green-text': jobProcessMode}"
                                     ><i class="fa-solid fa-list-check"></i></div>
                                     <div class="bt"><i class="fa-regular fa-eye"></i></div>
-                                    <div class="bt"><i class="fa-regular fa-note-sticky"></i></div>
+                                    <AddNoteDialog :invoice="invoice" ref="addNoteDialog" />
                                     <div class="bt"><i class="fa-solid fa-bars"></i></div>
-
                                 </div>
+                                <AddNoteDialog v-if="openDialog" :invoice="invoice" ref="addNoteDialog" />
                             </div>
                             <div class="info pl-2">
                                 <div>{{ $t('Status') }}</div>
@@ -164,10 +164,19 @@ import OrderJobDetails from "@/Pages/Invoice/OrderJobDetails.vue";
 import OrderSpreadsheet from "@/Components/OrderSpreadsheet.vue";
 import Header from "@/Components/Header.vue";
 import OrderHistory from "@/Pages/Invoice/OrderHistory.vue";
+import AddNoteDialog from "@/Components/AddNoteDialog.vue";
 
 export default {
-
-    components: {OrderHistory, OrderSpreadsheet, OrderJobDetails, MainLayout, Header },
+    components: {
+        AddNoteDialog,
+        OrderHistory,
+        OrderSpreadsheet,
+        OrderJobDetails,
+        MainLayout,
+        Header },
+    props: {
+        invoice: Object,
+    },
     data() {
         return {
             showImagePopover: false,
@@ -176,6 +185,7 @@ export default {
             spreadsheetMode:true,
             jobProcessMode:false,
             backgroundColor: null,
+            openDialog: false
         }
     },
     computed: {
@@ -246,9 +256,6 @@ export default {
                 toast.error('There was an error downloading the files: ', error);
             }
         },
-    },
-    props: {
-        invoice: Object,
     },
 };
 </script>

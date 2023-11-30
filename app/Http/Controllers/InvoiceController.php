@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Enums\InvoiceStatus;
+use App\Enums\JobAction;
 use App\Events\InvoiceCreated;
 use App\Models\Client;
 use App\Models\Invoice;
@@ -211,5 +212,48 @@ class InvoiceController extends Controller
     public function countToday() {
         $count = Invoice::whereDate('created_at', Carbon::today())->count();
         return response()->json(['count' => $count]);
+    }
+
+    public function updateNoteProperty(Request $request)
+    {
+        $invoiceId = $request->input('id');
+        $comment = $request->input('comment');
+        $invoice = Invoice::find($invoiceId);
+
+        if (!$invoice) {
+            // Handle the case where the invoice is not found
+            return response()->json(['message' => $invoiceId], 404);
+        }
+
+        $invoice->comment = $comment;
+        $invoice->save();
+
+        $selectedActions = $request->selectedActions;
+
+        // Get all job IDs associated with the invoice
+        $jobIds = $invoice->jobs->pluck('id')->toArray();
+
+        // Find all jobs based on the IDs
+        $jobActionIds = DB::table('job_job_action')
+            ->whereIn('job_id', $jobIds)
+            ->pluck('job_action_id')
+            ->toArray();
+
+        $jobActions = JobAction::whereIn('id', $jobActionIds)->get();
+
+        // Loop through each job action
+        foreach ($jobActions as $jobAction) {
+            // Check if the action is in the selected actions
+            if (in_array($jobAction->name, $selectedActions)) {
+                // Update the hasNote property on the action
+                $jobAction->hasNote = true;
+                $jobAction->save();
+            }
+        }
+
+        // Return a response, could be the updated invoice, a success message, etc.
+        return response()->json([
+            'message' => 'Invoice jobs updated successfully.'
+        ]);
     }
 }
