@@ -60,6 +60,7 @@ Route::middleware(['auth', 'verified'])->group(function() {
     Route::put('/invoices/{id}', [InvoiceController::class, 'update'])->name('invoices.update');
     Route::get('/invoices/today/count', [InvoiceController::class, 'countToday'])->name('invoices.countToday');
     Route::get('/invoice/download', [InvoiceController::class, 'downloadInvoiceFiles'])->name('invoice.download');
+    Route::get('/invoices/{id}/pdf', [InvoiceController::class, 'generateInvoicePdf'])->name('invoice.generateInvoicePdf');
 });
 
 //Rotues For Client

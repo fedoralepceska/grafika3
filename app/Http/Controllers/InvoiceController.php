@@ -8,6 +8,7 @@ use App\Events\InvoiceCreated;
 use App\Models\Client;
 use App\Models\Invoice;
 use App\Models\Job;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
@@ -255,5 +256,13 @@ class InvoiceController extends Controller
         return response()->json([
             'message' => 'Invoice jobs updated successfully.'
         ]);
+    }
+
+    public function generateInvoicePdf($invoiceId)
+    {
+        $invoice = Invoice::with('jobs')->findOrFail($invoiceId);
+
+        $pdf = PDF::loadView('invoices.pdf', compact('invoice'));
+        return $pdf->stream('invoice-' . $invoice->invoice_number . '.pdf');
     }
 }
