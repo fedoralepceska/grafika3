@@ -299,5 +299,11 @@ class InvoiceController extends Controller
         ]);
     }
 
+    public function generateInvoicePdf($invoiceId)
+    {
+        $invoice = Invoice::with('jobs')->findOrFail($invoiceId);
 
+        $pdf = PDF::loadView('invoices.pdf', compact('invoice'));
+        return $pdf->stream('invoice-' . $invoice->invoice_number . '.pdf');
+    }
 }
