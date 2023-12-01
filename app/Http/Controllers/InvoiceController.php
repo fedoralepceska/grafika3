@@ -23,18 +23,60 @@ class InvoiceController extends Controller
 {
     public function index(Request $request)
     {
-        $query = Invoice::with(['jobs', 'user', 'client']);
+        try {
+            $query = Invoice::with(['jobs', 'user', 'client']);
 
-        $invoices = $query->latest()->paginate(10);
-        if (request()->wantsJson()) {
-            return response()->json($invoices);
+            $this->applySearch($query, $request,$request->input('status'));
+
+            $query->orderBy('created_at', $request->input('sortOrder', 'desc'));
+
+            $invoices = $query->latest()->paginate(10);
+
+            if ($request->wantsJson()) {
+                return response()->json($invoices);
+            }
+
+            return Inertia::render('Invoice/Index', [
+                'invoices' => $invoices,
+            ]);
+        } catch (\Exception $e) {
+            Log::error($e->getMessage());
+
+            return response()->json(['error' => 'Internal Server Error'], 500);
         }
-
-        return Inertia::render('Invoice/Index', [
-            'invoices' => $invoices,
-        ]);
     }
 
+    protected function applySearch($query, Request $request, $status)
+    {
+        if ($request->has('searchQuery')) {
+            $searchQuery = $request->input('searchQuery');
+
+            $searchQuery = '%' . preg_replace('/[^A-Za-z0-9\-]/', '', $searchQuery) . '%';
+
+            $query->where(function ($query) use ($searchQuery) {
+                $query->where('invoice_title', 'LIKE', $searchQuery)
+                    ->orWhere('id', 'LIKE', $searchQuery);
+            });
+        }
+        if ($status && $status !== 'All') {
+            $query->where('status', $status);
+        }
+        if ($request->has('client') && $request->input('client') !== 'All') {
+            $client = $request->input('client');
+
+            $query->whereHas('client', function ($subquery) use ($client) {
+                $subquery->where('name', $client);
+            });
+        }
+    }
+    public function getUniqueClients()
+    {
+        $uniqueClients = Invoice::join('clients', 'invoices.client_id', '=', 'clients.id')
+            ->distinct()
+            ->pluck('clients.name');
+
+        return response()->json($uniqueClients);
+    }
     public function create()
     {
         return Inertia::render('Invoice/InvoiceForm');
@@ -256,4 +298,6 @@ class InvoiceController extends Controller
             'message' => 'Invoice jobs updated successfully.'
         ]);
     }
+
+
 }

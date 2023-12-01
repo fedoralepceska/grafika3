@@ -8,9 +8,9 @@
                         {{ $t('listOfAllOrders') }}
                     </h2>
                     <div class="filter-container flex gap-4 pb-10">
-                        <div class="search">
-                            <label class="pr-3">Search orders </label>
-                            <input v-model="searchQuery" @input="applyFilter" placeholder="Enter order number or order name" class="text-black" style="width: 50vh; border-radius: 4px" />
+                        <div class="search flex gap-2">
+                            <input v-model="searchQuery" placeholder="Enter order number or order name" class="text-black" style="width: 50vh; border-radius: 3px" @keyup.enter="searchInvoices" />
+                            <button class="btn create-order" @click="searchInvoices">Search</button>
                         </div>
                         <div class="status">
                             <label class="pr-3">Filter orders</label>
@@ -42,7 +42,7 @@
                             </button>
                         </div>
                     </div>
-                    <div v-if="invoices.data.length">
+                    <div v-if="invoices.data">
                         <div class="border mb-1" v-for="invoice in invoices.data" :key="invoice.id">
                             <div class="bg-white text-black flex justify-between">
                                 <div class="p-2 bold">{{invoice.invoice_title}}</div>
@@ -85,11 +85,23 @@
 import MainLayout from "@/Layouts/MainLayout.vue";
 import Header from "@/Components/Header.vue";
 import Pagination from "@/Components/Pagination.vue"
+import axios from 'axios';
 
 export default {
     components: {Header, MainLayout,Pagination },
-    props: {
-        invoices: Array,
+    data() {
+        return {
+            searchQuery: '',
+            filterStatus: 'All',
+            filterClient: 'All',
+            sortOrder: 'desc',
+            invoices: [],
+            uniqueClients:[],
+        };
+    },
+    mounted() {
+        this.fetchAllInvoices();
+        this.fetchUniqueClients()
     },
     methods: {
         getStatusColorClass(status) {
@@ -99,6 +111,46 @@ export default {
                 return "blue-text";
             } else if (status === "Completed") {
                 return "green-text";
+            }
+        },
+        async applyFilter() {
+            try {
+                const response = await axios.get('/invoices', {
+                    params: {
+                        searchQuery: encodeURIComponent(this.searchQuery),
+                        status: this.filterStatus,
+                        sortOrder: this.sortOrder,
+                        client: this.filterClient,
+                    },
+                });
+                this.invoices = response.data;
+            } catch (error) {
+                console.error(error);
+            }
+        },
+        async searchInvoices() {
+            try {
+                const response = await axios.get(`?searchQuery=${encodeURIComponent(this.searchQuery)}`);
+                this.invoices = response.data;
+            } catch (error) {
+                console.error(error);
+            }
+        },
+        async fetchAllInvoices() {
+            try {
+                const response = await axios.get('/invoices');
+                this.invoices = response.data;
+                console.log(response.data)
+            } catch (error) {
+                console.error(error);
+            }
+        },
+        async fetchUniqueClients() {
+            try {
+                const response = await axios.get('/unique-clients');
+                this.uniqueClients = response.data;
+            } catch (error) {
+                console.error(error);
             }
         },
         viewInvoice(id) {

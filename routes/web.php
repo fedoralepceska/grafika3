@@ -60,6 +60,7 @@ Route::middleware(['auth', 'verified'])->group(function() {
     Route::put('/invoices/{id}', [InvoiceController::class, 'update'])->name('invoices.update');
     Route::get('/invoices/today/count', [InvoiceController::class, 'countToday'])->name('invoices.countToday');
     Route::get('/invoice/download', [InvoiceController::class, 'downloadInvoiceFiles'])->name('invoice.download');
+    Route::get('/unique-clients', [InvoiceController::class, 'getUniqueClients']);
 });
 
 //Rotues For Client
@@ -70,6 +71,7 @@ Route::middleware(['auth', 'verified'])->group(function() {
     Route::get('/clients/{client}/edit', [ClientController::class, 'edit'])->name('clients.edit');
     Route::put('/clients/{client}', [ClientController::class, 'update'])->name('clients.update');
     Route::delete('/clients/{client}', [ClientController::class, 'destroy'])->name('clients.destroy');
+
 });
 
 //Rotues For Jobs
