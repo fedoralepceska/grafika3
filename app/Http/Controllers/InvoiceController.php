@@ -8,6 +8,7 @@ use App\Events\InvoiceCreated;
 use App\Models\Client;
 use App\Models\Invoice;
 use App\Models\Job;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
