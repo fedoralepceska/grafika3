@@ -67,6 +67,17 @@ export default {
                         },
                     ],
                 },
+                {
+                    href: '',
+                    title: 'Production',
+                    icon: 'fa-solid fa-circle-info',
+                    child: [
+                        {
+                            href: '/production',
+                            title: 'Dashboard',
+                        },
+                    ],
+                },
             ],
         }
     },

@@ -88,6 +88,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('/get-jobs-by-ids', [JobController::class, 'getJobsByIds'])->name('jobs.getJobsByIds');
     Route::get('/jobs/{id}/image-dimensions', [JobController::class, 'calculateImageDimensions'])->name('jobs.calculateImageDimensions');
     Route::put('/jobs/{id}', [JobController::class, 'update'])->name('jobs.update');
+    Route::get('/job-action-status-counts', [JobController::class, 'jobActionStatusCounts']);
+    Route::get('/production', [JobController::class, 'production'])->name('jobs.production');
 });
 
 //Routes For Small Format Materials

@@ -6,6 +6,7 @@ use App\Enums\JobAction;
 use App\Models\Invoice;
 use App\Models\Job;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Imagick;
 use Inertia\Inertia;
 
@@ -217,4 +218,46 @@ class JobController extends Controller
             return ['width' => 0, 'height' => 0];
         }
     }
+
+    public function jobActionStatusCounts()
+    {
+        // Initialize an empty array to hold the final counts
+        $counts = [];
+
+        // Get the names of all job actions
+        $actionNames = DB::table('job_actions')->pluck('name')->unique();
+
+        // For each action name, get the count of 'In Progress' and 'Not started yet' statuses
+        foreach ($actionNames as $name) {
+            $total = DB::table('job_job_action')
+                ->join('job_actions', 'job_job_action.job_action_id', '=', 'job_actions.id')
+                ->where('job_actions.name', $name)
+                ->where('job_job_action.status', 'In Progress')
+                ->count();
+
+            $secondaryCount = DB::table('job_job_action')
+                ->join('job_actions', 'job_job_action.job_action_id', '=', 'job_actions.id')
+                ->where('job_actions.name', $name)
+                ->where('job_job_action.status', 'Not started yet')
+                ->count();
+
+            // Add the counts to the array
+            $counts[] = [
+                'name' => $name,
+                'total' => $total,
+                'secondaryCount' => $secondaryCount
+            ];
+        }
+
+        // Return the counts as a JSON response
+        return response()->json($counts);
+    }
+
+
+    public function production()
+    {
+
+        return Inertia::render('Production/Dashboard');
+    }
+
 }

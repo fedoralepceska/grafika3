@@ -13,6 +13,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class Job extends Model
 {
@@ -98,4 +99,11 @@ class Job extends Model
     }
 
 
+    public function scopeWithActionStatusCounts($query)
+    {
+        return $query->withCount(['actions as action_status_count' => function ($query) {
+            $query->select(DB::raw("concat(job_action_id, '-', status) as actionstatus"))
+                ->groupBy('status', 'job_action_id');
+        }]);
+    }
 }
