@@ -35,4 +35,9 @@ export default {
     margin-left: 2px;
     max-width: 40px;
 }
+.header {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+}
 </style>

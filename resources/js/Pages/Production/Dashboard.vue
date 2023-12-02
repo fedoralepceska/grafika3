@@ -57,7 +57,7 @@ export default {
     grid-template-columns: repeat(3, minmax(0, 1fr)); /* Use minmax for flexible but bounded sizing */
     grid-gap: 10px; /* Adjust the gap between items */
     padding: 0; /* Remove padding or set it appropriately */
-    margin: 0 auto; /* Center the container with automatic horizontal margins */
+    margin: 16px auto; /* Center the container with automatic horizontal margins */
     max-width: calc(100vw - 14px); /* Account for the total padding if any */
     box-sizing: border-box; /* Include padding in width calculations */
     place-items: center; /* Center items along both the block and inline (row and column) axis */
