@@ -38,7 +38,10 @@
                     <div class="btn2"><span class="mdi mdi-flag-outline"></span> Flags <input type="checkbox" class="blue border-white text-amber"></div>
                 </div>
                 <div class="dark-gray p-5 text-white">
-                    <div v-if="invoice.perfect" class="ticket-note">Must Be Perfect</div>
+                    <div class="flex gap-1">
+                        <div v-if="invoice.perfect" class="ticket-note-perfect">Must Be Perfect</div>
+                        <div v-if="invoice.onHold" class="ticket-note-hold">On Hold</div>
+                    </div>
                     <div class="form-container p-2 light-gray" :style="invoice.perfect ? { 'background-color': '#a36a03' } : {}">
                         <div class="InvoiceDetails">
                             <div class="invoice-details flex gap-20 relative">
@@ -280,8 +283,20 @@ export default {
     height: 40px;
     border-radius: 50%;
 }
-.ticket-note {
+.ticket-note-perfect {
     background-color: #a36a03; /* Gold background */
+    color: $white;
+    font-weight: bold;
+    text-transform: uppercase;
+    border: 2px dashed white; /* Ticket-like dashed border */
+    border-bottom: none;
+    border-radius: 3px 3px 0 0 ;
+    padding: 4px;
+    text-align: center;
+    width: max-content;
+}
+.ticket-note-hold {
+    background-color: $red; /* Gold background */
     color: $white;
     font-weight: bold;
     text-transform: uppercase;
