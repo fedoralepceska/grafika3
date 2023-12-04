@@ -36,7 +36,7 @@
                                 <option value="asc">Oldest to Newest</option>
                             </select>
                         </div>
-                        <div class="button">
+                        <div class="button flex gap-3">
                             <button @click="navigateToCreateOrder" class="btn create-order">
                                 Create Order <i class="fa fa-plus"></i>
                             </button>
@@ -89,18 +89,23 @@ import axios from 'axios';
 
 export default {
     components: {Header, MainLayout,Pagination },
+    props:{
+      invoices:Object,
+    },
     data() {
         return {
             searchQuery: '',
             filterStatus: 'All',
             filterClient: 'All',
             sortOrder: 'desc',
-            invoices: [],
+            //invoices: [],
+            localInvoices: [],
             uniqueClients:[],
         };
     },
     mounted() {
-        this.fetchAllInvoices();
+       // this.fetchAllInvoices();
+        this.localInvoices = this.invoices.data.slice();
         this.fetchUniqueClients()
     },
     methods: {
@@ -123,7 +128,22 @@ export default {
                         client: this.filterClient,
                     },
                 });
-                this.invoices = response.data;
+                this.localInvoices = response.data;
+                let redirectUrl = '/invoices';
+                if (this.searchQuery) {
+                    redirectUrl += `?searchQuery=${encodeURIComponent(this.searchQuery)}`;
+                }
+                if (this.filterStatus) {
+                    redirectUrl += `${this.searchQuery ? '&' : '?'}status=${this.filterStatus}`;
+                }
+                if (this.sortOrder) {
+                    redirectUrl += `${this.searchQuery || this.filterStatus ? '&' : '?'}sortOrder=${this.sortOrder}`;
+                }
+                if (this.filterClient) {
+                    redirectUrl += `${this.searchQuery || this.filterStatus || this.sortOrder ? '&' : '?'}client=${this.filterClient}`;
+                }
+
+                this.$inertia.visit(redirectUrl);
             } catch (error) {
                 console.error(error);
             }
@@ -131,16 +151,8 @@ export default {
         async searchInvoices() {
             try {
                 const response = await axios.get(`?searchQuery=${encodeURIComponent(this.searchQuery)}`);
-                this.invoices = response.data;
-            } catch (error) {
-                console.error(error);
-            }
-        },
-        async fetchAllInvoices() {
-            try {
-                const response = await axios.get('/invoices');
-                this.invoices = response.data;
-                console.log(response.data)
+                this.localInvoices = response.data;
+                this.$inertia.visit(`/invoices?searchQuery=${this.searchQuery}`);
             } catch (error) {
                 console.error(error);
             }
