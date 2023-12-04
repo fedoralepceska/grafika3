@@ -8,7 +8,7 @@
         >
             <template v-slot:activator="{ props }">
                 <div v-bind="props" class="bt">
-                    <i class="fa-regular fa-note-sticky"></i>
+                    <i class="fa-regular fa-note-sticky" :class="{ orange: areNotesAdded }"></i>
                 </div>
             </template>
             <v-card class="height background">
@@ -22,9 +22,9 @@
                         v-model="selectedOption"
                         :options="actionOptions"
                         :multiple="true"
-                        placeholder="Select Actions">
+                        placeholder="Select Actions"
+                        :custom-label="customLabel">
                         <template v-slot:option="{ option }">
-                            {{ option }}
                             {{ $t('actions.' + option) }}
                         </template>
                     </VueMultiselect>
@@ -59,6 +59,7 @@ export default {
             noteComment: '',
             selectedOption: null,
             actionOptions: [],
+            jobs: []
         };
     },
     props: {
@@ -68,7 +69,15 @@ export default {
         this.noteComment = this.invoice.comment;
         await this.generateActionOptions();
     },
+    computed: {
+        areNotesAdded() {
+            return this.jobs.find(j => j?.actions.some(a => a?.hasNote === 1));
+        },
+    },
     methods: {
+        customLabel(option) {
+            return this.$t('actions.' + option);
+        },
         openDialog() {
             this.dialog = true;
         },
@@ -93,8 +102,8 @@ export default {
             const jobs = await axios.post('/get-jobs-by-ids', {
                 jobs: jobIds,
             })
-            console.log(jobs);
             const actions = [];
+            this.jobs = jobs.data.jobs;
             // Iterate through each job in the invoice
             jobs.data.jobs.forEach(job => {
                 // Iterate through each action in the job
@@ -125,5 +134,8 @@ export default {
 .flexSpace {
     display: flex;
     justify-content: space-between;
+}
+.orange {
+    color: $orange;
 }
 </style>
