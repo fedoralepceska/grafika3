@@ -97,6 +97,11 @@ export default {
     height: 120px;
     background: $background-color;
     border-radius: 50%;
+    transition: width 0.3s, height 0.3s;
+}
+.inner:hover {
+    width: 130px;
+    height: 130px;
 }
 
 .primary-count {
