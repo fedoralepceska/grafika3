@@ -30,7 +30,7 @@
                 <div class="flex pb-2 justify-end">
                     <div class="btn2"><span class="mdi mdi-image"></span> Revised Art Complete <input type="checkbox" class="blue border-white text-amber"></div>
                     <div class="btn2"><span class="mdi mdi-fire"></span> RUSH <input type="checkbox" class="blue border-white text-amber"></div>
-                    <div class="btn2"><span class="mdi mdi-pause"></span> ON HOLD <input type="checkbox" class="blue border-white text-amber"></div>
+                    <div class="btn2"><span class="mdi mdi-pause"></span> ON HOLD <input type="checkbox" class="blue border-white text-amber" v-model="onHoldChecked"></div>
                     <div class="btn2"><span class="mdi mdi-thumb-up-outline"></span> Must Be Perfect <input type="checkbox" class="blue border-white text-amber" v-model="mustBePerfectChecked"></div>
                     <div class="btn2"><span class="mdi mdi-box-cutter"></span> Rip First <input type="checkbox" class="blue border-white text-amber"></div>
                     <div class="btn2"><span class="mdi mdi-image"></span> Revised Art <input type="checkbox" class="blue border-white text-amber"></div>
@@ -209,6 +209,17 @@ export default {
                 this.invoice.perfect = value;
                 axios.put(`/invoices/${this.invoice.id}`, {
                     perfect: value,
+                });
+            }
+        },
+        onHoldChecked: {
+            get() {
+                return this.invoice.onHold === 1;
+            },
+            set(value) {
+                this.invoice.onHold = value;
+                axios.put(`/invoices/${this.invoice.id}`, {
+                    onHold: value,
                 });
             }
         },

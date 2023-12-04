@@ -7,9 +7,13 @@
                     <span class="circle-badge">
                         <v-badge class="inner" :content="item.secondaryCount" color="#FFFFFF00" overlap offset-x="-45" offset-y="-20" >
                             <template v-slot:badge>
-                                <div class="sub-badge">
+                                <div :class="['sub-badge', { 'double-width': item.onHoldCount }]">
                                     <i class="fa-solid fa-spinner"></i>
                                     <div>{{ item.secondaryCount }}</div>
+                                    <div v-if="item.onHoldCount" class="flex">
+                                        <i class="fa-solid fa-ban red"></i>
+                                        <div class="red">{{ item.onHoldCount }}</div>
+                                    </div>
                                 </div>
                             </template>
                             <span class="primary-count">{{ item.total }}</span>
@@ -113,6 +117,7 @@ export default {
 
 .sub-badge {
     display: flex;
+    flex-direction: row;
     position: absolute;
     transform: translate(50%, -50%);
     width: 42px;
@@ -124,6 +129,17 @@ export default {
     justify-content: center;
     font-size: 16px;
     color: #EF6C00;
+}
+.double-width {
+    width: 84px;
+}
+.flex {
+    display: flex;
+    flex-direction: row;
+    gap: 5px;
+}
+.red {
+    color: $red;
 }
 </style>
 

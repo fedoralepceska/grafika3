@@ -172,11 +172,13 @@ class InvoiceController extends Controller
 
         $validatedData = $request->validate([
             'perfect' => 'sometimes|required',
+            'onHold' => 'sometimes|required',
         ]);
 
         // Update the job with only the validated data that's present in the request
         $invoice->update($request->only([
             'perfect',
+            'onHold'
         ]));
 
         return response()->json(['message' => 'Invoice updated successfully']);

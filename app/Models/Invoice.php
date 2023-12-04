@@ -20,7 +20,8 @@ class Invoice extends Model
         'comment',
         'status',
         'created_by',
-        'perfect'
+        'perfect',
+        'onHold'
     ];
 
 

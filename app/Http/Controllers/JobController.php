@@ -241,11 +241,20 @@ class JobController extends Controller
                 ->where('job_job_action.status', 'Not started yet')
                 ->count();
 
+            $onHoldCount = DB::table('job_job_action')
+                ->join('job_actions', 'job_job_action.job_action_id', '=', 'job_actions.id')
+                ->join('invoice_job', 'invoice_job.job_id', '=', 'job_job_action.job_id') // Adjust the join for the pivot table
+                ->join('invoices', 'invoices.id', '=', 'invoice_job.invoice_id') // Join with invoices table
+                ->where('job_actions.name', $name)
+                ->where('invoices.onHold', true)
+                ->count();
+
             // Add the counts to the array
             $counts[] = [
                 'name' => $name,
                 'total' => $total,
-                'secondaryCount' => $secondaryCount
+                'secondaryCount' => $secondaryCount,
+                'onHoldCount' => $onHoldCount
             ];
         }
 
