@@ -70,7 +70,7 @@ export default {
                 {
                     href: '',
                     title: 'Production',
-                    icon: 'fa-solid fa-circle-info',
+                    icon: 'fa-solid fa-chart-pie',
                     child: [
                         {
                             href: '/production',

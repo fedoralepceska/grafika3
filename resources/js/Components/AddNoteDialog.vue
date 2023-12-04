@@ -29,7 +29,7 @@
                         </template>
                     </VueMultiselect>
                 </v-card-text>
-                <v-card-actions class="flexSpace">
+                <v-card-actions class="flexSpace gap-4">
                     <v-spacer></v-spacer>
                     <SecondaryButton @click="closeDialog">
                         Close

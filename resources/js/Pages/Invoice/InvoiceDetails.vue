@@ -73,7 +73,7 @@
                                     ><i class="fa-solid fa-list-check"></i></div>
                                     <div class="bt"><i class="fa-regular fa-eye"></i></div>
                                     <AddNoteDialog :invoice="invoice" ref="addNoteDialog" />
-                                    <div class="bt"><i class="fa-regular fa-file-pdf" @click="generatePdf(invoice.id)"></i></div>
+                                    <div class="bt"><i class="fa-regular fa-solid fa-file-pdf fa-sm" @click="generatePdf(invoice.id)"></i></div>
                                 </div>
                                 <AddNoteDialog v-if="openDialog" :invoice="invoice" ref="addNoteDialog" />
                             </div>
