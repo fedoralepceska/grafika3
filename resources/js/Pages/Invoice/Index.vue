@@ -42,8 +42,8 @@
                             </button>
                         </div>
                     </div>
-                    <div v-if="invoices.data">
-                        <div class="border mb-1" v-for="invoice in invoices.data" :key="invoice.id">
+                    <div v-if="$props.invoices.data">
+                        <div class="border mb-1" v-for="invoice in $props.invoices.data" :key="invoice.id">
                             <div class="bg-white text-black flex justify-between">
                                 <div class="p-2 bold">{{invoice.invoice_title}}</div>
                                 <button class="flex items-center p-1" @click="viewInvoice(invoice.id)">
@@ -75,7 +75,7 @@
                         </div>
                     </div>
                 </div>
-                <Pagination :pagination="invoices"/>
+                <Pagination :pagination="$props.invoices"/>
             </div>
         </div>
     </MainLayout>
@@ -89,6 +89,9 @@ import axios from 'axios';
 
 export default {
     components: {Header, MainLayout,Pagination },
+    props: {
+        invoices: Object
+    },
     data() {
         return {
             searchQuery: '',
