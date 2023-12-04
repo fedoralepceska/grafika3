@@ -42,7 +42,7 @@
                         <div v-if="invoice.perfect" class="ticket-note-perfect">Must Be Perfect</div>
                         <div v-if="invoice.onHold" class="ticket-note-hold">On Hold</div>
                     </div>
-                    <div class="form-container p-2 light-gray" :style="invoice.perfect ? { 'background-color': '#a36a03' } : {}">
+                    <div class="form-container p-2 light-gray" :style="invoice.perfect ? { 'background-color': '#d88f0b' } : {}">
                         <div class="InvoiceDetails">
                             <div class="invoice-details flex gap-20 relative">
                                 <div class="invoice-title bg-white text-black bold p-3 ">{{ invoice?.invoice_title }}</div>
@@ -284,7 +284,7 @@ export default {
     border-radius: 50%;
 }
 .ticket-note-perfect {
-    background-color: #a36a03; /* Gold background */
+    background-color: #d88f0b; /* Gold background */
     color: $white;
     font-weight: bold;
     text-transform: uppercase;
