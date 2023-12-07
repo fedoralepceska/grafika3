@@ -90,6 +90,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::put('/jobs/{id}', [JobController::class, 'update'])->name('jobs.update');
     Route::get('/job-action-status-counts', [JobController::class, 'jobActionStatusCounts']);
     Route::get('/production', [JobController::class, 'production'])->name('jobs.production');
+    Route::get('/actions/{id}/jobs', [JobController::class, 'getJobsByActionId'])->name('jobs.getJobsByActionId');
 });
 
 //Routes For Small Format Materials
