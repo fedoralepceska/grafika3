@@ -120,7 +120,7 @@
                                             {{$t('Material')}}:
                                             <span class="bold">
                                             <span v-if="job.materials">{{$t(`materials.${job.materials}`)}}</span>
-                                            <span v-else>{{ job.small_material_id }}</span>
+                                            <span v-else>{{ job?.small_material?.name }}</span>
                                          </span>
                                         </div>
                                         <div>{{$t('totalm')}}<sup>2</sup>: <span class="bold">{{(job.height * job.width / 1000).toFixed(2)}}</span></div>

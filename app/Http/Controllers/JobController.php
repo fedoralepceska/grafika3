@@ -170,6 +170,25 @@ class JobController extends Controller
         return response()->json(['jobs' => $jobs]);
     }
 
+    public function getJobsByActionId(Request $request, $actionId)
+    {
+        // Find the action with the specified name
+        $actions = DB::table('job_actions')->where('name', $actionId)->get();
+
+        // If the action is not found, return an appropriate response
+        if (!$actions) {
+            return response()->json(['error' => 'Action not found'], 404);
+        }
+
+        // Fetch the jobs associated with the found action
+        $jobs = DB::table('jobs')
+            ->join('job_job_action', 'jobs.id', '=', 'job_job_action.job_id')
+            ->whereIn('job_job_action.job_action_id', $actions->pluck('id'))
+            ->get();
+
+        return response()->json(['jobs' => $jobs]);
+    }
+
     public function update(Request $request, $id)
     {
         // Retrieve the job by its ID

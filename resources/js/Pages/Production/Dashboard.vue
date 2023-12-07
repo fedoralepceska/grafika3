@@ -1,10 +1,10 @@
 <template>
     <MainLayout>
-        <div class="pl-7 pr-7">
+        <div class="pl-7 pr-7" v-if="route.path === '/production'">
             <Header title="production" subtitle="dashboard" icon="List.png"/>
             <div class="grid-container">
                 <div v-for="item in jobActionStatusCounts" :key="item.name" class="grid-item">
-                    <span class="circle-badge">
+                    <span class="circle-badge" @click="navigateToAction(item.name)">
                         <v-badge class="inner" :content="item.secondaryCount" color="#FFFFFF00" overlap offset-x="-45" offset-y="-20" >
                             <template v-slot:badge>
                                 <div :class="['sub-badge', { 'double-width': item.onHoldCount }]">
@@ -23,11 +23,13 @@
                 </div>
             </div>
         </div>
+        <router-view v-else></router-view>
     </MainLayout>
 </template>
 
 
 <script>
+import { useRoute } from 'vue-router';
 import axios from 'axios';
 import MainLayout from "@/Layouts/MainLayout.vue";
 import Header from "@/Components/Header.vue";
@@ -40,6 +42,7 @@ export default {
     data() {
         return {
             jobActionStatusCounts: {},
+            route: useRoute()
         };
     },
     created() {
@@ -55,6 +58,9 @@ export default {
                 console.error(error);
             }
         },
+        navigateToAction(actionId) {
+            this.$router.push({ path: `/actions/${actionId}` });
+        }
     }
 }
 </script>

@@ -18,6 +18,8 @@ import "vue-toastification/dist/index.css";
 import i18n from './i18n';
 import VueSidebarMenu from 'vue-sidebar-menu'
 
+import router from './router';
+
 const appName = import.meta.env.VITE_APP_NAME || 'Laravel';
 
 const vuetify = createVuetify({
@@ -37,6 +39,7 @@ createInertiaApp({
             .use(VueMultiselect)
             .use(vuetify)
             .use(ZiggyVue, Ziggy)
+            .use(router)
             .mount(el);
     },
     progress: {
