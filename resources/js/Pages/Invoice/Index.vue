@@ -112,7 +112,7 @@ export default {
         getStatusColorClass(status) {
             if (status === "Not started yet") {
                 return "orange";
-            } else if (status === "In Progress") {
+            } else if (status === "In progress") {
                 return "blue-text";
             } else if (status === "Completed") {
                 return "green-text";

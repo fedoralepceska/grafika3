@@ -8,7 +8,7 @@
                         'circle': true,
                         'dark-gray': action.status === 'Not started yet',
                         'green': action.status === 'Completed',
-                        'blue': action.status === 'In progress'
+                        'blue': action.status === 'In Progress'
                     }">
                         <span v-if="action.status === 'Completed'">&#10003;</span>
                     </div>
@@ -21,6 +21,7 @@
                 <div class="flexed" :class="{
                             'circle': true,
                             'dark-gray': job.status === 'Not started yet',
+                            'blue': job.status === 'In Progress',
                             'green': job.status === 'Completed',
                           }">
                     <span v-if="job.status === 'Completed'">&#10003;</span>
@@ -73,7 +74,6 @@ export default {
                     }));
                 }
             }
-
             return false; // Return a default value if there are no actions for the job
         },
     },

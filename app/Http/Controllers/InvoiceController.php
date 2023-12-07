@@ -152,7 +152,7 @@ class InvoiceController extends Controller
     }
     public function show($id)
     {
-        $invoice = Invoice::with(['jobs.small_material.smallFormatMaterial', 'historyLogs', 'user', 'client'])->findOrFail($id);
+        $invoice = Invoice::with(['jobs.small_material.smallFormatMaterial', 'historyLogs', 'user', 'client', 'jobs.actions'])->findOrFail($id);
         // Append the totalPrice attribute to each job
         $invoice->jobs->each(function ($job) {
             $job->append('totalPrice');
@@ -173,14 +173,15 @@ class InvoiceController extends Controller
         $validatedData = $request->validate([
             'perfect' => 'sometimes|required',
             'onHold' => 'sometimes|required',
+            'status' => 'sometimes|required'
         ]);
 
         // Update the job with only the validated data that's present in the request
         $invoice->update($request->only([
             'perfect',
-            'onHold'
+            'onHold',
+            'status'
         ]));
-
         return response()->json(['message' => 'Invoice updated successfully']);
     }
     public function downloadInvoiceFiles(Request $request)

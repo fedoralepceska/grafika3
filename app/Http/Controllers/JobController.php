@@ -175,6 +175,7 @@ class JobController extends Controller
         // Retrieve the job by its ID
         $job = Job::find($id);
 
+
         if (!$job) {
             return response()->json(['message' => 'Job not found'], 404);
         }
@@ -183,14 +184,17 @@ class JobController extends Controller
         $validatedData = $request->validate([
             'width' => 'sometimes|required|numeric',
             'height' => 'sometimes|required|numeric',
-            'quantity' => 'sometimes|required|numeric'
+            'quantity' => 'sometimes|required|numeric',
+            'status' => 'sometimes|required'
+
         ]);
 
         // Update the job with only the validated data that's present in the request
         $job->update($request->only([
             'width',
             'height',
-            'quantity'
+            'quantity',
+            'status'
         ]));
 
         return response()->json(['message' => 'Job updated successfully']);

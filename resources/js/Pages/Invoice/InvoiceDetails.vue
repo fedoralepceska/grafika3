@@ -86,7 +86,7 @@
 <!--
                                     WE SHOULD BE CHECKING IF JOB STATUS IS COMPLETED TODO
 -->
-                                    <span class="bold" :class="getStatusColorClass(invoice?.status)">{{ invoice?.status }}</span>
+                                    <span class="bold" :class="getStatusColorClass">{{ invoice?.status }}</span>
                                 </div>
                             </div>
                         </div>
@@ -193,15 +193,14 @@ export default {
     },
     computed: {
         getStatusColorClass() {
-            return (status) => {
-                if (status === "Not started yet") {
-                    return "orange";
-                } else if (status === "In Progress") {
-                    return "blue-text";
-                } else if (status === "Completed") {
-                    return "green-text";
-                }
-            };
+            const invoiceStatus = this.getOverallInvoiceStatus();
+            if (invoiceStatus === "Not started yet") {
+                return "orange-text";
+            } else if (invoiceStatus === "In Progress") {
+                return "blue-text";
+            } else if (invoiceStatus === "Completed") {
+                return "green-text";
+            }
         },
         mustBePerfectChecked: {
             get() {
@@ -272,8 +271,65 @@ export default {
         },
         generatePdf(invoiceId) {
             window.open(`/invoices/${invoiceId}/pdf`, '_blank');
-        }
+        },
+        getOverallInvoiceStatus() {
+            const jobStatuses = this.invoice.jobs.map((job) => job.status);
+            if (jobStatuses.includes('In progress')) {
+                return 'In Progress';
+            } else if (jobStatuses.every((status) => status === 'Completed')) {
+                return 'Completed';
+            } else {
+                return 'Not started yet';
+            }
+        },
+        updateInvoiceStatus() {
+            const newStatus = this.getOverallInvoiceStatus();
+            axios.put(`/invoices/${this.invoice.id}`, {
+                status: newStatus,
+            })
+                .then((response) => {
+                    console.log("Invoice status updated successfully:", response.data);
+                })
+                .catch((error) => {
+                    console.error("Failed to update invoice status:", error);
+                });
+        },
+        getOverallJobStatus() {
+            const jobActionStatuses = this.invoice.jobs.flatMap((job) => job.actions.map((action) => action.status.toLowerCase().trim()));
+            if (jobActionStatuses.includes('in progress')) {
+                return 'In Progress';
+            } else if (jobActionStatuses.every((status) => status === 'completed')) {
+                return 'Completed';
+            } else {
+                return 'Not started yet';
+            }
+        },
+        updateJobStatus() {
+            const newStatus = this.getOverallJobStatus();
+
+            // Loop through all jobs and update their statuses
+            this.invoice.jobs.forEach(job => {
+                const jobId = job.id;
+
+                // Make a PUT request to update the job status
+                axios.put(`/jobs/${jobId}`, {
+                    status: newStatus,
+                })
+                    .then(response => {
+                        // Handle the response if needed
+                        console.log(`Job ${jobId} status updated successfully:`, response.data);
+                    })
+                    .catch(error => {
+                        // Handle the error if the update fails
+                        console.error(`Failed to update job ${jobId} status:`, error);
+                    });
+            });
+        },
     },
+    mounted() {
+        this.updateInvoiceStatus()
+        this.updateJobStatus()
+    }
 };
 </script>
 
@@ -320,7 +376,7 @@ export default {
 [type='checkbox']:checked{
     border: 1px solid white;
 }
-.orange {
+.orange-text {
     color: $orange;
 }
 .blue-text {
