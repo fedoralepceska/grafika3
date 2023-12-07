@@ -1,5 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router';
-import ActionPage from './Components/ActionPage.vue'; // Import your components
+import ActionPage from './Components/ActionPage.vue';
+import Dashboard from "@/Pages/Production/Dashboard.vue"; // Import your components
 
 // Define your routes
 const routes = [
@@ -7,6 +8,10 @@ const routes = [
         path: '/actions/:actionId',
         component: ActionPage,
         props: true // This allows the route parameters to be passed in as props
+    },
+    {
+        path: '/production',
+        component: Dashboard
     }
 ];
 
