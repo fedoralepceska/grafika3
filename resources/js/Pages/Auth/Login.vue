@@ -92,3 +92,8 @@ const submit = () => {
         </form>
     </GuestLayout>
 </template>
+<style>
+form {
+    height: 78.3vh; /* 100% of the viewport height */
+}
+</style>

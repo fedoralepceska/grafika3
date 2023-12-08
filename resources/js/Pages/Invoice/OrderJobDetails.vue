@@ -1,6 +1,19 @@
 <template>
-    <div class="pt-1 pl-1">
-    <div class="line flex gap-8 ">
+    <div class="pt-1 pl-2">
+    <div class=" flex gap-8 line">
+        <div class="completed line">
+            <div class="action">
+                <div class="flexed" :class="{
+                            'circle': true,
+                            'dark-gray': job.status === 'Not started yet',
+                            'green': job.status === 'In progress',
+                            'green': job.status === 'Completed',
+                          }">
+                    <span v-if="job.status === 'Completed'">&#10003;</span>
+                </div>
+                <span>Start</span>
+            </div>
+        </div>
         <div v-for="action in actions(job.id)" :key="action">
             <div class="flex">
                 <div class="action">
@@ -8,7 +21,7 @@
                         'circle': true,
                         'dark-gray': action.status === 'Not started yet',
                         'green': action.status === 'Completed',
-                        'blue': action.status === 'In Progress'
+                        'blue': action.status === 'In progress'
                     }">
                         <span v-if="action.status === 'Completed'">&#10003;</span>
                     </div>
@@ -21,7 +34,7 @@
                 <div class="flexed" :class="{
                             'circle': true,
                             'dark-gray': job.status === 'Not started yet',
-                            'blue': job.status === 'In Progress',
+                            'blue': job.status === 'In progress',
                             'green': job.status === 'Completed',
                           }">
                     <span v-if="job.status === 'Completed'">&#10003;</span>
@@ -91,7 +104,7 @@ export default {
         content: '';
         position: absolute;
         top: 20px; // Adjust this value to match the vertical center of your circles
-        left: 40px;
+        left: 4px;
         right: 40px;
         height: 2px; // Thickness of the line
         background-color: $background-color; // Color of the line
