@@ -190,7 +190,8 @@ const messages = {
         shippingTo: 'Shipping To', //MKTODO
         jobPrice: 'Job Price', //MKTODO
         production: 'Production',
-        dashboard: 'Dashboard'
+        dashboard: 'Dashboard',
+        actionInfo: 'Action Overview'
     },
     mk: {
         // Define your Macedonian translations here
@@ -374,7 +375,8 @@ const messages = {
         contacts: 'Контакти',
         otherContacts: 'Останати контакти',
         production: 'Продукција',
-        dashboard: 'Преглед'
+        dashboard: 'Преглед',
+        actionInfo: 'Преглед на акција'
     },
 };
 

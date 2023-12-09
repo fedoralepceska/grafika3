@@ -176,7 +176,7 @@ class JobController extends Controller
         $actions = DB::table('job_actions')->where('name', $actionId)->get();
 
         // If the action is not found, return an appropriate response
-        if (!$actions) {
+        if (!$actions->count()) {
             return response()->json(['error' => 'Action not found'], 404);
         }
 
@@ -186,8 +186,22 @@ class JobController extends Controller
             ->whereIn('job_job_action.job_action_id', $actions->pluck('id'))
             ->get();
 
-        return response()->json(['jobs' => $jobs]);
+        // Now, let's retrieve invoices associated with these jobs
+        $invoiceIds = DB::table('invoice_job')
+            ->whereIn('job_id', $jobs->pluck('job_id'))
+            ->pluck('invoice_id');
+        // Fetch the invoices based on the retrieved invoice IDs
+        $invoices = DB::table('invoices')
+            ->whereIn('id', $invoiceIds)
+            ->get();
+
+        return response()->json([
+            'jobs' => $jobs,
+            'invoices' => $invoices, // Include invoices in the response
+            'actionId' => $actionId,
+        ]);
     }
+
 
     public function update(Request $request, $id)
     {

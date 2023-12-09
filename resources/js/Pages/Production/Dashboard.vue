@@ -1,6 +1,6 @@
 <template>
     <MainLayout>
-        <div class="pl-7 pr-7" v-if="route.path === '/production'">
+        <div class="pl-7 pr-7">
             <Header title="production" subtitle="dashboard" icon="List.png"/>
             <div class="grid-container">
                 <div v-for="item in jobActionStatusCounts" :key="item.name" class="grid-item">
@@ -23,13 +23,11 @@
                 </div>
             </div>
         </div>
-        <router-view v-else></router-view>
     </MainLayout>
 </template>
 
 
 <script>
-import { useRoute } from 'vue-router';
 import axios from 'axios';
 import MainLayout from "@/Layouts/MainLayout.vue";
 import Header from "@/Components/Header.vue";
@@ -42,7 +40,6 @@ export default {
     data() {
         return {
             jobActionStatusCounts: {},
-            route: useRoute()
         };
     },
     created() {
@@ -59,7 +56,7 @@ export default {
             }
         },
         navigateToAction(actionId) {
-            this.$router.push({ path: `/actions/${actionId}` });
+            this.$inertia.visit(`/actions/${actionId}`);
         }
     }
 }
