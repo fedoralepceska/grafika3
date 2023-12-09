@@ -32,8 +32,8 @@
                     <div class="btn2"><span class="mdi mdi-fire"></span> RUSH <input type="checkbox" class="blue border-white text-amber"></div>
                     <div class="btn2"><span class="mdi mdi-pause"></span> ON HOLD <input type="checkbox" class="blue border-white text-amber" v-model="onHoldChecked"></div>
                     <div class="btn2"><span class="mdi mdi-thumb-up-outline"></span> Must Be Perfect <input type="checkbox" class="blue border-white text-amber" v-model="mustBePerfectChecked"></div>
-                    <div class="btn2"><span class="mdi mdi-box-cutter"></span> Rip First <input type="checkbox" class="blue border-white text-amber"></div>
-                    <div class="btn2"><span class="mdi mdi-image"></span> Revised Art <input type="checkbox" class="blue border-white text-amber"></div>
+                    <div class="btn2"><span class="mdi mdi-box-cutter"></span> Rip First <input type="checkbox" class="blue border-white text-amber" v-model="ripFirstChecked"></div>
+                    <div class="btn2"><span class="mdi mdi-image"></span> Revised Art <input type="checkbox" class="blue border-white text-amber" v-model="revisedArtChecked"></div>
                     <div class="btn2"><span class="mdi mdi-image"></span> Additional Art <input type="checkbox" class="blue border-white text-amber"></div>
                     <div class="btn2"><span class="mdi mdi-flag-outline"></span> Flags <input type="checkbox" class="blue border-white text-amber"></div>
                 </div>
@@ -41,6 +41,8 @@
                     <div class="flex gap-1">
                         <div v-if="invoice.perfect" class="ticket-note-perfect">Must Be Perfect</div>
                         <div v-if="invoice.onHold" class="ticket-note-hold">On Hold</div>
+                        <div v-if="invoice.revisedArt" class="ticket-note-revisedArt">Revised Art</div>
+                        <div v-if="invoice.ripFirst" class="ticket-note-ripFirst">Rip First</div>
                     </div>
                     <div class="form-container p-2 light-gray" :style="invoice.perfect ? { 'background-color': '#d88f0b' } : {}">
                         <div class="InvoiceDetails">
@@ -225,6 +227,30 @@ export default {
                 });
             }
         },
+        ripFirstChecked: {
+            get() {
+                return this.invoice.ripFirst === 1
+            },
+            set(value) {
+                this.backgroundColor = "#a36a03";
+                this.invoice.ripFirst = value;
+                axios.put(`/invoices/${this.invoice.id}`, {
+                    ripFirst: value,
+                });
+            }
+        },
+        revisedArtChecked: {
+            get() {
+                return this.invoice.revisedArt === 1
+            },
+            set(value) {
+                this.backgroundColor = "#a36a03";
+                this.invoice.revisedArt = value;
+                axios.put(`/invoices/${this.invoice.id}`, {
+                    revisedArt: value,
+                });
+            }
+        },
     },
     methods:{
         getImageUrl(id) {
@@ -353,6 +379,30 @@ export default {
 }
 .ticket-note-hold {
     background-color: $red; /* Gold background */
+    color: $white;
+    font-weight: bold;
+    text-transform: uppercase;
+    border: 2px dashed white; /* Ticket-like dashed border */
+    border-bottom: none;
+    border-radius: 3px 3px 0 0 ;
+    padding: 4px;
+    text-align: center;
+    width: max-content;
+}
+.ticket-note-ripFirst {
+    background-color: $green; /* Gold background */
+    color: $white;
+    font-weight: bold;
+    text-transform: uppercase;
+    border: 2px dashed white; /* Ticket-like dashed border */
+    border-bottom: none;
+    border-radius: 3px 3px 0 0 ;
+    padding: 4px;
+    text-align: center;
+    width: max-content;
+}
+.ticket-note-revisedArt {
+    background-color: $blue; /* Gold background */
     color: $white;
     font-weight: bold;
     text-transform: uppercase;

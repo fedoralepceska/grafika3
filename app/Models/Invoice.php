@@ -21,7 +21,9 @@ class Invoice extends Model
         'status',
         'created_by',
         'perfect',
-        'onHold'
+        'onHold',
+        'ripFirst',
+        'revisedArt'
     ];
 
 

@@ -173,6 +173,8 @@ class InvoiceController extends Controller
         $validatedData = $request->validate([
             'perfect' => 'sometimes|required',
             'onHold' => 'sometimes|required',
+            'ripFirst' => 'sometimes|required',
+            'revisedArt' => 'sometimes|required',
             'status' => 'sometimes|required'
         ]);
 
@@ -180,6 +182,8 @@ class InvoiceController extends Controller
         $invoice->update($request->only([
             'perfect',
             'onHold',
+            'ripFirst',
+            'revisedArt',
             'status'
         ]));
         return response()->json(['message' => 'Invoice updated successfully']);
