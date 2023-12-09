@@ -23,7 +23,10 @@ class Invoice extends Model
         'perfect',
         'onHold',
         'ripFirst',
-        'revisedArt'
+        'revisedArt',
+        'revisedArtComplete',
+        'rush',
+        'additionalArt'
     ];
 
 

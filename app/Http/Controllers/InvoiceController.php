@@ -175,6 +175,9 @@ class InvoiceController extends Controller
             'onHold' => 'sometimes|required',
             'ripFirst' => 'sometimes|required',
             'revisedArt' => 'sometimes|required',
+            'revisedArtComplete' => 'sometimes|required',
+            'rush' => 'sometimes|required',
+            'additionalArt' => 'sometimes|required',
             'status' => 'sometimes|required'
         ]);
 
@@ -184,6 +187,9 @@ class InvoiceController extends Controller
             'onHold',
             'ripFirst',
             'revisedArt',
+            'revisedArtComplete',
+            'rush',
+            'additionalArt',
             'status'
         ]));
         return response()->json(['message' => 'Invoice updated successfully']);

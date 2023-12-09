@@ -28,13 +28,13 @@
                     </div>
                 </div>
                 <div class="flex pb-2 justify-end">
-                    <div class="btn2"><span class="mdi mdi-image"></span> Revised Art Complete <input type="checkbox" class="blue border-white text-amber"></div>
-                    <div class="btn2"><span class="mdi mdi-fire"></span> RUSH <input type="checkbox" class="blue border-white text-amber"></div>
+                    <div class="btn2"><span class="mdi mdi-image"></span> Revised Art Complete <input type="checkbox" class="blue border-white text-amber" v-model="revisedArtCompleteChecked"></div>
+                    <div class="btn2"><span class="mdi mdi-fire"></span> RUSH <input type="checkbox" class="blue border-white text-amber" v-model="rushChecked"></div>
                     <div class="btn2"><span class="mdi mdi-pause"></span> ON HOLD <input type="checkbox" class="blue border-white text-amber" v-model="onHoldChecked"></div>
                     <div class="btn2"><span class="mdi mdi-thumb-up-outline"></span> Must Be Perfect <input type="checkbox" class="blue border-white text-amber" v-model="mustBePerfectChecked"></div>
                     <div class="btn2"><span class="mdi mdi-box-cutter"></span> Rip First <input type="checkbox" class="blue border-white text-amber" v-model="ripFirstChecked"></div>
                     <div class="btn2"><span class="mdi mdi-image"></span> Revised Art <input type="checkbox" class="blue border-white text-amber" v-model="revisedArtChecked"></div>
-                    <div class="btn2"><span class="mdi mdi-image"></span> Additional Art <input type="checkbox" class="blue border-white text-amber"></div>
+                    <div class="btn2"><span class="mdi mdi-image"></span> Additional Art <input type="checkbox" class="blue border-white text-amber" v-model="additionalArtChecked"></div>
                     <div class="btn2"><span class="mdi mdi-flag-outline"></span> Flags <input type="checkbox" class="blue border-white text-amber"></div>
                 </div>
                 <div class="dark-gray p-5 text-white">
@@ -43,6 +43,9 @@
                         <div v-if="invoice.onHold" class="ticket-note-hold">On Hold</div>
                         <div v-if="invoice.revisedArt" class="ticket-note-revisedArt">Revised Art</div>
                         <div v-if="invoice.ripFirst" class="ticket-note-ripFirst">Rip First</div>
+                        <div v-if="invoice.revisedArtComplete" class="ticket-note-revisedArtComplete">Revised Art Complete</div>
+                        <div v-if="invoice.rush" class="ticket-note-rush">Rush</div>
+                        <div v-if="invoice.additionalArt" class="ticket-note-additionalArt">Additional Art</div>
                     </div>
                     <div class="form-container p-2 light-gray" :style="invoice.perfect ? { 'background-color': '#d88f0b' } : {}">
                         <div class="InvoiceDetails">
@@ -251,6 +254,42 @@ export default {
                 });
             }
         },
+        revisedArtCompleteChecked: {
+            get() {
+                return this.invoice.revisedArtComplete === 1
+            },
+            set(value) {
+                this.backgroundColor = "#a36a03";
+                this.invoice.revisedArtComplete = value;
+                axios.put(`/invoices/${this.invoice.id}`, {
+                    revisedArtComplete: value,
+                });
+            }
+        },
+        additionalArtChecked: {
+            get() {
+                return this.invoice.additionalArt === 1
+            },
+            set(value) {
+                this.backgroundColor = "#a36a03";
+                this.invoice.additionalArt = value;
+                axios.put(`/invoices/${this.invoice.id}`, {
+                    additionalArt: value,
+                });
+            }
+        },
+        rushChecked: {
+            get() {
+                return this.invoice.rush === 1
+            },
+            set(value) {
+                this.backgroundColor = "#a36a03";
+                this.invoice.rush = value;
+                axios.put(`/invoices/${this.invoice.id}`, {
+                    rush: value,
+                });
+            }
+        },
     },
     methods:{
         getImageUrl(id) {
@@ -403,6 +442,42 @@ export default {
 }
 .ticket-note-revisedArt {
     background-color: $blue; /* Gold background */
+    color: $white;
+    font-weight: bold;
+    text-transform: uppercase;
+    border: 2px dashed white; /* Ticket-like dashed border */
+    border-bottom: none;
+    border-radius: 3px 3px 0 0 ;
+    padding: 4px;
+    text-align: center;
+    width: max-content;
+}
+.ticket-note-revisedArtComplete {
+    background-color: $light-green; /* Gold background */
+    color: $white;
+    font-weight: bold;
+    text-transform: uppercase;
+    border: 2px dashed white; /* Ticket-like dashed border */
+    border-bottom: none;
+    border-radius: 3px 3px 0 0 ;
+    padding: 4px;
+    text-align: center;
+    width: max-content;
+}
+.ticket-note-rush {
+    background-color: skyblue; /* Gold background */
+    color: $white;
+    font-weight: bold;
+    text-transform: uppercase;
+    border: 2px dashed white; /* Ticket-like dashed border */
+    border-bottom: none;
+    border-radius: 3px 3px 0 0 ;
+    padding: 4px;
+    text-align: center;
+    width: max-content;
+}
+.ticket-note-additionalArt {
+    background-color: mediumpurple; /* Gold background */
     color: $white;
     font-weight: bold;
     text-transform: uppercase;
