@@ -18,22 +18,22 @@
                                     <div class="form-group gap-4">
                                         <label for="client">{{ $t('client') }}:</label>
                                         <select v-model="invoice.client_id" id="client" class="text-gray-700" required>
-                                            <option v-for="client in clients" :key="client.id" :value="client.id">{{ client.name }}</option>
+                                            <option v-for="client in clients" :key="client.id" :value="client.id">{{ client?.name }}</option>
                                         </select>
                                     </div>
                                     <div class="form-group gap-4" v-if="invoice.client_id !== ''">
                                         <label for="contact">{{ $t('contact') }}:</label>
                                         <select v-model="this.invoice.contact_id" @change="onClientSelected" id="contact" class="text-gray-700" required>
-                                            <option v-for="contact in client.contacts" :key="contact.id" :value="contact.id">{{ contact.name }}</option>
+                                            <option v-for="contact in client.contacts" :key="contact.id" :value="contact.id">{{ contact?.name }}</option>
                                         </select>
                                     </div>
                                     <div class="form-group gap-4">
                                         <label for="client_email">{{ $t('company') }}:</label>
-                                        <span id="client_email">{{ selectedClientCompany }}</span>
+                                        <span id="client_email">{{ selectedClientCompany || contact?.name }}</span>
                                     </div>
                                     <div class="form-group gap-4">
                                         <label for="client_email">{{ $t('phone') }}:</label>
-                                        <span id="client_email">{{ selectedClientPhone }}</span>
+                                        <span id="client_email">{{ selectedClientPhone || contact?.phone }}</span>
                                     </div>
                                 </div>
                                 <div class="right-column">
@@ -116,35 +116,45 @@ export default {
         return {
             invoice: {
                 start_date: this.getCurrentDate(),
-                end_date: '',
-                client_id: '',
-                invoice_title: '',
+                end_date: this.invoiceData?.end_date || '',
+                client_id: this.invoiceData?.client_id || '',
+                invoice_title: this.invoiceData?.invoice_title || '',
                 comment: '',
-                contact_id: 0
+                contact_id: this.invoiceData?.contact_id || 0
             },
             clients: [],
             invoices: [],
-            selectedClientPhone: '',
-            selectedClientCompany: '',
+            selectedClientPhone: this.invoiceData?.client?.phone || '',
+            selectedClientCompany: this.invoiceData?.client?.company || '',
             updatedJobs: [],
             showMaterials: false,
             showMaterialsSmall: false,
             showMachineCut: false,
             showMachinePrint: false,
             showActions: false,
-            newJobs: []
+            newJobs: [],
+            contacts: []
         };
     },
+    props: {
+        invoiceData: Object,
+    },
     async beforeMount() {
+        console.log(this.invoiceData);
         // Fetch clients when component is created
         await this.fetchInvoices();
         await this.fetchClients();
         await this.fetchJobs();
     },
     computed: {
-      client() {
-          return this.clients.find(c => this.invoice.client_id === c.id);
-      }
+        client() {
+          return this.clients.find(c => this.invoiceData?.client_id == c.id || this.invoice.client_id === c.id);
+        },
+        contact() {
+            this.fetchContacts();
+            console.log(this.contacts.find(c => c.id == this.invoiceData?.contact_id));
+            return this.contacts.find(c => c.id == this.invoiceData?.contact_id);
+        }
     },
     methods: {
         getCurrentDate() {
@@ -178,6 +188,14 @@ export default {
                 console.error("Failed to fetch clients:", error);
             }
         },
+        async fetchContacts() {
+            try {
+                let response = await axios.get('/contacts'); // Adjust this endpoint to your API route
+                this.contacts = response.data;
+            } catch (error) {
+                console.error("Failed to fetch contacts:", error);
+            }
+        },
         async fetchJobs() {
             try {
                 let response = await axios.get('/jobs');
@@ -187,7 +205,7 @@ export default {
             }
         },
         async onClientSelected() {
-            const contact = this.client.contacts.find(c => c.id === this.invoice.contact_id);
+            const contact = this.contact || this.client.contacts.find(c => c.id === this.invoice.contact_id);
             if (contact) {
                 this.selectedClientPhone = contact.phone;
                 this.selectedClientCompany = contact.name;

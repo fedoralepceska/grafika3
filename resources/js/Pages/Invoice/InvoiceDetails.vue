@@ -19,7 +19,7 @@
                         <div class="buttons pt-3">
                             <button class="btn download-order" @click="downloadAllProofs">Download All Proofs <span class="mdi mdi-cloud-download"></span></button>
                             <button class="btn lock-order">Lock Order <span class="mdi mdi-lock"></span></button>
-                            <button class="btn re-order">Re-Order <span class="mdi mdi-content-copy"></span></button>
+                            <button class="btn re-order"  @click="reorder()">Re-Order <span class="mdi mdi-content-copy"></span></button>
                             <button class="btn go-to-steps">Go To Steps <span class="mdi mdi-arrow-right-bold-outline"></span> </button>
                             <button v-if="!isSidebarVisible" @click="toggleSidebar" class="hamburger">
                                 <span class="mdi mdi-menu"></span>
@@ -353,7 +353,6 @@ export default {
                 status: newStatus,
             })
                 .then((response) => {
-                    console.log("Invoice status updated successfully:", response.data);
                 })
                 .catch((error) => {
                     console.error("Failed to update invoice status:", error);
@@ -382,7 +381,6 @@ export default {
                 })
                     .then(response => {
                         // Handle the response if needed
-                        console.log(`Job ${jobId} status updated successfully:`, response.data);
                     })
                     .catch(error => {
                         // Handle the error if the update fails
@@ -390,6 +388,15 @@ export default {
                     });
             });
         },
+        reorder() {
+            const invoiceData = this.invoice;
+            console.log(invoiceData);
+            this.$inertia.visit('/invoices/create', {
+                data: {
+                    invoiceData
+                }
+            });
+        }
     },
     mounted() {
         this.updateInvoiceStatus()

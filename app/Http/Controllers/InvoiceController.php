@@ -80,7 +80,9 @@ class InvoiceController extends Controller
     }
     public function create()
     {
-        return Inertia::render('Invoice/InvoiceForm');
+        return Inertia::render('Invoice/InvoiceForm', [
+            'invoiceData' => request('invoiceData') ?? null,
+        ]);
     }
     public function store(Request $request)
     {
