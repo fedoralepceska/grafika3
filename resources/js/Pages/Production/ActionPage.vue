@@ -34,14 +34,7 @@
                 </div>
                 <div class="info">
                     <div>Current Step</div>
-                    <div class="bold">{{ actionId }}</div>
-<!--
-                    The name of the action should be fetched/displayed #TODO
--->
-                </div>
-                <div class="info">
-                    <div>Job ID</div>
-                    <div class="bold"></div>
+                    <div class="bold">{{$t(`actions.${actionId}`)}}</div>
                 </div>
                 <div class="btns">
                     <div class="bt" @click="viewJobs(index)"><i class="fa-solid fa-bars"></i></div>
