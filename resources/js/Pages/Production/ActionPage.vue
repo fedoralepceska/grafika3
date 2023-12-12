@@ -50,6 +50,8 @@
                                 <th>Copies</th>
                                 <th>Height</th>
                                 <th>Width</th>
+                                <th>Print</th>
+                                <th>Cut</th>
                                 <th>Action</th>
                             </tr>
                         </thead>
@@ -57,8 +59,8 @@
 <!--
                         Bi trebalo da e invoice.jobs za da gi dava samo za toj invoice #TODO
 -->
-                            <tr v-for="(job,index) in jobs">
-                                <td class="bg-white !text-black"><strong>#{{index+1}}</strong></td>
+                            <tr v-for="(job, jobIndex) in jobs" :key="jobIndex">
+                                <td class="bg-white !text-black"><strong>#{{jobIndex+1}}</strong></td>
                                 <td class="flex">
                                     <img :src="getImageUrl(job.id)" alt="Job Image" class="jobImg thumbnail"/>
                                     {{job.file}}</td>
@@ -66,8 +68,11 @@
                                 <td>{{job.copies}}</td>
                                 <td>{{job.height}}</td>
                                 <td>{{job.width}}</td>
+                                <td>{{$t(`machinePrint.${job.machinePrint}`)}}</td>
+                                <td>{{$t(`machineCut.${job.machineCut}`)}}</td>
                                 <td>
-                                    <button class="bg-white text-black p-2 rounded"><strong>Start job <i class="fa-regular fa-clock"></i>0min </strong></button>
+                                    <button class="bg-white text-black p-2 rounded mr-2"><strong>Start job <i class="fa-regular fa-clock"></i>0min </strong></button>
+                                    <button class="red p-2 rounded" :disabled="true"><strong>End job</strong></button>
                                 </td>
                             </tr>
 
@@ -132,6 +137,9 @@ export default {
 }
 .info{
     color: white;
+}
+.red{
+    background-color: $red;
 }
 .container{
     background-color: $light-gray;
