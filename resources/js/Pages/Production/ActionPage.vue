@@ -55,11 +55,22 @@
                                 <th>Action</th>
                             </tr>
                         </thead>
-                        <tbody>
+                        <tbody v-for="(job, jobIndex) in jobs" :key="jobIndex">
 <!--
                         Bi trebalo da e invoice.jobs za da gi dava samo za toj invoice #TODO
 -->
-                            <tr v-for="(job, jobIndex) in jobs" :key="jobIndex">
+                            <tr v-if="invoice.comment">
+                                <td colspan="9" class="orange">
+                                    <button>
+                                    <i class="fa-solid fa-arrow-down"></i>
+                                    Read Notes before you can process this
+                                    <i class="fa-solid fa-arrow-down"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                            <tr :class="{
+                                'orange2' : invoices.comment !== null
+                            }">
                                 <td class="bg-white !text-black"><strong>#{{jobIndex+1}}</strong></td>
                                 <td class="flex">
                                     <img :src="getImageUrl(job.id)" alt="Job Image" class="jobImg thumbnail"/>
@@ -140,6 +151,12 @@ export default {
 }
 .red{
     background-color: $red;
+}
+.orange{
+    background-color: orange;
+}
+.orange2 {
+    background-color: rgba(255, 167, 38, 0.6); /* Adjust the alpha value as needed */
 }
 .container{
     background-color: $light-gray;
