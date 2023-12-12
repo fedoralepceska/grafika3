@@ -9,7 +9,7 @@
             </div>
             <div v-for="(invoice,index) in invoices" class="main">
                 <div class="container flex gap-20 relative p-2">
-                <div class="bg-white text-black bold p-3 "><strong>{{invoice.invoice_title}}</strong></div>
+                <div class="bg-white text-black bold p-3" style="min-width: 20vh"><strong>{{invoice.invoice_title}}</strong></div>
                 <div class="info">
                     <div>Order</div>
                     <div class="bold">#{{ invoice.id }}</div>
