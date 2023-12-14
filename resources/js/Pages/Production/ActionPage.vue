@@ -59,9 +59,9 @@
 <!--
                         Bi trebalo da e invoice.jobs za da gi dava samo za toj invoice #TODO
 -->
-                            <tr v-if="invoice.comment">
+                            <tr v-if="invoice.comment && !acknowledged">
                                 <td colspan="9" class="orange">
-                                    <button>
+                                    <button @click="openModal">
                                     <i class="fa-solid fa-arrow-down"></i>
                                     Read Notes before you can process this
                                     <i class="fa-solid fa-arrow-down"></i>
@@ -69,7 +69,7 @@
                                 </td>
                             </tr>
                             <tr :class="{
-                                'orange2' : invoices.comment !== null
+                                'orange2' :  invoices.comment !== null && !acknowledged
                             }">
                                 <td class="bg-white !text-black"><strong>#{{jobIndex+1}}</strong></td>
                                 <td class="flex">
@@ -89,6 +89,13 @@
 
                         </tbody>
                     </table>
+                    <CommentModal
+                        v-if="showModal"
+                        :comment="invoices[index].comment"
+                        :closeModal="closeModal"
+                        :acknowledge="acknowledge"
+                        :showModal="showModal"
+                    />
                 </div>
             </div>
         </div>
@@ -98,12 +105,14 @@
 <script>
 import MainLayout from "@/Layouts/MainLayout.vue";
 import Header from "@/Components/Header.vue";
+import CommentModal from "@/Components/CommentModal.vue";
 
 export default {
     name: 'ActionPage',
     components: {
         MainLayout,
-        Header
+        Header,
+        CommentModal
     },
     props: {
         actionId: String
@@ -113,7 +122,9 @@ export default {
             invoices: [],
             jobs: [],
             id: null,
-            jobViewMode: null
+            jobViewMode: null,
+            showModal: false,
+            acknowledged: false
         };
     },
     created() {
@@ -138,6 +149,21 @@ export default {
         },
         getImageUrl(id) {
             return `/storage/uploads/${this.jobs.find(j => j.id === id).file}`
+        },
+        openModal(index) {
+            this.showModal = true;
+            this.selectedInvoiceIndex = index;
+        },
+
+        closeModal() {
+            this.showModal = false;
+        },
+
+        acknowledge() {
+            // Should we update the invoice.comment to be null or no ? #TODO
+            this.showModal = false;
+            this.acknowledged = true;
+            this.$set(this.invoices[this.selectedInvoiceIndex], "comment", null);
         },
     }
 }
