@@ -1,7 +1,7 @@
 <template>
     <MainLayout>
         <div class="pl-7 pr-7">
-            <Header title="production" subtitle="dashboard" icon="List.png"/>
+            <Header title="production" subtitle="dashboard" icon="dashboard.png"/>
             <div class="grid-container">
                 <div v-for="item in jobActionStatusCounts" :key="item.name" class="grid-item">
                     <span class="circle-badge" @click="navigateToAction(item.name)">
