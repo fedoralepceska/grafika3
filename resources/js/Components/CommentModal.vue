@@ -24,7 +24,7 @@ export default {
         showModal:Boolean,
         comment: String,
         closeModal: Function,
-        acknowledge: Function,
+        acknowledge: null,
     },
 };
 </script>
