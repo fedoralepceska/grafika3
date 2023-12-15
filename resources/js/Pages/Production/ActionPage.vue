@@ -59,7 +59,7 @@
 <!--
                         Bi trebalo da e invoice.jobs za da gi dava samo za toj invoice #TODO
 -->
-                            <tr v-if="invoice.comment && !acknowledged">
+                            <tr v-if="invoice.comment && !invoice.acknowledged">
                                 <td colspan="9" class="orange">
                                     <button @click="openModal">
                                     <i class="fa-solid fa-arrow-down"></i>
@@ -68,9 +68,10 @@
                                     </button>
                                 </td>
                             </tr>
-                            <tr :class="{
-                                'orange2' :  invoices.comment !== null && !acknowledged
-                            }">
+                            <tr
+                                :class="{
+                                'orange2': invoice.comment && !invoice.acknowledged  }"
+                            >
                                 <td class="bg-white !text-black"><strong>#{{jobIndex+1}}</strong></td>
                                 <td class="flex">
                                     <img :src="getImageUrl(invoice.id, job.id)" alt="Job Image" class="jobImg thumbnail"/>
@@ -93,7 +94,7 @@
                         v-if="showModal"
                         :comment="invoices[index].comment"
                         :closeModal="closeModal"
-                        :acknowledge="acknowledge"
+                        :acknowledge="() => acknowledge(index)"
                         :showModal="showModal"
                     />
                 </div>
@@ -124,7 +125,6 @@ export default {
             id: null,
             jobViewMode: null,
             showModal: false,
-            acknowledged: false
         };
     },
     created() {
@@ -137,7 +137,10 @@ export default {
                 .then(response => {
                     console.log(response);
                     this.jobs = response.data?.jobs;
-                    this.invoices = response.data?.invoices;
+                    this.invoices = response.data?.invoices.map(invoice => ({
+                        ...invoice,
+                        acknowledged: false, // Add acknowledged field
+                    }));
                     this.id = response.data?.actionId;
                 })
                 .catch(error => {
@@ -159,11 +162,10 @@ export default {
             this.showModal = false;
         },
 
-        acknowledge() {
-            // Should we update the invoice.comment to be null or no ? #TODO
+        acknowledge(index) {
             this.showModal = false;
-            this.acknowledged = true;
-            this.$set(this.invoices[this.selectedInvoiceIndex], "comment", null);
+            this.invoices[index].acknowledged = true;
+            this.invoices[index].comment = null;
         },
     }
 }
