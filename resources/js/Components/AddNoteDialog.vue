@@ -47,7 +47,6 @@
 import VueMultiselect from 'vue-multiselect'
 import SecondaryButton from "@/Components/buttons/SecondaryButton.vue";
 import {useToast} from "vue-toastification";
-import axios from "axios";
 
 export default {
     components: {
@@ -92,9 +91,6 @@ export default {
                 selectedActions: this.selectedOption,
                 comment: this.noteComment,
             }).then(response => {
-                axios.put(`/invoices/${this.invoice.id}`, {
-                    noteAcknowledged: false,
-                });
                 toast.success('Actions successfully updated!');
             }).catch(error => {
                 toast.error(error);
