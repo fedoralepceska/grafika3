@@ -59,7 +59,7 @@
 <!--
                         Bi trebalo da e invoice.jobs za da gi dava samo za toj invoice #TODO
 -->
-                            <tr v-if="invoice.comment && !invoice.acknowledged">
+                            <tr v-if="invoice.comment && !invoice.noteAcknowledged">
                                 <td colspan="9" class="orange">
                                     <button @click="openModal">
                                     <i class="fa-solid fa-arrow-down"></i>
@@ -68,10 +68,9 @@
                                     </button>
                                 </td>
                             </tr>
-                            <tr
-                                :class="{
-                                'orange2': invoice.comment && !invoice.acknowledged  }"
-                            >
+                            <tr :class="{
+                                'orange2' :  invoices.comment !== null && !invoice.noteAcknowledged
+                            }">
                                 <td class="bg-white !text-black"><strong>#{{jobIndex+1}}</strong></td>
                                 <td class="flex">
                                     <img :src="getImageUrl(invoice.id, job.id)" alt="Job Image" class="jobImg thumbnail"/>
@@ -94,7 +93,7 @@
                         v-if="showModal"
                         :comment="invoices[index].comment"
                         :closeModal="closeModal"
-                        :acknowledge="() => acknowledge(index)"
+                        :acknowledge="acknowledge(invoices[index])"
                         :showModal="showModal"
                     />
                 </div>
@@ -107,6 +106,7 @@
 import MainLayout from "@/Layouts/MainLayout.vue";
 import Header from "@/Components/Header.vue";
 import CommentModal from "@/Components/CommentModal.vue";
+import axios from "axios";
 
 export default {
     name: 'ActionPage',
@@ -125,6 +125,7 @@ export default {
             id: null,
             jobViewMode: null,
             showModal: false,
+            acknowledged: false
         };
     },
     created() {
@@ -137,10 +138,7 @@ export default {
                 .then(response => {
                     console.log(response);
                     this.jobs = response.data?.jobs;
-                    this.invoices = response.data?.invoices.map(invoice => ({
-                        ...invoice,
-                        acknowledged: false, // Add acknowledged field
-                    }));
+                    this.invoices = response.data?.invoices;
                     this.id = response.data?.actionId;
                 })
                 .catch(error => {
@@ -162,10 +160,14 @@ export default {
             this.showModal = false;
         },
 
-        acknowledge(index) {
+        acknowledge(invoice) {
+            // Should we update the invoice.comment to be null or no ? #TODO
             this.showModal = false;
-            this.invoices[index].acknowledged = true;
-            this.invoices[index].comment = null;
+            this.acknowledged = true;
+            console.log(invoice.id);
+            return axios.put(`/invoices/${invoice.id}`, {
+                noteAcknowledged: true,
+            });
         },
     }
 }
