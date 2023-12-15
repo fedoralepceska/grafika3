@@ -184,6 +184,7 @@ class JobController extends Controller
         $jobs = DB::table('jobs')
             ->join('job_job_action', 'jobs.id', '=', 'job_job_action.job_id')
             ->whereIn('job_job_action.job_action_id', $actions->pluck('id'))
+            ->where('jobs.status', '!=', 'Completed') // Filter out completed jobs
             ->get();
 
         // Now, let's retrieve invoices associated with these jobs
@@ -287,12 +288,14 @@ class JobController extends Controller
                 ->count();
 
             // Add the counts to the array
-            $counts[] = [
-                'name' => $name,
-                'total' => $total,
-                'secondaryCount' => $secondaryCount,
-                'onHoldCount' => $onHoldCount
-            ];
+            if ($total > 0 || $secondaryCount > 0) {
+                $counts[] = [
+                    'name' => $name,
+                    'total' => $total,
+                    'secondaryCount' => $secondaryCount,
+                    'onHoldCount' => $onHoldCount
+                ];
+            }
         }
 
         // Return the counts as a JSON response
