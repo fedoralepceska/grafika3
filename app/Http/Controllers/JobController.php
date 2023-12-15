@@ -196,8 +196,21 @@ class JobController extends Controller
             ->whereIn('id', $invoiceIds)
             ->get();
 
+        // Attach jobs to each invoice
+        foreach ($invoices as $invoice) {
+            $jobIdsForInvoice = DB::table('invoice_job')
+                ->where('invoice_id', $invoice->id)
+                ->pluck('job_id');
+
+            $jobsForInvoice = DB::table('jobs')
+                ->whereIn('id', $jobIdsForInvoice)
+                ->get();
+
+            $invoice->jobs = $jobsForInvoice;
+        }
+
         return response()->json([
-            'jobs' => $jobs,
+//            'jobs' => $jobs,
             'invoices' => $invoices, // Include invoices in the response
             'actionId' => $actionId,
         ]);

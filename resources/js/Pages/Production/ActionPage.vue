@@ -55,7 +55,7 @@
                                 <th>Action</th>
                             </tr>
                         </thead>
-                        <tbody v-for="(job, jobIndex) in jobs" :key="jobIndex">
+                        <tbody v-for="(job, jobIndex) in invoice.jobs" :key="jobIndex">
 <!--
                         Bi trebalo da e invoice.jobs za da gi dava samo za toj invoice #TODO
 -->
@@ -73,7 +73,7 @@
                             }">
                                 <td class="bg-white !text-black"><strong>#{{jobIndex+1}}</strong></td>
                                 <td class="flex">
-                                    <img :src="getImageUrl(job.id)" alt="Job Image" class="jobImg thumbnail"/>
+                                    <img :src="getImageUrl(invoice.id, job.id)" alt="Job Image" class="jobImg thumbnail"/>
                                     {{job.file}}</td>
                                 <td>{{job.quantity}}</td>
                                 <td>{{job.copies}}</td>
@@ -147,8 +147,8 @@ export default {
         viewJobs(index) {
             this.jobViewMode = this.jobViewMode === index ? null : index;
         },
-        getImageUrl(id) {
-            return `/storage/uploads/${this.jobs.find(j => j.id === id).file}`
+        getImageUrl(invoiceId, jobId) {
+            return `/storage/uploads/${this.invoices.find(i => i.id === invoiceId).jobs.find(j => j.id === jobId).file}`
         },
         openModal(index) {
             this.showModal = true;
