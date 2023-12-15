@@ -59,7 +59,7 @@
 <!--
                         Bi trebalo da e invoice.jobs za da gi dava samo za toj invoice #TODO
 -->
-                            <tr v-if="invoice.comment && !acknowledged">
+                            <tr v-if="invoice.comment && !acknowledged && !job.hasNote">
                                 <td colspan="9" class="orange">
                                     <button @click="openModal">
                                     <i class="fa-solid fa-arrow-down"></i>
@@ -69,7 +69,7 @@
                                 </td>
                             </tr>
                             <tr :class="{
-                                'orange2' :  invoices.comment !== null && !acknowledged
+                                'orange2' :  invoice.comment && !acknowledged && !job.hasNote
                             }">
                                 <td class="bg-white !text-black"><strong>#{{jobIndex+1}}</strong></td>
                                 <td class="flex">
@@ -93,8 +93,9 @@
                         v-if="showModal"
                         :comment="invoices[index].comment"
                         :closeModal="closeModal"
-                        :acknowledge="acknowledge"
+                        :invoice="invoices[index]"
                         :showModal="showModal"
+                        @modal="updateModal"
                     />
                 </div>
             </div>
@@ -106,6 +107,7 @@
 import MainLayout from "@/Layouts/MainLayout.vue";
 import Header from "@/Components/Header.vue";
 import CommentModal from "@/Components/CommentModal.vue";
+import axios from "axios";
 
 export default {
     name: 'ActionPage',
@@ -161,10 +163,17 @@ export default {
 
         acknowledge() {
             // Should we update the invoice.comment to be null or no ? #TODO
-            this.showModal = false;
-            this.acknowledged = true;
-            this.$set(this.invoices[this.selectedInvoiceIndex], "comment", null);
+            // this.showModal = false;
+            // this.acknowledged = true;
+            axios.put(`/invoices/${this.invoice.id}`, {
+                comment: null,
+            });
         },
+        updateModal(values) {
+            this.showModal = values[0];
+            window.location.reload()
+            this.acknowledged = values[1];
+        }
     }
 }
 </script>

@@ -175,6 +175,9 @@ class JobController extends Controller
         // Find the action with the specified name
         $actions = DB::table('job_actions')->where('name', $actionId)->get();
 
+        // Find the action with the specified name
+        $action = DB::table('job_actions')->where('name', $actionId)->first();
+
         // If the action is not found, return an appropriate response
         if (!$actions->count()) {
             return response()->json(['error' => 'Action not found'], 404);
@@ -186,6 +189,10 @@ class JobController extends Controller
             ->whereIn('job_job_action.job_action_id', $actions->pluck('id'))
             ->where('jobs.status', '!=', 'Completed') // Filter out completed jobs
             ->get();
+
+        foreach ($jobs as $job) {
+            $job->hasNote = $action->hasNote;
+        }
 
         // Now, let's retrieve invoices associated with these jobs
         $invoiceIds = DB::table('invoice_job')
@@ -298,6 +305,8 @@ class JobController extends Controller
                 ->join('invoices', 'invoices.id', '=', 'invoice_job.invoice_id') // Join with invoices table
                 ->where('job_actions.name', $name)
                 ->where('invoices.onHold', true)
+                ->where('job_job_action.status', 'Not started yet')
+                ->where('job_job_action.status', 'In Progress')
                 ->count();
 
             // Add the counts to the array

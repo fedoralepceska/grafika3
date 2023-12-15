@@ -19,13 +19,26 @@
 </template>
 
 <script>
+import axios from "axios";
+
 export default {
     props: {
         showModal:Boolean,
         comment: String,
         closeModal: Function,
         acknowledge: Function,
+        invoice: Object
     },
+
+    methods: {
+        acknowledge() {
+            // params: showModal, acknowledged
+            this.$emit('modal', [false, true]);
+            axios.put(`/invoices/${this.invoice.id}`, {
+                comment: null,
+            });
+        },
+    }
 };
 </script>
 

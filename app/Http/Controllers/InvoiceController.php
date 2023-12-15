@@ -180,7 +180,8 @@ class InvoiceController extends Controller
             'revisedArtComplete' => 'sometimes|required',
             'rush' => 'sometimes|required',
             'additionalArt' => 'sometimes|required',
-            'status' => 'sometimes|required'
+            'status' => 'sometimes|required',
+            'comment' => 'sometimes'
         ]);
 
         // Update the job with only the validated data that's present in the request
@@ -192,7 +193,8 @@ class InvoiceController extends Controller
             'revisedArtComplete',
             'rush',
             'additionalArt',
-            'status'
+            'status',
+            'comment'
         ]));
         return response()->json(['message' => 'Invoice updated successfully']);
     }
