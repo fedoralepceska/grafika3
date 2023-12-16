@@ -8,7 +8,7 @@
                 Action: {{id}} <br>
             </div>
             <div v-for="(invoice,index) in invoices" class="main">
-                <div class="container flex gap-20 relative p-2">
+                <div class="container flex gap-20 relative p-2"  >
                 <div class="bg-white text-black bold p-3" style="min-width: 20vh"><strong>{{invoice.invoice_title}}</strong></div>
                 <div class="info">
                     <div>Order</div>
@@ -68,8 +68,16 @@
                                     </button>
                                 </td>
                             </tr>
+                            <tr v-if="invoice.onHold">
+                                <td colspan="9" class="red">
+                                    <i class="fa-solid fa-ban"></i>
+                                    THIS ORDER IS ON HOLD
+                                    <i class="fa-solid fa-ban"></i>
+                                </td>
+                            </tr>
                             <tr :class="{
-                                'orange2' :  invoice.comment && !acknowledged && !job.hasNote
+                                'orange2' :  invoice.comment && !acknowledged && !job.hasNote,
+                                'red2' : invoice.onHold
                             }">
                                 <td class="bg-white !text-black"><strong>#{{jobIndex+1}}</strong></td>
                                 <td class="flex">
@@ -187,6 +195,9 @@ export default {
 .red{
     background-color: $red;
 }
+.red2{
+    background-color: rgba(198, 40, 40, 0.5);;
+}
 .orange{
     background-color: orange;
 }
@@ -194,7 +205,6 @@ export default {
     background-color: rgba(255, 167, 38, 0.6); /* Adjust the alpha value as needed */
 }
 .container{
-    background-color: $light-gray;
     margin-bottom:10px
 }
 .btns{
