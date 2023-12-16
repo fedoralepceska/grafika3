@@ -1,7 +1,7 @@
 <template>
     <MainLayout>
         <div class="pl-7 pr-7">
-            <Header title="action" subtitle="actionInfo" icon="List.png"/>
+            <Header title="action" subtitle="actionInfo" icon="task.png"/>
             <div class="grid-container">
                 Jobs: {{jobs}} <br>
                 Invoices: {{invoices}} <br>
