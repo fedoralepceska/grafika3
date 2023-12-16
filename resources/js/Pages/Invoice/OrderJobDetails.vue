@@ -6,8 +6,7 @@
                 <div class="flexed" :class="{
                             'circle': true,
                             'dark-gray': job.status === 'Not started yet',
-                            'green': job.status === 'In progress',
-                            'green': job.status === 'Completed',
+                            'green': job.status === 'Completed' || 'In progress',
                           }">
                     <span v-if="job.status === 'Completed'">&#10003;</span>
                 </div>
