@@ -192,6 +192,7 @@ class JobController extends Controller
 
         foreach ($jobs as $job) {
             $job->hasNote = $action->hasNote;
+            $job->actions = Job::find($job->job_id)->with('actions')->get()->toArray();
         }
 
         // Now, let's retrieve invoices associated with these jobs
@@ -213,11 +214,19 @@ class JobController extends Controller
                 ->whereIn('id', $jobIdsForInvoice)
                 ->get();
 
+            // Now, get all jobs with actions in one go
+            $jobsWithActions = Job::with('actions')->whereIn('id', $jobIdsForInvoice)->get()->keyBy('id');
+
+            // Replace each job in $jobsForInvoice with the corresponding one from $jobsWithActions
+            foreach ($jobsForInvoice as $index => $job) {
+                if (isset($jobsWithActions[$job->id])) {
+                    $jobsForInvoice[$index] = $jobsWithActions[$job->id];
+                }
+            }
             $invoice->jobs = $jobsForInvoice;
         }
 
         return response()->json([
-//            'jobs' => $jobs,
             'invoices' => $invoices, // Include invoices in the response
             'actionId' => $actionId,
         ]);
@@ -239,7 +248,7 @@ class JobController extends Controller
             'width' => 'sometimes|required|numeric',
             'height' => 'sometimes|required|numeric',
             'quantity' => 'sometimes|required|numeric',
-            'status' => 'sometimes|required'
+            'status' => 'sometimes|required',
 
         ]);
 

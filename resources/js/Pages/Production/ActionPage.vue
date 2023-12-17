@@ -90,8 +90,8 @@
                                 <td>{{$t(`machinePrint.${job.machinePrint}`)}}</td>
                                 <td>{{$t(`machineCut.${job.machineCut}`)}}</td>
                                 <td>
-                                    <button class="bg-white text-black p-2 rounded mr-2"><strong>Start job <i class="fa-regular fa-clock"></i>0min </strong></button>
-                                    <button class="red p-2 rounded" :disabled="true"><strong>End job</strong></button>
+                                    <button class="bg-white text-black p-2 rounded mr-2" @click="startJob(job)"><strong>Start job <i class="fa-regular fa-clock"></i>0min </strong></button>
+                                    <button class="red p-2 rounded" :disabled="true" @click="endJob(job)"><strong>End job</strong></button>
                                 </td>
                             </tr>
 
@@ -181,6 +181,16 @@ export default {
             this.showModal = values[0];
             window.location.reload()
             this.acknowledged = values[1];
+        },
+        async startJob(job) {
+            await axios.put(`/actions/${job.actions[0].id}`, {
+                status: 'In Progress',
+            });
+        },
+        async endJob(job) {
+            await axios.put(`/actions/${job.actions[0].id}`, {
+                status: 'Completed',
+            });
         }
     }
 }
