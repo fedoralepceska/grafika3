@@ -183,12 +183,14 @@ export default {
             this.acknowledged = values[1];
         },
         async startJob(job) {
-            await axios.put(`/actions/${job.actions[0].id}`, {
+            const action = job.actions.find(a => a.name === this.actionId);
+            await axios.put(`/actions/${action.id}`, {
                 status: 'In Progress',
             });
         },
         async endJob(job) {
-            await axios.put(`/actions/${job.actions[0].id}`, {
+            const action = job.actions.find(a => a.name === this.actionId);
+            await axios.put(`/actions/${action.id}`, {
                 status: 'Completed',
             });
         }
