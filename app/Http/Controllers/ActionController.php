@@ -3,7 +3,9 @@
 namespace App\Http\Controllers;
 
 use App\Enums\JobAction;
+use App\Models\Job;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 
 class ActionController extends Controller
@@ -28,10 +30,20 @@ class ActionController extends Controller
             'status' => 'sometimes|required',
         ]);
 
+        $jobAction = DB::table('job_job_action')
+            ->where('job_job_action.job_action_id', $action->id);
+
+        $jobAction->update($request->only([
+            'status'
+        ]));
+
         // Update the job with only the validated data that's present in the request
         $action->update($request->only([
             'status'
         ]));
+
+
+
 
         return response()->json(['message' => 'Action updated successfully']);
     }
