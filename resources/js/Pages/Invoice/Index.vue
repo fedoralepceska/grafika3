@@ -120,7 +120,7 @@ export default {
         },
         async applyFilter() {
             try {
-                const response = await axios.get('/invoices', {
+                const response = await axios.get('/orders', {
                     params: {
                         searchQuery: encodeURIComponent(this.searchQuery),
                         status: this.filterStatus,
@@ -129,7 +129,7 @@ export default {
                     },
                 });
                 this.localInvoices = response.data;
-                let redirectUrl = '/invoices';
+                let redirectUrl = '/orders';
                 if (this.searchQuery) {
                     redirectUrl += `?searchQuery=${encodeURIComponent(this.searchQuery)}`;
                 }
@@ -152,7 +152,7 @@ export default {
             try {
                 const response = await axios.get(`?searchQuery=${encodeURIComponent(this.searchQuery)}`);
                 this.localInvoices = response.data;
-                this.$inertia.visit(`/invoices?searchQuery=${this.searchQuery}`);
+                this.$inertia.visit(`/orders?searchQuery=${this.searchQuery}`);
             } catch (error) {
                 console.error(error);
             }
@@ -166,10 +166,10 @@ export default {
             }
         },
         viewInvoice(id) {
-            this.$inertia.visit(`/invoices/${id}`);
+            this.$inertia.visit(`/orders/${id}`);
         },
         navigateToCreateOrder(){
-            this.$inertia.visit(`/invoices/create`);
+            this.$inertia.visit(`/orders/create`);
         },
     },
 };

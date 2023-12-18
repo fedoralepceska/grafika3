@@ -34,7 +34,7 @@ export default {
         acknowledge() {
             // params: showModal, acknowledged
             this.$emit('modal', [false, true]);
-            axios.put(`/invoices/${this.invoice.id}`, {
+            axios.put(`/orders/${this.invoice.id}`, {
                 comment: null,
             });
         },

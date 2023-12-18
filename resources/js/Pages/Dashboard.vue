@@ -18,7 +18,7 @@ import StatusBox from "@/Components/StatusBox.vue";
         </div>
         <div class="flex dark-gray" style="padding: 25px">
             <nav class="sidebar-menu dark-gray">
-                <a href="/invoices/create" class="menu-item">
+                <a href="/orders/create" class="menu-item">
                     <span class="fa-solid fa-plus"></span>
                     <span class="text">NEW ORDER</span>
                 </a>
@@ -30,11 +30,11 @@ import StatusBox from "@/Components/StatusBox.vue";
                      <span class="fa-solid fa-plus"></span>
                      <span class="text">NEW CUSTOMER</span>
                 </a>
-                <a href="/invoices" class="menu-item">
+                <a href="/orders" class="menu-item">
                     <span class="fa-regular fa-folder"></span>
                     <span class="text">OM DASHBOARD</span>
                 </a>
-                <a href="#" class="menu-item">
+                <a href="/production" class="menu-item">
                     <span class="fa-solid fa-circle-info"></span>
                     <span class="text">PRODUCTION DASHBOARD</span>
                 </a>
@@ -60,7 +60,7 @@ export default {
     },
     methods: {
         fetchInvoicesToday() {
-            axios.get('/invoices/today/count') // Replace with your actual API endpoint
+            axios.get('/orders/today/count') // Replace with your actual API endpoint
                 .then(response => {
                     this.invoicesToday = response.data.count; // Adjust according to the response structure
                 })

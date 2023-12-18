@@ -20,11 +20,11 @@ export default {
                     icon: 'fas fa-receipt',
                     child: [
                         {
-                            href: '/invoices',
+                            href: '/orders',
                             title: 'View all orders',
                         },
                         {
-                            href: '/invoices/create',
+                            href: '/orders/create',
                             title: 'Create Order',
                         },
                     ],

@@ -56,7 +56,7 @@ export default {
     },
     methods: {
         fetchLatestInvoices() {
-            axios.get('/invoices/latest')
+            axios.get('/orders/latest')
                 .then(response => {
                     this.latestInvoices = response.data;
                     // Assuming each invoice has a 'jobs' array with images
@@ -80,7 +80,7 @@ export default {
             }
         },
         viewInvoice(id) {
-            this.$inertia.visit(`/invoices/${id}`);
+            this.$inertia.visit(`/orders/${id}`);
         },
     },
     mounted() {

@@ -86,7 +86,7 @@ export default {
         },
         saveData() {
             const toast = useToast();
-            axios.put('/invoices/update-note-flag', {
+            axios.put('/orders/update-note-flag', {
                 id: this.invoice.id,
                 selectedActions: this.selectedOption,
                 comment: this.noteComment,

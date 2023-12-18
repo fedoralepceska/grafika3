@@ -51,17 +51,17 @@ Route::resource('invoices', \App\Http\Controllers\InvoiceController::class)
     ->only(['index', 'store'])
     ->middleware(['auth', 'verified']);
 Route::middleware(['auth', 'verified'])->group(function() {
-    Route::get('/invoices', [InvoiceController::class, 'index'])->name('invoices.index');
-    Route::get('invoices/latest', [InvoiceController::class, 'latest'])->name('invoices.latest');
-    Route::get('/invoices/create', [InvoiceController::class, 'create'])->name('invoices.create');
-    Route::post('/invoices', [InvoiceController::class, 'store'])->name('invoices.store');
-    Route::get('/invoices/{id}', [InvoiceController::class, 'show'])->name('invoices.show');
-    Route::put('/invoices/update-note-flag', [InvoiceController::class, 'updateNoteProperty'])->name('invoices.updateNoteProperty');
-    Route::put('/invoices/{id}', [InvoiceController::class, 'update'])->name('invoices.update');
-    Route::get('/invoices/today/count', [InvoiceController::class, 'countToday'])->name('invoices.countToday');
-    Route::get('/invoice/download', [InvoiceController::class, 'downloadInvoiceFiles'])->name('invoice.download');
+    Route::get('/orders', [InvoiceController::class, 'index'])->name('invoices.index');
+    Route::get('orders/latest', [InvoiceController::class, 'latest'])->name('invoices.latest');
+    Route::get('/orders/create', [InvoiceController::class, 'create'])->name('invoices.create');
+    Route::post('/orders', [InvoiceController::class, 'store'])->name('invoices.store');
+    Route::get('/orders/{id}', [InvoiceController::class, 'show'])->name('invoices.show');
+    Route::put('/orders/update-note-flag', [InvoiceController::class, 'updateNoteProperty'])->name('invoices.updateNoteProperty');
+    Route::put('/orders/{id}', [InvoiceController::class, 'update'])->name('invoices.update');
+    Route::get('/orders/today/count', [InvoiceController::class, 'countToday'])->name('invoices.countToday');
+    Route::get('/order/download', [InvoiceController::class, 'downloadInvoiceFiles'])->name('invoice.download');
     Route::get('/unique-clients', [InvoiceController::class, 'getUniqueClients']);
-    Route::get('/invoices/{id}/pdf', [InvoiceController::class, 'generateInvoicePdf'])->name('invoice.generateInvoicePdf');
+    Route::get('/orders/{id}/pdf', [InvoiceController::class, 'generateInvoicePdf'])->name('invoice.generateInvoicePdf');
 });
 
 //Rotues For Client

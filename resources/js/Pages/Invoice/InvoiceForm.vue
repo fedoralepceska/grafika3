@@ -174,7 +174,7 @@ export default {
         },
         async fetchInvoices() {
             try {
-                let response = await axios.get('/invoices'); // Adjust this endpoint to your API route
+                let response = await axios.get('/orders'); // Adjust this endpoint to your API route
                 this.invoices = response.data;
             } catch (error) {
                 console.error("Failed to fetch invoices:", error);
@@ -239,7 +239,7 @@ export default {
                 this.invoice.jobs.push(finalJob);
             }
             try {
-                let response = await axios.post('/invoices', this.invoice, {
+                let response = await axios.post('/orders', this.invoice, {
                     headers: {
                         'Content-Type': 'multipart/form-data',
                     },
@@ -247,7 +247,7 @@ export default {
 
                 toast.success('Invoice created successfully');
                 console.log(response);
-                this.$inertia.visit(`/invoices/${response.data.invoice.id}`, {
+                this.$inertia.visit(`/orders/${response.data.invoice.id}`, {
                     preserveState: true,
                     preserveScroll: true,
                 });

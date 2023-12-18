@@ -173,7 +173,7 @@ export default {
             // Should we update the invoice.comment to be null or no ? #TODO
             // this.showModal = false;
             // this.acknowledged = true;
-            axios.put(`/invoices/${this.invoice.id}`, {
+            axios.put(`/orders/${this.invoice.id}`, {
                 comment: null,
             });
         },

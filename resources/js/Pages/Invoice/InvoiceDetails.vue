@@ -214,7 +214,7 @@ export default {
             set(value) {
                 this.backgroundColor = "#a36a03";
                 this.invoice.perfect = value;
-                axios.put(`/invoices/${this.invoice.id}`, {
+                axios.put(`/orders/${this.invoice.id}`, {
                     perfect: value,
                 });
             }
@@ -225,7 +225,7 @@ export default {
             },
             set(value) {
                 this.invoice.onHold = value;
-                axios.put(`/invoices/${this.invoice.id}`, {
+                axios.put(`/orders/${this.invoice.id}`, {
                     onHold: value,
                 });
             }
@@ -237,7 +237,7 @@ export default {
             set(value) {
                 this.backgroundColor = "#a36a03";
                 this.invoice.ripFirst = value;
-                axios.put(`/invoices/${this.invoice.id}`, {
+                axios.put(`/orders/${this.invoice.id}`, {
                     ripFirst: value,
                 });
             }
@@ -249,7 +249,7 @@ export default {
             set(value) {
                 this.backgroundColor = "#a36a03";
                 this.invoice.revisedArt = value;
-                axios.put(`/invoices/${this.invoice.id}`, {
+                axios.put(`/orders/${this.invoice.id}`, {
                     revisedArt: value,
                 });
             }
@@ -261,7 +261,7 @@ export default {
             set(value) {
                 this.backgroundColor = "#a36a03";
                 this.invoice.revisedArtComplete = value;
-                axios.put(`/invoices/${this.invoice.id}`, {
+                axios.put(`/orders/${this.invoice.id}`, {
                     revisedArtComplete: value,
                 });
             }
@@ -273,7 +273,7 @@ export default {
             set(value) {
                 this.backgroundColor = "#a36a03";
                 this.invoice.additionalArt = value;
-                axios.put(`/invoices/${this.invoice.id}`, {
+                axios.put(`/orders/${this.invoice.id}`, {
                     additionalArt: value,
                 });
             }
@@ -285,7 +285,7 @@ export default {
             set(value) {
                 this.backgroundColor = "#a36a03";
                 this.invoice.rush = value;
-                axios.put(`/invoices/${this.invoice.id}`, {
+                axios.put(`/orders/${this.invoice.id}`, {
                     rush: value,
                 });
             }
@@ -311,7 +311,7 @@ export default {
         async downloadAllProofs() {
             const toast = useToast();
             try {
-                const response = await axios.get('/invoice/download', {
+                const response = await axios.get('/order/download', {
                     params: {
                         clientName: this.invoice.client.name,
                         invoiceId: this.invoice.id
@@ -335,7 +335,7 @@ export default {
             }
         },
         generatePdf(invoiceId) {
-            window.open(`/invoices/${invoiceId}/pdf`, '_blank');
+            window.open(`/orders/${invoiceId}/pdf`, '_blank');
         },
         getOverallInvoiceStatus() {
             const jobStatuses = this.invoice.jobs.map((job) => job.status);
@@ -349,7 +349,7 @@ export default {
         },
         updateInvoiceStatus() {
             const newStatus = this.getOverallInvoiceStatus();
-            axios.put(`/invoices/${this.invoice.id}`, {
+            axios.put(`/orders/${this.invoice.id}`, {
                 status: newStatus,
             })
                 .then((response) => {
@@ -391,7 +391,7 @@ export default {
         reorder() {
             const invoiceData = this.invoice;
             console.log(invoiceData);
-            this.$inertia.visit('/invoices/create', {
+            this.$inertia.visit('/orders/create', {
                 data: {
                     invoiceData
                 }
