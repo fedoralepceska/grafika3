@@ -314,8 +314,7 @@ class JobController extends Controller
                 ->join('invoices', 'invoices.id', '=', 'invoice_job.invoice_id') // Join with invoices table
                 ->where('job_actions.name', $name)
                 ->where('invoices.onHold', true)
-                ->where('job_job_action.status', 'Not started yet')
-                ->where('job_job_action.status', 'In Progress')
+                ->whereIn('job_job_action.status', ['Not started yet', 'In Progress'])
                 ->count();
 
             // Add the counts to the array
