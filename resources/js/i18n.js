@@ -176,19 +176,19 @@ const messages = {
         SmallFormatMaterials: 'Small Format Materials',
         listOfSmallFormat: 'List of Small Format Materials',
         pricePerUnit: 'Price per unit',
-        addNewMaterialLarge:'Add Large Format Material', //MKDTODO
-        listOfLargeFormat: 'List of Large Format Materials', //MKDTODO
+        addNewMaterialLarge:'Add Large Format Material',
+        listOfLargeFormat: 'List of Large Format Materials',
         contact: 'Contact',
         contacts: 'Contacts',
         otherContacts: 'Other contacts',
         listOfSmallMaterials: 'List of small materials',
-        listOfAllOrders: 'List Of All Orders', //MKTODO
-        ViewAllInvoices: 'View All Orders', //MKTODO
-        InvoiceDetails: 'Order Details', //MKTODO
-        InvoiceReview: 'Order Review', //MKDTO
-        totalm: 'Total m', //MKTODO
-        shippingTo: 'Shipping To', //MKTODO
-        jobPrice: 'Job Price', //MKTODO
+        listOfAllOrders: 'List Of All Orders',
+        ViewAllInvoices: 'View All Orders',
+        InvoiceDetails: 'Order Details',
+        InvoiceReview: 'Order Review',
+        totalm: 'Total m',
+        shippingTo: 'Shipping To',
+        jobPrice: 'Job Price',
         production: 'Production',
         dashboard: 'Dashboard',
         actionInfo: 'Action Overview'
@@ -376,7 +376,16 @@ const messages = {
         otherContacts: 'Останати контакти',
         production: 'Продукција',
         dashboard: 'Преглед',
-        actionInfo: 'Преглед на акција'
+        actionInfo: 'Преглед на акција',
+        addNewMaterialLarge:'Додади материјал - голем формат',
+        listOfLargeFormat: 'Листа на материјали - голем формат',
+        listOfAllOrders: 'Листа на сите нарачки',
+        ViewAllInvoices: 'Погледни ги сите нарачки',
+        InvoiceDetails: 'Детали за нарачка',
+        InvoiceReview: 'Преглед на нарачка',
+        totalm: 'Вкупно м.',
+        shippingTo: 'Достава до',
+        jobPrice: 'Цена на продукт',
     },
 };
 
