@@ -39,6 +39,7 @@
                                         </td>
                                         <td class="centered">
                                             <SecondaryButton @click="deleteClient(client)" class="delete">Delete</SecondaryButton>
+                                            <AddContactDialog :client="client"/>
                                         </td>
                                     </tr>
                                     <tr v-if="clientExpanded === client.id && client.contacts.length">
@@ -60,7 +61,6 @@
                         </div>
                     </div>
                 </div>
-
         </div>
     </MainLayout>
 </template>
@@ -69,9 +69,11 @@ import MainLayout from "@/Layouts/MainLayout.vue";
 import PrimaryButton from "@/Components/buttons/PrimaryButton.vue";
 import SecondaryButton from "@/Components/buttons/SecondaryButton.vue";
 import axios from "axios";
+import AddContactDialog from "@/Components/AddContactDialog.vue";
 
 export default {
     components: {
+        AddContactDialog,
         MainLayout,
         PrimaryButton,
         SecondaryButton
@@ -82,7 +84,7 @@ export default {
     data() {
         return {
             editMode: false,
-            clientExpanded: null
+            clientExpanded: null,
         };
     },
     methods: {
@@ -167,6 +169,7 @@ export default {
 <style scoped lang="scss">
 .centered{
     text-align: center;
+    display: flex;
 }
 .delete{
     border: none;
