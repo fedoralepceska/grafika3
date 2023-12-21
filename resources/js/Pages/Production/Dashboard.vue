@@ -4,21 +4,21 @@
             <Header title="production" subtitle="dashboard" icon="dashboard.png"/>
             <div class="grid-container">
                 <div v-for="item in jobActionStatusCounts" :key="item.name" class="grid-item">
-                    <span class="circle-badge" @click="navigateToAction(item.name)">
-                        <v-badge class="inner" :content="item.secondaryCount" color="#FFFFFF00" overlap offset-x="-45" offset-y="-20" >
-                            <template v-slot:badge>
-                                <div :class="['sub-badge', { 'double-width': item.onHoldCount }]">
-                                    <i class="fa-solid fa-spinner"></i>
-                                    <div>{{ item.secondaryCount }}</div>
-                                    <div v-if="item.onHoldCount" class="flex">
-                                        <i class="fa-solid fa-ban red"></i>
-                                        <div class="red">{{ item.onHoldCount }}</div>
-                                    </div>
-                                </div>
-                            </template>
-                            <span class="primary-count">{{ item.total }}</span>
-                        </v-badge>
-                    </span>
+                    <div class="badge-container">
+                        <span class="circle-badge" @click="navigateToAction(item.name)">
+                            <div class="inner">
+                                <span class="primary-count">{{ item.total }}</span>
+                            </div>
+                        </span>
+                        <div v-if="item.secondaryCount" class="secondary-badge flex2 bg-white rounded pl-2 pr-2 pt-1 orange">
+                                <i class="fa-solid fa-spinner"></i>
+                                <div>{{ item.secondaryCount }}</div>
+                        </div>
+                        <div v-if="item.onHoldCount" class="onhold-badge flex2 bg-white rounded pl-2 pr-2 pt-1">
+                                <i class="fa-solid fa-ban red"></i>
+                                <div class="red">{{ item.onHoldCount }}</div>
+                        </div>
+                    </div>
                     <span class="text-white">{{ $t(`actions.${item.name}`) }}</span>
                 </div>
             </div>
@@ -136,13 +136,36 @@ export default {
 .double-width {
     width: 84px;
 }
-.flex {
+.flex2 {
     display: flex;
-    flex-direction: row;
+    justify-content: center;
+    align-items: center;
     gap: 5px;
+}
+.rounded{
+    border-radius: 25px;
+}
+.orange{
+    color: #EF6C00;
 }
 .red {
     color: $red;
+}
+.badge-container {
+    position: relative;
+}
+
+.secondary-badge{
+    position: absolute;
+    top: 20px;
+    right: -10px;
+    transform: translate(50%, -50%);
+}
+.onhold-badge{
+    position: absolute;
+    top:53px;
+    right:-22px;
+    transform: translate(50%, -50%);
 }
 </style>
 
