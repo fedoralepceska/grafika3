@@ -25,7 +25,8 @@
                     </div>
                 </v-card-text>
                 <v-card-actions class="flexSpace gap-4">
-                    <button @click="saveContact()" class="bg-blue-500 rounded text-white py-2 px-5 m-1">Save Contact</button>
+                    <button @click="closeDialog" class="red py-2 px-5 m-1 rounded">Close</button>
+                    <button @click="saveContact()" class="green rounded text-white py-2 px-5 m-1">Save Contact</button>
                 </v-card-actions>
             </v-card>
         </v-dialog>
@@ -114,5 +115,12 @@ export default {
 }
 input {
     margin: 12px 0;
+}
+.green{
+    background-color: $green;
+}
+.red{
+    background-color: $red;
+    color: white;
 }
 </style>
