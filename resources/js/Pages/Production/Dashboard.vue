@@ -10,11 +10,11 @@
                                 <span class="primary-count">{{ item.total }}</span>
                             </div>
                         </span>
-                        <div v-if="item.secondaryCount" class="secondary-badge flex2 bg-white rounded pl-2 pr-2 pt-1 orange">
+                        <div v-if="item.secondaryCount" class="secondary-badge flex2 bg-white rounded pl-2 pr-2 orange">
                                 <i class="fa-solid fa-spinner"></i>
                                 <div>{{ item.secondaryCount }}</div>
                         </div>
-                        <div v-if="item.onHoldCount" class="onhold-badge flex2 bg-white rounded pl-2 pr-2 pt-1">
+                        <div v-if="item.onHoldCount" class="onhold-badge flex2 bg-white rounded pl-2 pr-2 ">
                                 <i class="fa-solid fa-ban red"></i>
                                 <div class="red">{{ item.onHoldCount }}</div>
                         </div>
