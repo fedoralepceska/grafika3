@@ -18,7 +18,7 @@
                     <form @submit.prevent="addClient">
                         <!-- Form fields for Name, Company, Email, and Phone -->
                         <div class="form-group">
-                            <label for="name">{{ $t('company') }}:</label>
+                            <label for="name" class="mr-4">{{ $t('company') }}</label>
                             <input type="text" id="name" class="text-gray-700" v-model="client.name" required>
                         </div>
                         <div class="mt-12">
@@ -148,17 +148,17 @@ select[data-v-375938f7], option[data-v-375938f7], input[data-v-375938f7]{
 }
 .form-group {
     display: flex;
-    justify-content: right;
+    justify-content: left;
     align-items: center;
     width: 350px;
     margin-bottom: 10px;
     color: $white;
-    padding-left: 40px;
+    padding-left: 10px;
 }
 .label {
     flex: 1;
     text-align: left;
-    margin-right: 20px;
+    margin-right: 21px;
 }
 .button-container{
     display: flex;

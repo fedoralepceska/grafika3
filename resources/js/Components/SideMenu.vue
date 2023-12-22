@@ -32,7 +32,7 @@ export default {
                 {
                     href: '',
                     title: 'Materials',
-                    icon: 'fa-solid fa-boxes-stacked',
+                    icon: 'fa-solid fa-layer-group',
                     child: [
                         {
                             href: '/smallFormat/materials/create',

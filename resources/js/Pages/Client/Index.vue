@@ -16,12 +16,6 @@
                             <h2 class="sub-title">
                                 {{ $t('allClients') }}
                             </h2>
-
-                            <div class="flex justify-end">
-                                <button @click="toggleEditMode" class="bg-white rounded text-black py-2 px-5 m-1 ">{{ editMode ? 'Exit Edit Mode' : 'Edit Mode' }}</button>
-                                <button @click="saveChanges()" v-if="editMode" class="blue rounded text-white py-2 px-5 m-1">Save Changes<v-icon class="mdi mdi-check"></v-icon></button>
-                            </div>
-
                             <table>
                                 <thead>
                                 <tr>
@@ -88,19 +82,6 @@ export default {
         };
     },
     methods: {
-        toggleEditMode() {
-            this.editMode = !this.editMode;
-            if (this.editMode) {
-                this.clients.forEach((client) => {
-                    if (!client.editablePhone) {
-                        client.editablePhone = client.phone;
-                    }
-                    if (!client.editableEmail) {
-                        client.editableEmail = client.email;
-                    }
-                });
-            }
-        },
         toggleRow(id) {
             if (this.clientExpanded === id) {
                 this.clientExpanded = null;
@@ -124,42 +105,6 @@ export default {
             } catch (error) {
                 console.error('Error deleting client:', error);
             }
-            window.location.reload();
-        },
-        async saveChanges() {
-            if (!this.editMode) {
-                // Exit edit mode
-                return;
-            }
-
-            // Handle the save changes action
-            const promises = this.clients.map(async (client) => {
-                if (
-                    client.editablePhone !== client.phone ||
-                    client.editableEmail !== client.email
-                ) {
-                    try {
-                        const response = await axios.put(`/clients/${client.id}`, {
-                            phone: client.editablePhone,
-                            email: client.editableEmail,
-                        });
-                        // Update the material with the response data
-                        client.phone = response.data.phone;
-                        client.email = response.data.email;
-                    } catch (error) {
-                        console.error('Error updating client:', error);
-                    }
-                }
-            });
-
-            await Promise.all(promises);
-
-            // Reset the editable fields and exit edit mode
-            this.clients.forEach((client) => {
-                client.editablePhone = null;
-                client.editableEmail = null;
-            });
-            this.editMode = false;
             window.location.reload();
         },
     }

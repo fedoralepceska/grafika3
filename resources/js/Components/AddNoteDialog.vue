@@ -31,10 +31,10 @@
                 </v-card-text>
                 <v-card-actions class="flexSpace gap-4">
                     <v-spacer></v-spacer>
-                    <SecondaryButton @click="closeDialog">
+                    <SecondaryButton @click="closeDialog" class="red">
                         Close
                     </SecondaryButton>
-                    <SecondaryButton @click="saveData">
+                    <SecondaryButton @click="saveData" class="green">
                         Save
                     </SecondaryButton>
                 </v-card-actions>
@@ -137,5 +137,15 @@ export default {
 }
 .orange {
     color: $orange;
+}
+.red{
+    background-color: $red;
+    color:white;
+    border: none;
+}
+.green{
+    background-color: $green;
+    color: white;
+    border: none;
 }
 </style>
