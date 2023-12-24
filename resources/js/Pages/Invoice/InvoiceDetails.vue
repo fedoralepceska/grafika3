@@ -198,10 +198,10 @@ export default {
     },
     computed: {
         getStatusColorClass() {
-            const invoiceStatus = this.getOverallInvoiceStatus();
+            const invoiceStatus = this.invoice.status;
             if (invoiceStatus === "Not started yet") {
                 return "orange-text";
-            } else if (invoiceStatus === "In Progress") {
+            } else if (invoiceStatus === "In progress") {
                 return "blue-text";
             } else if (invoiceStatus === "Completed") {
                 return "green-text";
@@ -337,57 +337,6 @@ export default {
         generatePdf(invoiceId) {
             window.open(`/orders/${invoiceId}/pdf`, '_blank');
         },
-        getOverallInvoiceStatus() {
-            const jobStatuses = this.invoice.jobs.map((job) => job.status);
-            if (jobStatuses.includes('In progress')) {
-                return 'In Progress';
-            } else if (jobStatuses.every((status) => status === 'Completed')) {
-                return 'Completed';
-            } else {
-                return 'Not started yet';
-            }
-        },
-        updateInvoiceStatus() {
-            const newStatus = this.getOverallInvoiceStatus();
-            axios.put(`/orders/${this.invoice.id}`, {
-                status: newStatus,
-            })
-                .then((response) => {
-                })
-                .catch((error) => {
-                    console.error("Failed to update invoice status:", error);
-                });
-        },
-        getOverallJobStatus() {
-            const jobActionStatuses = this.invoice.jobs.flatMap((job) => job.actions.map((action) => action.status.toLowerCase().trim()));
-            if (jobActionStatuses.includes('in progress')) {
-                return 'In Progress';
-            } else if (jobActionStatuses.every((status) => status === 'completed')) {
-                return 'Completed';
-            } else {
-                return 'Not started yet';
-            }
-        },
-        updateJobStatus() {
-            const newStatus = this.getOverallJobStatus();
-
-            // Loop through all jobs and update their statuses
-            this.invoice.jobs.forEach(job => {
-                const jobId = job.id;
-
-                // Make a PUT request to update the job status
-                axios.put(`/jobs/${jobId}`, {
-                    status: newStatus,
-                })
-                    .then(response => {
-                        // Handle the response if needed
-                    })
-                    .catch(error => {
-                        // Handle the error if the update fails
-                        console.error(`Failed to update job ${jobId} status:`, error);
-                    });
-            });
-        },
         reorder() {
             const invoiceData = this.invoice;
             console.log(invoiceData);
@@ -398,10 +347,6 @@ export default {
             });
         }
     },
-    mounted() {
-        this.updateInvoiceStatus()
-        this.updateJobStatus()
-    }
 };
 </script>
 

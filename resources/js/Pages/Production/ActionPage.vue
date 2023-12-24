@@ -187,13 +187,112 @@ export default {
             await axios.put(`/actions/${action.id}`, {
                 status: 'In progress',
             });
+            await axios.put(`/jobs/${job.id}`, {
+                status: 'In progress',
+            });
+            // Find the invoice that contains this job
+            const invoiceWithJob = this.invoices.find(invoice => invoice.jobs.some(j => j.id === job.id));
+
+            if (invoiceWithJob) {
+                // Check if all jobs in the invoice are completed
+                const allJobsCompleted = invoiceWithJob.jobs.some(j => j.status === 'In progress');
+                if (allJobsCompleted || job) {
+                    // Update the invoice status
+                    await axios.put(`/orders/${invoiceWithJob.id}`, {
+                        status: 'In progress',
+                    });
+                }
+            }
         },
         async endJob(job) {
-            const action = job.actions.find(a => a.name === this.actionId);
-            await axios.put(`/actions/${action.id}`, {
-                status: 'Completed',
+            try {
+                // Update the job status first
+                const action = job.actions.find(a => a.name === this.actionId);
+                await axios.put(`/actions/${action.id}`, {
+                    status: 'Completed',
+                });
+                if (job.actions.every(a => a.status === 'Completed')) {
+                    await axios.put(`/jobs/${job.id}`, {
+                        status: 'Completed',
+                    });
+                }
+
+                // Find the invoice that contains this job
+                const invoiceWithJob = this.invoices.find(invoice => invoice.jobs.some(j => j.id === job.id));
+
+                if (invoiceWithJob) {
+                    // Check if all jobs in the invoice are completed
+                    const allJobsCompleted = invoiceWithJob.jobs.every(j => j.actions.every(a => a.status === 'Completed'));
+                    if (allJobsCompleted) {
+                        // Update the invoice status
+                        await axios.put(`/orders/${invoiceWithJob.id}`, {
+                            status: 'Completed',
+                        });
+                    }
+                }
+            } catch (error) {
+                console.error("Error in ending job:", error);
+            }
+        },
+
+        getOverallInvoiceStatus(invoice) {
+            const jobStatuses = invoice.jobs.map((job) => job.status);
+            if (jobStatuses.includes('In progress')) {
+                return 'In Progress';
+            } else if (jobStatuses.every((status) => status === 'Completed')) {
+                return 'Completed';
+            } else {
+                return 'Not started yet';
+            }
+        },
+        updateInvoiceStatus() {
+            this.invoices.forEach(invoice => {
+                const newStatus = this.getOverallInvoiceStatus(invoice); // Assuming this method needs the current invoice
+
+                axios.put(`/orders/${invoice.id}`, { status: newStatus })
+                    .then(response => {
+                        // Handle successful update
+                        // Optionally, you can update some status in your Vue data to reflect this
+                    })
+                    .catch(error => {
+                        console.error("Failed to update invoice status:", error);
+                    });
             });
-        }
+        },
+        getOverallJobStatus() {
+            const jobActionStatuses = this.jobs.flatMap((job) => job.actions.map((action) => action.status.toLowerCase().trim()));
+            if (jobActionStatuses.includes('in progress')) {
+                return 'In Progress';
+            } else if (jobActionStatuses.every((status) => status === 'completed')) {
+                return 'Completed';
+            } else {
+                return 'Not started yet';
+            }
+        },
+        updateJobStatus() {
+            const newStatus = this.getOverallJobStatus();
+
+            // Loop through all jobs and update their statuses
+            this.jobs.forEach(job => {
+                const jobId = job.id;
+
+                // Make a PUT request to update the job status
+                axios.put(`/jobs/${jobId}`, {
+                    status: newStatus,
+                })
+                    .then(response => {
+                        // Handle the response if needed
+                    })
+                    .catch(error => {
+                        // Handle the error if the update fails
+                        console.error(`Failed to update job ${jobId} status:`, error);
+                    });
+            });
+        },
+    },
+    beforeMount() {
+        this.updateInvoiceStatus()
+        this.updateJobStatus()
     }
 }
 </script>
