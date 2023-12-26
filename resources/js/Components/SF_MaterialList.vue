@@ -14,8 +14,8 @@
             </h2>
 
             <div class="flex justify-end">
-                <button @click="toggleEditMode" class="bg-white rounded text-black py-2 px-5 m-1 ">{{ editMode ? 'Exit Edit Mode' : 'Edit Mode' }}</button>
-                <button @click="saveChanges()" v-if="editMode" class="blue rounded text-white py-2 px-5 m-1">Save Changes<v-icon class="mdi mdi-check"></v-icon></button>
+                <button @click="toggleEditFormatMode" class="bg-white rounded text-black py-2 px-5 m-1 ">{{ editModeFormat ? 'Exit Edit Mode' : 'Edit Mode' }}</button>
+                <button @click="saveChanges()" v-if="editModeFormat" class="blue rounded text-white py-2 px-5 m-1">Save Changes<v-icon class="mdi mdi-check"></v-icon></button>
             </div>
 
             <table>
@@ -30,14 +30,14 @@
                 <tbody>
                 <tr v-for="material in materials" :key="material.id">
                     <td>{{ material.name }}</td>
-                    <td v-if="editMode">
+                    <td v-if="editModeFormat">
                         <input type="text" class="text-black" v-model="material.editableQuantity" />
                     </td>
                     <td v-else>
                         {{material.quantity}}
                     </td>
                     <template v-if="material.price_per_unit">
-                        <td v-if="editMode">
+                        <td v-if="editModeFormat">
                             <input type="text" v-model="material.editablePricePerUnit"  class="text-black"/>
                         </td>
                         <td v-else>
@@ -60,8 +60,8 @@
             </h2>
 
             <div class="flex justify-end">
-                <button @click="toggleEditMode" class="bg-white rounded text-black py-2 px-5 m-1 ">{{ editMode ? 'Exit Edit Mode' : 'Edit Mode' }}</button>
-                <button @click="saveChangesSmall()" v-if="editMode" class="blue rounded text-white py-2 px-5 m-1">Save Changes<v-icon class="mdi mdi-check"></v-icon></button>
+                <button @click="toggleEditMaterialMode" class="bg-white rounded text-black py-2 px-5 m-1 ">{{ editModeMaterial ? 'Exit Edit Mode' : 'Edit Mode' }}</button>
+                <button @click="saveChangesSmall()" v-if="editModeMaterial" class="blue rounded text-white py-2 px-5 m-1">Save Changes<v-icon class="mdi mdi-check"></v-icon></button>
             </div>
 
             <table>
@@ -76,7 +76,7 @@
                 <tbody>
                 <tr v-for="material in smallMaterials" :key="material.id">
                     <td>{{ material.name }}</td>
-                    <td v-if="editMode">
+                    <td v-if="editModeMaterial">
                         <input type="text" class="text-black" v-model="material.editableQuantity" />
                     </td>
                     <td v-else>
@@ -109,13 +109,27 @@ export default {
     },
     data() {
         return {
-            editMode: false,
+            editModeFormat: false,
+            editModeMaterial: false
         };
     },
     methods: {
-        toggleEditMode() {
-            this.editMode = !this.editMode;
-            if (this.editMode) {
+        toggleEditMaterialMode() {
+            this.editModeMaterial = !this.editModeMaterial;
+            if (this.editModeMaterial) {
+                this.materials.forEach((material) => {
+                    if (!material.editableQuantity) {
+                        material.editableQuantity = material.quantity;
+                    }
+                    if (!material.editablePricePerUnit) {
+                        material.editablePricePerUnit = material.price_per_unit;
+                    }
+                });
+            }
+        },
+        toggleEditFormatMode() {
+            this.editModeFormat = !this.editModeFormat;
+            if (this.editModeFormat) {
                 this.materials.forEach((material) => {
                     if (!material.editableQuantity) {
                         material.editableQuantity = material.quantity;
@@ -175,7 +189,7 @@ export default {
             // window.location.reload();
         },
         async saveChanges() {
-            if (!this.editMode) {
+            if (!this.editModeFormat) {
                 // Exit edit mode
                 return;
             }
@@ -207,11 +221,11 @@ export default {
                 material.editableQuantity = null;
                 material.editablePricePerUnit = null;
             });
-            this.editMode = false;
+            this.editModeFormat = false;
             window.location.reload();
         },
         async saveChangesSmall() {
-            if (!this.editMode) {
+            if (!this.editModeMaterial) {
                 // Exit edit mode
                 return;
             }
@@ -234,7 +248,7 @@ export default {
             this.smallMaterials.forEach((material) => {
                 material.editableQuantity = null;
             });
-            this.editMode = false;
+            this.editModeMaterial = false;
             window.location.reload();
         },
     },
