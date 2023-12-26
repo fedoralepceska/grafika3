@@ -3,7 +3,6 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Invoice;
 use App\Models\SmallMaterial;
 use Illuminate\Http\Request;
 use Inertia\Inertia;

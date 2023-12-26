@@ -138,8 +138,6 @@ export default {
         async convertPDFToImage(file) {
             const reader = new FileReader();
 
-            console.log(file.size);
-
             reader.onload = async (event) => {
                 const fileData = event.target.result;
 

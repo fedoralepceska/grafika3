@@ -140,7 +140,6 @@ export default {
         invoiceData: Object,
     },
     async beforeMount() {
-        console.log(this.invoiceData);
         // Fetch clients when component is created
         await this.fetchInvoices();
         await this.fetchClients();
@@ -152,7 +151,6 @@ export default {
         },
         contact() {
             this.fetchContacts();
-            console.log(this.contacts.find(c => c.id == this.invoiceData?.contact_id));
             return this.contacts.find(c => c.id == this.invoiceData?.contact_id);
         }
     },
@@ -246,7 +244,6 @@ export default {
                 });
 
                 toast.success('Invoice created successfully');
-                console.log(response);
                 this.$inertia.visit(`/orders/${response.data.invoice.id}`, {
                     preserveState: true,
                     preserveScroll: true,

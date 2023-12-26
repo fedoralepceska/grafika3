@@ -26,7 +26,6 @@ export default {
         const selectedTitle = ref(tabTitles.value[0])
 
         provide("selectedTitle", selectedTitle)
-        console.log('tw1', selectedTitle);
         return{
             selectedTitle,
             tabTitles,

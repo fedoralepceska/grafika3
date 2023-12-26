@@ -4,8 +4,6 @@ namespace App\Listeners;
 
 use App\Events\InvoiceCreated;
 use App\Models\HistoryLog;
-use Illuminate\Contracts\Queue\ShouldQueue;
-use Illuminate\Queue\InteractsWithQueue;
 
 class LogInvoiceHistory
 {

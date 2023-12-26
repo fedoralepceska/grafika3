@@ -50,7 +50,6 @@ export default {
             try {
                 const response = await axios.get('/job-action-status-counts');
                 this.jobActionStatusCounts = response.data;
-                console.log(response.data)
             } catch (error) {
                 console.error(error);
             }

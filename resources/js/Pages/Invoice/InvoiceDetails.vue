@@ -339,7 +339,6 @@ export default {
         },
         reorder() {
             const invoiceData = this.invoice;
-            console.log(invoiceData);
             this.$inertia.visit('/orders/create', {
                 data: {
                     invoiceData

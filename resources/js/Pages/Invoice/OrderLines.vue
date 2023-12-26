@@ -106,11 +106,9 @@ export default {
 
         actions(id) {
             const job = this.updatedJobs.find(job => job.id === id);
-            console.log(job)
             // Check if the job exists
             if (job) {
                 const jobActions = job.actions;
-                console.log(jobActions.map(action => action.name));
                 if (jobActions && jobActions.length > 0) {
                     return jobActions.map(action => action.name);
                 }

@@ -5,8 +5,6 @@ namespace App\Http\Controllers;
 use App\Models\Client;
 use App\Models\Contact;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Validator;
-use Inertia\Inertia;
 
 class ContactController extends Controller
 {

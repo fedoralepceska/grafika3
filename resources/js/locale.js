@@ -1,5 +1,4 @@
 export function getCurrentLocale() {
-    console.log(localStorage);
     return localStorage.getItem('locale') || 'en'; // Default to English
 }
 

@@ -3,7 +3,6 @@
 namespace App\Http\Controllers;
 
 use App\Enums\JobAction;
-use App\Models\Invoice;
 use App\Models\Job;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;

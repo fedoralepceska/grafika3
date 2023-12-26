@@ -192,7 +192,6 @@ export default {
         },
         async generateMaterialsSmall() {
             const response = await axios.get('/get-materials-small');
-            console.log(response);
             this.materialsSmall = response.data;
             // const materials = [];
             // for (let i = 1; i <= 34; i++) {

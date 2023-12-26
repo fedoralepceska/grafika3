@@ -11,7 +11,6 @@ export default {
     },
     setup(){
         const selectedTitle = inject("selectedTitle")
-        console.log('t2', selectedTitle);
 
         return {
             selectedTitle

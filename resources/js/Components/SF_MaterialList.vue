@@ -150,7 +150,6 @@ export default {
             }
 
             try {
-                console.log(material);
                 if (material.price_per_unit) {
                     await axios.delete(`/materials-small-format/${material.id}`);
                 }
@@ -199,7 +198,6 @@ export default {
                     material.editableQuantity !== material.quantity ||
                     material.editablePricePerUnit !== material.price_per_unit)
                 ) {
-                    console.log(this.materials);
                     try {
                         const response = await axios.put(`/materials-small-format/${material.id}`, {
                             quantity: material.editableQuantity,

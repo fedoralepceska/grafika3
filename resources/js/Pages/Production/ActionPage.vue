@@ -145,7 +145,6 @@ export default {
             const url = `/actions/${this.actionId}/jobs`;
             axios.get(url)
                 .then(response => {
-                    console.log(response);
                     this.jobs = response.data?.jobs;
                     this.invoices = response.data?.invoices;
                     this.id = response.data?.actionId;

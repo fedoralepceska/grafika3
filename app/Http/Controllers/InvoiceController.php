@@ -2,10 +2,8 @@
 
 namespace App\Http\Controllers;
 
-use App\Enums\InvoiceStatus;
 use App\Enums\JobAction;
 use App\Events\InvoiceCreated;
-use App\Models\Client;
 use App\Models\Invoice;
 use App\Models\Job;
 use Barryvdh\DomPDF\Facade\Pdf;
@@ -14,9 +12,7 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Response;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Validation\Rules\In;
 use Inertia\Inertia;
 use ZipArchive;
 
