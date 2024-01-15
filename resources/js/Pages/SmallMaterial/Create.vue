@@ -78,7 +78,7 @@ export default {
                 .post('/materials-small', this.material)
                 .then((response) => {
                     toast.success("Material added successfully.");
-                    this.$inertia.visit('/materials-small');
+                    this.$inertia.visit('/materials-small-format');
                 })
                 .catch((error) => {
                     toast.error("Error adding material.");

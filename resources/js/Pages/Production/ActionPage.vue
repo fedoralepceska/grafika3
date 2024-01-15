@@ -2,48 +2,51 @@
     <MainLayout>
         <div class="pl-7 pr-7">
             <Header title="action" subtitle="actionInfo" icon="task.png"/>
-            <div class="grid-container">
-                Jobs: {{jobs}} <br>
-                Invoices: {{invoices}} <br>
-                Action: {{id}} <br>
-            </div>
             <div v-for="(invoice,index) in invoices" class="main">
-                <div class="container flex gap-20 relative p-2"  >
+                <div :class="['container', 'flex', 'gap-20', 'relative', 'p-2', { 'red': invoice.onHold }]">
                 <div class="bg-white text-black bold p-3" style="min-width: 20vh"><strong>{{invoice.invoice_title}}</strong></div>
-                <div class="info">
-                    <div>Order</div>
-                    <div class="bold">#{{ invoice.id }}</div>
-                </div>
-                <div class="info">
-                    <div>Customer</div>
-                    <div class="bold">{{invoice.client_id}}</div>
-<!--
-                    The Clients name should be fetched #TODO
--->
-                </div>
-                <div class="info">
-                    <div>{{ $t('End Date') }}</div>
-                    <div class="bold">{{ invoice?.end_date }}</div>
-                </div>
-                <div class="info">
-                    <div>Created By</div>
-                    <div class="bold">{{ invoice.created_by }}</div>
-<!--
-                    The users name should be fetched #TODO
--->
-                </div>
-                <div class="info">
-                    <div>Current Step</div>
-                    <div class="bold">{{$t(`actions.${actionId}`)}}</div>
-                </div>
-                <div class="btns">
-                    <div class="bt" @click="viewJobs(index)"><i class="fa-solid fa-bars"></i></div>
-                </div>
+                    <div class="info">
+                        <div>Order</div>
+                        <div class="bold">#{{ invoice.id }}</div>
+                    </div>
+                    <div class="info">
+                        <div>Customer</div>
+                        <div class="bold">{{invoice.client_id}}</div>
+    <!--
+                        The Clients name should be fetched #TODO
+    -->
+                    </div>
+                    <div class="info">
+                        <div>{{ $t('End Date') }}</div>
+                        <div class="bold">{{ invoice?.end_date }}</div>
+                    </div>
+                    <div class="info">
+                        <div>Created By</div>
+                        <div class="bold">{{ invoice.created_by }}</div>
+    <!--
+                        The users name should be fetched #TODO
+    -->
+                    </div>
+                    <div class="info">
+                        <div>Current Step</div>
+                        <div class="bold">{{$t(`actions.${actionId}`)}}</div>
+                    </div>
+                    <div class="btns">
+                        <div class="bt" @click="viewJobs(index)"><i class="fa-solid fa-bars"></i></div>
+                    </div>
                 </div>
                 <div v-if="jobViewMode===index">
                     <table>
                         <thead>
-                            <tr>
+                        <tr :class="[{
+                            'red' :  invoice.onHold
+                        }]">
+                            <td colspan="9">
+                                <i class="fa-solid fa-ban"></i>
+                                    THIS ORDER IS ON HOLD
+                                <i class="fa-solid fa-ban"></i></td> <!-- Adjust colspan based on the number of columns in your table -->
+                        </tr>
+                        <tr>
                                 <th>LN</th>
                                 <th>Img</th>
                                 <th>Qty</th>
@@ -68,16 +71,8 @@
                                     </button>
                                 </td>
                             </tr>
-                            <tr v-if="invoice.onHold">
-                                <td colspan="9" class="red">
-                                    <i class="fa-solid fa-ban"></i>
-                                    THIS ORDER IS ON HOLD
-                                    <i class="fa-solid fa-ban"></i>
-                                </td>
-                            </tr>
                             <tr :class="{
-                                'orange2' :  invoice.comment && !acknowledged && !job.hasNote,
-                                'red2' : invoice.onHold
+                                'orange2' :  invoice.comment && !acknowledged && !job.hasNote
                             }">
                                 <td class="bg-white !text-black"><strong>#{{jobIndex+1}}</strong></td>
                                 <td class="flex">
