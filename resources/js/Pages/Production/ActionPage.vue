@@ -76,7 +76,15 @@
                             }">
                                 <td class="bg-white !text-black"><strong>#{{jobIndex+1}}</strong></td>
                                 <td class="flex">
-                                    <img :src="getImageUrl(invoice.id, job.id)" alt="Job Image" class="jobImg thumbnail"/>
+                                    <button @click="toggleImagePopover(job)">
+                                        <img :src="getImageUrl(invoice.id, job.id)" alt="Job Image" class="jobImg thumbnail"/>
+                                    </button>
+                                    <div v-if="showImagePopover" class="popover">
+                                        <div class="popover-content bg-gray-700">
+                                            <img :src="getImageUrl(invoice.id, job.id)" alt="Job Image" />
+                                            <button @click="toggleImagePopover(null)" class="popover-close"><icon class="fa fa-close"/></button>
+                                        </div>
+                                    </div>
                                     {{job.file}}</td>
                                 <td>{{job.quantity}}</td>
                                 <td>{{job.copies}}</td>
@@ -129,7 +137,8 @@ export default {
             id: null,
             jobViewMode: null,
             showModal: false,
-            acknowledged: false
+            acknowledged: false,
+            showImagePopover: false,
         };
     },
     created() {
@@ -283,6 +292,10 @@ export default {
                     });
             });
         },
+        toggleImagePopover(job) {
+            this.selectedJob = job;
+            this.showImagePopover = !this.showImagePopover;
+        },
     },
     beforeMount() {
         this.updateInvoiceStatus()
@@ -345,5 +358,32 @@ table, th, td{
 td{
     padding-top: 10px;
     padding-bottom: 10px;
+}
+.popover {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background-color: rgba(0, 0, 0, 0.5);
+    z-index: 1000; /* high z-index to be on top of other content */
+}
+
+.popover-content {
+    width: 30%;
+    background: #2d3748;
+    padding: 20px;
+    border-radius: 8px;
+    position: relative;
+}
+
+.popover-close {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    color: black;
 }
 </style>
