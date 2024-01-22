@@ -201,6 +201,7 @@ class JobController extends Controller
         // Fetch the invoices based on the retrieved invoice IDs
         $invoices = DB::table('invoices')
             ->whereIn('id', $invoiceIds)
+            ->orderBy('start_date', 'asc')
             ->get();
 
         // Attach jobs to each invoice
