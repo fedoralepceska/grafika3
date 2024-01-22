@@ -1,6 +1,6 @@
 <template>
     <div class="head">
-        <Header title="material" subtitle="SmallFormatMaterials" icon="Materials.png"/>
+        <Header title="material" subtitle="SmallFormatMaterials" icon="Materials.png" link="materials-small-format"/>
         <div class="button">
             <button @click="navigateToAddSmallMaterial" class="btn add-material">
                 Add New Material <i class="fa fa-plus"></i>

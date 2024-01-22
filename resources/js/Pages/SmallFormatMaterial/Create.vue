@@ -2,7 +2,7 @@
     <MainLayout>
         <div class="flex">
             <div class="pl-7 pr-7" style="flex-grow: 1">
-                <Header title="material" subtitle="addNewMaterialSmall" icon="Materials.png"/>
+                <Header title="material" subtitle="addNewMaterialSmall" icon="Materials.png" link="materials-small-format"/>
                 <div class="dark-gray p-5">
                     <div class="form-container p-2 light-gray flex">
                         <div class="format">

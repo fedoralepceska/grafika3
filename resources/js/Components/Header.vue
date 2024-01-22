@@ -5,7 +5,7 @@
         </div>
         <div class="right">
             <h1 class="page-title">{{ $t(title) }}</h1>
-            <h3 class="text-white"><span class="green">{{ $t(title) }}</span> / {{ $t(subtitle) }}</h3>
+            <h3 class="text-white"><a class="green" :href="`/${$props.link || ''}`">{{ $t(title) }}</a> / {{ $t(subtitle) }}</h3>
         </div>
     </div>
 </template>
@@ -16,7 +16,13 @@ export default {
     props: {
         title: String,
         subtitle: String,
-        icon: String
+        icon: String,
+        link: String
+    },
+    methods: {
+        redirect() {
+            return this.$inertia.visit(`/${this.$props.link}`);
+        }
     }
 }
 </script>

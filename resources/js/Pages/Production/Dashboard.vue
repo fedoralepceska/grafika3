@@ -1,7 +1,7 @@
 <template>
     <MainLayout>
         <div class="pl-7 pr-7">
-            <Header title="production" subtitle="dashboard" icon="dashboard.png"/>
+            <Header title="production" subtitle="dashboard" icon="dashboard.png" link="production"/>
             <div class="grid-container">
                 <div v-for="item in jobActionStatusCounts" :key="item.name" class="grid-item">
                     <div class="badge-container">

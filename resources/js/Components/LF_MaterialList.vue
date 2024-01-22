@@ -1,5 +1,5 @@
 <template>
-    <Header title="material" subtitle="LargeFormatMaterials" icon="Materials.png"/>
+    <Header title="material" subtitle="LargeFormatMaterials" icon="Materials.png" link="materials-large"/>
     <div class="dark-gray p-5 text-white">
         <div class="form-container p-2 light-gray">
             <h2 class="sub-title">

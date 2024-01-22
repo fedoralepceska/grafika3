@@ -1,7 +1,7 @@
 <template>
     <MainLayout>
         <div class="pl-7 pr-7">
-            <Header title="action" subtitle="actionInfo" icon="task.png"/>
+            <Header title="action" subtitle="actionInfo" icon="task.png" link="production"/>
             <div v-for="(invoice,index) in invoices" class="main">
                 <div :class="['container', 'flex', 'gap-20', 'relative', 'p-2', { 'red': invoice.onHold }]">
                 <div class="bg-white text-black bold p-3" style="min-width: 20vh"><strong>{{invoice.invoice_title}}</strong></div>

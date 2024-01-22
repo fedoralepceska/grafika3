@@ -1,7 +1,7 @@
 <template>
     <MainLayout>
         <div class="pl-7 pr-7">
-            <Header title="invoice" subtitle="createNewInvoice" icon="List.png"/>
+            <Header title="invoice" subtitle="createNewInvoice" icon="List.png" link="orders"/>
         </div>
         <div class="pl-2 pr-2 ml-2 mr-2 dark-gray">
             <div class="wrapper  p-5">

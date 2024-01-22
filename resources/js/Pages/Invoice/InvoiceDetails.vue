@@ -14,7 +14,7 @@
             </div>
             <div class="left-column flex-1" style="width: 25%">
                 <div class="flex justify-between">
-                    <Header title="invoice" subtitle="InvoiceReview" icon="List.png"/>
+                    <Header title="invoice" subtitle="InvoiceReview" icon="List.png" link="orders"/>
                     <div class="flex pt-4">
                         <div class="buttons pt-3">
                             <button class="btn download-order" @click="downloadAllProofs">Download All Proofs <span class="mdi mdi-cloud-download"></span></button>
