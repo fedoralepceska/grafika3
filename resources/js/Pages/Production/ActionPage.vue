@@ -40,7 +40,7 @@
                         <thead>
                         <tr :class="[{
                             'red' :  invoice.onHold
-                        }]">
+                        }]" v-if="invoice.onHold">
                             <td colspan="9">
                                 <i class="fa-solid fa-ban"></i>
                                     THIS ORDER IS ON HOLD
