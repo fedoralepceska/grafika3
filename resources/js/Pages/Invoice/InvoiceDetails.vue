@@ -20,7 +20,7 @@
                             <button class="btn download-order" @click="downloadAllProofs">Download All Proofs <span class="mdi mdi-cloud-download"></span></button>
                             <button class="btn lock-order">Lock Order <span class="mdi mdi-lock"></span></button>
                             <button class="btn re-order"  @click="reorder()">Re-Order <span class="mdi mdi-content-copy"></span></button>
-                            <button class="btn go-to-steps">Go To Steps <span class="mdi mdi-arrow-right-bold-outline"></span> </button>
+                            <button class="btn go-to-steps" @click="navigateToAction()">Go To Steps <span class="mdi mdi-arrow-right-bold-outline"></span> </button>
                             <button v-if="!isSidebarVisible" @click="toggleSidebar" class="hamburger">
                                 <span class="mdi mdi-menu"></span>
                             </button>
@@ -291,7 +291,7 @@ export default {
             }
         },
     },
-    methods:{
+    methods: {
         getImageUrl(id) {
             return `/storage/uploads/${this.invoice.jobs.find(j => j.id === id).file}`
         },
@@ -344,6 +344,12 @@ export default {
                     invoiceData
                 }
             });
+        },
+        navigateToAction(){
+            const firstInProgressAction = this.invoice?.jobs
+                .flatMap(job => job?.actions)
+                .find(action => action?.status === 'In Progress' || action?.status === 'Not started yet');
+            return this.$inertia.visit(`/actions/${firstInProgressAction?.name}`);
         }
     },
 };
