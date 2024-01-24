@@ -42,6 +42,7 @@ export default {
     padding: 12px;
     border-bottom: 1px solid #444;
     background-color: $ultra-light-gray;
+    margin-bottom: 10px;
 }
 
 .order-history-item {

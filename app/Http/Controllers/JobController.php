@@ -3,6 +3,10 @@
 namespace App\Http\Controllers;
 
 use App\Enums\JobAction;
+use App\Events\InvoiceCreated;
+use App\Events\JobEnded;
+use App\Events\JobStarted;
+use App\Models\Invoice;
 use App\Models\Job;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -238,7 +242,6 @@ class JobController extends Controller
         // Retrieve the job by its ID
         $job = Job::find($id);
 
-
         if (!$job) {
             return response()->json(['message' => 'Job not found'], 404);
         }
@@ -337,6 +340,30 @@ class JobController extends Controller
     {
 
         return Inertia::render('Production/Dashboard');
+    }
+
+    public function fireStartJobEvent(Request $request) {
+        $jobData = $request->input('job');
+        $invoiceData = $request->input('invoice');
+
+        // Create job and invoice instances
+        $job = new Job($jobData);
+        $invoice = new Invoice($invoiceData);
+
+        // Dispatch the JobStarted event with both job and invoice
+        event(new JobStarted($job, $invoice));
+    }
+
+    public function fireEndJobEvent(Request $request) {
+        $jobData = $request->input('job');
+        $invoiceData = $request->input('invoice');
+
+        // Create job and invoice instances
+        $job = new Job($jobData);
+        $invoice = new Invoice($invoiceData);
+
+        // Dispatch the JobEnded event with both job and invoice
+        event(new JobEnded($job, $invoice));
     }
 
 }

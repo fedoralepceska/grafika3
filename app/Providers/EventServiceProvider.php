@@ -3,7 +3,11 @@
 namespace App\Providers;
 
 use App\Events\InvoiceCreated;
+use App\Events\JobEnded;
+use App\Events\JobStarted;
 use App\Listeners\LogInvoiceHistory;
+use App\Listeners\LogJobEnded;
+use App\Listeners\LogJobStarted;
 use Illuminate\Auth\Events\Registered;
 use Illuminate\Auth\Listeners\SendEmailVerificationNotification;
 use Illuminate\Foundation\Support\Providers\EventServiceProvider as ServiceProvider;
@@ -23,6 +27,12 @@ class EventServiceProvider extends ServiceProvider
         InvoiceCreated::class => [
             LogInvoiceHistory::class,
         ],
+        JobStarted::class => [
+            LogJobStarted::class
+        ],
+        JobEnded::class => [
+            LogJobEnded::class
+        ]
     ];
 
     /**

@@ -190,6 +190,7 @@ export default {
             await axios.put(`/actions/${action.id}`, {
                 status: 'In progress',
             });
+            console.log(job.id);
             await axios.put(`/jobs/${job.id}`, {
                 status: 'In progress',
             });
@@ -203,6 +204,10 @@ export default {
                     // Update the invoice status
                     await axios.put(`/orders/${invoiceWithJob.id}`, {
                         status: 'In progress',
+                    });
+                    await axios.post('/jobs/start-job', {
+                        job,
+                        invoice: invoiceWithJob
                     });
                 }
             }
@@ -230,6 +235,10 @@ export default {
                         // Update the invoice status
                         await axios.put(`/orders/${invoiceWithJob.id}`, {
                             status: 'Completed',
+                        });
+                        await axios.post('/jobs/end-job', {
+                            job,
+                            invoice: invoiceWithJob
                         });
                     }
                 }
