@@ -130,7 +130,7 @@
                                         </div>
                                         <div>{{$t('totalm')}}<sup>2</sup>: <span class="bold">{{(job.height * job.width / 1000).toFixed(2)}}</span></div>
                                     </div>
-                                    <div class="flex" v-if="jobProcessMode">
+                                    <div v-if="jobProcessMode">
                                         <OrderJobDetails :job="job"/>
                                     </div>
                                     <div class="jobInfo relative">

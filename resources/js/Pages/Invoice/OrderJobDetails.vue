@@ -1,47 +1,45 @@
 <template>
-    <div class="pt-1 pl-2">
-    <div class=" flex gap-8 line">
-        <div class="completed line">
-            <div class="action">
-                <div class="flexed" :class="{
+    <div class="pt-1 pl-2 pr-2">
+        <div class="flex gap-8 line">
+            <div class="completed line">
+                <div class="action">
+                    <div class="flexed" :class="{
                             'circle': true,
                             'dark-gray': job.status === 'Not started yet',
                             'green': job.status === 'Completed' || 'In progress',
-                          }">
-                    <span v-if="job.status === 'Completed'">&#10003;</span>
+                             }">
+                        <span v-if="job.status === 'Completed'">&#10003;</span>
+                    </div>
+                    <span>Start</span>
                 </div>
-                <span>Start</span>
             </div>
-        </div>
-        <div v-for="action in actions(job.id)" :key="action">
-            <div class="flex">
+            <div v-for="action in actions(job.id)" :key="action">
                 <div class="action">
                     <div class="flexed" :class="{
                         'circle': true,
                         'dark-gray': action.status === 'Not started yet',
                         'green': action.status === 'Completed',
                         'blue': action.status === 'In progress'
-                    }">
+                      }">
                         <span v-if="action.status === 'Completed'">&#10003;</span>
                     </div>
-                    <span>{{ $t(`actions.${action.name}`) }} </span>
+                        <span>{{ $t(`actions.${action.name}`) }}</span>
+                </div>
+            </div>
+            <div class="completed line ">
+                <div class="action">
+                    <div class="flexed" :class="{
+                        'circle': true,
+                        'dark-gray': job.status === 'Not started yet',
+                        'blue': job.status === 'In progress',
+                        'green': job.status === 'Completed',
+                      }">
+                        <span v-if="job.status === 'Completed'">&#10003;</span>
+                    </div>
+                        <span>Completed</span>
                 </div>
             </div>
         </div>
-        <div class="completed line">
-            <div class="action">
-                <div class="flexed" :class="{
-                            'circle': true,
-                            'dark-gray': job.status === 'Not started yet',
-                            'blue': job.status === 'In progress',
-                            'green': job.status === 'Completed',
-                          }">
-                    <span v-if="job.status === 'Completed'">&#10003;</span>
-                </div>
-                <span>Completed</span>
-            </div>
-        </div>
-    </div>
     </div>
 </template>
 
@@ -97,6 +95,7 @@ export default {
     display: flex;
     align-items: center;
     position: relative;
+    justify-content: space-between;
 
     // This will create the line
     &:before {
