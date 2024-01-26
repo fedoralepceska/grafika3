@@ -10,11 +10,11 @@
                     <div class="filter-container flex gap-4 pb-10">
                         <div class="search flex gap-2">
                             <input v-model="searchQuery" placeholder="Enter order number or order name" class="text-black" style="width: 50vh; border-radius: 3px" @keyup.enter="searchInvoices" />
-                            <button class="btn create-order" @click="searchInvoices">Search</button>
+                            <button class="btn create-order1" @click="searchInvoices">Search</button>
                         </div>
                         <div class="status">
                             <label class="pr-3">Filter orders</label>
-                            <select v-model="filterStatus" @change="applyFilter" class="text-black" >
+                            <select v-model="filterStatus" class="text-black" >
                                 <option value="All" hidden>Status</option>
                                 <option value="All">All</option>
                                 <option value="Not started yet">Not started yet</option>
@@ -23,20 +23,21 @@
                             </select>
                         </div>
                         <div class="client">
-                            <select v-model="filterClient" @change="applyFilter" class="text-black">
+                            <select v-model="filterClient" class="text-black">
                                 <option value="All" hidden>Clients</option>
                                 <option value="All">All Clients</option>
                                 <option v-for="client in uniqueClients" :key="client">{{ client }}</option>
                             </select>
                         </div>
                         <div class="date">
-                            <select v-model="sortOrder" @change="applyFilter" class="text-black">
+                            <select v-model="sortOrder" class="text-black">
                                 <option value="desc" hidden>Date</option>
                                 <option value="desc">Newest to Oldest</option>
                                 <option value="asc">Oldest to Newest</option>
                             </select>
                         </div>
                         <div class="button flex gap-3">
+                            <button @click="applyFilter" class="btn create-order1">Filter</button>
                             <button @click="navigateToCreateOrder" class="btn create-order">
                                 Create Order <i class="fa fa-plus"></i>
                             </button>
@@ -46,9 +47,15 @@
                         <div class="border mb-1" v-for="invoice in invoices.data" :key="invoice.id">
                             <div class="bg-white text-black flex justify-between">
                                 <div class="p-2 bold">{{invoice.invoice_title}}</div>
-                                <button class="flex items-center p-1" @click="viewInvoice(invoice.id)">
-                                <i class="fa fa-eye bg-gray-300 p-2 rounded" aria-hidden="true"></i>
-                                </button>
+                                <div class="flex">
+                                    <button class="flex items-center p-1" @click="viewJobs(invoice.id)">
+                                        <i v-if="iconStates[invoice.id]" class="fa-solid fa-angles-up bg-gray-300 p-2 rounded" aria-hidden="true"></i>
+                                        <i v-else class="fa-solid fa-angles-down bg-gray-300 p-2 rounded" aria-hidden="true"></i>
+                                    </button>
+                                    <button class="flex items-center p-1" @click="viewInvoice(invoice.id)">
+                                    <i class="fa fa-eye bg-gray-300 p-2 rounded" aria-hidden="true"></i>
+                                    </button>
+                                </div>
                             </div>
                             <div class="flex gap-40 p-2">
                                 <div class="info">
@@ -72,6 +79,23 @@
                                     <div :class="getStatusColorClass(invoice.status)" class="bold" >{{invoice.status}}</div>
                                 </div>
                             </div>
+                                <div v-if="currentInvoiceId" class="job-details-container" :class="{ active: currentInvoiceId === invoice.id }">
+                                    <div v-if="currentInvoiceId===invoice.id" class="bgJobs text-white p-2 bold">
+                                        Jobs for Order #{{invoice.id}} {{invoice.invoice_title}}
+                                    </div>
+                                    <div v-if="currentInvoiceId===invoice.id" class="jobInfo flex justify-between gap-3 border-b" v-for="(job,index) in invoice.jobs">
+                                            <div class="text-white bold p-1">
+                                                #{{index+1}} {{job.file}}
+                                            </div>
+                                            <div class="p-1 img">
+                                                <img :src="getImageUrl(job.id)" alt="Job Image" class="jobImg thumbnail"/>
+                                            </div>
+                                            <div class="p-1">{{$t('Height')}}: <span class="bold">{{job.height}}</span> </div>
+                                            <div class="p-1">{{$t('Width')}}: <span class="bold">{{job.width}}</span> </div>
+                                            <div class="p-1">{{$t('Quantity')}}: <span class="bold">{{job.quantity}}</span> </div>
+                                            <div class="p-1">{{$t('Copies')}}: <span class="bold">{{job.copies}}</span> </div>
+                                        </div>
+                                </div>
                         </div>
                     </div>
                 </div>
@@ -86,6 +110,7 @@ import MainLayout from "@/Layouts/MainLayout.vue";
 import Header from "@/Components/Header.vue";
 import Pagination from "@/Components/Pagination.vue"
 import axios from 'axios';
+import {reactive} from "vue";
 
 export default {
     components: {Header, MainLayout,Pagination },
@@ -98,17 +123,37 @@ export default {
             filterStatus: 'All',
             filterClient: 'All',
             sortOrder: 'desc',
-            //invoices: [],
             localInvoices: [],
             uniqueClients:[],
+            currentInvoiceId: null,
+            iconStates : reactive({}),
         };
     },
     mounted() {
-       // this.fetchAllInvoices();
         this.localInvoices = this.invoices.data.slice();
         this.fetchUniqueClients()
+        this.invoices.data.forEach(invoice => {
+            this.iconStates[invoice.id] = false;
+        });
     },
     methods: {
+        getImageUrl(id) {
+            const currentInvoice = this.invoices.data.find(invoice => invoice.id === this.currentInvoiceId);
+            if (currentInvoice && currentInvoice.jobs) {
+                const job = currentInvoice.jobs.find(j => j.id === id);
+                    return `/storage/uploads/${job.file}`;
+            }
+        },
+        viewJobs(invoiceId) {
+            if (this.currentInvoiceId && this.currentInvoiceId !== invoiceId) {
+                this.iconStates[this.currentInvoiceId] = false;
+                this.currentInvoiceId = null;
+            }
+
+            // Toggle the icon state for the clicked invoice
+            this.currentInvoiceId = this.currentInvoiceId === invoiceId ? null : invoiceId;
+            this.iconStates[invoiceId] = !this.iconStates[invoiceId];
+        },
         getStatusColorClass(status) {
             if (status === "Not started yet") {
                 return "orange";
@@ -175,6 +220,15 @@ export default {
 };
 </script>
 <style scoped lang="scss">
+.jobInfo{
+    display: flex;
+    justify-items: center;
+    align-items: center;
+}
+.img{
+    width: 70px;
+    height: 70px;
+}
 select{
     width: 25vh;
     border-radius: 3px;
@@ -203,6 +257,9 @@ select{
 .header{
     display: flex;
     align-items: center;
+}
+.bgJobs{
+    background-color: $light-gray;
 }
 .dark-gray {
     background-color: $dark-gray;
@@ -234,9 +291,25 @@ select{
     font-weight: bold;
     border-radius: 2px;
 }
-.create-order{
+.create-order1{
     background-color: $blue;
     color: white;
+}
+.create-order{
+    background-color: $green;
+    color: white;
+}
+.job-details-container {
+    max-height: 0;
+    opacity: 0;
+    overflow: hidden;
+    transition: max-height 0.3s ease-in-out, opacity 0.3s ease-in-out;
+    will-change: max-height, opacity;
+}
+
+.job-details-container.active {
+    max-height: 400px;
+    opacity: 1;
 }
 </style>
 
