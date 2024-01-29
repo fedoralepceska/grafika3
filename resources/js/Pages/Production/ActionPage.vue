@@ -11,7 +11,7 @@
                     </div>
                     <div class="info">
                         <div>Customer</div>
-                        <div class="bold">{{invoice.client_id}}</div>
+                        <div class="bold">{{invoice.client_name}}</div>
     <!--
                         The Clients name should be fetched #TODO
     -->
@@ -22,7 +22,7 @@
                     </div>
                     <div class="info">
                         <div>Created By</div>
-                        <div class="bold">{{ invoice.created_by }}</div>
+                        <div class="bold">{{ invoice.user_name }}</div>
     <!--
                         The users name should be fetched #TODO
     -->

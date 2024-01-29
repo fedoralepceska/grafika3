@@ -204,7 +204,10 @@ class JobController extends Controller
             ->pluck('invoice_id');
         // Fetch the invoices based on the retrieved invoice IDs
         $invoices = DB::table('invoices')
-            ->whereIn('id', $invoiceIds)
+            ->whereIn('invoices.id', $invoiceIds)
+            ->leftJoin('users', 'invoices.created_by', '=', 'users.id') // Join with users table
+            ->leftJoin('clients', 'invoices.client_id', '=', 'clients.id') // Join with clients table
+            ->select('invoices.*', 'users.name as user_name', 'clients.name as client_name')
             ->orderBy('start_date', 'asc')
             ->get();
 
