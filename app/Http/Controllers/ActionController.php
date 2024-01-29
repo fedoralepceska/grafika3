@@ -41,9 +41,6 @@ class ActionController extends Controller
             'status'
         ]));
 
-
-
-
         return response()->json(['message' => 'Action updated successfully']);
     }
 }

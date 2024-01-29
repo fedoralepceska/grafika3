@@ -66,6 +66,9 @@ export default {
         },
         navigateToAction(actionId) {
             this.$inertia.visit(`/actions/${actionId}`);
+        },
+        navigateToMachine(machineId) {
+            this.$inertia.visit(`/machines/${machineId}`);
         }
     }
 }
