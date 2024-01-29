@@ -216,6 +216,7 @@ class JobController extends Controller
 
             $jobsForInvoice = DB::table('jobs')
                 ->whereIn('id', $jobIdsForInvoice)
+                ->where('status', '!=', 'Completed')
                 ->get();
 
             // Now, get all jobs with actions in one go
