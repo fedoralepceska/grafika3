@@ -289,6 +289,98 @@ class JobController extends Controller
         }
     }
 
+    public function jobMachinesCounts() {
+        // Initialize an empty array to hold the final counts
+        $counts = [];
+
+        // Fetch jobs with specified statuses
+        $jobs = DB::table('jobs')
+            ->whereIn('status', ['Not started yet', 'In progress'])
+            ->get();
+
+        // Iterate through jobs
+        foreach ($jobs as $job) {
+            // Fetch actions associated with the current job
+            $actions = DB::table('job_job_action')
+                ->join('job_actions', 'job_job_action.job_action_id', '=', 'job_actions.id')
+                ->where('job_job_action.job_id', $job->id)
+                ->get();
+
+            // Counters for 'In Progress' and 'Not started yet' statuses
+            $inProgressCount = 0;
+            $notStartedYetCount = 0;
+            $onHoldCount = 0; // Initialize onHoldCount
+
+            // Iterate through actions
+            foreach ($actions as $action) {
+                // Count the 'In Progress' actions
+                if ($action->status === 'In Progress') {
+                    $inProgressCount++;
+                }
+
+                // Count the 'Not started yet' actions
+                if ($action->status === 'Not started yet') {
+                    $notStartedYetCount++;
+                }
+
+                // Count the 'On Hold' actions
+                $invoiceOnHold = DB::table('invoice_job')
+                    ->join('invoices', 'invoices.id', '=', 'invoice_job.invoice_id')
+                    ->join('job_job_action', 'job_job_action.job_id', '=', 'invoice_job.job_id')
+                    ->where('job_job_action.job_action_id', $action->id) // Include the join with job_job_action
+                    ->where('invoices.onHold', true)
+                    ->count();
+
+                if ($invoiceOnHold > 0) {
+                    $onHoldCount++;
+                }
+            }
+
+            if ($inProgressCount > 0 || $notStartedYetCount > 0 || $onHoldCount > 0) {
+                // Create an entry for the current machineCut
+                if ($job->machineCut !== null) {
+                    if (!isset($counts[$job->machineCut])) {
+                        $counts[$job->machineCut] = [
+                            'name' => $job->machineCut,
+                            'total' => 0,
+                            'secondaryCount' => 0,
+                            'onHoldCount' => 0,
+                        ];
+                    }
+
+                    // Add the counts to the array
+                    $counts[$job->machineCut]['total'] += $inProgressCount;
+                    $counts[$job->machineCut]['secondaryCount'] += $notStartedYetCount;
+                    $counts[$job->machineCut]['onHoldCount'] += $onHoldCount;
+                }
+
+                // Create an entry for the current machinePrint
+                if ($job->machinePrint !== null) {
+                    if (!isset($counts[$job->machinePrint])) {
+                        $counts[$job->machinePrint] = [
+                            'name' => $job->machinePrint,
+                            'total' => 0,
+                            'secondaryCount' => 0,
+                            'onHoldCount' => 0,
+                        ];
+                    }
+
+                    // Add the counts to the array
+                    $counts[$job->machinePrint]['total'] += $inProgressCount;
+                    $counts[$job->machinePrint]['secondaryCount'] += $notStartedYetCount;
+                    $counts[$job->machinePrint]['onHoldCount'] += $onHoldCount;
+                }
+            }
+        }
+
+        // Convert associative array to a simple array
+        $result = array_values($counts);
+
+        // Return the counts as a JSON response
+        return response()->json($result);
+    }
+
+
     public function jobActionStatusCounts()
     {
         // Initialize an empty array to hold the final counts

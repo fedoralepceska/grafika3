@@ -90,6 +90,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/jobs/{id}/image-dimensions', [JobController::class, 'calculateImageDimensions'])->name('jobs.calculateImageDimensions');
     Route::put('/jobs/{id}', [JobController::class, 'update'])->name('jobs.update');
     Route::get('/job-action-status-counts', [JobController::class, 'jobActionStatusCounts']);
+    Route::get('/job-machine-counts', [JobController::class, 'jobMachinesCounts']);
     Route::get('/production', [JobController::class, 'production'])->name('jobs.production');
     Route::get('/actions/{id}', [\App\Http\Controllers\ActionController::class, 'index'])->name('actions.index');
     Route::put('/actions/{id}', [\App\Http\Controllers\ActionController::class, 'update'])->name('actions.update');

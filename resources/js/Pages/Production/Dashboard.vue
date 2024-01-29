@@ -40,16 +40,26 @@ export default {
     data() {
         return {
             jobActionStatusCounts: {},
+            jobMachinesCounts: {}
         };
     },
     created() {
         this.fetchJobActionStatusCounts();
+        this.fetchJobMachinesCounts();
     },
     methods: {
         async fetchJobActionStatusCounts() {
             try {
                 const response = await axios.get('/job-action-status-counts');
                 this.jobActionStatusCounts = response.data;
+            } catch (error) {
+                console.error(error);
+            }
+        },
+        async fetchJobMachinesCounts() {
+            try {
+                const response = await axios.get('/job-machine-counts');
+                this.jobMachinesCounts = response.data;
             } catch (error) {
                 console.error(error);
             }
