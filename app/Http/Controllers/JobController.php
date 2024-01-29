@@ -236,6 +236,91 @@ class JobController extends Controller
         ]);
     }
 
+    public function getActionsByMachineName(Request $request, $machineName)
+    {
+        // Fetch jobs associated with the specified machineCut or machinePrint
+        $jobs = DB::table('jobs')
+            ->where('machineCut', $machineName)
+            ->orWhere('machinePrint', $machineName)
+            ->whereIn('status', ['Not started yet', 'In progress'])
+            ->get();
+
+        // If no jobs are found for the specified machine, return an appropriate response
+        if (!$jobs->count()) {
+            return response()->json(['error' => 'No jobs found for the specified machine'], 404);
+        }
+
+        // Fetch actions associated with the found jobs
+        $actionIds = DB::table('job_job_action')
+            ->whereIn('job_id', $jobs->pluck('id'))
+            ->pluck('job_action_id');
+
+        $actions = DB::table('job_actions')
+            ->whereIn('id', $actionIds)
+            ->get();
+
+        // Attach actions to each job
+        foreach ($jobs as $job) {
+            $actionIdsForJob = DB::table('job_job_action')
+                ->where('job_id', $job->id)
+                ->pluck('job_action_id');
+
+            $actionsForJob = DB::table('job_actions')
+                ->whereIn('id', $actionIdsForJob)
+                ->get();
+
+            // Now, get all jobs with actions in one go
+            $jobsWithActions = Job::with('actions')->whereIn('id', $actionIdsForJob)->get()->keyBy('id');
+
+            // Replace each job in $jobsWithActions with the corresponding one from $jobs
+            if (isset($jobsWithActions[$job->id])) {
+                $jobsWithActions[$job->id] = $job;
+            }
+
+            $job->actions = $actionsForJob;
+        }
+
+        // Now, let's retrieve invoices associated with these jobs
+        $invoiceIds = DB::table('invoice_job')
+            ->whereIn('job_id', $jobs->pluck('id'))
+            ->pluck('invoice_id');
+
+        // Fetch the invoices based on the retrieved invoice IDs
+        $invoices = DB::table('invoices')
+            ->whereIn('id', $invoiceIds)
+            ->orderBy('start_date', 'asc')
+            ->where('status', '!=', 'Completed')
+            ->get();
+
+        // Attach jobs to each invoice
+        foreach ($invoices as $invoice) {
+            $jobIdsForInvoice = DB::table('invoice_job')
+                ->where('invoice_id', $invoice->id)
+                ->pluck('job_id');
+
+            $jobsForInvoice = DB::table('jobs')
+                ->whereIn('id', $jobIdsForInvoice)
+                ->get();
+
+            // Now, get all jobs with actions in one go
+            $jobsWithActions = Job::with('actions')->whereIn('id', $jobIdsForInvoice)->get()->keyBy('id');
+
+            // Replace each job in $jobsForInvoice with the corresponding one from $jobsWithActions
+            foreach ($jobsForInvoice as $index => $job) {
+                if (isset($jobsWithActions[$job->id])) {
+                    $jobsForInvoice[$index] = $jobsWithActions[$job->id];
+                }
+            }
+            $invoice->jobs = $jobsForInvoice;
+        }
+
+        return response()->json([
+            'invoices' => $invoices, // Include invoices in the response
+            'machineName' => $machineName,
+        ]);
+    }
+
+
 
     public function update(Request $request, $id)
     {
