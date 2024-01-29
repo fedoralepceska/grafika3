@@ -21,6 +21,42 @@
                     </div>
                     <span class="text-white">{{ $t(`actions.${item.name}`) }}</span>
                 </div>
+                <div v-for="item in jobMachinesCounts" :key="item.name" class="grid-item">
+                    <div class="badge-container">
+                        <span class="circle-badge" @click="navigateToMachine(item.name)">
+                            <div class="inner">
+                                <span class="primary-count">{{ item.total }}</span>
+                            </div>
+                        </span>
+                        <div v-if="item.secondaryCount" class="secondary-badge flex2 bg-white rounded pl-2 pr-2 orange">
+                            <i class="fa-solid fa-spinner"></i>
+                            <div>{{ item.secondaryCount }}</div>
+                        </div>
+                        <div v-if="item.onHoldCount" class="onhold-badge flex2 bg-white rounded pl-2 pr-2 ">
+                            <i class="fa-solid fa-ban red"></i>
+                            <div class="red">{{ item.onHoldCount }}</div>
+                        </div>
+                    </div>
+                    <span class="text-white">{{ $t(`machinePrint.${item.name}`) }}</span>
+                </div>
+<!--                <div v-for="item in jobMachinesCountsCut" :key="item.name" class="grid-item">
+                    <div class="badge-container">
+                        <span class="circle-badge" @click="navigateToCutMachine(item.name)">
+                            <div class="inner">
+                                <span class="primary-count">{{ item.total }}</span>
+                            </div>
+                        </span>
+                        <div v-if="item.secondaryCount" class="secondary-badge flex2 bg-white rounded pl-2 pr-2 orange">
+                            <i class="fa-solid fa-spinner"></i>
+                            <div>{{ item.secondaryCount }}</div>
+                        </div>
+                        <div v-if="item.onHoldCount" class="onhold-badge flex2 bg-white rounded pl-2 pr-2 ">
+                            <i class="fa-solid fa-ban red"></i>
+                            <div class="red">{{ item.onHoldCount }}</div>
+                        </div>
+                    </div>
+                    <span class="text-white">{{ $t(`machineCut.${item.name}`) }}</span>
+                </div>-->
             </div>
         </div>
     </MainLayout>
