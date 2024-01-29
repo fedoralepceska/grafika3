@@ -380,7 +380,8 @@ class JobController extends Controller
 
     public function jobMachinesCounts() {
         // Initialize an empty array to hold the final counts
-        $counts = [];
+        $machineCutCounts = [];
+        $machinePrintCounts = [];
 
         // Fetch jobs with specified statuses
         $jobs = DB::table('jobs')
@@ -428,9 +429,10 @@ class JobController extends Controller
             if ($inProgressCount > 0 || $notStartedYetCount > 0 || $onHoldCount > 0) {
                 // Create an entry for the current machineCut
                 if ($job->machineCut !== null) {
-                    if (!isset($counts[$job->machineCut])) {
-                        $counts[$job->machineCut] = [
-                            'name' => $job->machineCut,
+                    $machineCutKey = $job->machineCut;
+                    if (!isset($machineCutCounts[$machineCutKey])) {
+                        $machineCutCounts[$machineCutKey] = [
+                            'name' => $machineCutKey,
                             'total' => 0,
                             'secondaryCount' => 0,
                             'onHoldCount' => 0,
@@ -438,16 +440,17 @@ class JobController extends Controller
                     }
 
                     // Add the counts to the array
-                    $counts[$job->machineCut]['total'] += $inProgressCount;
-                    $counts[$job->machineCut]['secondaryCount'] += $notStartedYetCount;
-                    $counts[$job->machineCut]['onHoldCount'] += $onHoldCount;
+                    $machineCutCounts[$machineCutKey]['total'] += $inProgressCount;
+                    $machineCutCounts[$machineCutKey]['secondaryCount'] += $notStartedYetCount;
+                    $machineCutCounts[$machineCutKey]['onHoldCount'] += $onHoldCount;
                 }
 
                 // Create an entry for the current machinePrint
                 if ($job->machinePrint !== null) {
-                    if (!isset($counts[$job->machinePrint])) {
-                        $counts[$job->machinePrint] = [
-                            'name' => $job->machinePrint,
+                    $machinePrintKey = $job->machinePrint;
+                    if (!isset($machinePrintCounts[$machinePrintKey])) {
+                        $machinePrintCounts[$machinePrintKey] = [
+                            'name' => $machinePrintKey,
                             'total' => 0,
                             'secondaryCount' => 0,
                             'onHoldCount' => 0,
@@ -455,18 +458,22 @@ class JobController extends Controller
                     }
 
                     // Add the counts to the array
-                    $counts[$job->machinePrint]['total'] += $inProgressCount;
-                    $counts[$job->machinePrint]['secondaryCount'] += $notStartedYetCount;
-                    $counts[$job->machinePrint]['onHoldCount'] += $onHoldCount;
+                    $machinePrintCounts[$machinePrintKey]['total'] += $inProgressCount;
+                    $machinePrintCounts[$machinePrintKey]['secondaryCount'] += $notStartedYetCount;
+                    $machinePrintCounts[$machinePrintKey]['onHoldCount'] += $onHoldCount;
                 }
             }
         }
 
-        // Convert associative array to a simple array
-        $result = array_values($counts);
+        // Convert associative arrays to simple arrays
+        $resultMachineCut = array_values($machineCutCounts);
+        $resultMachinePrint = array_values($machinePrintCounts);
 
         // Return the counts as a JSON response
-        return response()->json($result);
+        return response()->json([
+            'machineCutCounts' => $resultMachineCut,
+            'machinePrintCounts' => $resultMachinePrint,
+        ]);
     }
 
 

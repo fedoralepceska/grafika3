@@ -21,7 +21,7 @@
                     </div>
                     <span class="text-white">{{ $t(`actions.${item.name}`) }}</span>
                 </div>
-                <div v-for="item in jobMachinesCounts" :key="item.name" class="grid-item">
+                <div v-for="item in jobMachinesPrint" :key="item.name" class="grid-item">
                     <div class="badge-container">
                         <span class="circle-badge" @click="navigateToMachine(item.name)">
                             <div class="inner">
@@ -76,7 +76,8 @@ export default {
     data() {
         return {
             jobActionStatusCounts: {},
-            jobMachinesCounts: {}
+            jobMachinesCut: {},
+            jobMachinesPrint: {}
         };
     },
     created() {
@@ -95,7 +96,8 @@ export default {
         async fetchJobMachinesCounts() {
             try {
                 const response = await axios.get('/job-machine-counts');
-                this.jobMachinesCounts = response.data;
+                this.jobMachinesPrint = response.data?.machinePrintCounts;
+                this.jobMachinesCut = response.data?.machineCutCounts;
             } catch (error) {
                 console.error(error);
             }
