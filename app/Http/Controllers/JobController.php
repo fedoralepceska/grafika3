@@ -10,6 +10,7 @@ use App\Models\Invoice;
 use App\Models\Job;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Imagick;
 use Inertia\Inertia;
 
@@ -195,8 +196,50 @@ class JobController extends Controller
 
         foreach ($jobs as $job) {
             $job->hasNote = $action->hasNote;
-            $job->actions = Job::find($job->job_id)->with('actions')->get()->toArray();
+
+            // Fetch actions associated with the current job from job_job_action table
+            $actionsForJob = DB::table('job_job_action')
+                ->join('job_actions', 'job_job_action.job_action_id', '=', 'job_actions.id')
+                ->where('job_job_action.job_id', $job->job_id)
+                ->select('job_actions.*')
+                ->get()
+                ->toArray();
+
+            // If machinePrint exists, add it as the first action
+            if (!is_null($job->machinePrint)) {
+                // Check if machinePrint action already exists
+                $machinePrintAction = null;
+
+                foreach ($actionsForJob as $action) {
+                    if ($action->name === $job->machinePrint) {
+                        $machinePrintAction = $action;
+                        break;
+                    }
+                }
+                if (!$machinePrintAction) {
+                    // Add an entry in job_actions table for machinePrint
+                    $newMachinePrintAction = new JobAction;
+                    $newMachinePrintAction->name = $job->machinePrint;
+                    $newMachinePrintAction->status = 'Not started yet';
+                    $newMachinePrintAction->hasNote = 0;
+                    $newMachinePrintAction->save();
+
+                    // Attach the new action to the current job
+                    $actionsForJob = array_merge([$newMachinePrintAction->toArray()], $actionsForJob);
+
+                    DB::table('job_job_action')->insert([
+                        'job_id' => $job->job_id,
+                        'job_action_id' => $newMachinePrintAction->id,
+                        'status' => 'Not started yet',
+                        // Add other columns if needed
+                    ]);
+                }
+            }
+
+            // Attach actions to the job
+            $job->actions = $actionsForJob;
         }
+
 
         // Now, let's retrieve invoices associated with these jobs
         $invoiceIds = DB::table('invoice_job')
@@ -229,6 +272,10 @@ class JobController extends Controller
             foreach ($jobsForInvoice as $index => $job) {
                 if (isset($jobsWithActions[$job->id])) {
                     $jobsForInvoice[$index] = $jobsWithActions[$job->id];
+
+                    // Sort the actions for the current job
+                    $sortedActions = collect($job->actions)->sortBy('id')->values()->toArray();
+                    $jobsForInvoice[$index]->actions = $sortedActions;
                 }
             }
             $invoice->jobs = $jobsForInvoice;
@@ -483,7 +530,9 @@ class JobController extends Controller
         $counts = [];
 
         // Get the names of all job actions
-        $actionNames = DB::table('job_actions')->pluck('name')->unique();
+        $actionNames = DB::table('job_actions')->pluck('name')->unique()->filter(function ($name) {
+            return !Str::startsWith($name, 'Machine');
+        });
 
         // For each action name, get the count of 'In Progress' and 'Not started yet' statuses
         foreach ($actionNames as $name) {
