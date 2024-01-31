@@ -70,6 +70,7 @@ Route::middleware(['auth', 'verified'])->group(function() {
     Route::get('/clients/create', [ClientController::class, 'create'])->name('clients.create');
     Route::post('/clients', [ClientController::class, 'store'])->name('clients.store');
     Route::post('/clients/{id}/contact', [ContactController::class, 'store'])->name('contacts.store');
+    Route::delete('/clients/{clientId}/contacts/{contactId}', [ContactController::class, 'destroy'])->name('contacts.destroy');
     Route::get('/clients/{client}/edit', [ClientController::class, 'edit'])->name('clients.edit');
     Route::put('/clients/{client}', [ClientController::class, 'update'])->name('clients.update');
     Route::delete('/clients/{client}', [ClientController::class, 'destroy'])->name('clients.destroy');

@@ -38,13 +38,14 @@
                                     </tr>
                                     <tr v-if="clientExpanded === client.id && client.contacts.length">
                                         <td :colspan="editMode ? 4 : 3">
-                                            <div class="contact-info">
-                                                <div v-for="(contact,index) in client.contacts" :key="contact.id" class="info mb-1">
+                                            <div class="contact-info" v-for="(contact,index) in client.contacts" :key="contact.id">
+                                                <div class="info mb-1">
                                                     <div class="bg-white text-black pl-1"><strong>Contact #{{index+1}}</strong></div>
                                                     <div class="pl-2">Contact Name: <strong>{{ contact.name }}</strong></div>
                                                     <div class="pl-2">Contact Phone: <strong> {{ contact.phone }}</strong></div>
                                                     <div class="pl-2">Contact E-mail: <strong> {{ contact.email }}</strong></div>
                                                 </div>
+                                                <SecondaryButton @click="deleteContact(client, contact)" class="delete h-10 ml-2">Delete</SecondaryButton>
                                             </div>
                                         </td>
                                     </tr>
@@ -106,6 +107,18 @@ export default {
                 console.error('Error deleting client:', error);
             }
             window.location.reload();
+        },
+        async deleteContact(client, contact) {
+            try {
+                await axios.delete(`/clients/${client.id}/contacts/${contact.id}`);
+                // Remove the contact from the clients.contacts array
+                const contactIndex = client.contacts.findIndex((c) => c.id === contact.id);
+                if (contactIndex !== -1) {
+                    client.contacts.splice(contactIndex, 1);
+                }
+            } catch (error) {
+                console.error('Error deleting client:', error);
+            }
         },
     }
 };
@@ -220,12 +233,17 @@ table th {
     border-bottom: 1px solid #ddd;
     background-color: $ultra-light-gray;
 }
-.company{
+.company {
     cursor: pointer;
 }
-.info{
+.info {
     border: 2px solid white;
     min-width: 90vh;
     max-width: 100vh;
+}
+.contact-info {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
 }
 </style>

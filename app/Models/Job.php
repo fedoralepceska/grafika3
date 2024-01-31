@@ -71,6 +71,7 @@ class Job extends Model
         }
 
         // Calculate the number of used materials.
+
         $baseQuantity = $this->quantity;
         $materialQuantity = $smallMaterial->quantity;
         $usedMaterialResult = fdiv($baseQuantity, $materialQuantity);
@@ -78,7 +79,7 @@ class Job extends Model
         // Determine the remainder to adjust the count of used materials.
         $remainder = $baseQuantity % $materialQuantity;
         if ($remainder > 0) {
-            $usedMaterialResult += ($remainder <= ($materialQuantity * 0.5)) ? 1 : 1;
+            $usedMaterialResult += ($remainder <= ($materialQuantity * 0.05)) ? 1 : 1;
         }
 
         // Calculate the total price.
