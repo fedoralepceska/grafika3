@@ -10,7 +10,9 @@ class Client extends Model
     use HasFactory;
 
     protected $fillable=[
-        'name'
+        'name',
+        'address',
+        'city'
     ];
 
     public function contacts(): \Illuminate\Database\Eloquent\Relations\HasMany

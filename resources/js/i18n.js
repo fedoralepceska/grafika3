@@ -191,7 +191,9 @@ const messages = {
         jobPrice: 'Job Price',
         production: 'Production',
         dashboard: 'Dashboard',
-        actionInfo: 'Action Overview'
+        actionInfo: 'Action Overview',
+        address: 'Address',
+        city: "City"
     },
     mk: {
         // Define your Macedonian translations here
@@ -386,6 +388,8 @@ const messages = {
         totalm: 'Вкупно м.',
         shippingTo: 'Достава до',
         jobPrice: 'Цена на продукт',
+        address: 'Адреса',
+        city: "Град"
     },
 };
 

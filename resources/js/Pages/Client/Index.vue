@@ -20,6 +20,8 @@
                                 <thead>
                                 <tr>
                                     <th>Client Name</th>
+                                    <th>Address</th>
+                                    <th>City</th>
                                     <th></th>
                                 </tr>
                                 </thead>
@@ -30,6 +32,12 @@
                                             <i v-if="clientExpanded === client.id" class="fa-solid fa-chevron-up"></i>
                                             <i v-else class="fa-solid fa-chevron-down"></i>
                                             {{ client.name }}
+                                        </td>
+                                        <td class="company">
+                                            {{ client.address }}
+                                        </td>
+                                        <td class="company">
+                                            {{ client.city }}
                                         </td>
                                         <td class="centered">
                                             <SecondaryButton @click="deleteClient(client)" class="delete">Delete</SecondaryButton>
