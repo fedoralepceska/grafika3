@@ -8,8 +8,8 @@
                         <td class="text-black bg-gray-200 font-weight-black "><span class="bold">#{{ index + 1 }}</span></td>
                         <td> Name: <span class="bold">{{ job.file }}</span></td>
                         <td>ID: <span class="bold">{{ job.id }}</span></td>
-                        <td>{{ $t('width') }}: <span class="bold">{{ job.width }}</span> </td>
-                        <td>{{ $t('height') }}: <span class="bold">{{ job.height }}</span></td>
+                        <td>{{ $t('width') }}: <span class="bold">{{ job.width.toFixed(2) }}</span> </td>
+                        <td>{{ $t('height') }}: <span class="bold">{{ job.height.toFixed(2) }}</span></td>
                         <td>{{$t('Quantity')}}: <span class="bold">{{ job.quantity }}</span></td>
                         <td>{{$t('Copies')}}: <span class="bold">{{ job.copies }}</span></td>
                     </div>
