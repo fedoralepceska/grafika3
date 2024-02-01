@@ -93,10 +93,12 @@
                                 <td>{{$t(`machinePrint.${job.machinePrint}`)}}</td>
                                 <td>{{$t(`machineCut.${job.machineCut}`)}}</td>
                                 <td>
-                                    <button class="bg-white text-black p-2 rounded mr-2" @click="startJob(job)"><strong>Start job <i class="fa-regular fa-clock"></i>0min </strong></button>
-                                    <button class="red p-2 rounded" @click="endJob(job)"><strong>End job</strong></button>
+                                    <button :class="['bg-white', 'text-black', 'p-2', 'rounded', 'mr-2', { 'disabled' : invoice.onHold }]" @click="startJob(job)" :disabled="invoice.onHold"><strong>Start job <i class="fa-regular fa-clock"></i>0min </strong></button>
+                                    <button :class="['red', 'p-2', 'rounded', { 'disabled' : invoice.onHold }]" @click="endJob(job)" :disabled="invoice.onHold"><strong>End job</strong></button>
                                 </td>
-                            </tr>
+                            </tr>:class="[{
+'red' :  invoice.onHold
+}]"
 
                         </tbody>
                     </table>
@@ -394,5 +396,8 @@ td{
     top: 10px;
     right: 10px;
     color: black;
+}
+.disabled {
+    opacity: 0.35;
 }
 </style>
