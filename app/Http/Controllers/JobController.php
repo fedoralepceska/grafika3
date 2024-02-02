@@ -130,9 +130,16 @@ class JobController extends Controller
         ]);
         foreach ($jobsWithActions as $jobWithActions) {
             $job = Job::findOrFail($jobWithActions['job_id']);
+
+            $printAction = new JobAction([
+                'name' => $selectedMachinePrint,
+                'status' => 'Not started yet',
+            ]);
+
             $job->actions()->sync([]);
 
-            $actions = [];
+            $actions = [$printAction];
+
             foreach ($jobWithActions['actions'] as $actionData) {
                 $actions[] = new JobAction([
                     'name' => $actionData['action_id'],
@@ -204,37 +211,6 @@ class JobController extends Controller
                 ->select('job_actions.*')
                 ->get()
                 ->toArray();
-
-            // If machinePrint exists, add it as the first action
-            if (!is_null($job->machinePrint)) {
-                // Check if machinePrint action already exists
-                $machinePrintAction = null;
-
-                foreach ($actionsForJob as $action) {
-                    if ($action->name === $job->machinePrint) {
-                        $machinePrintAction = $action;
-                        break;
-                    }
-                }
-                if (!$machinePrintAction) {
-                    // Add an entry in job_actions table for machinePrint
-                    $newMachinePrintAction = new JobAction;
-                    $newMachinePrintAction->name = $job->machinePrint;
-                    $newMachinePrintAction->status = 'Not started yet';
-                    $newMachinePrintAction->hasNote = 0;
-                    $newMachinePrintAction->save();
-
-                    // Attach the new action to the current job
-                    $actionsForJob = array_merge([$newMachinePrintAction->toArray()], $actionsForJob);
-
-                    DB::table('job_job_action')->insert([
-                        'job_id' => $job->job_id,
-                        'job_action_id' => $newMachinePrintAction->id,
-                        'status' => 'Not started yet',
-                        // Add other columns if needed
-                    ]);
-                }
-            }
 
             // Attach actions to the job
             $job->actions = $actionsForJob;
