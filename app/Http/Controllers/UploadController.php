@@ -20,15 +20,16 @@ class UploadController extends Controller
     {
         $chunkIndex = $request->chunk_index;
         $totalChunks = $request->total_chunks;
+        $fileExtension = $request->file_extension;
         $filename = Str::slug($request->filename);
         $file = $request->file;
 
         if ($chunkIndex === $totalChunks - 1) {
-            $this->assembleAndStoreFile($filename, $totalChunks);
+            $this->assembleAndStoreFile($filename, $totalChunks, $fileExtension);
         } else {
             $this->storeTemporaryChunk($file, $filename, $chunkIndex);
         }
-
+        $this->assembleAndStoreFile($filename, $totalChunks, $fileExtension);
         return response()->json(['message' => 'Chunk uploaded successfully']);
     }
 
@@ -38,9 +39,9 @@ class UploadController extends Controller
         $file->storeAs('uploads/chunks', $tempFilename);
     }
 
-    private function assembleAndStoreFile($filename, $totalChunks)
+    private function assembleAndStoreFile($filename, $totalChunks, $fileExtension)
     {
-        $assembledFilePath = storage_path("app/uploads/originalFile/{$filename}");
+        $assembledFilePath = Storage::disk('local')->path("uploads/originalFile/{$filename}");
 
         if (!File::isWritable(dirname($assembledFilePath))) {
             // Check if the directory is writable
@@ -58,12 +59,17 @@ class UploadController extends Controller
                 }
             }
 
-            Storage::disk('local')->put($assembledFilePath, "");
+            Storage::disk('local')->put("uploads/originalFile/{$filename}", "");
 
             for ($i = 0; $i < $totalChunks; $i++) {
                 $chunkPath = storage_path("app/uploads/chunks/{$filename}.chunk.{$i}");
-                Log::info("Appending chunk {$i} to assembled file.");
-                Storage::disk('local')->append($assembledFilePath, File::get($chunkPath));
+
+                // Check the content of the chunk before appending
+                $chunkContent = File::get($chunkPath);
+                Log::info("Chunk {$i} content: " . $chunkContent);
+
+                // Use the correct filename for each chunk
+                Storage::disk('local')->append("uploads/originalFile/{$filename}.{$fileExtension}", $chunkContent);
             }
 
             // Delete temporary chunks
@@ -76,6 +82,7 @@ class UploadController extends Controller
             Log::error("Error assembling file: " . $e->getMessage());
         }
     }
+
 
 
 }

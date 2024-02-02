@@ -35,12 +35,16 @@ export default {
             this.totalChunks = Math.ceil(this.file.size / this.chunkSize);
         },
         async uploadChunks() {
+            const fileExtension = this.file.name.split('.').pop();
+            const fileName = this.file.name.split('.').shift();
+
             for (let i = 0; i < this.totalChunks; i++) {
                 const chunk = await this.readChunk(i);
                 const formData = new FormData();
                 formData.append('chunk_index', i);
                 formData.append('total_chunks', this.totalChunks);
-                formData.append('filename', this.file.name);
+                formData.append('filename', fileName);
+                formData.append('file_extension', fileExtension);
                 formData.append('file', chunk);
 
                 try {
