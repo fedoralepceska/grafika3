@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Inertia\Inertia;
@@ -22,25 +23,59 @@ class UploadController extends Controller
         $filename = Str::slug($request->filename);
         $file = $request->file;
 
-        // Validate input (file type, size) here
-
         if ($chunkIndex === $totalChunks - 1) {
-            // Assemble the final file in the "originalFile" directory
-            $assembledFilePath = storage_path("app/uploads/originalFile/{$filename}");
-            $assembledFile = Storage::put($assembledFilePath, "");
-
-            for ($i = 0; $i < $totalChunks; $i++) {
-                $chunkPath = storage_path("uploads/chunks/{$filename}.chunk.{$i}");
-                Storage::append($assembledFile, File::get($chunkPath));
-                Storage::delete("uploads/chunks/{$filename}.chunk.{$i}"); // Clean up chunks
-            }
+            $this->assembleAndStoreFile($filename, $totalChunks);
         } else {
-            // Store temporary chunks
-            $tempFilename = "{$filename}.chunk.{$chunkIndex}";
-            $file->storeAs('uploads/chunks', $tempFilename);
+            $this->storeTemporaryChunk($file, $filename, $chunkIndex);
         }
 
         return response()->json(['message' => 'Chunk uploaded successfully']);
     }
+
+    private function storeTemporaryChunk($file, $filename, $chunkIndex)
+    {
+        $tempFilename = "{$filename}.chunk.{$chunkIndex}";
+        $file->storeAs('uploads/chunks', $tempFilename);
+    }
+
+    private function assembleAndStoreFile($filename, $totalChunks)
+    {
+        $assembledFilePath = storage_path("app/uploads/originalFile/{$filename}");
+
+        if (!File::isWritable(dirname($assembledFilePath))) {
+            // Check if the directory is writable
+            Log::error("Error assembling file: The 'originalFile' directory is not writable.");
+            return;
+        }
+
+        try {
+            // Check if all required chunks exist
+            for ($i = 0; $i < $totalChunks; $i++) {
+                $chunkPath = storage_path("app/uploads/chunks/{$filename}.chunk.{$i}");
+                if (!File::exists($chunkPath)) {
+                    Log::error("Error assembling file: Chunk {$i} is missing.");
+                    return;
+                }
+            }
+
+            Storage::disk('local')->put($assembledFilePath, "");
+
+            for ($i = 0; $i < $totalChunks; $i++) {
+                $chunkPath = storage_path("app/uploads/chunks/{$filename}.chunk.{$i}");
+                Log::info("Appending chunk {$i} to assembled file.");
+                Storage::disk('local')->append($assembledFilePath, File::get($chunkPath));
+            }
+
+            // Delete temporary chunks
+            for ($i = 0; $i < $totalChunks; $i++) {
+                Storage::disk('local')->delete("uploads/chunks/{$filename}.chunk.{$i}");
+            }
+
+            Log::info("File assembled successfully at: {$assembledFilePath}");
+        } catch (\Exception $e) {
+            Log::error("Error assembling file: " . $e->getMessage());
+        }
+    }
+
 
 }
