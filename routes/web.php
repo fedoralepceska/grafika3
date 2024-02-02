@@ -8,6 +8,7 @@ use App\Http\Controllers\LargeFormatMaterialController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\SmallFormatMaterialController;
 use App\Http\Controllers\SmallMaterialController;
+use App\Http\Controllers\UploadController;
 use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
@@ -135,6 +136,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::delete('/materials-large-format/{material}', [LargeFormatMaterialController::class, 'destroy']);
     Route::get('/contacts', [ContactController::class, 'index'])->name('contact.index');
 });
+
+Route::post('/upload/chunks', [UploadController::class, 'storeChunk']);
+Route::get('/file-upload', [UploadController::class, 'showFileUploadPage']);
 
 
 require __DIR__.'/auth.php';
