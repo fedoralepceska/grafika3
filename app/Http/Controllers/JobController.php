@@ -8,8 +8,10 @@ use App\Events\JobEnded;
 use App\Events\JobStarted;
 use App\Models\Invoice;
 use App\Models\Job;
+use Illuminate\Support\Facades\File;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Imagick;
 use Inertia\Inertia;
@@ -50,48 +52,50 @@ class JobController extends Controller
         if ($request->hasFile('file')) {
             $file = $request->file('file');
             $fileExtension = $file->getClientOriginalExtension();
-            $pdfPath = $file->store('public/uploads', ['disk' => 'local']); // Store the PDF file
 
-            if ($fileExtension === 'tiff' || $fileExtension === 'tif') {
-                // Handle TIFF file conversion to an image
-                $imagick = new Imagick();
-                $imagick->readImage($file->getPathname()); // Read the TIFF file
-                $imagick->setImageFormat('jpg'); // Convert TIFF to JPG (you can use other formats too)
-                $imageFilename = pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME) . '.jpg'; // Unique image file name
-                $imagick->writeImage(storage_path('app/public/uploads/' . $imageFilename)); // Save the image
-                $imagick->clear();
+            $originalFilePath4 = Storage::disk('local')->path("uploads/originalFile/" . strtolower(str_replace('_', '-', $file->getClientOriginalName())));
 
-                // Create a new job
-                $job = new Job();
-                $job->file = $imageFilename; // Store the image file name
+            if (File::exists($originalFilePath4)) {
+                if ($fileExtension === 'tiff' || $fileExtension === 'tif') {
+                    dd($originalFilePath4);
+                    // Handle TIFF file conversion to an image
+                    $imagick = new Imagick();
+                    $imagick->readImage($originalFilePath4);
+                    $imagick->setImageFormat('jpg'); // Convert TIFF to JPG (you can use other formats too)
+                    $imageFilename = pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME) . '.jpg'; // Unique image file name
+                    $imagick->writeImage(storage_path('app/public/uploads/' . $imageFilename)); // Save the image
+                    $imagick->clear();
 
-                // Set other job properties if needed
+                    // Create a new job
+                    $job = new Job();
+                    $job->file = $imageFilename; // Store the image file name
 
-                $job->save(); // Save the job to the database
-                return response()->json(['message' => 'Job created successfully', 'job' => $job]);
-            }
+                    // Set other job properties if needed
+                    $job->save(); // Save the job to the database
+                    return response()->json(['message' => 'Job created successfully', 'job' => $job]);
+                }
 
-            elseif ($fileExtension === 'pdf') {
-                $imagick = new Imagick();
-                $imagick->setOption('gs', "C:\Program Files\gs\gs10.02.0");
-                $imagick->readImage($file->getPathname() . '[0]'); // Read the first page of the PDF
-                $imagick->setImageFormat('jpg'); // Convert PDF to JPG (you can use other formats too)
-                $imageFilename = pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME) . '.jpg'; // Unique image file name
-                $imagick->writeImage(storage_path('app/public/uploads/' . $imageFilename)); // Save the image
-                $imagick->clear();
+                elseif ($fileExtension === 'pdf') {
+                    $imagick = new Imagick();
+                    $imagick->setOption('gs', "C:\Program Files\gs\gs10.02.0");
+                    $imagick->readImage($originalFilePath4 . '[0]'); // Read the first page of the PDF
+                    $imagick->setImageFormat('jpg'); // Convert PDF to JPG (you can use other formats too)
+                    $imageFilename = pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME) . '.jpg'; // Unique image file name
+                    $imagick->writeImage(storage_path('app/public/uploads/' . $imageFilename)); // Save the image
+                    $imagick->clear();
 
-                // Create a new job
-                $job = new Job();
-                $job->file = $imageFilename; // Store the image file name
-                $job->originalFile = $pdfPath;
+                    // Create a new job
+                    $job = new Job();
+                    $job->file = $imageFilename; // Store the image file name
 
-                // Set other job properties if needed
+                    // Set other job properties if needed
+                    $job->save(); // Save the job to the database
+                    dd($job);
 
-                $job->save(); // Save the job to the database
+                    // Attach the job to the user or invoice as needed
 
-                // Attach the job to the user or invoice as needed
-
-                return response()->json(['message' => 'Job created successfully', 'job' => $job]);
+                    return response()->json(['message' => 'Job created successfully', 'job' => $job]);
+                }
             }
         } else {
             return response()->json(['message' => 'File not provided'], 400);

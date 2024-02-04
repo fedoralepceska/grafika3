@@ -29,6 +29,14 @@
                         </div>
                     </div>
                 </div>
+                <div class="ultra-light-gray rounded flex  justify-between text-center m-6 ">
+                    <div class="text-white flex-wrap align-center d-flex p-2">Upload progress:</div>
+                    <div class="text-white flex-wrap align-center d-flex p-2">
+                        <progress :value="uploadProgress" max="100">
+                            {{ uploadProgress }}%
+                        </progress>
+                    </div>
+                </div>
             </Tab>
             <Tab title="Notes" icon="mdi-chat" class="text">
                 <span class="text-white">Add your notes here:</span>
@@ -43,6 +51,7 @@ import { useToast } from 'vue-toastification';
 import Tab from "@/Components/tabs/Tab.vue";
 import TabsWrapper from "@/Components/tabs/TabsWrapper.vue";
 import pdfjsLib from 'pdfjs-dist';
+import axios from "axios";
 
 export default {
     name: "DragAndDrop",
@@ -57,6 +66,11 @@ export default {
             jobs: [],
             showPopover: false,
             localComment: this.invoiceComment,
+            files: [],
+            chunkSize: 1024 * 1024, // 1 MB
+            totalChunks: 0,
+            uploadProgress: 0,
+            uploadedFiles: [],
         };
     },
     watch: {
@@ -84,36 +98,96 @@ export default {
                 return error;
             }
         },
-        handleFileDrop(event) {
+        async handleFileDrop(event) {
             const toast = useToast();
 
             event.preventDefault();
             const files = event.dataTransfer.files;
 
-            for (let i = 0; i < files.length; i++) {
-                const file = files[i];
-                // Check if the file is a PDF
-                if (file.type === 'application/pdf' || file.type === 'image/tiff') {
-                    this.convertPDFToImage(file);
-                } else {
-                    // Handle file type not supported (not a PDF)
-                    toast.error('Only PDF and TIFF files are supported.');
+            for (const file of files) { // Use 'const' for loop variables
+                let value;
+                value = file.size < this.chunkSize ? file.size : file.size / this.chunkSize;
+                this.totalChunks = Math.ceil(value);
+                const fileExtension = file.name.split('.').pop();
+                const fileName = file.name.split('.').shift();
+
+                for (let i = 0; i < this.totalChunks; i++) {
+                    const chunk = await this.readChunk(file, i); // Pass file directly
+                    const formData = new FormData();
+                    formData.append('chunk_index', i);
+                    formData.append('total_chunks', this.totalChunks);
+                    formData.append('filename', fileName);
+                    formData.append('file_extension', fileExtension);
+                    formData.append('file', chunk);
+
+                    try {
+                        const response = await axios.post('/upload/chunks', formData, {
+                            onUploadProgress: (progressEvent) => {
+                                this.uploadProgress = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+                            },
+                        });
+                        // Handle successful upload
+                        if (i === this.totalChunks - 1) {
+                            this.uploadedFiles.push({name: fileName}); // Add to uploaded files list
+                            await this.convertPDFToImage(file);
+                        }
+                    } catch (error) {
+                        // Handle errors
+                        console.error(error);
+                    }
                 }
             }
         },
 
-        handleFileBrowse(event) {
+        async readChunk(file, chunkIndex) {
+            const reader = new FileReader();
+            const start = chunkIndex * this.chunkSize;
+            const end = Math.min(start + this.chunkSize, file.size);
+            const chunk = file.slice(start, end);
+            await new Promise((resolve) => {
+                reader.onload = () => {
+                    resolve(reader.result);
+                };
+                reader.readAsDataURL(chunk); // Or choose the appropriate method based on your needs (e.g., readAsArrayBuffer)
+            });
+            return chunk;
+        },
+
+        async handleFileBrowse(event) {
             const toast = useToast();
             const files = event.target.files;
 
-            for (let i = 0; i < files.length; i++) {
-                const file = files[i];
-                // Check if the file is a PDF or tiff
-                if (file.type === 'application/pdf' || file.type === 'image/tiff') {
-                    this.convertPDFToImage(file);
-                } else {
-                    // Handle file type not supported (not a PDF)
-                    toast.error('Only PDF and TIFF files are supported.');
+            for (const file of files) { // Use 'const' for loop variables
+                let value;
+                value = file.size < this.chunkSize ? file.size : file.size / this.chunkSize;
+                this.totalChunks = Math.ceil(value);
+                const fileExtension = file.name.split('.').pop();
+                const fileName = file.name.split('.').shift();
+
+                for (let i = 0; i < this.totalChunks; i++) {
+                    const chunk = await this.readChunk(file, i); // Pass file directly
+                    const formData = new FormData();
+                    formData.append('chunk_index', i);
+                    formData.append('total_chunks', this.totalChunks);
+                    formData.append('filename', fileName);
+                    formData.append('file_extension', fileExtension);
+                    formData.append('file', chunk);
+
+                    try {
+                        const response = await axios.post('/upload/chunks', formData, {
+                            onUploadProgress: (progressEvent) => {
+                                this.uploadProgress = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+                            },
+                        });
+                        // Handle successful upload
+                        if (i === this.totalChunks - 1) {
+                            this.uploadedFiles.push({name: fileName}); // Add to uploaded files list
+                            await this.convertPDFToImage(file);
+                        }
+                    } catch (error) {
+                        // Handle errors
+                        console.error(error);
+                    }
                 }
             }
         },
@@ -144,8 +218,10 @@ export default {
                 // Use createJob to convert the PDF to an image
                 const tempJob = await this.createJob(file);
 
+                console.log(tempJob, fileData);
+
                 // Calculate PDF dimensions
-                const response = await axios.get(`/jobs/${tempJob.id}/image-dimensions`);
+                const response = await axios.get(`/jobs/${tempJob?.id}/image-dimensions`);
 
                 await axios.put(`/jobs/${tempJob.id}`, {
                     width: response.data.width,

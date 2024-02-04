@@ -142,7 +142,12 @@ export default {
     async beforeMount() {
         // Fetch clients when component is created
         await this.fetchInvoices();
-        await this.fetchClients();
+        if (!this.clients.length) {
+            await this.fetchClients();
+        }
+        if (!this.contacts.length) {
+            await this.fetchContacts();
+        }
         await this.fetchJobs();
     },
     computed: {
@@ -150,7 +155,6 @@ export default {
           return this.clients.find(c => this.invoiceData?.client_id == c.id || this.invoice.client_id === c.id);
         },
         contact() {
-            this.fetchContacts();
             return this.contacts.find(c => c.id == this.invoiceData?.contact_id);
         }
     },
