@@ -551,8 +551,11 @@ class JobController extends Controller
 
     public function production()
     {
-
         return Inertia::render('Production/Dashboard');
+    }
+    public function machine()
+    {
+        return Inertia::render('Production/MachineDashboard');
     }
 
     public function fireStartJobEvent(Request $request) {
