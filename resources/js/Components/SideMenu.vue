@@ -78,6 +78,17 @@ export default {
                         },
                     ],
                 },
+                {
+                    href: '',
+                    title: 'Machines',
+                    icon: 'fa-solid fa-print',
+                    child: [
+                        {
+                            href: '/machines',
+                            title: 'Dashboard',
+                        },
+                    ],
+                },
             ],
         }
     },
