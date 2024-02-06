@@ -8,6 +8,7 @@ use App\Events\JobEnded;
 use App\Events\JobStarted;
 use App\Models\Invoice;
 use App\Models\Job;
+use App\Models\SmallMaterial;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -178,7 +179,39 @@ class JobController extends Controller
         // Fetch the jobs with matching IDs
         $jobs = Job::whereIn('id', $jobIds)->with('actions')->get()->toArray();
 
+        foreach ($jobs as &$job) {
+            $job['totalPrice'] = $this->calculateTotalPrice($job); // Assuming calculateTotalPrice is a method in your controller
+        }
+        unset($job);
+
         return response()->json(['jobs' => $jobs]);
+    }
+
+    private function calculateTotalPrice($job)
+    {
+        // Check if the job has a small material
+        if (!isset($job['small_material_id'])) {
+            return 0; // Return a default value if no small material is set
+        }
+
+        // Fetch the small material
+        $smallMaterial = SmallMaterial::with('smallFormatMaterial')->find($job['small_material_id']);
+
+        // If small material not found or format material not set, return 0
+        if (!$smallMaterial || !$smallMaterial->smallFormatMaterial) {
+            return 0;
+        }
+
+        // Extract required data
+        $formatQuantity = $smallMaterial->smallFormatMaterial->quantity ?? 0;
+        $formatPrice = intval($smallMaterial->smallFormatMaterial->price_per_unit ?? 0);
+        $baseCopies = $job['copies'] ?? 0;
+        $materialQuantity = $smallMaterial->quantity ?? 0;
+
+        // Calculate total price
+        $totalPrice = ceil($baseCopies / $materialQuantity) * $formatPrice;
+
+        return $totalPrice;
     }
 
     public function getJobsByActionId(Request $request, $actionId)

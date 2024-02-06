@@ -71,32 +71,16 @@ class Job extends Model
         }
 
         // Calculate the number of used materials.
+        $formatQuantity = $smallMaterial->smallFormatMaterial->quantity; //100
+        $formatPrice = $smallMaterial->smallFormatMaterial->price_per_unit; //10
+        $baseQuantity = $this->quantity; // 500
+        $baseCopies = $this->copies; // 50
+        $materialQuantity = $smallMaterial->quantity; // 9
 
-        $baseQuantity = $this->quantity;
-        $materialQuantity = $smallMaterial->quantity;
-        $usedMaterialResult = fdiv($baseQuantity, $materialQuantity);
+        $result = ceil($baseCopies / $materialQuantity) * $formatPrice;
+        dd($result, $formatPrice, $baseCopies, $materialQuantity);
 
-        // Determine the remainder to adjust the count of used materials.
-        $remainder = $baseQuantity % $materialQuantity;
-        if ($remainder > 0) {
-            $usedMaterialResult += ($remainder <= ($materialQuantity * 0.05)) ? 1 : 1;
-        }
-
-        // Calculate the total price.
-        $PricePerMaterial = $smallMaterial->smallFormatMaterial->price_per_unit / $materialQuantity;
-        $totalPrice = $PricePerMaterial * $usedMaterialResult * $this->copies;
-
-        // Update the remaining quantity of small format materials.
-        $usedFormats = $usedMaterialResult * $this->copies;
-
-        // Check if there is enough quantity before decrementing
-        $remainingQuantity = max(0, $smallMaterial->smallFormatMaterial->quantity - $usedFormats);
-
-        // Update the quantity only if there's enough remaining quantity
-        $smallMaterial->smallFormatMaterial->update(['quantity' => $remainingQuantity]);
-
-
-        return $totalPrice;
+        return $result;
     }
 
 
