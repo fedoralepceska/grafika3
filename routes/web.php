@@ -130,6 +130,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
 //Rotues For Large Format Materials
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/materials-large', [LargeFormatMaterialController::class, 'index'])->name('materials.index');
+    Route::get('/get-large-materials', [LargeFormatMaterialController::class, 'getLargeMaterials'])->name('largeMaterials.getLargeMaterials');
     Route::get('/largeFormat/materials/create', [LargeFormatMaterialController::class, 'create'])->name('materials.create');
     Route::post('/materials-large', [LargeFormatMaterialController::class, 'store'])->name('materials.store');
     Route::get('/materials/{material}/edit', [LargeFormatMaterialController::class, 'edit'])->name('materials.edit');

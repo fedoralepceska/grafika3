@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\SmallMaterial;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use App\Models\LargeFormatMaterial;
@@ -16,6 +17,12 @@ class LargeFormatMaterialController extends Controller
         ]);
     }
 
+    public function getLargeMaterials(): \Illuminate\Database\Eloquent\Collection
+    {
+        $materials = LargeFormatMaterial::all();
+        return $materials;
+    }
+
     public function create()
     {
         return Inertia::render('LargeFormatMaterial/Create');
@@ -25,6 +32,8 @@ class LargeFormatMaterialController extends Controller
     {
         $validatedData = $request->validate([
             'name' => 'required|string',
+            'width' => 'required|numeric',
+            'height' => 'required|numeric',
             'quantity' => 'required|integer',
             'price_per_unit' => 'required|numeric',
         ]);

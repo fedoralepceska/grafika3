@@ -124,7 +124,7 @@
                                         <div class="">
                                             {{$t('Material')}}:
                                             <span class="bold">
-                                            <span v-if="job.materials">{{$t(`materials.${job.materials}`)}}</span>
+                                            <span v-if="job.large_material_id">{{ job.large_material?.name }}</span>
                                             <span v-else>{{ job?.small_material?.name }}</span>
                                          </span>
                                         </div>

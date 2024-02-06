@@ -14,6 +14,14 @@
                             <input type="text" id="name" class="text-gray-700" v-model="material.name" required>
                         </div>
                         <div class="form-group gap-4">
+                            <label for="width">{{ $t('width') }}:</label>
+                            <input type="text" id="width" class="text-gray-700" v-model="material.width" required>
+                        </div>
+                        <div class="form-group gap-4">
+                            <label for="height">{{ $t('height') }}:</label>
+                            <input type="text" id="height" class="text-gray-700" v-model="material.height" required>
+                        </div>
+                        <div class="form-group gap-4">
                             <label for="quantity">{{ $t('quantity') }}:</label>
                             <input type="number" id="quantity" class="text-gray-700" v-model="material.quantity" required>
                         </div>
@@ -46,6 +54,8 @@ export default {
         return {
             material: {
                 name: '',
+                width: 0.0,
+                height: 0.0,
                 quantity: 0,
                 price_per_unit: 0
             },

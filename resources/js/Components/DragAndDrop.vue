@@ -159,7 +159,7 @@ export default {
                     width: response.data.width,
                     height: response.data.height,
                     id: tempJob?.id, // Add other job details as needed
-                    materials: tempJob?.materials,
+                    materials: tempJob?.large_material_id,
                     materialsSmall: tempJob?.small_material_id,
                     machinePrint: tempJob?.machinePrint,
                     machinesCut: tempJob?.machineCut,

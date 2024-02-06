@@ -40,8 +40,8 @@
             <div class="form-group mt-2 p-2 text-black sameRow">
                 <label class="label-fixed-width">{{ $t('material') }}</label>
                 <select v-model="selectedMaterial" :disabled="selectedMaterialSmall !== ''" class="select-fixed-width">
-                    <option v-for="material in materials" :key="material.id" :value="material.id">
-                        {{ $t(`materials.${material}`) }}
+                    <option v-for="material in largeMaterials" :key="material" :value="material">
+                        {{ material.name }}
                     </option>
                 </select>
                 <button v-if="selectedMaterial !== ''" @click="clearSelection('selectedMaterial')" class="removeBtn"><span class="mdi mdi-minus-circle"></span></button>
@@ -157,7 +157,7 @@ export default {
             selectedJobs: [],
             actions: [{}],
             actionOptions: this.generateActionOptions(),
-            materials: this.generateMaterials(),
+            largeMaterials: this.generateMaterials(),
             materialsSmall: this.generateMaterialsSmall(),
             machinesPrint: this.generateMachinesPrint(),
             machinesCut: this.generateMachinesCut()
@@ -183,21 +183,13 @@ export default {
             }
             return materials;
         },
-        generateMaterials() {
-            const materials = [];
-            for (let i = 1; i <= 28; i++) {
-                materials.push(`Material ${i}`);
-            }
-            return materials;
+        async generateMaterials() {
+            const response = await axios.get('/get-large-materials');
+            this.largeMaterials = response.data;
         },
         async generateMaterialsSmall() {
             const response = await axios.get('/get-materials-small');
             this.materialsSmall = response.data;
-            // const materials = [];
-            // for (let i = 1; i <= 34; i++) {
-            //     materials.push(`Material small ${i}`);
-            // }
-            // return materials;
         },
         generateActionOptions() {
             const actions = [];
@@ -240,7 +232,7 @@ export default {
             });
 
             axios.post('/sync-all-jobs', {
-                selectedMaterial: this.selectedMaterial,
+                selectedMaterial: this.selectedMaterial.id,
                 selectedMachinePrint: this.selectedMachinePrint,
                 selectedMachineCut: this.selectedMachineCut,
                 selectedMaterialsSmall: this.selectedMaterialSmall.id,

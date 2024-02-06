@@ -60,6 +60,12 @@ class Job extends Model
         return $this->belongsTo(SmallMaterial::class, 'small_material_id');
     }
 
+    public function large_material()
+    {
+        return $this->belongsTo(LargeFormatMaterial::class, 'large_material_id');
+    }
+
+
     public function getTotalPriceAttribute(): float|int
     {
         // Check if the small material is set
@@ -78,7 +84,6 @@ class Job extends Model
         $materialQuantity = $smallMaterial->quantity; // 9
 
         $result = ceil($baseCopies / $materialQuantity) * $formatPrice;
-        dd($result, $formatPrice, $baseCopies, $materialQuantity);
 
         return $result;
     }

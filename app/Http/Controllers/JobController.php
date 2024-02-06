@@ -122,7 +122,7 @@ class JobController extends Controller
 
         // Update all jobs with the selected material
         Job::whereIn('id', $jobIds)->update([
-            'materials' => $selectedMaterial,
+            'large_material_id' => $selectedMaterial,
             'small_material_id' => $selectedMaterialSmall,
             'machineCut' => $selectedMachineCut,
             'machinePrint' => $selectedMachinePrint,

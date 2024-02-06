@@ -11,6 +11,8 @@ class LargeFormatMaterial extends Model
 
     protected $fillable = [
         'name',
+        'width',
+        'height',
         'quantity',
         'price_per_unit',
     ];
