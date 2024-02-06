@@ -57,7 +57,6 @@ class JobController extends Controller
 
             if (File::exists($originalFilePath4)) {
                 if ($fileExtension === 'tiff' || $fileExtension === 'tif') {
-                    dd($originalFilePath4);
                     // Handle TIFF file conversion to an image
                     $imagick = new Imagick();
                     $imagick->readImage($originalFilePath4);
@@ -90,7 +89,6 @@ class JobController extends Controller
 
                     // Set other job properties if needed
                     $job->save(); // Save the job to the database
-                    dd($job);
 
                     // Attach the job to the user or invoice as needed
 

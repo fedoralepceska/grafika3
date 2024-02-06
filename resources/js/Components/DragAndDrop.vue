@@ -106,7 +106,7 @@ export default {
 
             for (const file of files) { // Use 'const' for loop variables
                 let value;
-                value = file.size < this.chunkSize ? file.size : file.size / this.chunkSize;
+                value = file.size < this.chunkSize ? 1 : file.size / this.chunkSize;
                 this.totalChunks = Math.ceil(value);
                 const fileExtension = file.name.split('.').pop();
                 const fileName = file.name.split('.').shift();
@@ -159,7 +159,7 @@ export default {
 
             for (const file of files) { // Use 'const' for loop variables
                 let value;
-                value = file.size < this.chunkSize ? file.size : file.size / this.chunkSize;
+                value = file.size < this.chunkSize ? 1 : (file.size / this.chunkSize);
                 this.totalChunks = Math.ceil(value);
                 const fileExtension = file.name.split('.').pop();
                 const fileName = file.name.split('.').shift();

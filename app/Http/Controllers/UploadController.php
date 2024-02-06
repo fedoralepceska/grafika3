@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Imagick;
 use Inertia\Inertia;
 
 class UploadController extends Controller
@@ -41,48 +42,69 @@ class UploadController extends Controller
 
     private function assembleAndStoreFile($filename, $totalChunks, $fileExtension)
     {
-        $assembledFilePath = Storage::disk('local')->path("uploads/originalFile/{$filename}");
-
-        if (!File::isWritable(dirname($assembledFilePath))) {
-            // Check if the directory is writable
-            Log::error("Error assembling file: The 'originalFile' directory is not writable.");
-            return;
+        if ($fileExtension === 'tiff' || $fileExtension === 'tif') {
+            // Use GD Library or other specialized method for TIFF assembly
+            $this->assembleTiffFile($filename, $totalChunks);
         }
+        else {
+            $assembledFilePath = Storage::disk('local')->path("uploads/originalFile/{$filename}");
 
-        try {
-            // Check if all required chunks exist
-            for ($i = 0; $i < $totalChunks; $i++) {
-                $chunkPath = storage_path("app/uploads/chunks/{$filename}.chunk.{$i}");
-                if (!File::exists($chunkPath)) {
-                    Log::error("Error assembling file: Chunk {$i} is missing.");
-                    return;
+            if (!File::isWritable(dirname($assembledFilePath))) {
+                // Check if the directory is writable
+                Log::error("Error assembling file: The 'originalFile' directory is not writable.");
+                return;
+            }
+
+            try {
+                // Check if all required chunks exist
+                for ($i = 0; $i < $totalChunks; $i++) {
+                    $chunkPath = storage_path("app/uploads/chunks/{$filename}.chunk.{$i}");
+                    if (!File::exists($chunkPath)) {
+                        Log::error("Error assembling file: Chunk {$i} is missing.");
+                        return;
+                    }
                 }
+
+                Storage::disk('local')->put("uploads/originalFile/{$filename}", "");
+
+                for ($i = 0; $i < $totalChunks; $i++) {
+                    $chunkPath = storage_path("app/uploads/chunks/{$filename}.chunk.{$i}");
+
+                    // Check the content of the chunk before appending
+                    $chunkContent = File::get($chunkPath);
+                    Log::info("Chunk {$i} content: " . $chunkContent);
+
+                    // Use the correct filename for each chunk
+                    Storage::disk('local')->append("uploads/originalFile/{$filename}.{$fileExtension}", $chunkContent);
+                }
+//                // Delete temporary chunks
+//                for ($i = 0; $i < $totalChunks; $i++) {
+//                    Storage::disk('local')->delete("uploads/chunks/{$filename}.chunk.{$i}");
+//                }
+
+                Log::info("File assembled successfully at: {$assembledFilePath}");
+            } catch (\Exception $e) {
+                Log::error("Error assembling file: " . $e->getMessage());
             }
-
-            Storage::disk('local')->put("uploads/originalFile/{$filename}", "");
-
-            for ($i = 0; $i < $totalChunks; $i++) {
-                $chunkPath = storage_path("app/uploads/chunks/{$filename}.chunk.{$i}");
-
-                // Check the content of the chunk before appending
-                $chunkContent = File::get($chunkPath);
-                Log::info("Chunk {$i} content: " . $chunkContent);
-
-                // Use the correct filename for each chunk
-                Storage::disk('local')->append("uploads/originalFile/{$filename}.{$fileExtension}", $chunkContent);
-            }
-
-            // Delete temporary chunks
-            for ($i = 0; $i < $totalChunks; $i++) {
-                Storage::disk('local')->delete("uploads/chunks/{$filename}.chunk.{$i}");
-            }
-
-            Log::info("File assembled successfully at: {$assembledFilePath}");
-        } catch (\Exception $e) {
-            Log::error("Error assembling file: " . $e->getMessage());
         }
     }
+    private function assembleTiffFile($filename, $totalChunks)
+    {
+        $imagick = new Imagick();
 
+        for ($i = 0; $i < $totalChunks; $i++) {
+            $chunkPath = storage_path("app/uploads/chunks/{$filename}.chunk.{$i}");
+            $imagick->readImage($chunkPath);
+        }
 
+        $assembledFilePath = storage_path("app/uploads/originalFile/{$filename}.tiff");
+        $imagick->writeImages($assembledFilePath, true);
 
+        // Delete temporary chunks
+        for ($i = 0; $i < $totalChunks; $i++) {
+            Storage::disk('local')->delete("uploads/chunks/{$filename}.chunk.{$i}");
+        }
+
+        Log::info("TIFF file assembled successfully at: {$assembledFilePath}");
+    }
 }
