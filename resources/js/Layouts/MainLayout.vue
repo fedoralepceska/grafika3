@@ -30,9 +30,12 @@ const showingNavigationDropdown = ref(false);
                     </div>
 
                     <div class="hidden sm:flex sm:items-center sm:ml-6">
-                        <Button @click="openInProgress" class="p-4 text-white text-sm leading-4 font-medium">
+                        <Button @click="openInProgress" class="p-4 text-white text-sm leading-4 font-medium flex">
                             <i class="fa-solid fa-spinner" style="color: white"></i>
-                            &nbsp;&nbsp;In Progress
+                            &nbsp;&nbsp;In Progress &nbsp;
+                            <div class="counter-container">
+                                <span class="counter">{{ orderCount }}</span>
+                            </div>
                         </Button>
                         <Button @click="openNewWindow" class="p-12 text-white text-sm leading-4 font-medium">
                             <i class="fa-solid fa-window-restore" style="color: white"></i>
@@ -135,13 +138,32 @@ const showingNavigationDropdown = ref(false);
 import AuthenticatedLayout from "@/Layouts/AuthenticatedLayout.vue";
 import LanguageSelector from "@/Components/LanguageSelector.vue";
 import SideMenu from "@/Components/SideMenu.vue";
+import axios from "axios";
 export default {
     name: "MainLayout",
     components: {AuthenticatedLayout, LanguageSelector, SideMenu},
     data() {
         return {
-            showSidebar: true
+            showSidebar: true,
+            orderCount: 0,
         }
+    },
+    computed: {
+        async getOrderCount() {
+            try {
+                const response = await axios.get('/orders', {
+                    params: {
+                        status: 'In progress',
+                    },
+                });
+                this.orderCount = response?.data?.total;
+            } catch (error) {
+                console.error('Error fetching order count:', error);
+            }
+        },
+    },
+    async beforeMount() {
+        await this.getOrderCount;
     },
     methods: {
         openNewWindow() {
@@ -156,7 +178,7 @@ export default {
 
             // Open the new window with the specified route
             window.open(routeUrl, '_self');
-        }
+        },
     }
 }
 
@@ -182,5 +204,20 @@ export default {
     .width {
         width: 100%;
         margin-left: 70px;
+    }
+    .counter-container {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: min-content;
+        height: min-content;
+        padding: 1px 3px;
+        background-color: #3498db;
+        color: white;
+        font-weight: bold;
+    }
+
+    .counter {
+        font-size: 12px;
     }
 </style>
