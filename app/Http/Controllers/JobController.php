@@ -456,6 +456,7 @@ class JobController extends Controller
             $inProgressCount = 0;
             $notStartedYetCount = 0;
             $onHoldCount = 0; // Initialize onHoldCount
+            $onRushCount = 0; // Counter for onRush
 
             // Iterate through actions
             foreach ($actions as $action) {
@@ -477,12 +478,23 @@ class JobController extends Controller
                     ->where('invoices.onHold', true)
                     ->count();
 
+                // Count the 'Rush' actions
+                $invoiceOnRush = DB::table('invoice_job')
+                    ->join('invoices', 'invoices.id', '=', 'invoice_job.invoice_id')
+                    ->join('job_job_action', 'job_job_action.job_id', '=', 'invoice_job.job_id')
+                    ->where('job_job_action.job_action_id', $action->id) // Include the join with job_job_action
+                    ->where('invoices.rush', true)
+                    ->count();
+
                 if ($invoiceOnHold > 0) {
                     $onHoldCount++;
                 }
+                if ($invoiceOnRush > 0) {
+                    $onRushCount++;
+                }
             }
 
-            if ($inProgressCount > 0 || $notStartedYetCount > 0 || $onHoldCount > 0) {
+            if ($inProgressCount > 0 || $notStartedYetCount > 0 || $onHoldCount > 0 || $onRushCount > 0) {
                 // Create an entry for the current machineCut
                 if ($job->machineCut !== null) {
                     $machineCutKey = $job->machineCut;
@@ -492,6 +504,7 @@ class JobController extends Controller
                             'total' => 0,
                             'secondaryCount' => 0,
                             'onHoldCount' => 0,
+                            'onRushCount' => 0,
                         ];
                     }
 
@@ -499,6 +512,8 @@ class JobController extends Controller
                     $machineCutCounts[$machineCutKey]['total'] += $inProgressCount;
                     $machineCutCounts[$machineCutKey]['secondaryCount'] += $notStartedYetCount;
                     $machineCutCounts[$machineCutKey]['onHoldCount'] += $onHoldCount;
+                    $machineCutCounts[$machineCutKey]['onRushCount'] += $onRushCount;
+
                 }
 
                 // Create an entry for the current machinePrint
@@ -510,6 +525,7 @@ class JobController extends Controller
                             'total' => 0,
                             'secondaryCount' => 0,
                             'onHoldCount' => 0,
+                            'onRushCount' => 0,
                         ];
                     }
 
@@ -517,6 +533,8 @@ class JobController extends Controller
                     $machinePrintCounts[$machinePrintKey]['total'] += $inProgressCount;
                     $machinePrintCounts[$machinePrintKey]['secondaryCount'] += $notStartedYetCount;
                     $machinePrintCounts[$machinePrintKey]['onHoldCount'] += $onHoldCount;
+                    $machinePrintCounts[$machinePrintKey]['onRushCount'] += $onRushCount;
+
                 }
             }
         }
@@ -566,13 +584,23 @@ class JobController extends Controller
                 ->whereIn('job_job_action.status', ['Not started yet', 'In Progress'])
                 ->count();
 
+            $onRushCount = DB::table('job_job_action')
+                ->join('job_actions', 'job_job_action.job_action_id', '=', 'job_actions.id')
+                ->join('invoice_job', 'invoice_job.job_id', '=', 'job_job_action.job_id') // Adjust the join for the pivot table
+                ->join('invoices', 'invoices.id', '=', 'invoice_job.invoice_id') // Join with invoices table
+                ->where('job_actions.name', $name)
+                ->where('invoices.rush', true)
+                ->whereIn('job_job_action.status', ['Not started yet', 'In Progress'])
+                ->count();
+
             // Add the counts to the array
             if ($total > 0 || $secondaryCount > 0) {
                 $counts[] = [
                     'name' => $name,
                     'total' => $total,
                     'secondaryCount' => $secondaryCount,
-                    'onHoldCount' => $onHoldCount
+                    'onHoldCount' => $onHoldCount,
+                    'onRushCount' => $onRushCount,
                 ];
             }
         }

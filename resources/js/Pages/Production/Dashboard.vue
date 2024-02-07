@@ -18,45 +18,13 @@
                                 <i class="fa-solid fa-ban red"></i>
                                 <div class="red">{{ item.onHoldCount }}</div>
                         </div>
+                        <div v-if="item.onRushCount" class="rush-badge flex2 text-white rounded pl-2 pr-2 blinking " style="background-color: #9e2c30">
+                            <span class="mdi mdi-fire"></span>
+                            <div> {{ item.onRushCount }}</div>
+                        </div>
                     </div>
                     <span class="text-white">{{ $t(`actions.${item.name}`) }}</span>
                 </div>
-                <div v-for="item in jobMachinesPrint" :key="item.name" class="grid-item">
-                    <div class="badge-container">
-                        <span class="circle-badge" @click="navigateToMachine(item.name)">
-                            <div class="inner">
-                                <span class="primary-count">{{ item.total }}</span>
-                            </div>
-                        </span>
-                        <div v-if="item.secondaryCount" class="secondary-badge flex2 bg-white rounded pl-2 pr-2 orange">
-                            <i class="fa-solid fa-spinner"></i>
-                            <div>{{ item.secondaryCount }}</div>
-                        </div>
-                        <div v-if="item.onHoldCount" class="onhold-badge flex2 bg-white rounded pl-2 pr-2 ">
-                            <i class="fa-solid fa-ban red"></i>
-                            <div class="red">{{ item.onHoldCount }}</div>
-                        </div>
-                    </div>
-                    <span class="text-white">{{ $t(`machinePrint.${item.name}`) }}</span>
-                </div>
-<!--                <div v-for="item in jobMachinesCountsCut" :key="item.name" class="grid-item">
-                    <div class="badge-container">
-                        <span class="circle-badge" @click="navigateToCutMachine(item.name)">
-                            <div class="inner">
-                                <span class="primary-count">{{ item.total }}</span>
-                            </div>
-                        </span>
-                        <div v-if="item.secondaryCount" class="secondary-badge flex2 bg-white rounded pl-2 pr-2 orange">
-                            <i class="fa-solid fa-spinner"></i>
-                            <div>{{ item.secondaryCount }}</div>
-                        </div>
-                        <div v-if="item.onHoldCount" class="onhold-badge flex2 bg-white rounded pl-2 pr-2 ">
-                            <i class="fa-solid fa-ban red"></i>
-                            <div class="red">{{ item.onHoldCount }}</div>
-                        </div>
-                    </div>
-                    <span class="text-white">{{ $t(`machineCut.${item.name}`) }}</span>
-                </div>-->
             </div>
         </div>
     </MainLayout>
@@ -112,6 +80,21 @@ export default {
 }
 </script>
 <style scoped lang="scss">
+.blinking {
+    animation: blink 1s ease infinite;
+}
+
+@keyframes blink {
+    0% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0;
+    }
+    100% {
+        opacity: 1;
+    }
+}
 .grid-container {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr)); /* Use minmax for flexible but bounded sizing */
@@ -183,9 +166,6 @@ export default {
     font-size: 16px;
     color: #EF6C00;
 }
-.double-width {
-    width: 84px;
-}
 .flex2 {
     display: flex;
     justify-content: center;
@@ -208,13 +188,19 @@ export default {
 .secondary-badge{
     position: absolute;
     top: 20px;
-    right: -10px;
+    right: -15px;
     transform: translate(50%, -50%);
 }
 .onhold-badge{
     position: absolute;
     top:53px;
-    right:-22px;
+    right:-27px;
+    transform: translate(50%, -50%);
+}
+.rush-badge{
+    position: absolute;
+    top:86px;
+    right:-26px;
     transform: translate(50%, -50%);
 }
 </style>
