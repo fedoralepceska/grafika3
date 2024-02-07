@@ -15,6 +15,8 @@
                 <thead>
                 <tr>
                     <th>Name</th>
+                    <th>Width(m)</th>
+                    <th>Height(m)</th>
                     <th >Quantity</th>
                     <th>Price Per Unit</th>
                     <th></th>
@@ -23,6 +25,8 @@
                 <tbody>
                 <tr v-for="material in materials" :key="material.id">
                     <td>{{ material.name }}</td>
+                    <td>{{ material.width }}</td>
+                    <td>{{ material.height }}</td>
                     <td v-if="editMode">
                         <input type="text" class="text-black" v-model="material.editableQuantity" />
                     </td>
