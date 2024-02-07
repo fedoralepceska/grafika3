@@ -82,6 +82,9 @@ class Job extends Model
         $baseQuantity = $this->quantity; // 500
         $baseCopies = $this->copies; // 50
         $materialQuantity = $smallMaterial->quantity; // 9
+        $remainingQuantity = $formatQuantity - ($baseCopies / $materialQuantity); // total - used
+
+        $smallMaterial->smallFormatMaterial->update(['quantity' => $remainingQuantity]);
 
         $result = ceil($baseCopies / $materialQuantity) * $formatPrice;
 

@@ -208,6 +208,10 @@ class JobController extends Controller
         $baseCopies = $job['copies'] ?? 0;
         $materialQuantity = $smallMaterial->quantity ?? 0;
 
+        $remainingQuantity = $formatQuantity - ($baseCopies / $materialQuantity); // total - used
+
+        $smallMaterial->smallFormatMaterial->update(['quantity' => $remainingQuantity]);
+
         // Calculate total price
         $totalPrice = ceil($baseCopies / $materialQuantity) * $formatPrice;
 
