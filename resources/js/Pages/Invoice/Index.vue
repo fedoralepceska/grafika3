@@ -83,7 +83,8 @@
                                     <div v-if="currentInvoiceId===invoice.id" class="bgJobs text-white p-2 bold">
                                         Jobs for Order #{{invoice.id}} {{invoice.invoice_title}}
                                     </div>
-                                    <div v-if="currentInvoiceId===invoice.id" class="jobInfo flex justify-between gap-3 border-b" v-for="(job,index) in invoice.jobs">
+                                    <div v-if="currentInvoiceId===invoice.id" class="jobInfo border-b" v-for="(job,index) in invoice.jobs">
+                                            <div class=" jobInfo flex justify-between gap-3">
                                             <div class="text-white bold p-1">
                                                 #{{index+1}} {{job.file}}
                                             </div>
@@ -94,7 +95,11 @@
                                             <div class="p-1">{{$t('Width')}}: <span class="bold">{{job.width}}</span> </div>
                                             <div class="p-1">{{$t('Quantity')}}: <span class="bold">{{job.quantity}}</span> </div>
                                             <div class="p-1">{{$t('Copies')}}: <span class="bold">{{job.copies}}</span> </div>
+                                            </div>
+                                        <div class="ultra-light-gray pt-4">
+                                        <OrderJobDetails :job="job"/>
                                         </div>
+                                    </div>
                                 </div>
                         </div>
                     </div>
@@ -111,9 +116,10 @@ import Header from "@/Components/Header.vue";
 import Pagination from "@/Components/Pagination.vue"
 import axios from 'axios';
 import {reactive} from "vue";
+import OrderJobDetails from "@/Pages/Invoice/OrderJobDetails.vue";
 
 export default {
-    components: {Header, MainLayout,Pagination },
+    components: {Header, MainLayout,Pagination,OrderJobDetails  },
     props:{
       invoices:Object,
     },
@@ -221,7 +227,6 @@ export default {
 </script>
 <style scoped lang="scss">
 .jobInfo{
-    display: flex;
     justify-items: center;
     align-items: center;
 }
@@ -259,7 +264,7 @@ select{
     align-items: center;
 }
 .bgJobs{
-    background-color: $light-gray;
+    background-color: $ultra-light-gray;
 }
 .dark-gray {
     background-color: $dark-gray;

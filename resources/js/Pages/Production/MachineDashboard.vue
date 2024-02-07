@@ -1,7 +1,7 @@
 <template>
     <MainLayout>
         <div class="pl-7 pr-7">
-            <Header title="production" subtitle="Machines" icon="dashboard.png" link="machines"/>
+            <Header title="Machines" subtitle="Dashboard" icon="machines.png" link="machines"/>
               <div class="flex">
                 <div class="text-white">
                     Select machine type
