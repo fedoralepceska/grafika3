@@ -30,6 +30,14 @@ const showingNavigationDropdown = ref(false);
                     </div>
 
                     <div class="hidden sm:flex sm:items-center sm:ml-6">
+                        <Button @click="openInProgress" class="p-4 text-white text-sm leading-4 font-medium">
+                            <i class="fa-solid fa-spinner" style="color: white"></i>
+                            &nbsp;&nbsp;In Progress
+                        </Button>
+                        <Button @click="openNewWindow" class="p-12 text-white text-sm leading-4 font-medium">
+                            <i class="fa-solid fa-window-restore" style="color: white"></i>
+                            &nbsp;&nbsp;New window
+                        </Button>
                         <!-- Language selector -->
                         <LanguageSelector/>
                         <!-- Settings Dropdown -->
@@ -135,6 +143,21 @@ export default {
             showSidebar: true
         }
     },
+    methods: {
+        openNewWindow() {
+            console.log('test');
+            var routeUrl = '/orders/create';
+
+            // Open the new window with the specified route
+            window.open(routeUrl, '_blank');
+        },
+        openInProgress() {
+            var routeUrl = '/orders?status=In%20Progress';
+
+            // Open the new window with the specified route
+            window.open(routeUrl, '_self');
+        }
+    }
 }
 
 </script>
