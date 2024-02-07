@@ -24,6 +24,7 @@
                             <div>Total active jobs: {{item.total}}</div>
                             <div>Total pending jobs: {{item.secondaryCount}}</div>
                             <div>Total jobs ON HOLD: {{item.onHoldCount}}</div>
+                            <div v-if="item.onRushCount" class="red blinking">High priority jobs: {{item.onRushCount}}</div>
                         </div>
                     </div>
                     <div class="status">
@@ -93,6 +94,21 @@ export default {
 }
 </script>
 <style scoped lang="scss">
+.blinking {
+    animation: blink 1s ease infinite;
+}
+
+@keyframes blink {
+    0% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0;
+    }
+    100% {
+        opacity: 1;
+    }
+}
 .grid-container {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr)); /* Use minmax for flexible but bounded sizing */
@@ -153,6 +169,7 @@ export default {
     align-items: center;
     margin: 0;
     width: 400px;
+    height: 180px;
     transition: background-color 0.3s;
 }
 .grid-item:hover{
