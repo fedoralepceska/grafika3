@@ -4,7 +4,7 @@
             <Header title="action" subtitle="actionInfo" icon="task.png" link="production"/>
             <div v-for="(invoice,index) in invoices" class="main">
                 <div :class="['container', 'flex', 'gap-20', 'relative', 'p-2', { 'red': invoice.onHold }]">
-                <div class="bg-white text-black bold p-3" style="min-width: 20vh"><strong>{{invoice.invoice_title}}</strong></div>
+                <div class="order bg-white text-black bold p-3" style="min-width: 20vh" @click="navigateToOrder(invoice.id)" ><strong>{{invoice.invoice_title}}</strong></div>
                     <div class="info">
                         <div>Order</div>
                         <div class="bold">#{{ invoice.id }}</div>
@@ -12,9 +12,6 @@
                     <div class="info">
                         <div>Customer</div>
                         <div class="bold">{{invoice.client_name}}</div>
-    <!--
-                        The Clients name should be fetched #TODO
-    -->
                     </div>
                     <div class="info">
                         <div>{{ $t('End Date') }}</div>
@@ -23,9 +20,6 @@
                     <div class="info">
                         <div>Created By</div>
                         <div class="bold">{{ invoice.user_name }}</div>
-    <!--
-                        The users name should be fetched #TODO
-    -->
                     </div>
                     <div class="info">
                         <div>Current Step</div>
@@ -305,6 +299,9 @@ export default {
             this.selectedJob = job;
             this.showImagePopover = !this.showImagePopover;
         },
+        navigateToOrder(orderID) {
+            this.$inertia.visit(`/orders/${orderID}`);
+        },
     },
     beforeMount() {
         this.updateInvoiceStatus()
@@ -313,6 +310,12 @@ export default {
 }
 </script>
 <style scoped lang="scss">
+.order{
+    cursor: pointer;
+}
+.order:hover{
+    background-color: #dddddd;
+}
 .main{
     background-color: $light-gray;
 }
