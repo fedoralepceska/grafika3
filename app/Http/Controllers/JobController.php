@@ -425,7 +425,7 @@ class JobController extends Controller
         if (file_exists($fullImagePath)) {
             // Get the image dimensions using PHP's built-in functions
             list($width, $height) = getimagesize($fullImagePath);
-            $dpi = $job->file->dpi ?? 96;
+            $dpi = $job->file->dpi ?? 72;
 
             $widthInMm = ($width / $dpi) * 25.4;
             $heightInMm = ($height / $dpi) * 25.4;
