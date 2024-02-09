@@ -13,7 +13,7 @@ import StatusBox from "@/Components/StatusBox.vue";
         <div class="status-boxes dark-gray">
             <StatusBox icon="fa-solid fa-gear fa-2xl" title="All jobs not shipped" number="0" color="#1497D5" />
             <StatusBox icon="fa-solid fa-cart-shopping fa-2xl" title="Entered today" :number="invoicesToday" color="#E6AE49" :border-color="dynamicColor2" />
-            <StatusBox icon="fa-solid fa-truck fa-2xl" title="Shipping today" number="0" color="#1497D5" />
+            <StatusBox icon="fa-solid fa-truck fa-2xl" title="Shipping today" :number="invoicesShippingToday" color="#1497D5" />
             <StatusBox icon="fa-solid fa-triangle-exclamation fa-2xl" title="> 7 days old: NOT shipped" number="0" color="#A53D3F" :border-color="dynamicColor"/>
         </div>
         <div class="flex dark-gray" style="padding: 25px">
@@ -51,18 +51,30 @@ export default {
     data() {
         return {
             invoicesToday: 0,
+            invoicesShippingToday: 0,
             dynamicColor: '2px solid #A53D3F',
             dynamicColor2: '2px solid #E6AE49'
         }
     },
     created() {
         this.fetchInvoicesToday();
+        this.fetchInvoicesShippingToday();
     },
     methods: {
         fetchInvoicesToday() {
-            axios.get('/orders/today/count') // Replace with your actual API endpoint
+            axios.get('/orders/today/count')
                 .then(response => {
                     this.invoicesToday = response.data.count; // Adjust according to the response structure
+                })
+                .catch(error => {
+                    console.error('Error fetching the number of today\'s invoices:', error);
+                    // Handle the error appropriately
+                });
+        },
+        fetchInvoicesShippingToday() {
+            axios.get('/orders/end-date/count')
+                .then(response => {
+                    this.invoicesShippingToday = response.data.count; // Adjust according to the response structure
                 })
                 .catch(error => {
                     console.error('Error fetching the number of today\'s invoices:', error);

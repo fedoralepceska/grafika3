@@ -270,6 +270,11 @@ class InvoiceController extends Controller
         return response()->json(['count' => $count]);
     }
 
+    public function countShippingToday() {
+        $count = Invoice::whereDate('end_date', Carbon::today())->count();
+        return response()->json(['count' => $count]);
+    }
+
     public function updateNoteProperty(Request $request)
     {
         $invoiceId = $request->input('id');
