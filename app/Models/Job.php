@@ -8,6 +8,7 @@ use App\Enums\MachineCut;
 use App\Enums\MachinePrint;
 use App\Enums\Material;
 use App\Enums\MaterialSmall;
+use App\Http\Controllers\Auth\PasswordController;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -70,23 +71,42 @@ class Job extends Model
     {
         // Check if the small material is set
         $smallMaterial = $this->small_material()->with('smallFormatMaterial')->first();
+        $largeMaterial = $this->large_material()->first();
 
-        if ($smallMaterial === null) {
+        if ($smallMaterial === null && $largeMaterial === null) {
             // Return a default value if no small material is set
             return 0;
         }
+        $result = 0;
+        if ($smallMaterial) {
+            // Calculate the number of used materials.
+            $formatQuantity = $smallMaterial->smallFormatMaterial->quantity; //100
+            $formatPrice = $smallMaterial->smallFormatMaterial->price_per_unit; //10
+            $baseQuantity = $this->quantity; // 500
+            $baseCopies = $this->copies; // 50
+            $materialQuantity = $smallMaterial->quantity; // 9
+            $remainingQuantity = $formatQuantity - ($baseCopies / $materialQuantity); // total - used
 
-        // Calculate the number of used materials.
-        $formatQuantity = $smallMaterial->smallFormatMaterial->quantity; //100
-        $formatPrice = $smallMaterial->smallFormatMaterial->price_per_unit; //10
-        $baseQuantity = $this->quantity; // 500
-        $baseCopies = $this->copies; // 50
-        $materialQuantity = $smallMaterial->quantity; // 9
-        $remainingQuantity = $formatQuantity - ($baseCopies / $materialQuantity); // total - used
+            $smallMaterial->smallFormatMaterial->update(['quantity' => $remainingQuantity]);
 
-        $smallMaterial->smallFormatMaterial->update(['quantity' => $remainingQuantity]);
+            $result = ceil($baseCopies / $materialQuantity) * $formatPrice;
+        }
+        if ($largeMaterial) {
+            $materialWidth = $largeMaterial->width;
+            $materialHeight = $largeMaterial->height;
+            $materialPrice = $largeMaterial->price_per_unit;
+            $baseWidth = number_format($this->width / 1000, 2);
+            $baseHeight = number_format($this->height / 1000, 2);
+            $remainder = $materialWidth - $baseWidth;
+            $remainderTotal = $remainder * $baseHeight;
+            $jobTotal = $baseWidth * $baseHeight;
 
-        $result = ceil($baseCopies / $materialQuantity) * $formatPrice;
+            $total = $remainderTotal + $jobTotal;
+
+            $largeMaterial->update(['height' => $materialHeight - $baseHeight]);
+
+            $result = $total * $materialPrice;
+        }
 
         return $result;
     }
