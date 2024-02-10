@@ -186,11 +186,10 @@ export default {
             this.acknowledged = values[1];
         },
         async startJob(job) {
-            const machine = job.machinePrint.find(a => a.name === this.machineId);
-            await axios.put(`/machines/${machine.id}`, {
+            const machine = job.actions.find(a => a.name === this.machineId);
+            await axios.put(`/actions/${machine.id}`, {
                 status: 'In progress',
             });
-            console.log(job.id);
             await axios.put(`/jobs/${job.id}`, {
                 status: 'In progress',
             });

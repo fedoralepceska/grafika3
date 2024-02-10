@@ -516,10 +516,10 @@ class JobController extends Controller
                     }
 
                     // Add the counts to the array
-                    $machineCutCounts[$machineCutKey]['total'] += $inProgressCount;
-                    $machineCutCounts[$machineCutKey]['secondaryCount'] += $notStartedYetCount;
-                    $machineCutCounts[$machineCutKey]['onHoldCount'] += $onHoldCount;
-                    $machineCutCounts[$machineCutKey]['onRushCount'] += $onRushCount;
+                    $machineCutCounts[$machineCutKey]['total'] += $inProgressCount/2;
+                    $machineCutCounts[$machineCutKey]['secondaryCount'] += $notStartedYetCount/2;
+                    $machineCutCounts[$machineCutKey]['onHoldCount'] += $onHoldCount/2;
+                    $machineCutCounts[$machineCutKey]['onRushCount'] += $onRushCount/2;
 
                 }
 
@@ -537,10 +537,10 @@ class JobController extends Controller
                     }
 
                     // Add the counts to the array
-                    $machinePrintCounts[$machinePrintKey]['total'] += $inProgressCount;
-                    $machinePrintCounts[$machinePrintKey]['secondaryCount'] += $notStartedYetCount;
-                    $machinePrintCounts[$machinePrintKey]['onHoldCount'] += $onHoldCount;
-                    $machinePrintCounts[$machinePrintKey]['onRushCount'] += $onRushCount;
+                    $machinePrintCounts[$machinePrintKey]['total'] += $inProgressCount/2;
+                    $machinePrintCounts[$machinePrintKey]['secondaryCount'] += $notStartedYetCount/2;
+                    $machinePrintCounts[$machinePrintKey]['onHoldCount'] += $onHoldCount/2;
+                    $machinePrintCounts[$machinePrintKey]['onRushCount'] += $onRushCount/2;
 
                 }
             }

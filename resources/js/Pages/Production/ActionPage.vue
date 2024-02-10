@@ -23,7 +23,7 @@
                     </div>
                     <div class="info">
                         <div>Current Step</div>
-                        <div class="bold">{{$t(`actions.${actionId}`)}}</div>
+                        <div class="bold">{{actionId.startsWith('Machine') ? $t(`machinePrint.${actionId}`) : $t(`actions.${actionId}`)}}</div>
                     </div>
                     <div class="btns">
                         <div class="bt" @click="viewJobs(index)"><i class="fa-solid fa-bars"></i></div>
