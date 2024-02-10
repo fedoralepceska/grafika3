@@ -25,7 +25,7 @@
                         placeholder="Select Actions"
                         :custom-label="customLabel">
                         <template v-slot:option="{ option }">
-                            {{ $t('actions.' + option) }}
+                            {{ option.startsWith('Machine') ? $t('machinePrint.' + option) : $t('actions.' + option) }}
                         </template>
                     </VueMultiselect>
                 </v-card-text>

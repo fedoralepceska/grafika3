@@ -9,7 +9,7 @@ class LogInvoiceHistory
 {
     public function handle(InvoiceCreated $event)
     {
-        $action = "Invoice created!";
+        $action = "Order created!";
 
         HistoryLog::create([
             'invoice_id' => $event->invoice->id,
