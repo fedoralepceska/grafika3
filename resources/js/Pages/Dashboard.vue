@@ -23,7 +23,7 @@ import StatusBox from "@/Components/StatusBox.vue";
                     <span class="fa-solid fa-plus"></span>
                     <span class="text">NEW ORDER</span>
                 </a>
-                <a href="#" class="menu-item">
+                <a href="/machines" class="menu-item">
                     <span class="fa-solid fa-gears"></span>
                     <span class="text">SELECT MACHINE</span>
                 </a>
