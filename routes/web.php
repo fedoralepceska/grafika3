@@ -59,6 +59,7 @@ Route::middleware(['auth', 'verified'])->group(function() {
     Route::put('/orders/update-note-flag', [InvoiceController::class, 'updateNoteProperty'])->name('invoices.updateNoteProperty');
     Route::put('/orders/{id}', [InvoiceController::class, 'update'])->name('invoices.update');
     Route::get('/orders/today/count', [InvoiceController::class, 'countToday'])->name('invoices.countToday');
+    Route::get('/orders/tomorrow/count', [InvoiceController::class, 'countShippingTomorrow'])->name('invoices.countShippingTomorrow');
     Route::get('/orders/end-date/count', [InvoiceController::class, 'countShippingToday'])->name('invoices.countShippingToday');
     Route::get('/orders/seven-days/count', [InvoiceController::class, 'countInvoicesSevenOrMoreDaysAgo'])->name('invoices.countInvoicesSevenOrMoreDaysAgo');
     Route::get('/order/download', [InvoiceController::class, 'downloadInvoiceFiles'])->name('invoice.download');
