@@ -275,6 +275,12 @@ class InvoiceController extends Controller
         return response()->json(['count' => $count]);
     }
 
+    public function countInvoicesSevenOrMoreDaysAgo() {
+        $sevenDaysAgo = Carbon::now()->subDays(7);
+        $count = Invoice::whereDate('end_date', '<', $sevenDaysAgo)->where('status', '!=', 'Completed')->count();
+        return response()->json(['count' => $count]);
+    }
+
     public function updateNoteProperty(Request $request)
     {
         $invoiceId = $request->input('id');
