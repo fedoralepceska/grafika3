@@ -16,21 +16,20 @@
                             <h2 class="sub-title">
                                 {{ $t('allClients') }}
                             </h2>
-                            <table>
+                            <table style="text-align: center">
                                 <thead>
                                 <tr>
                                     <th>Client Name</th>
                                     <th>Address</th>
                                     <th>City</th>
-                                    <th></th>
+                                    <th>Contacts</th>
+                                    <th>Delete</th>
                                 </tr>
                                 </thead>
                                 <tbody>
                                 <template v-for="client in clients">
                                     <tr>
-                                        <td @click="toggleRow(client.id)" class="company">
-                                            <i v-if="clientExpanded === client.id" class="fa-solid fa-chevron-up"></i>
-                                            <i v-else class="fa-solid fa-chevron-down"></i>
+                                        <td class="company">
                                             {{ client.name }}
                                         </td>
                                         <td class="company">
@@ -40,21 +39,12 @@
                                             {{ client.city }}
                                         </td>
                                         <td class="centered">
-                                            <SecondaryButton @click="deleteClient(client)" class="delete">Delete</SecondaryButton>
-                                            <AddContactDialog :client="client"/>
-                                        </td>
-                                    </tr>
-                                    <tr v-if="clientExpanded === client.id && client.contacts.length">
-                                        <td :colspan="editMode ? 4 : 3">
-                                            <div class="contact-info" v-for="(contact,index) in client.contacts" :key="contact.id">
-                                                <div class="info mb-1">
-                                                    <div class="bg-white text-black pl-1"><strong>Contact #{{index+1}}</strong></div>
-                                                    <div class="pl-2">Contact Name: <strong>{{ contact.name }}</strong></div>
-                                                    <div class="pl-2">Contact Phone: <strong> {{ contact.phone }}</strong></div>
-                                                    <div class="pl-2">Contact E-mail: <strong> {{ contact.email }}</strong></div>
-                                                </div>
-                                                <SecondaryButton @click="deleteContact(client, contact)" class="delete h-10 ml-2">Delete</SecondaryButton>
+                                            <div>
+                                            <ViewContactsDialog :client="client"/>
                                             </div>
+                                        </td>
+                                        <td>
+                                            <SecondaryButton @click="deleteClient(client)" class="delete">Delete</SecondaryButton>
                                         </td>
                                     </tr>
                                 </template>
@@ -73,9 +63,11 @@ import PrimaryButton from "@/Components/buttons/PrimaryButton.vue";
 import SecondaryButton from "@/Components/buttons/SecondaryButton.vue";
 import axios from "axios";
 import AddContactDialog from "@/Components/AddContactDialog.vue";
+import ViewContactsDialog from "@/Components/ViewContactsDialog.vue";
 
 export default {
     components: {
+        ViewContactsDialog,
         AddContactDialog,
         MainLayout,
         PrimaryButton,
@@ -133,9 +125,10 @@ export default {
 </script>
 
 <style scoped lang="scss">
-.centered{
-    text-align: center;
+.centered {
     display: flex;
+    justify-content: center;
+    align-items: center;
 }
 .delete{
     border: none;
@@ -153,9 +146,6 @@ export default {
 }
 .green{
     background-color: $green;
-}
-.green:hover{
-    background-color: green;
 }
 .header{
     display: flex;
@@ -227,22 +217,21 @@ table {
     box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
 }
 
-table th, table td {
+table, table td {
     padding: 10px;
-    text-align: left;
-    border: 1px solid #ddd;
-
+    text-align: center;
+}
+table td, table th{
+    border-right: 1px solid #ddd;
+    border-left: 1px solid #ddd;
 }
 
 table th {
+    padding: 10px 5px 10px 5px;
     font-weight: bold;
     color: white;
-    border-top: 1px solid #ddd;
-    border-bottom: 1px solid #ddd;
+    border: none;
     background-color: $ultra-light-gray;
-}
-.company {
-    cursor: pointer;
 }
 .info {
     border: 2px solid white;

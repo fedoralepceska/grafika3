@@ -19,8 +19,8 @@
                     <div v-if="showAddContactForm">
                         <form class="flex">
                             <input type="text" v-model="newContact.name" placeholder="Contact Name" required>
-                            <input type="text" v-model="newContact.phone" placeholder="Contact Phone" required>
-                            <input type="email" v-model="newContact.email" placeholder="Contact Email" required>
+                            <input type="text" v-model="newContact.phone" placeholder="Contact Email" required>
+                            <input type="email" v-model="newContact.email" placeholder="Contact Phone" required>
                         </form>
                     </div>
                 </v-card-text>
