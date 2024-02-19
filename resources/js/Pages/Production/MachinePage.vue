@@ -214,8 +214,8 @@ export default {
         async endJob(job) {
             try {
                 // Update the job status first
-                const machine = job.machinePrint.find(a => a.name === this.machineId);
-                await axios.put(`/machines/${machine.id}`, {
+                const machine = job.actions.find(a => a.name === this.machineId);
+                await axios.put(`/actions/${machine.id}`, {
                     status: 'Completed',
                 });
                 if (job.machinePrint.every(a => a.status === 'Completed')) {

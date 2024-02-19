@@ -30,17 +30,17 @@ const showingNavigationDropdown = ref(false);
                     </div>
 
                     <div class="hidden sm:flex sm:items-center sm:ml-6">
-                        <Button @click="openInProgress" class="p-4 text-white text-sm leading-4 font-medium flex">
+                        <button @click="openInProgress" class="p-4 text-white text-sm leading-4 font-medium flex">
                             <i class="fa-solid fa-spinner" style="color: white"></i>
                             &nbsp;&nbsp;In Progress &nbsp;
                             <div class="counter-container">
                                 <span class="counter">{{ orderCount }}</span>
                             </div>
-                        </Button>
-                        <Button @click="openNewWindow" class="p-12 text-white text-sm leading-4 font-medium">
+                        </button>
+                        <button @click="openNewWindow" class="p-12 text-white text-sm leading-4 font-medium">
                             <i class="fa-solid fa-window-restore" style="color: white"></i>
                             &nbsp;&nbsp;New window
-                        </Button>
+                        </button>
                         <!-- Language selector -->
                         <LanguageSelector/>
                         <!-- Settings Dropdown -->

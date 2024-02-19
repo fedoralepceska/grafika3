@@ -14,7 +14,7 @@
                         <div class="bold">{{invoice.client_name}}</div>
                     </div>
                     <div class="info">
-                        <div>{{ $t('End Date') }}</div>
+                        <div>{{ $t('endDate') }}</div>
                         <div class="bold">{{ invoice?.end_date }}</div>
                     </div>
                     <div class="info">
@@ -87,8 +87,12 @@
                                 <td>{{$t(`machinePrint.${job.machinePrint}`)}}</td>
                                 <td>{{$t(`machineCut.${job.machineCut}`)}}</td>
                                 <td>
-                                    <button :class="['bg-white', 'text-black', 'p-2', 'rounded', 'mr-2', { 'disabled' : invoice.onHold }]" @click="startJob(job)" :disabled="invoice.onHold"><strong>Start job <i class="fa-regular fa-clock"></i>0min </strong></button>
-                                    <button :class="['red', 'p-2', 'rounded', { 'disabled' : invoice.onHold }]" @click="endJob(job)" :disabled="invoice.onHold"><strong>End job</strong></button>
+                                    <button :class="['bg-white', 'text-black', 'p-2', 'rounded', 'mr-2', { 'disabled' : invoice.onHold }]" @click="startJob(job)" :disabled="invoice.onHold">
+                                        <strong>Start job <i class="fa-regular fa-clock"></i>{{ elapsedTimes[job.id] }}</strong>
+                                    </button>
+                                    <button :class="['red', 'p-2', 'rounded', { 'disabled' : invoice.onHold }]" @click="endJob(job)" :disabled="invoice.onHold">
+                                        <strong>End job</strong>
+                                    </button>
                                 </td>
                             </tr>
 
@@ -133,10 +137,25 @@ export default {
             showModal: false,
             acknowledged: false,
             showImagePopover: false,
+            timers: {},
+            elapsedTimes: {}
         };
     },
     created() {
         this.fetchJobs();
+    },
+    beforeMount() {
+        this.updateInvoiceStatus()
+        this.updateJobStatus()
+        for (const [key, startTimeStr] of Object.entries(localStorage)) {
+            if (key.startsWith('timer_')) {
+                const jobId = key.split('_')[1];
+                const startTime = parseInt(startTimeStr);
+                const elapsedTime = Math.floor((new Date().getTime() - startTime) / 1000);
+                this.elapsedTimes[jobId] = this.formatElapsedTime(elapsedTime);
+                this.startTimer(jobId);
+            }
+        }
     },
     methods: {
         fetchJobs() {
@@ -180,11 +199,11 @@ export default {
             this.acknowledged = values[1];
         },
         async startJob(job) {
+            this.startTimer(job.id);
             const action = job.actions.find(a => a.name === this.actionId);
             await axios.put(`/actions/${action.id}`, {
                 status: 'In progress',
             });
-            console.log(job.id);
             await axios.put(`/jobs/${job.id}`, {
                 status: 'In progress',
             });
@@ -205,6 +224,33 @@ export default {
                     });
                 }
             }
+        },
+        startTimer(jobId) {
+            const storedStartTimeStr = localStorage.getItem(`timer_${jobId}`);
+
+            if (storedStartTimeStr) {
+                // Resume existing timer
+                const startTime = parseInt(storedStartTimeStr);
+                this.timers[jobId] = setInterval(() => {
+                    const elapsedTime = Math.floor((new Date().getTime() - startTime) / 1000);
+                    this.elapsedTimes[jobId] = this.formatElapsedTime(elapsedTime);
+                }, 1000);
+            } else {
+                // Create a new timer
+                const startTime = new Date().getTime();
+                this.timers[jobId] = setInterval(() => {
+                    // Calculate elapsed time
+                    const elapsedTime = Math.floor((new Date().getTime() - startTime) / 1000);
+                    // Update elapsed time for this job
+                    this.elapsedTimes[jobId] = this.formatElapsedTime(elapsedTime);
+                }, 1000);
+                localStorage.setItem(`timer_${jobId}`, startTime.toString());
+            }
+        },
+        formatElapsedTime(elapsedTime) {
+            const minutes = Math.floor(elapsedTime / 60);
+            const seconds = elapsedTime % 60;
+            return `${minutes}min ${seconds}sec`;
         },
         async endJob(job) {
             try {
@@ -236,9 +282,15 @@ export default {
                         });
                     }
                 }
+                this.endTimer(job);
             } catch (error) {
                 console.error("Error in ending job:", error);
             }
+        },
+
+        endTimer(job) {
+            clearInterval(this.timers[job.id]);
+            localStorage.removeItem(`timer_${job.id}`);
         },
 
         getOverallInvoiceStatus(invoice) {
@@ -303,10 +355,6 @@ export default {
             this.$inertia.visit(`/orders/${orderID}`);
         },
     },
-    beforeMount() {
-        this.updateInvoiceStatus()
-        this.updateJobStatus()
-    }
 }
 </script>
 <style scoped lang="scss">
