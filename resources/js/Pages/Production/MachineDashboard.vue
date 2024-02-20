@@ -85,7 +85,7 @@ export default {
             }
         },
         navigateToMachine(machineId) {
-            this.$inertia.visit(`/machines/${machineId}`);
+            this.$inertia.visit(`/actions/${machineId}`);
         },
         selectMachineType(type) {
             this.selectedMachineType = type;
