@@ -53,7 +53,8 @@ class JobController extends Controller
             $file = $request->file('file');
             $fileExtension = $file->getClientOriginalExtension();
 
-            $originalFilePath4 = Storage::disk('local')->path("uploads/originalFile/" . strtolower(str_replace('_', '-', $file->getClientOriginalName())));
+            $originalFileName = strtolower(str_replace(['_', ' '], '-', $file->getClientOriginalName()));
+            $originalFilePath4 = Storage::disk('local')->path("uploads/originalFile/" . $originalFileName);
 
             if (File::exists($originalFilePath4)) {
                 if ($fileExtension === 'tiff' || $fileExtension === 'tif') {

@@ -15,8 +15,7 @@
         "laravel/sanctum": "^3.2",
         "laravel/tinker": "^2.8",
         "tightenco/ziggy": "^1.0",
-        "ext-imagick": "*",
-        "ext-gd": "*"
+        "ext-imagick": "*"
     },
     "require-dev": {
         "fakerphp/faker": "^1.9.1",

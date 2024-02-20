@@ -42,11 +42,11 @@ class UploadController extends Controller
 
     private function assembleAndStoreFile($filename, $totalChunks, $fileExtension)
     {
-        if ($fileExtension === 'tiff' || $fileExtension === 'tif') {
-            // Use GD Library or other specialized method for TIFF assembly
-            $this->assembleTiffFile($filename, $totalChunks);
-        }
-        else {
+//        if ($fileExtension === 'tiff' || $fileExtension === 'tif') {
+//            // Use GD Library or other specialized method for TIFF assembly
+//            $this->assembleTiffFile($filename, $totalChunks);
+//        }
+//        else {
             $assembledFilePath = Storage::disk('local')->path("uploads/originalFile/{$filename}");
 
             if (!File::isWritable(dirname($assembledFilePath))) {
@@ -86,7 +86,7 @@ class UploadController extends Controller
             } catch (\Exception $e) {
                 Log::error("Error assembling file: " . $e->getMessage());
             }
-        }
+//        }
     }
     private function assembleTiffFile($filename, $totalChunks)
     {
