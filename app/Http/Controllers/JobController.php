@@ -634,6 +634,10 @@ class JobController extends Controller
         $job = new Job($jobData);
         $invoice = new Invoice($invoiceData);
 
+        $job->started_by = auth()->id();
+
+        $job->save();
+
         // Dispatch the JobStarted event with both job and invoice
         event(new JobStarted($job, $invoice));
     }

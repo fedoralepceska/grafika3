@@ -12,7 +12,8 @@ class LogJobStarted
     public function handle(JobStarted $event)
     {
         $file = $event->job->file;
-        $action = "Job with file $file started!";
+        $started_by = $event->job->startedByUser->name;
+        $action = "Job with file $file started by $started_by!";
 
         $performedBy = $event->job->updated_by ?? '1';
 

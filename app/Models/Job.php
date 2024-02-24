@@ -34,6 +34,7 @@ class Job extends Model
         'status',
         'quantity',
         'copies',
+        'started_by'
     ];
 
     protected $attributes = [
@@ -60,6 +61,12 @@ class Job extends Model
     {
         return $this->belongsTo(SmallMaterial::class, 'small_material_id');
     }
+
+    public function startedByUser()
+    {
+        return $this->belongsTo(User::class, 'started_by');
+    }
+
 
     public function large_material()
     {
