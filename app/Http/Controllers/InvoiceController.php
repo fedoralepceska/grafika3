@@ -286,6 +286,27 @@ class InvoiceController extends Controller
         return response()->json(['count' => $count]);
     }
 
+    public function updateLockedNote(Request $request)
+    {
+        $request->validate([
+            'id' => 'required|exists:invoices,id', // Change table name to 'invoices'
+            'comment' => 'nullable|string',
+        ]);
+
+        $invoiceId = $request->input('id');
+        $invoice = Invoice::find($invoiceId);
+
+        if (!$invoice) {
+            // Handle the case where the invoice is not found
+            return response()->json(['message' => 'Invoice not found'], 404);
+        }
+
+        $invoice->LockedNote = $request->comment; // Use the correct property name
+        $invoice->save();
+
+        return response()->json(['message' => 'Locked note successfully updated'], 200);
+    }
+
     public function updateNoteProperty(Request $request)
     {
         $invoiceId = $request->input('id');

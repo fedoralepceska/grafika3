@@ -54,9 +54,10 @@ Route::middleware(['auth', 'verified'])->group(function() {
     Route::get('/orders', [InvoiceController::class, 'index'])->name('invoices.index');
     Route::get('orders/latest', [InvoiceController::class, 'latest'])->name('invoices.latest');
     Route::get('/orders/create', [InvoiceController::class, 'create'])->name('invoices.create');
-    Route::post('/orders', [InvoiceController::class, 'store'])->name('invoices.store');
+    Route::put('/orders', [InvoiceController::class, 'store'])->name('invoices.store');
     Route::get('/orders/{id}', [InvoiceController::class, 'show'])->name('invoices.show');
     Route::put('/orders/update-note-flag', [InvoiceController::class, 'updateNoteProperty'])->name('invoices.updateNoteProperty');
+    Route::put('/orders/update-locked-note', [InvoiceController::class, 'updateLockedNote'])->name('invoices.updateLockedNote');
     Route::put('/orders/{id}', [InvoiceController::class, 'update'])->name('invoices.update');
     Route::get('/orders/today/count', [InvoiceController::class, 'countToday'])->name('invoices.countToday');
     Route::get('/orders/tomorrow/count', [InvoiceController::class, 'countShippingTomorrow'])->name('invoices.countShippingTomorrow');

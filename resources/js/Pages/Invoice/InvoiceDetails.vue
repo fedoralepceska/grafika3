@@ -18,7 +18,8 @@
                     <div class="flex pt-4">
                         <div class="buttons pt-3">
                             <button class="btn download-order" @click="downloadAllProofs">Download All Proofs <span class="mdi mdi-cloud-download"></span></button>
-                            <button class="btn lock-order">Lock Order <span class="mdi mdi-lock"></span></button>
+                            <button v-if="!invoice.LockedNote" class="btn"><AddLockNoteDialog :invoice="invoice"/></button>
+                            <button v-if="invoice.LockedNote" class="btn lock-order" @click="unlockOrder(invoice.id)">Unlock Order <span class="mdi mdi-lock-open"></span></button>
                             <button class="btn re-order"  @click="reorder()">Re-Order <span class="mdi mdi-content-copy"></span></button>
                             <button class="btn go-to-steps" @click="navigateToAction()">Go To Steps <span class="mdi mdi-arrow-right-bold-outline"></span> </button>
                             <button v-if="!isSidebarVisible" @click="toggleSidebar" class="hamburger">
@@ -173,10 +174,12 @@ import OrderSpreadsheet from "@/Components/OrderSpreadsheet.vue";
 import Header from "@/Components/Header.vue";
 import OrderHistory from "@/Pages/Invoice/OrderHistory.vue";
 import AddNoteDialog from "@/Components/AddNoteDialog.vue";
+import AddLockNoteDialog from "@/Components/AddLockNoteDialog.vue";
 
 export default {
     components: {
         AddNoteDialog,
+        AddLockNoteDialog,
         OrderHistory,
         OrderSpreadsheet,
         OrderJobDetails,
@@ -350,7 +353,30 @@ export default {
                 .flatMap(job => job?.actions)
                 .find(action => action?.status === 'In Progress' || action?.status === 'Not started yet');
             return this.$inertia.visit(`/actions/${firstInProgressAction?.name}`);
+        },
+        async unlockOrder(invoiceId) {
+            try {
+                const response = await axios.put('/orders/update-locked-note', {
+                    id: invoiceId,
+                    comment: null, // Set comment to null to unlock
+                });
+
+                if (response.status === 200) {
+                    // Handle successful update (e.g., display success message)
+                    let toast = useToast();
+                    this.invoice.LockedNote = null;
+                    toast.success('Order successfully unlocked.')
+                } else {
+                    // Handle errors (e.g., display error message)
+                    let toast = useToast();
+                    toast.error('Failed to unlock order:', response.data);
+                }
+            } catch (error) {
+                // Handle unexpected errors
+                console.error('Error unlocking order:', error);
+            }
         }
+
     },
 };
 </script>

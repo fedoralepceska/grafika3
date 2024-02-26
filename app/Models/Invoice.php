@@ -27,7 +27,8 @@ class Invoice extends Model
         'revisedArt',
         'revisedArtComplete',
         'rush',
-        'additionalArt'
+        'additionalArt',
+        'LockedNote'
     ];
 
 

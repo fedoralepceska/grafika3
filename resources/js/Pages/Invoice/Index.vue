@@ -78,6 +78,9 @@
                                     <div>Status</div>
                                     <div :class="getStatusColorClass(invoice.status)" class="bold" >{{invoice.status}}</div>
                                 </div>
+                                <div v-if="invoice.LockedNote" class="locked">
+                                    <ViewLockDialog :invoice="invoice"/>
+                                </div>
                             </div>
                                 <div v-if="currentInvoiceId" class="job-details-container" :class="{ active: currentInvoiceId === invoice.id }">
                                     <div v-if="currentInvoiceId===invoice.id" class="bgJobs text-white p-2 bold">
@@ -117,9 +120,10 @@ import Pagination from "@/Components/Pagination.vue"
 import axios from 'axios';
 import {reactive} from "vue";
 import OrderJobDetails from "@/Pages/Invoice/OrderJobDetails.vue";
+import ViewLockDialog from "@/Components/ViewLockDialog.vue";
 
 export default {
-    components: {Header, MainLayout,Pagination,OrderJobDetails  },
+    components: {Header, MainLayout,Pagination,OrderJobDetails, ViewLockDialog },
     props:{
       invoices:Object,
     },
@@ -229,6 +233,10 @@ export default {
 .jobInfo{
     justify-items: center;
     align-items: center;
+}
+.locked{
+    display: flex;
+    justify-content: center;
 }
 .img{
     width: 70px;
