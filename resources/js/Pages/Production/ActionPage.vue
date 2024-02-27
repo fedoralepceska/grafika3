@@ -53,9 +53,6 @@
                             </tr>
                         </thead>
                         <tbody v-for="(job, jobIndex) in invoice.jobs" :key="jobIndex">
-<!--
-                        Bi trebalo da e invoice.jobs za da gi dava samo za toj invoice #TODO
--->
                             <tr v-if="invoice.comment && !acknowledged && !job.hasNote">
                                 <td colspan="9" class="orange">
                                     <button @click="openModal">
@@ -87,8 +84,8 @@
                                 <td>{{$t(`machinePrint.${job.machinePrint}`)}}</td>
                                 <td>{{$t(`machineCut.${job.machineCut}`)}}</td>
                                 <td>
-                                    <button :class="['bg-white', 'text-black', 'p-2', 'rounded', 'mr-2', { 'disabled' : invoice.onHold }]" @click="startJob(job)" :disabled="invoice.onHold">
-                                        <strong>Start job <i class="fa-regular fa-clock"></i>{{ elapsedTimes[job.id] }}</strong>
+                                    <button style="min-width: 230px; max-width: 230px" :class="['bg-white', 'text-black', 'p-2', 'rounded', 'mr-2', { 'disabled' : invoice.onHold },{ 'disabled' : jobDisabledStatus[actionId] }]" @click="startJob(job)" :disabled="invoice.onHold || jobDisabledStatus[actionId]">
+                                        <strong>Start job <i class="fa-regular fa-clock"></i><span>{{ elapsedTimes[job.id] }}</span></strong>
                                     </button>
                                     <button :class="['red', 'p-2', 'rounded', { 'disabled' : invoice.onHold }]" @click="endJob(job)" :disabled="invoice.onHold">
                                         <strong>End job</strong>
@@ -138,7 +135,8 @@ export default {
             acknowledged: false,
             showImagePopover: false,
             timers: {},
-            elapsedTimes: {}
+            elapsedTimes: {},
+            jobDisabledStatus: {},
         };
     },
     created() {
@@ -156,6 +154,8 @@ export default {
                 this.startTimer(jobId);
             }
         }
+        this.jobDisabledStatus = JSON.parse(localStorage.getItem('jobDisabledStatus')) || {};
+
     },
     methods: {
         fetchJobs() {
@@ -201,6 +201,11 @@ export default {
         async startJob(job) {
             this.startTimer(job.id);
             const action = job.actions.find(a => a.name === this.actionId);
+            this.jobDisabledStatus[action.name] = true;
+
+            // Persist jobDisabledStatus to localStorage
+            localStorage.setItem('jobDisabledStatus', JSON.stringify(this.jobDisabledStatus));
+
             await axios.put(`/actions/${action.id}`, {
                 status: 'In progress',
             });
