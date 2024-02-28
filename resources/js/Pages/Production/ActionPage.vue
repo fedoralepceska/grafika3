@@ -84,7 +84,7 @@
                                 <td>{{$t(`machinePrint.${job.machinePrint}`)}}</td>
                                 <td>{{$t(`machineCut.${job.machineCut}`)}}</td>
                                 <td>
-                                    <button style="min-width: 230px; max-width: 230px" :class="['bg-white', 'text-black', 'p-2', 'rounded', 'mr-2', { 'disabled' : invoice.onHold },{ 'disabled' : jobDisabledStatus[actionId] }]" @click="startJob(job)" :disabled="invoice.onHold || jobDisabledStatus[actionId]">
+                                    <button style="min-width: 230px; max-width: 230px" :class="['bg-white', 'text-black', 'p-2', 'rounded', 'mr-2', { 'disabled' : invoice.onHold },{ 'disabled' : jobDisabledStatus[getActionId(job)]}]" @click="startJob(job)" :disabled="invoice.onHold || jobDisabledStatus[getActionId(job)]">
                                         <strong>Start job <i class="fa-regular fa-clock"></i><span>{{ elapsedTimes[job.id] }}</span></strong>
                                     </button>
                                     <button :class="['red', 'p-2', 'rounded', { 'disabled' : invoice.onHold }]" @click="endJob(job)" :disabled="invoice.onHold">
@@ -158,6 +158,9 @@ export default {
 
     },
     methods: {
+        getActionId(job) {
+            return job.actions.find(action => action.name === this.actionId)?.id;
+        },
         fetchJobs() {
             const url = `/actions/${this.actionId}/jobs`;
             axios.get(url)
@@ -201,7 +204,7 @@ export default {
         async startJob(job) {
             this.startTimer(job.id);
             const action = job.actions.find(a => a.name === this.actionId);
-            this.jobDisabledStatus[action.name] = true;
+            this.jobDisabledStatus[action.id] = true;
 
             // Persist jobDisabledStatus to localStorage
             localStorage.setItem('jobDisabledStatus', JSON.stringify(this.jobDisabledStatus));
