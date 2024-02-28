@@ -85,7 +85,7 @@
                                 <td>{{$t(`machineCut.${job.machineCut}`)}}</td>
                                 <td>
                                     <button style="min-width: 230px; max-width: 230px" :class="['bg-white', 'text-black', 'p-2', 'rounded', 'mr-2', { 'disabled' : invoice.onHold },{ 'disabled' : jobDisabledStatus[getActionId(job)]}]" @click="startJob(job)" :disabled="invoice.onHold || jobDisabledStatus[getActionId(job)]">
-                                        <strong>Start job <i class="fa-regular fa-clock"></i><span>{{ elapsedTimes[job.id] }}</span></strong>
+                                        <strong>Start job <i class="fa-regular fa-clock"></i><span>{{ elapsedTimes[getActionId(job)] }}</span></strong>
                                     </button>
                                     <button :class="['red', 'p-2', 'rounded', { 'disabled' : invoice.onHold }]" @click="endJob(job)" :disabled="invoice.onHold">
                                         <strong>End job</strong>
@@ -147,11 +147,11 @@ export default {
         this.updateJobStatus()
         for (const [key, startTimeStr] of Object.entries(localStorage)) {
             if (key.startsWith('timer_')) {
-                const jobId = key.split('_')[1];
+                const actionId = key.split('_')[1];
                 const startTime = parseInt(startTimeStr);
                 const elapsedTime = Math.floor((new Date().getTime() - startTime) / 1000);
-                this.elapsedTimes[jobId] = this.formatElapsedTime(elapsedTime);
-                this.startTimer(jobId);
+                this.elapsedTimes[actionId] = this.formatElapsedTime(elapsedTime);
+                this.startTimer(actionId);
             }
         }
         this.jobDisabledStatus = JSON.parse(localStorage.getItem('jobDisabledStatus')) || {};
@@ -159,7 +159,7 @@ export default {
     },
     methods: {
         getActionId(job) {
-            return job.actions.find(action => action.name === this.actionId)?.id;
+            return job?.actions?.find(action => action?.name === this?.actionId)?.id;
         },
         fetchJobs() {
             const url = `/actions/${this.actionId}/jobs`;
@@ -202,7 +202,7 @@ export default {
             this.acknowledged = values[1];
         },
         async startJob(job) {
-            this.startTimer(job.id);
+            this.startTimer(job);
             const action = job.actions.find(a => a.name === this.actionId);
             this.jobDisabledStatus[action.id] = true;
 
@@ -233,26 +233,27 @@ export default {
                 }
             }
         },
-        startTimer(jobId) {
-            const storedStartTimeStr = localStorage.getItem(`timer_${jobId}`);
+        startTimer(job) {
+            const actionId = this.getActionId(job);
+            const storedStartTimeStr = localStorage.getItem(`timer_${actionId}`);
 
             if (storedStartTimeStr) {
                 // Resume existing timer
                 const startTime = parseInt(storedStartTimeStr);
-                this.timers[jobId] = setInterval(() => {
+                this.timers[actionId] = setInterval(() => {
                     const elapsedTime = Math.floor((new Date().getTime() - startTime) / 1000);
-                    this.elapsedTimes[jobId] = this.formatElapsedTime(elapsedTime);
+                    this.elapsedTimes[actionId] = this.formatElapsedTime(elapsedTime);
                 }, 1000);
             } else {
                 // Create a new timer
                 const startTime = new Date().getTime();
-                this.timers[jobId] = setInterval(() => {
+                this.timers[actionId] = setInterval(() => {
                     // Calculate elapsed time
                     const elapsedTime = Math.floor((new Date().getTime() - startTime) / 1000);
                     // Update elapsed time for this job
-                    this.elapsedTimes[jobId] = this.formatElapsedTime(elapsedTime);
+                    this.elapsedTimes[actionId] = this.formatElapsedTime(elapsedTime);
                 }, 1000);
-                localStorage.setItem(`timer_${jobId}`, startTime.toString());
+                localStorage.setItem(`timer_${actionId}`, startTime.toString());
             }
         },
         formatElapsedTime(elapsedTime) {
@@ -297,8 +298,9 @@ export default {
         },
 
         endTimer(job) {
-            clearInterval(this.timers[job.id]);
-            localStorage.removeItem(`timer_${job.id}`);
+            const actionId = this.getActionId(job);
+            clearInterval(this.timers[actionId]);
+            localStorage.removeItem(`timer_${actionId}`);
         },
 
         getOverallInvoiceStatus(invoice) {
