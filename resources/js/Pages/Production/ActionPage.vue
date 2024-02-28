@@ -147,11 +147,11 @@ export default {
         this.updateJobStatus()
         for (const [key, startTimeStr] of Object.entries(localStorage)) {
             if (key.startsWith('timer_')) {
-                const actionId = key.split('_')[1];
+                const jobId = key.split('_')[1];
                 const startTime = parseInt(startTimeStr);
                 const elapsedTime = Math.floor((new Date().getTime() - startTime) / 1000);
-                this.elapsedTimes[actionId] = this.formatElapsedTime(elapsedTime);
-                this.startTimer(actionId);
+                this.elapsedTimes[jobId] = this.formatElapsedTime(elapsedTime);
+                this.startTimer(jobId);
             }
         }
         this.jobDisabledStatus = JSON.parse(localStorage.getItem('jobDisabledStatus')) || {};
@@ -202,8 +202,8 @@ export default {
             this.acknowledged = values[1];
         },
         async startJob(job) {
-            this.startTimer(job);
             const action = job.actions.find(a => a.name === this.actionId);
+            this.startTimer(action.id);
             this.jobDisabledStatus[action.id] = true;
 
             // Persist jobDisabledStatus to localStorage
@@ -233,8 +233,7 @@ export default {
                 }
             }
         },
-        startTimer(job) {
-            const actionId = this.getActionId(job);
+        startTimer(actionId) {
             const storedStartTimeStr = localStorage.getItem(`timer_${actionId}`);
 
             if (storedStartTimeStr) {
