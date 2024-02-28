@@ -106,10 +106,18 @@
                 <td style="background-color: gainsboro; padding: 5px 5px 5px 5px;">Total squared mm:</td>
                 <td>{{ $job->height * $job->width}}</td>
             </tr>
-            <tr>
-                <td style="background-color: gainsboro; padding: 5px 5px 5px 5px;">Material:</td>
-                <td>{{ $job->small_material->name }}</td>
-            </tr>
+            @if($job->small_material)
+                <tr>
+                    <td style="background-color: gainsboro; padding: 5px 5px 5px 5px;">Material:</td>
+                    <td>{{ $job->small_material->name }}</td>
+                </tr>
+            @endif
+            @if($job->large_material)
+                <tr>
+                    <td style="background-color: gainsboro; padding: 5px 5px 5px 5px;">Material:</td>
+                    <td>{{ $job->large_material->name }}</td>
+                </tr>
+            @endif
             <tr>
                 <td style="background-color: gainsboro; padding: 5px 5px 5px 5px;">Quantity:</td>
                 <td>{{ $job->quantity }}</td>
