@@ -152,17 +152,6 @@ class InvoiceController extends Controller
     {
         $invoice = Invoice::with(['jobs.small_material.smallFormatMaterial', 'historyLogs', 'user', 'client', 'jobs.actions', 'jobs.large_material'])->findOrFail($id);
 
-        // Check if all job actions have status 'Completed'
-        $allCompleted = $invoice->jobs->flatMap->actions->every(function ($action) {
-            return $action->status === 'Completed';
-        });
-
-        if ($allCompleted) {
-            // Update invoice status to 'Completed'
-            $invoice->status = 'Completed';
-            $invoice->save();
-        }
-
         // Append the totalPrice attribute to each job
         $invoice->jobs->each(function ($job) {
             $job->append('totalPrice');

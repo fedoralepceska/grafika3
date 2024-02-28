@@ -267,7 +267,9 @@ export default {
                 await axios.put(`/actions/${action.id}`, {
                     status: 'Completed',
                 });
-                if (job.actions.every(a => a.status === 'Completed')) {
+                const updatedJob = await axios.get(`/jobs/${job.id}`);
+
+                if (updatedJob.data.actions.every(a => a.status === 'Completed')) {
                     await axios.put(`/jobs/${job.id}`, {
                         status: 'Completed',
                     });

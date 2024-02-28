@@ -29,7 +29,7 @@ class JobController extends Controller
             'jobs' => $jobs,
         ]);
     }
-    public function show($id)
+    public function show($id): \Illuminate\Http\JsonResponse
     {
         // Retrieve the job by its ID
         $job = Job::with('actions')->find($id);
