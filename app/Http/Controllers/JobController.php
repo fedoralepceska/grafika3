@@ -467,37 +467,30 @@ class JobController extends Controller
 
             // Iterate through actions
             foreach ($actions as $action) {
-                // Count the 'In Progress' actions
-                if ($action->status === 'In Progress') {
-                    $inProgressCount++;
+                switch ($action->status) {
+                    case 'In progress':
+                        $inProgressCount++;
+                        break;
+                    case 'Not started yet':
+                        $notStartedYetCount++;
+                        break;
                 }
 
-                // Count the 'Not started yet' actions
-                if ($action->status === 'Not started yet') {
-                    $notStartedYetCount++;
-                }
 
-                // Count the 'On Hold' actions
-                $invoiceOnHold = DB::table('invoice_job')
+                // Count the 'Rush' actions and the 'On Hold' actions
+                $invoiceStatusCounts = DB::table('invoice_job')
                     ->join('invoices', 'invoices.id', '=', 'invoice_job.invoice_id')
                     ->join('job_job_action', 'job_job_action.job_id', '=', 'invoice_job.job_id')
-                    ->where('job_job_action.job_action_id', $action->id) // Include the join with job_job_action
-                    ->where('invoices.onHold', true)
-                    ->count();
+                    ->where('job_job_action.job_action_id', $action->id)
+                    ->groupBy('job_job_action.job_action_id')  // Group by job action ID
+                    ->select(DB::raw('COUNT(*) AS totalCount'),
+                        DB::raw('SUM(CASE WHEN invoices.onHold THEN 1 ELSE 0 END) AS onHoldCount'),
+                        DB::raw('SUM(CASE WHEN invoices.rush THEN 1 ELSE 0 END) AS onRushCount'))
+                    ->first();
 
-                // Count the 'Rush' actions
-                $invoiceOnRush = DB::table('invoice_job')
-                    ->join('invoices', 'invoices.id', '=', 'invoice_job.invoice_id')
-                    ->join('job_job_action', 'job_job_action.job_id', '=', 'invoice_job.job_id')
-                    ->where('job_job_action.job_action_id', $action->id) // Include the join with job_job_action
-                    ->where('invoices.rush', true)
-                    ->count();
-
-                if ($invoiceOnHold > 0) {
-                    $onHoldCount++;
-                }
-                if ($invoiceOnRush > 0) {
-                    $onRushCount++;
+                if ($invoiceStatusCounts) {
+                    $onHoldCount = $invoiceStatusCounts->onHoldCount;
+                    $onRushCount = $invoiceStatusCounts->onRushCount;
                 }
             }
 
@@ -516,10 +509,10 @@ class JobController extends Controller
                     }
 
                     // Add the counts to the array
-                    $machineCutCounts[$machineCutKey]['total'] += $inProgressCount/2;
-                    $machineCutCounts[$machineCutKey]['secondaryCount'] += $notStartedYetCount/2;
-                    $machineCutCounts[$machineCutKey]['onHoldCount'] += $onHoldCount/2;
-                    $machineCutCounts[$machineCutKey]['onRushCount'] += $onRushCount/2;
+                    $machineCutCounts[$machineCutKey]['total'] += $inProgressCount;
+                    $machineCutCounts[$machineCutKey]['secondaryCount'] += $notStartedYetCount;
+                    $machineCutCounts[$machineCutKey]['onHoldCount'] += $onHoldCount;
+                    $machineCutCounts[$machineCutKey]['onRushCount'] += $onRushCount;
 
                 }
 
@@ -537,10 +530,10 @@ class JobController extends Controller
                     }
 
                     // Add the counts to the array
-                    $machinePrintCounts[$machinePrintKey]['total'] += $inProgressCount/2;
-                    $machinePrintCounts[$machinePrintKey]['secondaryCount'] += $notStartedYetCount/2;
-                    $machinePrintCounts[$machinePrintKey]['onHoldCount'] += $onHoldCount/2;
-                    $machinePrintCounts[$machinePrintKey]['onRushCount'] += $onRushCount/2;
+                    $machinePrintCounts[$machinePrintKey]['total'] += $inProgressCount;
+                    $machinePrintCounts[$machinePrintKey]['secondaryCount'] += $notStartedYetCount;
+                    $machinePrintCounts[$machinePrintKey]['onHoldCount'] += $onHoldCount;
+                    $machinePrintCounts[$machinePrintKey]['onRushCount'] += $onRushCount;
 
                 }
             }
