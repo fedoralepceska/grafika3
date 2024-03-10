@@ -81,7 +81,7 @@ export default {
     methods: {
         addClient() {
             const toast = useToast();
-            axios.defaults.baseURL = "http://127.0.0.1:8000";
+            axios.defaults.baseURL = "http://srv491327.hstgr.cloud";
             axios
                 .post('/clients', this.client)
                 .then((response) => {
