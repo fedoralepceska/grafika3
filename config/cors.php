@@ -17,17 +17,36 @@ return [
 
     'paths' => ['api/*', 'sanctum/csrf-cookie'],
 
-    'allowed_methods' => ['*'],
+    'allowed_origins' => [
+        'srv491327.hstgr.cloud',
+        'srv491327.hstgr.cloud/',
+    ],
 
-    'allowed_origins' => ['*'],
+    'allowed_methods' => [
+        'GET',
+        'POST',
+        'PUT',
+        'PATCH',
+        'DELETE',
+        'OPTIONS',
+    ],
+
 
     'allowed_origins_patterns' => [],
 
-    'allowed_headers' => ['*'],
+    'allowed_headers' => [
+        'Content-Type',
+        'X-Auth-Token',
+        'X-Requested-With',
+        'Origin',
+        'Authorization',
+    ],
 
-    'exposed_headers' => [],
+    'exposed_headers' => [
+        'Authorization',
+    ],
 
-    'max_age' => 0,
+    'max_age' => 3000,
 
     'supports_credentials' => false,
 
