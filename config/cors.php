@@ -18,8 +18,7 @@ return [
     'paths' => ['api/*', 'sanctum/csrf-cookie'],
 
     'allowed_origins' => [
-        'srv491327.hstgr.cloud',
-        'srv491327.hstgr.cloud/',
+        'srv491327.hstgr.cloud'
     ],
 
     'allowed_methods' => [
