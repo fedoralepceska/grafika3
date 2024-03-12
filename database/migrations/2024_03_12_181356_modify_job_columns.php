@@ -12,12 +12,7 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('jobs', function (Blueprint $table) {
-            $table->float('width')->nullable()->change();
-            $table->float('height')->nullable()->change();
-            $table->integer('estimatedTime')->nullable()->change();
-            $table->string('shippingInfo')->nullable()->change();
-            $table->integer('quantity')->nullable()->change();
-            $table->integer('copies')->nullable()->change();
+            $table->integer('invoice_id')->nullable()->change();
         });
     }
 
@@ -27,12 +22,7 @@ return new class extends Migration
     public function down(): void
     {
         Schema::table('jobs', function (Blueprint $table) {
-            $table->float('width')->nullable(false)->change();
-            $table->float('height')->nullable(false)->change();
-            $table->integer('estimatedTime')->nullable(false)->change();
-            $table->string('shippingInfo')->nullable(false)->change();
-            $table->integer('quantity')->nullable(false)->change();
-            $table->integer('copies')->nullable(false)->change();
+            $table->integer('invoice_id')->nullable(false)->change();
         });
     }
 };
