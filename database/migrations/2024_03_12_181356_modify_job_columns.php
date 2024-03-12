@@ -14,13 +14,10 @@ return new class extends Migration
         Schema::table('jobs', function (Blueprint $table) {
             $table->float('width')->nullable()->change();
             $table->float('height')->nullable()->change();
-            $table->string('file');
-            $table->string('originalFile');
             $table->integer('estimatedTime')->nullable()->change();
             $table->string('shippingInfo')->nullable()->change();
             $table->integer('quantity')->nullable()->change();
             $table->integer('copies')->nullable()->change();
-            $table->double('price')->nullable()->change();
         });
     }
 
@@ -36,7 +33,6 @@ return new class extends Migration
             $table->string('shippingInfo')->nullable(false)->change();
             $table->integer('quantity')->nullable(false)->change();
             $table->integer('copies')->nullable(false)->change();
-            $table->double('price')->nullable(false)->change();
         });
     }
 };
