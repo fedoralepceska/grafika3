@@ -89,6 +89,17 @@ export default {
                         },
                     ],
                 },
+                {
+                    href: '',
+                    title: 'Finances',
+                    icon: 'fa-solid fa-file-invoice-dollar',
+                    child: [
+                        {
+                            href: '/notInvoiced',
+                            title: 'Uninvoiced Orders',
+                        },
+                    ],
+                },
             ],
         }
     },

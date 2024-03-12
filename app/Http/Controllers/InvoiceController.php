@@ -358,4 +358,65 @@ class InvoiceController extends Controller
         $pdf = PDF::loadView('invoices.pdf', compact('invoice'));
         return $pdf->stream('invoice-' . $invoice->invoice_number . '.pdf');
     }
+
+    public function invoiceReady(Request $request){
+        try {
+            $query = Invoice::with(['jobs', 'user', 'client'])
+                ->where('status', 'Completed'); // Filter by 'Completed' status
+
+            $this->applySearch($query, $request, $request->input('status'));
+
+            $query->orderBy('created_at', $request->input('sortOrder', 'desc'));
+
+            $invoices = $query->latest()->paginate(10);
+
+            if ($request->wantsJson()) {
+                return response()->json($invoices);
+            }
+
+            return Inertia::render('Finance/Index', [
+                'invoices' => $invoices,
+            ]);
+        } catch (\Exception $e) {
+            Log::error($e->getMessage());
+
+            return response()->json(['error' => 'Internal Server Error'], 500);
+        }
+    }
+    public function showGenerateInvoice(Request $request)
+    {
+        try {
+            $invoiceIds = explode(',', $request->query('invoices'));
+
+            $invoices = Invoice::with('jobs.small_material.smallFormatMaterial','jobs', 'user', 'client','jobs.actions', 'jobs.large_material')->whereIn('id', $invoiceIds)->get();
+
+            $invoices->each(function ($invoice) {
+                $invoice->jobs->each(function ($job) {
+                    $job->append('totalPrice');
+                });
+            });
+
+            // Prepare data as an object
+            $invoiceData = $invoices->reduce(function ($acc, $invoice) {
+                $acc[$invoice->id] = [
+                    'id' => $invoice->id,
+                    'invoice_title' => $invoice->invoice_title,
+                    'client' => $invoice->client->name,
+                    'jobs' => $invoice->jobs,
+                    'user'=>$invoice->user->name,
+                    'start_date' => $invoice->start_date,
+                    'end_date' => $invoice->end_date,
+                    'status' => $invoice->status,
+                    // ... other invoice data ...
+                ];
+                return $acc;
+            }, []);
+
+            return Inertia::render('Finance/GenerateInvoice', [
+                'invoiceData' => $invoiceData,
+            ]);
+        } catch (\Exception $e) {
+            // ... handle error ...
+        }
+    }
 }
