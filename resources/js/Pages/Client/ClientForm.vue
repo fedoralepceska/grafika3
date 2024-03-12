@@ -82,7 +82,7 @@ export default {
         addClient() {
             const toast = useToast();
             axios
-                .post(route('clients.store'), this.client)
+                .post('/clients', this.client)
                 .then((response) => {
                     toast.success("Client added successfully.")
 
