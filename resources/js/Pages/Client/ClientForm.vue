@@ -81,9 +81,8 @@ export default {
     methods: {
         addClient() {
             const toast = useToast();
-            axios.defaults.baseURL = "http://srv491327.hstgr.cloud";
             axios
-                .post('/clients', this.client)
+                .post(route('clients.store'), this.client)
                 .then((response) => {
                     toast.success("Client added successfully.")
 
