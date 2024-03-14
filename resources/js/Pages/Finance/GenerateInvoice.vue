@@ -8,11 +8,12 @@
             </div>
             <div class="left-column flex-1" style="width: 25%">
                 <div class="flex justify-between">
+                    {{ invoiceData }}
                     <Header title="invoice2" subtitle="invoiceGeneration" icon="invoice.png" link="notInvoiced"/>
                     <div class="flex pt-4">
                         <div class="buttons pt-3">
                             <button class="btn comment-order">Add Comment <i class="fa-regular fa-comment"></i></button>
-                            <button  class="btn generate-invoice">Generate Invoice <i class="fa-solid fa-file-invoice-dollar"></i></button>
+                            <button  class="btn generate-invoice" @click="generateInvoice">Generate Invoice <i class="fa-solid fa-file-invoice-dollar"></i></button>
                         </div>
                     </div>
                 </div>
@@ -30,11 +31,11 @@
                                     <div class="bold">{{ invoiceData.client }}</div>
                                 </div>
                                 <div class="info">
-                                    <div>{{ $t('Start Date') }}</div>
+                                    <div>{{ $t('startDate') }}</div>
                                     <div class="bold">{{ invoiceData?.start_date }}</div>
                                 </div>
                                 <div class="info">
-                                    <div>{{ $t('End Date') }}</div>
+                                    <div>{{ $t('endDate') }}</div>
                                     <div class="bold">{{ invoiceData?.end_date }}</div>
                                 </div>
                                 <div class="info">
@@ -54,7 +55,7 @@
                         </div>
                     </div>
                     <div class="form-container  light-gray mt-2">
-                        <div class="sub-title pl-2 ">{{$t('OrderLines')}}</div>
+                        <div class="sub-title pl-2 ">{{$t('orderLines')}}</div>
                         <div v-for="(job, index) in invoiceData.jobs" v-if="spreadsheetMode">
                             <div class="jobDetails p-2">
                                 <div class="border">
@@ -64,12 +65,12 @@
                                         </div>
                                             <img :src="`/storage/uploads/${job.file}`" alt="Job Image" class="jobImg thumbnail"/>
                                         <div>{{job.file}}</div>
-                                        <div>{{$t('Height')}}: <span class="bold">{{job.height}}</span> </div>
-                                        <div>{{$t('Width')}}: <span class="bold">{{job.width}}</span> </div>
-                                        <div>{{$t('Quantity')}}: <span class="bold">{{job.quantity}}</span> </div>
-                                        <div>{{$t('Copies')}}: <span class="bold">{{job.copies}}</span> </div>
+                                        <div>{{$t('height')}}: <span class="bold">{{job.height}}</span> </div>
+                                        <div>{{$t('width')}}: <span class="bold">{{job.width}}</span> </div>
+                                        <div>{{$t('quantity')}}: <span class="bold">{{job.quantity}}</span> </div>
+                                        <div>{{$t('copies')}}: <span class="bold">{{job.copies}}</span> </div>
                                         <div>
-                                            {{$t('Material')}}:
+                                            {{$t('material')}}:
                                             <span class="bold">
                                             <span v-if="job.large_material_id">{{ job.large_material?.name }}</span>
                                             <span v-else>{{ job?.small_material?.name }}</span>
@@ -118,7 +119,7 @@
 <script>
 import MainLayout from "@/Layouts/MainLayout.vue";
 import axios from "axios";
-import {useToast} from "vue-toastification";
+import Toast, {useToast} from "vue-toastification";
 import OrderJobDetails from "@/Pages/Invoice/OrderJobDetails.vue";
 import OrderSpreadsheet from "@/Components/OrderSpreadsheet.vue";
 import Header from "@/Components/Header.vue";
@@ -157,7 +158,7 @@ export default {
             openDialog: false
         }
     },
-        methods: {
+    methods: {
         toggleSidebar() {
             this.isSidebarVisible = !this.isSidebarVisible;
         },
@@ -167,6 +168,30 @@ export default {
         generatePdf(invoiceId) {
             window.open(`/orders/${invoiceId}/pdf`, '_blank');
         },
+        async generateInvoice() {
+            const toast = useToast();
+            try {
+                // Your array of order ids
+                // These are the main orders, naming is strange
+                const orderIds = Object.values(this.invoiceData).map(order => order.id);
+
+                // Send a POST request to your Laravel backend
+                const response = await axios.post('/generate-invoice', {
+                    orders: orderIds
+                });
+
+                if (response.data.invoice_id) {
+                    this.$inertia.visit(`/invoice/${response.data.invoice_id}`);
+                }
+
+                // Handle successful response here (if needed)
+                toast.success('Invoice generated successfully');
+            } catch (error) {
+                // Handle errors here (if needed)
+                console.log(error);
+                toast.error('Error generating invoice!');
+            }
+        }
     },
 };
 </script>

@@ -4,9 +4,11 @@ namespace App\Http\Controllers;
 
 use App\Enums\JobAction;
 use App\Events\InvoiceCreated;
+use App\Models\Faktura;
 use App\Models\Invoice;
 use App\Models\Job;
 use Barryvdh\DomPDF\Facade\Pdf;
+use Exception;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
@@ -417,6 +419,60 @@ class InvoiceController extends Controller
             ]);
         } catch (\Exception $e) {
             // ... handle error ...
+        }
+    }
+
+    public function generateInvoice(Request $request)
+    {
+        $invoiceIds = $request->input('orders');
+
+        try {
+            // Start a database transaction
+            DB::beginTransaction();
+
+            // Create a new Faktura instance
+            $faktura = Faktura::create([
+                'isInvoiced' => true,
+                'comment' => 'test'
+            ]);
+
+            // Retrieve the Invoice instances based on the provided IDs
+            $invoices = Invoice::find($invoiceIds);
+
+            // Associate the retrieved Invoice instances with the new Faktura
+            $faktura->invoices()->saveMany($invoices);
+
+            // Commit the transaction
+            DB::commit();
+
+            // Return success response
+            return response()->json([
+                'message' => 'Faktura created successfully',
+                'invoice_id' => $faktura->id
+            ], 200);
+        } catch (\Exception $e) {
+            // Rollback the transaction in case of error
+            DB::rollback();
+            dd($e);
+
+            // Return error response
+            return response()->json(['error' => 'Failed to create Faktura'], 500);
+        }
+    }
+
+    public function getGeneratedInvoice($id)
+    {
+        try {
+            // Find the Faktura by its ID
+            $faktura = Faktura::findOrFail($id);
+
+            // Return the found Faktura along with the Invoice.vue page
+            return Inertia::render('Finance/Invoice', [
+                'invoice' => $faktura
+            ]);
+        } catch (Exception $e) {
+            // If Faktura with the given ID is not found, return error response
+            return response()->json(['error' => 'Invoice not found'], 404);
         }
     }
 }
