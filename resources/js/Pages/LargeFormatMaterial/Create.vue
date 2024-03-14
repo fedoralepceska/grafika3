@@ -64,7 +64,6 @@ export default {
     methods: {
         addMaterial() {
             const toast = useToast();
-            axios.defaults.baseURL = "http://127.0.0.1:8000";
             axios
                 .post('/materials-large', this.material)
                 .then((response) => {

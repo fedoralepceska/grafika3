@@ -115,7 +115,6 @@ export default {
     methods: {
         addMaterial() {
             const toast = useToast();
-            axios.defaults.baseURL = "http://127.0.0.1:8000";
             axios
                 .post('/materials-small-format', this.material)
                 .then((response) => {
@@ -128,7 +127,6 @@ export default {
         },
         addMaterialSmall() {
             const toast = useToast();
-            axios.defaults.baseURL = "http://127.0.0.1:8000";
             axios
                 .post('/materials-small', this.materialSmall)
                 .then((response) => {
@@ -140,7 +138,6 @@ export default {
                 });
         },
         async getSFMaterials() {
-            axios.defaults.baseURL = "http://127.0.0.1:8000";
             const response = await axios.get('/get-sf-materials');
             this.formatsSF = response.data;
             return response.data;
