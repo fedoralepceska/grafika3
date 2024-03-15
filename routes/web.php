@@ -46,7 +46,7 @@ Route::middleware('auth')->group(function () {
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
 });
 
-//Rotues For Invoices
+//Rotues For Invoices and Orders
 Route::resource('invoices', \App\Http\Controllers\InvoiceController::class)
     ->only(['index', 'store'])
     ->middleware(['auth', 'verified']);
@@ -54,6 +54,7 @@ Route::middleware(['auth', 'verified'])->group(function() {
     Route::get('/orders', [InvoiceController::class, 'index'])->name('invoices.index');
     Route::get('/notInvoiced', [InvoiceController::class, 'invoiceReady'])->name('invoices.invoiceReady');
     Route::get('/invoiceGeneration',  [InvoiceController::class, 'showGenerateInvoice'])->name('invoices.showGenerateInvoice');
+    Route::get('/allInvoices',  [InvoiceController::class, 'allFaktura'])->name('invoices.allFaktura');
     Route::post('/generate-invoice',  [InvoiceController::class, 'generateInvoice'])->name('invoices.generateInvoice');
     Route::get('orders/latest', [InvoiceController::class, 'latest'])->name('invoices.latest');
     Route::get('/orders/create', [InvoiceController::class, 'create'])->name('invoices.create');

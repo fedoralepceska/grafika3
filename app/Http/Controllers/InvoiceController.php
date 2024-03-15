@@ -464,15 +464,78 @@ class InvoiceController extends Controller
     {
         try {
             // Find the Faktura by its ID
-            $faktura = Faktura::findOrFail($id);
+            $faktura = Faktura::with('invoices.jobs.small_material.smallFormatMaterial', 'invoices.user', 'invoices.client', 'invoices.jobs.actions', 'invoices.jobs.large_material')->findOrFail($id);
 
-            // Return the found Faktura along with the Invoice.vue page
+            $faktura->invoices->each(function ($invoice) {
+                $invoice->jobs->each(function ($job) {
+                    $job->append('totalPrice');
+                });
+            });
+
+            // Prepare data as an object
+            $invoiceData = $faktura->invoices->map(function ($invoice) {
+                return [
+                    'id' => $invoice->id,
+                    'invoice_title' => $invoice->invoice_title,
+                    'client' => $invoice->client->name,
+                    'jobs' => $invoice->jobs,
+                    'user' => $invoice->user->name,
+                    'start_date' => $invoice->start_date,
+                    'end_date' => $invoice->end_date,
+                    'status' => $invoice->status,
+                    // ... other invoice data ...
+                ];
+            });
+
             return Inertia::render('Finance/Invoice', [
-                'invoice' => $faktura
+                'invoice' => $invoiceData,
             ]);
         } catch (Exception $e) {
             // If Faktura with the given ID is not found, return error response
             return response()->json(['error' => 'Invoice not found'], 404);
+        }
+    }
+    public function allFaktura(Request $request)
+    {
+        try {
+            $query = Faktura::where('isInvoiced', true); // Filter for generated Fakturas
+
+            // Apply search query if provided
+            if ($request->has('searchQuery')) {
+                $searchQuery = $request->input('searchQuery');
+                $query->where('id', 'like', "%{$searchQuery}%");
+            }
+
+            // Apply filter client if provided
+            if ($request->has('client') && $request->input('client') !== 'All') {
+                $client = $request->input('client');
+                $query->whereHas('invoices.client', function ($q) use ($client) {
+                    $q->where('name', $client);
+                });
+            }
+
+            // Apply sort order
+            $sortOrder = $request->input('sortOrder', 'desc');
+            $query->orderBy('created_at', $sortOrder);
+
+
+            // Apply pagination with 10 results per page
+            $fakturas = $query->paginate(10);
+
+            // Eager load invoices with related models
+            $fakturas->load('invoices.jobs', 'invoices.user', 'invoices.client');
+
+            // Handle AJAX requests for JSON responses
+            if ($request->wantsJson()) {
+                return response()->json($fakturas);
+            }
+
+            return Inertia::render('Finance/AllInvoices', [
+                'fakturas' => $fakturas,
+            ]);
+        } catch (\Exception $e) {
+            Log::error($e->getMessage());
+            return response()->json(['error' => 'Internal Server Error'], 500);
         }
     }
 }

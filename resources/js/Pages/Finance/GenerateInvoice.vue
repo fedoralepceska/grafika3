@@ -8,10 +8,13 @@
             </div>
             <div class="left-column flex-1" style="width: 25%">
                 <div class="flex justify-between">
-                    {{ invoiceData }}
                     <Header title="invoice2" subtitle="invoiceGeneration" icon="invoice.png" link="notInvoiced"/>
                     <div class="flex pt-4">
                         <div class="buttons pt-3">
+                            <button class="btn comment-order" @click="toggleSpreadsheetMode">
+                                {{ spreadsheetMode ?  'Edit' : 'Exit Edit Mode' }}
+                                <i class="fa-regular fa-edit"></i>
+                            </button>
                             <button class="btn comment-order">Add Comment <i class="fa-regular fa-comment"></i></button>
                             <button  class="btn generate-invoice" @click="generateInvoice">Generate Invoice <i class="fa-solid fa-file-invoice-dollar"></i></button>
                         </div>
@@ -45,11 +48,6 @@
                                 <div class="info">
                                     <div>Status</div>
                                     <span class="bold green-text">{{ invoiceData.status }}</span>
-                                </div>
-                                <div class="btns flex gap-2">
-                                    <div class="bt" @click="toggleSpreadsheetMode"
-                                         :class="{'text-white': spreadsheetMode, 'green-text': !spreadsheetMode}"
-                                    ><i class="fa-solid fa-table"></i></div>
                                 </div>
                             </div>
                         </div>
@@ -123,9 +121,6 @@ import Toast, {useToast} from "vue-toastification";
 import OrderJobDetails from "@/Pages/Invoice/OrderJobDetails.vue";
 import OrderSpreadsheet from "@/Components/OrderSpreadsheet.vue";
 import Header from "@/Components/Header.vue";
-import OrderHistory from "@/Pages/Invoice/OrderHistory.vue";
-import AddNoteDialog from "@/Components/AddNoteDialog.vue";
-import AddLockNoteDialog from "@/Components/AddLockNoteDialog.vue";
 
 export default {
     components: {

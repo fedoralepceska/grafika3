@@ -95,6 +95,10 @@ export default {
                     icon: 'fa-solid fa-file-invoice-dollar',
                     child: [
                         {
+                            href: '/allInvoices',
+                            title: 'Invoiced Orders',
+                        },
+                        {
                             href: '/notInvoiced',
                             title: 'Uninvoiced Orders',
                         },
