@@ -12,14 +12,23 @@ class ClientController extends Controller
     /**
      * Display a listing of the resource.
      */
-    public function index()
+    public function index(Request $request)
     {
-        $clients = Client::with('contacts')->get();
+        $perPage = $request->query('per_page', 10); // Use default of 10 if not provided
+        $clients = Client::with('contacts');
+
+        // Apply search filtering (explained later)
+        $clients = $this->applySearch($clients, $request);
+
+        $clients = $clients->paginate($perPage);
+
         if (request()->wantsJson()) {
             return response()->json($clients);
         }
+
         return Inertia::render('Client/Index', [
-            'clients' => $clients
+            'clients' => $clients,
+            'perPage' => $perPage, // Pass perPage value to the view
         ]);
     }
     /**
@@ -122,5 +131,18 @@ class ClientController extends Controller
         $client->delete();
 
         return redirect()->route('clients.index');
+    }
+
+    private function applySearch($query, Request $request)
+    {
+        $search = $request->get('search');
+
+        if ($search) {
+            $query->where(function ($q) use ($search) {
+                $q->where('name', 'like', "%$search%");
+            });
+        }
+
+        return $query;
     }
 }

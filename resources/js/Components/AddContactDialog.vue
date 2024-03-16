@@ -1,4 +1,5 @@
 <template>
+    <div class="d-flex justify-center align-center">
     <v-row>
         <v-dialog
             v-model="dialog"
@@ -32,6 +33,7 @@
             </v-card>
         </v-dialog>
     </v-row>
+    </div>
 </template>
 
 <script>

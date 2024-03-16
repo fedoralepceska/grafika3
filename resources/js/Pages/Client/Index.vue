@@ -1,59 +1,70 @@
 <template>
     <MainLayout>
         <div class="pl-7 pr-7">
-                    <div class="header pt-3 pb-4">
-                        <div class="left mr-3">
-                            <img src="/images/UserLogo.png" alt="UserLogo" class="image-icon" />
+            <Header title="client" subtitle="allClients" icon="UserLogo.png" link="clients"/>
+            <div class="form-container p15">
+                <div class="dark-gray p-5 text-white">
+                    <div class="form-container p-2 light-gray">
+                        <h2 class="sub-title">
+                            {{ $t('allClients') }}
+                        </h2>
+                        <div class="search-container p-3 flex">
+                            <input type="text" class="text-black rounded" v-model="search" @keyup="fetchClients" placeholder="Search by clients name">
+                            <div class="centered mr-1 ml-4 ">Clients per page</div>
+                            <div class="ml-3">
+                                <select v-model="perPage" class="rounded text-black" @change="fetchClients">
+                                    <option value="5">5 per page</option>
+                                    <option value="10">10 per page</option>
+                                    <option value="20">20 per page</option>
+                                    <option value="0">Show All</option>
+                                </select>
+                            </div>
                         </div>
-                        <div class="right">
-                            <h1 class="page-title">{{ $t('client') }}</h1>
-                            <h3 class="text-white"> <span class="green-text">{{ $t('client') }}</span> / {{ $t('allClients') }}</h3>
-                        </div>
-                    </div>
-                <div class="form-container p15">
-                    <div class="dark-gray p-5 text-white">
-                        <div class="form-container p-2 light-gray">
-                            <h2 class="sub-title">
-                                {{ $t('allClients') }}
-                            </h2>
-                            <table style="text-align: center">
-                                <thead>
-                                <tr>
-                                    <th>Client Name</th>
-                                    <th>Address</th>
-                                    <th>City</th>
-                                    <th>Contacts</th>
-                                    <th>Delete</th>
-                                </tr>
-                                </thead>
-                                <tbody>
-                                <template v-for="client in clients">
-                                    <tr>
-                                        <td class="company">
-                                            {{ client.name }}
-                                        </td>
-                                        <td class="company">
-                                            {{ client.address }}
-                                        </td>
-                                        <td class="company">
-                                            {{ client.city }}
-                                        </td>
-                                        <td class="centered">
-                                            <div>
-                                            <ViewContactsDialog :client="client"/>
-                                            </div>
-                                        </td>
-                                        <td>
-                                            <SecondaryButton @click="deleteClient(client)" class="delete">Delete</SecondaryButton>
-                                        </td>
-                                    </tr>
-                                </template>
-                                </tbody>
-                            </table>
+                        <table style="text-align: center">
+                            <thead>
+                            <tr>
+                                <th>Client Name</th>
+                                <th>Address</th>
+                                <th>City</th>
+                                <th>Contacts</th>
+                                <th>New Contact</th>
+                                <th>Delete</th>
+                            </tr>
+                            </thead>
+                            <tbody>
 
-                        </div>
+                            <template v-for="client in fetchedClients.data" :key="client.id">
+                                <tr>
+                                    <td class="company">
+                                        {{ client.name }}
+                                    </td>
+                                    <td class="company">
+                                        {{ client.address }}
+                                    </td>
+                                    <td class="company">
+                                        {{ client.city }}
+                                    </td>
+                                    <td>
+                                        <div class="centered">
+                                            <ViewContactsDialog :client="client"/>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <div class="centered">
+                                            <AddContactDialog :client="client"/>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <SecondaryButton @click="deleteClient(client)" class="delete">Delete</SecondaryButton>
+                                    </td>
+                                </tr>
+                            </template>
+                            </tbody>
+                        </table>
+                        <Pagination :pagination="clients"/>
                     </div>
                 </div>
+            </div>
         </div>
     </MainLayout>
 </template>
@@ -64,6 +75,8 @@ import SecondaryButton from "@/Components/buttons/SecondaryButton.vue";
 import axios from "axios";
 import AddContactDialog from "@/Components/AddContactDialog.vue";
 import ViewContactsDialog from "@/Components/ViewContactsDialog.vue";
+import Pagination from "@/Components/Pagination.vue"
+import Header from "@/Components/Header.vue";
 
 export default {
     components: {
@@ -71,7 +84,9 @@ export default {
         AddContactDialog,
         MainLayout,
         PrimaryButton,
-        SecondaryButton
+        SecondaryButton,
+        Pagination,
+        Header
     },
     props: {
         clients: Array, // Pass the list of materials as a prop
@@ -80,15 +95,20 @@ export default {
         return {
             editMode: false,
             clientExpanded: null,
+            search: '',
+            fetchedClients: [],
+            perPage: 10,
         };
     },
     methods: {
-        toggleRow(id) {
-            if (this.clientExpanded === id) {
-                this.clientExpanded = null;
-            } else {
-                this.clientExpanded = id;
-            }
+        async fetchClients(page = 1) {
+            const params = {
+                page,
+                ...(this.search ? { search: this.search } : {}), // Include search parameter if available
+                per_page: this.perPage,
+            };
+            const response = await axios.get('/clients', { params });
+            this.fetchedClients = response.data;
         },
         async deleteClient(client) {
             const confirmed = confirm('Are you sure you want to delete this client?');
@@ -120,6 +140,10 @@ export default {
                 console.error('Error deleting client:', error);
             }
         },
+
+    },
+    mounted() {
+        this.fetchClients();
     }
 };
 </script>
