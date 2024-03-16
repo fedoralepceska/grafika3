@@ -75,7 +75,7 @@
                                     <div>Status</div>
                                     <div :class="getStatusColorClass(invoice.status)" class="bold" >{{invoice.status}}</div>
                                 </div>
-                                <div v-if="invoice.LockedNote" class="locked">
+                                <div v-if="invoice.LockedNote" class="info locked">
                                     <ViewLockDialog :invoice="invoice"/>
                                 </div>
                             </div>
@@ -230,6 +230,13 @@ export default {
 };
 </script>
 <style scoped lang="scss">
+.info {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
 .jobInfo{
     justify-items: center;
     align-items: center;
