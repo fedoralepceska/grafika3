@@ -81,6 +81,7 @@ export default {
 
                 return response.data.job;
             } catch (error) {
+                console.log('test', error);
                 return error;
             }
         },

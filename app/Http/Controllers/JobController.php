@@ -12,6 +12,7 @@ use App\Models\SmallMaterial;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 use Imagick;
 use Inertia\Inertia;
 
@@ -40,6 +41,11 @@ class JobController extends Controller
 
         return response()->json($job);
     }
+
+    /**
+     * @throws \ImagickException
+     * @throws ValidationException
+     */
     public function store(Request $request)
     {
         // Validate the request data
