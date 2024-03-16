@@ -230,6 +230,13 @@ export default {
 };
 </script>
 <style scoped lang="scss">
+.info {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
 .jobInfo{
     justify-items: center;
     align-items: center;

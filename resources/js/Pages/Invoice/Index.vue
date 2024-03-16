@@ -12,6 +12,7 @@
                             <input v-model="searchQuery" placeholder="Enter order number or order name" class="text-black" style="width: 50vh; border-radius: 3px" @keyup.enter="searchInvoices" />
                             <button class="btn create-order1" @click="searchInvoices">Search</button>
                         </div>
+                        <div class="flex gap-2">
                         <div class="status">
                             <label class="pr-3">Filter orders</label>
                             <select v-model="filterStatus" class="text-black" >
@@ -35,6 +36,7 @@
                                 <option value="desc">Newest to Oldest</option>
                                 <option value="asc">Oldest to Newest</option>
                             </select>
+                        </div>
                         </div>
                         <div class="button flex gap-3">
                             <button @click="applyFilter" class="btn create-order1">Filter</button>
@@ -230,6 +232,17 @@ export default {
 };
 </script>
 <style scoped lang="scss">
+.info {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+
+}
+.filter-container{
+    justify-content: space-between;
+}
 .jobInfo{
     justify-items: center;
     align-items: center;
