@@ -381,7 +381,8 @@ input[data-v-81b90cf3], select[data-v-81b90cf3]{
     max-width: 1000px;
     justify-content: left;
     align-items: center;
-    min-height: 20vh;
+    height: 90%;
+    min-height: 80%;
     padding: 5px;
     box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
 }

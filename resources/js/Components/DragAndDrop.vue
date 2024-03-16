@@ -14,7 +14,7 @@
                         <button @click="browseForFiles" class="bg-white rounded text-black py-2 px-5">{{ $t('browse') }}</button>
                     </div>
                 </div>
-                <div class="ultra-light-gray rounded flex  justify-between text-center m-6 ">
+                <div class="fbox ultra-light-gray rounded flex  justify-between text-center m-6">
                     <div class="text-white flex-wrap align-center d-flex p-2">Files: {{ jobs.length }}
                         Uploaded: {{ calculateTotalFileSize() }}MB<br>
                     </div>
@@ -185,9 +185,12 @@ export default {
 .ultra-light-gray{
     background-color: $ultra-light-gray;
 }
-
+.fbox{
+    margin-bottom: 45.5px;
+}
 .FileBox{
-    min-height: 41vh;
+    min-height: 90%;
+    max-height: 600px;
     border-radius: 5px;
     box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
     margin: 0 auto;
