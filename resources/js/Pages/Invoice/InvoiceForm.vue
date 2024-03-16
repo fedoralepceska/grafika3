@@ -269,7 +269,7 @@ export default {
 
 <style scoped lang="scss">
 input[data-v-81b90cf3], select[data-v-81b90cf3]{
-    width: 25vh;
+    width: 70%;
     border-radius: 3px;
 }
 .bold{
@@ -278,7 +278,11 @@ input[data-v-81b90cf3], select[data-v-81b90cf3]{
 .light-gray{
     background-color: $light-gray;
 }
+.left{
+    width: 900%;
+    max-width: 860px;
 
+}
 .slide-fade-enter-active, .slide-fade-leave-active {
     transition: max-height 0.5s ease-in-out;
 }
@@ -355,10 +359,11 @@ input[data-v-81b90cf3], select[data-v-81b90cf3]{
     display: flex;
 }
 .left2{
-    width: 38%;
+    width: auto;
 }
 .right2{
-    width: 63%;
+    min-width: 63%;
+    width: 90%;
 }
 .Order,.orderInfo {
     box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);

@@ -39,6 +39,7 @@ export default {
 
 }
 .tabs__header{
+    justify-content: center;
     margin-bottom: 10px;
     list-style: none;
     padding: 0;
@@ -46,6 +47,7 @@ export default {
 }
 
 .tabs__header li {
+    width: 90%;
     min-width: 260px;
     text-align: center;
     padding: 10px 20px;
