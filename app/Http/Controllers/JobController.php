@@ -46,9 +46,9 @@ class JobController extends Controller
     {
         try {
             // Validate the request data
-//            $this->validate($request, [
-//                'file' => 'required|mimetypes:image/tiff,application/pdf', // Ensure the file is an image
-//            ]);
+            $this->validate($request, [
+                'file' => 'required|mimetypes:image/tiff,application/pdf', // Ensure the file is an image
+            ]);
 
             // Handle file upload and storage
             if ($request->hasFile('file')) {
