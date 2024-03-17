@@ -42,68 +42,67 @@ class JobController extends Controller
         return response()->json($job);
     }
 
-    /**
-     * @throws \ImagickException
-     * @throws ValidationException
-     */
     public function store(Request $request)
     {
-        // Validate the request data
-        $this->validate($request, [
-            'file' => 'required|mimetypes:image/tiff,application/pdf', // Ensure the file is an image
-        ]);
+        try {
+            // Validate the request data
+            $this->validate($request, [
+                'file' => 'required|mimetypes:image/tiff,application/pdf', // Ensure the file is an image
+            ]);
 
-        // Handle file upload and storage
-        if ($request->hasFile('file')) {
-            $file = $request->file('file');
-            $fileExtension = $file->getClientOriginalExtension();
-            $pdfPath = $file->store('public/uploads', ['disk' => 'local']); // Store the PDF file
+            // Handle file upload and storage
+            if ($request->hasFile('file')) {
+                $file = $request->file('file');
+                $fileExtension = $file->getClientOriginalExtension();
+                $pdfPath = $file->store('public/uploads', ['disk' => 'local']); // Store the PDF file
 
-            if ($fileExtension === 'tiff' || $fileExtension === 'tif') {
-                // Handle TIFF file conversion to an image
-                $imagick = new Imagick();
-                $imagick->readImage($file->getPathname()); // Read the TIFF file
-                $imagick->setImageFormat('jpg'); // Convert TIFF to JPG (you can use other formats too)
-                $imageFilename = pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME) . '.jpg'; // Unique image file name
-                $imagick->writeImage(storage_path('app/public/uploads/' . $imageFilename)); // Save the image
-                $imagick->clear();
+                if ($fileExtension === 'tiff' || $fileExtension === 'tif') {
+                    // Handle TIFF file conversion to an image
+                    $imagick = new Imagick();
+                    $imagick->readImage($file->getPathname()); // Read the TIFF file
+                    $imagick->setImageFormat('jpg'); // Convert TIFF to JPG (you can use other formats too)
+                    $imageFilename = pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME) . '.jpg'; // Unique image file name
+                    $imagick->writeImage(storage_path('app/public/uploads/' . $imageFilename)); // Save the image
+                    $imagick->clear();
 
-                // Create a new job
-                $job = new Job();
-                $job->file = $imageFilename; // Store the image file name
+                    // Create a new job
+                    $job = new Job();
+                    $job->file = $imageFilename; // Store the image file name
 
-                // Set other job properties if needed
+                    // Set other job properties if needed
 
-                $job->save(); // Save the job to the database
-                return response()->json(['message' => 'Job created successfully', 'job' => $job]);
+                    $job->save(); // Save the job to the database
+                    return response()->json(['message' => 'Job created successfully', 'job' => $job]);
+                } elseif ($fileExtension === 'pdf') {
+                    $imagick = new Imagick();
+                    $imagick->setOption('gs', "C:\Program Files\gs\gs10.02.0");
+                    $imagick->readImage($file->getPathname() . '[0]'); // Read the first page of the PDF
+                    $imagick->setImageFormat('jpg'); // Convert PDF to JPG (you can use other formats too)
+                    $imageFilename = pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME) . '.jpg'; // Unique image file name
+                    $imagick->writeImage(storage_path('app/public/uploads/' . $imageFilename)); // Save the image
+                    $imagick->clear();
+
+                    // Create a new job
+                    $job = new Job();
+                    $job->file = $imageFilename; // Store the image file name
+                    $job->originalFile = $pdfPath;
+
+                    // Set other job properties if needed
+
+                    $job->save(); // Save the job to the database
+
+                    // Attach the job to the user or invoice as needed
+
+                    return response()->json(['message' => 'Job created successfully', 'job' => $job]);
+                }
+            } else {
+                return response()->json(['message' => 'File not provided'], 400);
             }
-
-            elseif ($fileExtension === 'pdf') {
-                $imagick = new Imagick();
-                $imagick->setOption('gs', "C:\Program Files\gs\gs10.02.0");
-                $imagick->readImage($file->getPathname() . '[0]'); // Read the first page of the PDF
-                $imagick->setImageFormat('jpg'); // Convert PDF to JPG (you can use other formats too)
-                $imageFilename = pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME) . '.jpg'; // Unique image file name
-                $imagick->writeImage(storage_path('app/public/uploads/' . $imageFilename)); // Save the image
-                $imagick->clear();
-
-                // Create a new job
-                $job = new Job();
-                $job->file = $imageFilename; // Store the image file name
-                $job->originalFile = $pdfPath;
-
-                // Set other job properties if needed
-
-                $job->save(); // Save the job to the database
-
-                // Attach the job to the user or invoice as needed
-
-                return response()->json(['message' => 'Job created successfully', 'job' => $job]);
-            }
-        } else {
-            return response()->json(['message' => 'File not provided'], 400);
+        } catch (\Exception $e) {
+            return response()->json(['error' => $e->getMessage()], 500);
         }
     }
+
 
     public function syncAllJobs(Request $request): \Illuminate\Http\JsonResponse
     {
