@@ -18,13 +18,13 @@
                                     <div class="form-group gap-4">
                                         <label for="client">{{ $t('client') }}:</label>
                                         <select v-model="invoice.client_id" id="client" class="text-gray-700" required>
-                                            <option v-for="client in clients" :key="client.id" :value="client.id">{{ client?.name }}</option>
+                                            <option v-for="client in clients" :key="client?.id" :value="client?.id">{{ client?.name }}</option>
                                         </select>
                                     </div>
                                     <div class="form-group gap-4" v-if="invoice.client_id !== ''">
                                         <label for="contact">{{ $t('contact') }}:</label>
                                         <select v-model="this.invoice.contact_id" @change="onClientSelected" id="contact" class="text-gray-700" required>
-                                            <option v-for="contact in client.contacts" :key="contact.id" :value="contact.id">{{ contact?.name }}</option>
+                                            <option v-for="contact in client.contacts" :key="contact?.id" :value="contact?.id">{{ contact?.name }}</option>
                                         </select>
                                     </div>
                                     <div class="form-group gap-4">
