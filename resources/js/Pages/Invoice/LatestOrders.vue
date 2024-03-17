@@ -66,7 +66,7 @@ export default {
         },
         getImageUrl(invoiceId, id) {
             const invoice = this.latestInvoices.find(i => i.id === invoiceId);
-            return `/storage/uploads/${invoice.jobs.find(j => j.id === id).file}`
+            return `/storage/app/public/uploads/${invoice.jobs.find(j => j.id === id).file}`
         },
         statusColor(status) {
             switch(status) {

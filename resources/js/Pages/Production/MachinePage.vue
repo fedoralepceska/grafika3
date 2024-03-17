@@ -161,7 +161,7 @@ export default {
             this.jobViewMode = this.jobViewMode === index ? null : index;
         },
         getImageUrl(invoiceId, jobId) {
-            return `/storage/uploads/${this.invoices.find(i => i.id === invoiceId).jobs.find(j => j.id === jobId).file}`
+            return `/storage/app/public/uploads/${this.invoices.find(i => i.id === invoiceId).jobs.find(j => j.id === jobId).file}`
         },
         openModal(index) {
             this.showModal = true;

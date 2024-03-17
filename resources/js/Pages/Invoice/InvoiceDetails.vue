@@ -296,7 +296,7 @@ export default {
     },
     methods: {
         getImageUrl(id) {
-            return `/storage/uploads/${this.invoice.jobs.find(j => j.id === id).file}`
+            return `/storage/app/public/uploads/${this.invoice.jobs.find(j => j.id === id).file}`
         },
         toggleImagePopover(job) {
             this.selectedJob = job;

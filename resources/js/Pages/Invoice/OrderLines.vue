@@ -97,7 +97,7 @@ export default {
 
     methods: {
         getImageUrl(id) {
-            return `/storage/uploads/${this.$props.jobs.find(j => j.id === id).file}`
+            return `/storage/app/public/uploads/${this.$props.jobs.find(j => j.id === id).file}`
         },
 
         toggleActions() {
