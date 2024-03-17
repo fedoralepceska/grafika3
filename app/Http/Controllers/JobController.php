@@ -46,16 +46,15 @@ class JobController extends Controller
     {
         try {
             // Validate the request data
-            $this->validate($request, [
-                'file' => 'required|mimetypes:image/tiff,application/pdf', // Ensure the file is an image
-            ]);
+//            $this->validate($request, [
+//                'file' => 'required|mimetypes:image/tiff,application/pdf', // Ensure the file is an image
+//            ]);
 
             // Handle file upload and storage
             if ($request->hasFile('file')) {
                 $file = $request->file('file');
                 $fileExtension = $file->getClientOriginalExtension();
                 $pdfPath = $file->store('public/uploads', ['disk' => 'local']); // Store the PDF file
-                dd($file, $pdfPath);
 
                 if ($fileExtension === 'tiff' || $fileExtension === 'tif') {
                     // Handle TIFF file conversion to an image
