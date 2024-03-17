@@ -44,6 +44,7 @@ class JobController extends Controller
 
     public function store(Request $request)
     {
+        dd($request);
         try {
             // Validate the request data
 //            $this->validate($request, [
