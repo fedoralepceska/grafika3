@@ -55,6 +55,7 @@ class JobController extends Controller
                 $file = $request->file('file');
                 $fileExtension = $file->getClientOriginalExtension();
                 $pdfPath = $file->store('public/uploads', ['disk' => 'local']); // Store the PDF file
+                dd($file, $pdfPath);
 
                 if ($fileExtension === 'tiff' || $fileExtension === 'tif') {
                     // Handle TIFF file conversion to an image

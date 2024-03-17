@@ -153,7 +153,7 @@ export default {
             const currentInvoice = this.invoices.data.find(invoice => invoice.id === this.currentInvoiceId);
             if (currentInvoice && currentInvoice.jobs) {
                 const job = currentInvoice.jobs.find(j => j.id === id);
-                    return `/storage/app/public/uploads/${job.file}`;
+                    return `/storage/uploads/${job.file}`;
             }
         },
         viewJobs(invoiceId) {
