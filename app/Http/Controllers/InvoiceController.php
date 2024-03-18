@@ -425,7 +425,7 @@ class InvoiceController extends Controller
     public function generateInvoice(Request $request)
     {
         $invoiceIds = $request->input('orders');
-
+        $comment = $request->input('comment');
         try {
             // Start a database transaction
             DB::beginTransaction();
@@ -433,7 +433,7 @@ class InvoiceController extends Controller
             // Create a new Faktura instance
             $faktura = Faktura::create([
                 'isInvoiced' => true,
-                'comment' => 'test'
+                'comment' => $comment
             ]);
 
             // Retrieve the Invoice instances based on the provided IDs
@@ -466,14 +466,14 @@ class InvoiceController extends Controller
             // Find the Faktura by its ID
             $faktura = Faktura::with('invoices.jobs.small_material.smallFormatMaterial', 'invoices.user', 'invoices.client', 'invoices.jobs.actions', 'invoices.jobs.large_material')->findOrFail($id);
 
-            $faktura->invoices->each(function ($invoice) {
+            $faktura->invoices->each(function ($invoice)  {
                 $invoice->jobs->each(function ($job) {
                     $job->append('totalPrice');
                 });
             });
 
             // Prepare data as an object
-            $invoiceData = $faktura->invoices->map(function ($invoice) {
+            $invoiceData = $faktura->invoices->map(function ($invoice) use ($faktura) {
                 return [
                     'id' => $invoice->id,
                     'invoice_title' => $invoice->invoice_title,
@@ -483,6 +483,9 @@ class InvoiceController extends Controller
                     'start_date' => $invoice->start_date,
                     'end_date' => $invoice->end_date,
                     'status' => $invoice->status,
+                    'faktura_comment' => $faktura->comment,
+                    'fakturaId' => $faktura->id,
+                    'created' => $faktura->created_at
                     // ... other invoice data ...
                 ];
             });

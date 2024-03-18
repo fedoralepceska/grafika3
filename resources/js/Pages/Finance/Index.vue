@@ -36,8 +36,9 @@
                             </button>
                         </div>
                     </div>
-                    <div v-if="invoices.data">
-                        <div class="border mb-1" v-for="invoice in invoices.data" :key="invoice.id">
+
+                    <div v-if="filteredInvoices">
+                        <div class="border mb-1" v-for="invoice in filteredInvoices" :key="invoice.id">
                             <div class="bg-white text-black flex justify-between">
 
                                 <div class="p-2 bold">{{invoice.invoice_title}}</div>
@@ -131,6 +132,7 @@ export default {
             sortOrder: 'desc',
             localInvoices: [],
             uniqueClients:[],
+            filteredInvoices: [],
             currentInvoiceId: null,
             selectedInvoices:{},
             iconStates : reactive({}),
@@ -142,6 +144,7 @@ export default {
         this.invoices.data.forEach(invoice => {
             this.iconStates[invoice.id] = false;
         });
+        this.filteredInvoices = this.invoices.data.filter(invoice => !invoice.faktura_id);
     },
     methods: {
         getImageUrl(id) {

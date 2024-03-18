@@ -15,15 +15,36 @@
                                 {{ spreadsheetMode ?  'Edit' : 'Exit Edit Mode' }}
                                 <i class="fa-regular fa-edit"></i>
                             </button>
-                            <button class="btn comment-order">Add Comment <i class="fa-regular fa-comment"></i></button>
+                            <button class="btn comment-order">Update Comment <i class="fa-regular fa-comment"></i></button>
                             <button  class="btn generate-invoice" @click="printInvoice">Print Invoice <i class="fa-solid fa-file-invoice-dollar"></i></button>
                         </div>
                     </div>
                 </div>
+
+                <div class="light-gray text-white bold p-2 rounded">
+                    <div class="invoice flex gap-60 relative mb-2">
+                        <div class="info">
+                            <div>Invoice ID</div>
+                            <div>{{ invoice[0].fakturaId }}/{{new Date(invoice[0].created).toLocaleDateString('en-US', { year: 'numeric'})}}</div>
+                        </div>
+                        <div class="info">
+                            <div>Created by</div>
+                        </div>
+                        <div class="info">
+                            <div>Invoice Comment</div>
+                            <div>{{invoice[0].faktura_comment}}</div>
+                        </div>
+                        <div class="info">
+                            <div>Date Created</div>
+                            <div>{{new Date(invoice[0].created).toLocaleDateString('en-US', { year: 'numeric', month: '2-digit', day: '2-digit' })}}</div>
+                        </div>
+                    </div>
+
+                </div>
                 <div class="dark-gray p-5 text-white" v-for="(invoiceData, index) in invoice" :key="index">
                     <div class="form-container p-2 light-gray">
                         <div class="InvoiceDetails">
-                            <div class="invoice-details flex gap-20 relative" >
+                            <div class="invoice-details flex gap-20 relative mb-2" >
                                 <div class="invoice-title bg-white text-black bold p-3 ">{{ invoiceData.invoice_title }}</div>
                                 <div class="info">
                                     <div>Order</div>
@@ -52,7 +73,7 @@
                             </div>
                         </div>
                     </div>
-                    <div class="form-container  light-gray mt-2">
+                    <div class="form-container  light-gray ">
                         <div class="sub-title pl-2 ">{{$t('orderLines')}}</div>
                         <div v-for="(job, index) in invoiceData.jobs" v-if="spreadsheetMode">
                             <div class="jobDetails p-2">
@@ -192,6 +213,12 @@ export default {
 </script>
 
 <style scoped lang="scss">
+.rounded{
+    border-radius: 3px 3px 0px 0px;
+}
+.invoice{
+    justify-content: center;
+}
 .circle {
     width: 40px;
     height: 40px;

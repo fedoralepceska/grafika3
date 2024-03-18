@@ -10,12 +10,14 @@
                 <div class="flex justify-between">
                     <Header title="invoice2" subtitle="invoiceGeneration" icon="invoice.png" link="notInvoiced"/>
                     <div class="flex pt-4">
+                        <div class="buttons pt-3 flex pr-2">
+                            <input type="text" id="comment" class="rounded" v-model="comment" placeholder="Add Invoice Comment" style="width: 500px; height: 45px"/>
+                        </div>
                         <div class="buttons pt-3">
                             <button class="btn comment-order" @click="toggleSpreadsheetMode">
                                 {{ spreadsheetMode ?  'Edit' : 'Exit Edit Mode' }}
                                 <i class="fa-regular fa-edit"></i>
                             </button>
-                            <button class="btn comment-order">Add Comment <i class="fa-regular fa-comment"></i></button>
                             <button  class="btn generate-invoice" @click="generateInvoice">Generate Invoice <i class="fa-solid fa-file-invoice-dollar"></i></button>
                         </div>
                     </div>
@@ -169,10 +171,11 @@ export default {
                 // Your array of order ids
                 // These are the main orders, naming is strange
                 const orderIds = Object.values(this.invoiceData).map(order => order.id);
-
+                const comment = this.comment;
                 // Send a POST request to your Laravel backend
                 const response = await axios.post('/generate-invoice', {
-                    orders: orderIds
+                    orders: orderIds,
+                    comment: comment
                 });
 
                 if (response.data.invoice_id) {

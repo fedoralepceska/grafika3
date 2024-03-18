@@ -36,7 +36,7 @@
                     <div v-if="fakturas.data">
                         <div class="border mb-1" v-for="faktura in fakturas.data" :key="faktura.id">
                             <div class="bg-white text-black flex justify-between">
-                                <div class="p-2 bold">{{faktura.id}}</div>
+                                <div class="p-2 bold">{{faktura.id}}/{{ new Date(faktura.created_at).toLocaleDateString('en-US', { year: 'numeric' }) }}</div>
                                 <div class="flex">
                                     <button class="flex items-center p-1" @click="viewInvoice(faktura.id)">
                                         <i class="fa fa-eye bg-gray-300 p-2 rounded" aria-hidden="true"></i>
@@ -50,7 +50,7 @@
                                 </div>
                                 <div class="info">
                                     <div>Customer</div>
-                                    <div class="bold">{{faktura.invoices[0].client.name}}</div>
+                                    <div class="bold">{{faktura.invoices[0]?.client.name}}</div>
                                 </div>
                                 <div class="info">
                                     <div>Comment</div>
@@ -155,6 +155,7 @@ export default {
 };
 </script>
 <style scoped lang="scss">
+
 .filter-container{
     justify-content: space-between;
 }
