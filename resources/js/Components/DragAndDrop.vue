@@ -3,11 +3,28 @@
         <TabsWrapper>
             <Tab title="Art" icon="mdi-file-image">
                 <div class="flex pb-1 justify-center gap-4">
-                    <div class="drop-zone text-white" @dragover.prevent @drop="handleFileDrop">
+                    <div
+                        v-if="!uploading"
+                        class="drop-zone text-white"
+                        @dragover.prevent
+                        @drop="handleFileDrop"
+                    >
                         <p>{{ $t('dragAndDrop') }}</p>
-
-                        <input type="file" accept=".pdf, .tiff, .tif" @change="handleFileBrowse" style="display: none;" ref="fileInput" multiple />
-
+                        <input
+                            type="file"
+                            accept=".pdf, .tiff, .tif"
+                            @change="handleFileBrowse"
+                            style="display: none;"
+                            ref="fileInput"
+                            multiple
+                        />
+                    </div>
+                    <div
+                        v-else
+                        class="uploading-animation flex flex-col items-center justify-center"
+                    >
+                        <p class="uploading-text text-white">Uploading</p>
+                        <img src="/images/Loading.gif" alt="Loading" class="loading-gif" style="width: 35px; height: 35px"/>
                     </div>
                     <div class="ultra-light-gray p-1 rounded d-flex">
                         <div class="text-white pb-10">{{ jobs.length ? `${jobs.length} jobs selected` : 'No files selected..' }}</div>
@@ -57,6 +74,7 @@ export default {
             jobs: [],
             showPopover: false,
             localComment: this.invoiceComment,
+            uploading: false, // Add boolean property to track uploading status
         };
     },
     watch: {
@@ -65,10 +83,10 @@ export default {
         }
     },
     methods: {
-        updateComment() {
-            this.$emit('commentUpdated', this.localComment);
-        },
         async createJob(imageFile) {
+            // Set uploading to true when starting the upload
+            this.uploading = true;
+
             try {
                 const formData = new FormData();
                 formData.append('file', imageFile); // Append the image file
@@ -79,9 +97,14 @@ export default {
                     },
                 });
 
+                // Set uploading to false when upload is finished
+                this.uploading = false;
+
                 return response.data.job;
             } catch (error) {
                 console.log('test', error);
+                // Set uploading to false when upload fails
+                this.uploading = false;
                 return error;
             }
         },
@@ -174,6 +197,9 @@ export default {
 
             reader.readAsDataURL(file);
         },
+        updateComment() {
+            this.$emit('commentUpdated', this.localComment);
+        },
     },
 };
 </script>
@@ -208,7 +234,15 @@ export default {
     background-color: $ultra-light-gray;
 }
 
-
+.uploading-animation {
+    width: 320px;
+    height: 150px;
+    background-color: #ccc;
+    border-radius: 10px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
 
 .d-flex {
     display: flex;
@@ -231,5 +265,4 @@ export default {
     background-color: white;
     box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
 }
-
 </style>
