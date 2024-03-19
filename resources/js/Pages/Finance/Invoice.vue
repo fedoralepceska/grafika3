@@ -25,14 +25,15 @@
                     <div class="invoice flex gap-60 relative mb-2">
                         <div class="info">
                             <div>Invoice ID</div>
-                            <div>{{ invoice[0].fakturaId }}/{{new Date(invoice[0].created).toLocaleDateString('en-US', { year: 'numeric'})}}</div>
+                            <div>{{ invoice[0]?.fakturaId }}/{{new Date(invoice[0].created).toLocaleDateString('en-US', { year: 'numeric'})}}</div>
                         </div>
                         <div class="info">
                             <div>Created by</div>
+                            <div>{{invoice[0]?.createdBy}}</div>
                         </div>
                         <div class="info">
                             <div>Invoice Comment</div>
-                            <div>{{invoice[0].faktura_comment}}</div>
+                            <div>{{invoice[0]?.faktura_comment}}</div>
                         </div>
                         <div class="info">
                             <div>Date Created</div>

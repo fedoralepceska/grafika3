@@ -433,7 +433,8 @@ class InvoiceController extends Controller
             // Create a new Faktura instance
             $faktura = Faktura::create([
                 'isInvoiced' => true,
-                'comment' => $comment
+                'comment' => $comment,
+                'created_by' => auth()->id()
             ]);
 
             // Retrieve the Invoice instances based on the provided IDs
@@ -485,6 +486,7 @@ class InvoiceController extends Controller
                     'status' => $invoice->status,
                     'faktura_comment' => $faktura->comment,
                     'fakturaId' => $faktura->id,
+                    'createdBy' => $faktura->createdBy->name,
                     'created' => $faktura->created_at
                     // ... other invoice data ...
                 ];
