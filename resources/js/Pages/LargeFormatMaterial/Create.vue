@@ -11,23 +11,23 @@
                         <!-- Form fields for Name and Quantity -->
                         <div class="form-group gap-4">
                             <label for="name">{{ $t('name') }}:</label>
-                            <input type="text" id="name" class="text-gray-700" v-model="material.name" required>
+                            <input type="text" id="name" class="text-gray-700 rounded" v-model="material.name" required>
                         </div>
                         <div class="form-group gap-4">
                             <label for="width">{{ $t('width') }}:</label>
-                            <input type="text" id="width" class="text-gray-700" v-model="material.width" required>
+                            <input type="text" id="width" class="text-gray-700 rounded" v-model="material.width" required>
                         </div>
                         <div class="form-group gap-4">
                             <label for="height">{{ $t('height') }}:</label>
-                            <input type="text" id="height" class="text-gray-700" v-model="material.height" required>
+                            <input type="text" id="height" class="text-gray-700 rounded" v-model="material.height" required>
                         </div>
                         <div class="form-group gap-4">
                             <label for="quantity">{{ $t('quantity') }}:</label>
-                            <input type="number" id="quantity" class="text-gray-700" v-model="material.quantity" required>
+                            <input type="number" id="quantity" class="text-gray-700 rounded" v-model="material.quantity" required>
                         </div>
                         <div class="form-group gap-4">
                             <label for="price_per_unit">{{ $t('pricePerUnit') }}:</label>
-                            <input type="number" id="price_per_unit" class="text-gray-700" v-model="material.price_per_unit" required>
+                            <input type="number" id="price_per_unit" class="text-gray-700 rounded" v-model="material.price_per_unit" required>
                         </div>
                         <!-- Other form fields... -->
                         <div class="button-container mt-10">

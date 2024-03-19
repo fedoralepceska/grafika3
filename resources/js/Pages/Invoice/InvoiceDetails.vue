@@ -535,7 +535,7 @@ export default {
 }
 .jobPriceInfo{
     max-height: 40px;
-    max-width: 180px;
+    max-width: 30%;
 }
 .right{
     gap: 34.9rem;
