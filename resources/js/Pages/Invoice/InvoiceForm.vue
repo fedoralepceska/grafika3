@@ -18,7 +18,7 @@
                                     <div class="form-group gap-4">
                                         <label for="client">{{ $t('client') }}:</label>
                                         <select v-model="invoice.client_id" id="client" class="text-gray-700" required>
-                                            <option v-for="client in clients" :key="client?.id" :value="client?.id">{{ client?.name }}</option>
+                                            <option v-for="client in clients" :key="client.id" :value="client.id">{{ client?.name }}</option>
                                         </select>
                                     </div>
                                     <div class="form-group gap-4" v-if="invoice.client_id !== ''">
@@ -185,7 +185,7 @@ export default {
         async fetchClients() {
             try {
                 let response = await axios.get('/clients'); // Adjust this endpoint to your API route
-                this.clients = response.data;
+                this.clients = response?.data?.data;
             } catch (error) {
                 console.error("Failed to fetch clients:", error);
             }
