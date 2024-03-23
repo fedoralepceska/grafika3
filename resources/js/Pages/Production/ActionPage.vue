@@ -290,6 +290,7 @@ export default {
                     });
                 }
                 this.endTimer(job);
+                this.$inertia.visit(`/orders/${invoiceWithJob.id}`);
             } catch (error) {
                 console.error("Error in ending job:", error);
             }
