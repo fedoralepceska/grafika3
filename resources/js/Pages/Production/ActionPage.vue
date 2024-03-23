@@ -79,8 +79,8 @@
                                     {{job.file}}</td>
                                 <td>{{job.quantity}}</td>
                                 <td>{{job.copies}}</td>
-                                <td>{{job.height}}</td>
-                                <td>{{job.width}}</td>
+                                <td>{{job.height.toFixed(2)}}</td>
+                                <td>{{job.width.toFixed(2)}}</td>
                                 <td>{{$t(`machinePrint.${job.machinePrint}`)}}</td>
                                 <td>{{$t(`machineCut.${job.machineCut}`)}}</td>
                                 <td>

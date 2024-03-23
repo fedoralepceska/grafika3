@@ -31,7 +31,7 @@
                 <td v-else>
                     {{job.quantity}}
                 </td>
-                <td>{{job.height}}x{{job.width}}</td>
+                <td>{{job.height.toFixed(2)}}x{{job.width.toFixed(2)}}</td>
                 <td>{{ invoice?.end_date}}</td>
                 <td>{{job.shippingInfo}}</td>
                 <td>{{job.status}}</td>

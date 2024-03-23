@@ -116,8 +116,8 @@
                                             </div>
                                         </div>
                                         <div>{{job.file}}</div>
-                                        <div>{{$t('Height')}}: <span class="bold">{{job.height}}</span> </div>
-                                        <div>{{$t('Width')}}: <span class="bold">{{job.width}}</span> </div>
+                                        <div>{{$t('Height')}}: <span class="bold">{{job.height.toFixed(2)}}</span> </div>
+                                        <div>{{$t('Width')}}: <span class="bold">{{job.width.toFixed(2)}}</span> </div>
                                         <div>{{$t('Quantity')}}: <span class="bold">{{job.quantity}}</span> </div>
                                         <div>{{$t('Copies')}}: <span class="bold">{{job.copies}}</span> </div>
                                     </div>
