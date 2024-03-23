@@ -227,8 +227,8 @@ export default {
                         status: 'In progress',
                     });
                     await axios.post('/jobs/start-job', {
-                        job,
-                        invoice: invoiceWithJob
+                        job: job.id,
+                        invoice: invoiceWithJob.id
                     });
                 }
             }
@@ -267,36 +267,34 @@ export default {
                 await axios.put(`/actions/${action.id}`, {
                     status: 'Completed',
                 });
-                const updatedJob = await axios.get(`/jobs/${job.id}`);
 
-                if (updatedJob.data.actions.every(a => a.status === 'Completed')) {
-                    await axios.put(`/jobs/${job.id}`, {
+                // Check if this action is the last one in the last job
+                const invoiceWithJob = this.invoices.find(invoice => invoice.jobs.some(j => j.id === job.id));
+                const lastJob = invoiceWithJob.jobs[invoiceWithJob.jobs.length - 1];
+                const lastAction = lastJob.actions[lastJob.actions.length - 1];
+
+                if (action.id === lastAction.id) {
+                    // Mark the order as completed
+                    await axios.put(`/orders/${invoiceWithJob.id}`, {
                         status: 'Completed',
                     });
                 }
 
-                // Find the invoice that contains this job
-                const invoiceWithJob = this.invoices.find(invoice => invoice.jobs.some(j => j.id === job.id));
+                // Check if all jobs in the invoice are completed
+                const allJobsCompleted = invoiceWithJob.jobs.every(j => j.actions.every(a => a.status === 'Completed'));
 
-                if (invoiceWithJob) {
-                    // Check if all jobs in the invoice are completed
-                    const allJobsCompleted = invoiceWithJob.jobs.every(j => j.actions.every(a => a.status === 'Completed'));
-                    if (allJobsCompleted) {
-                        // Update the invoice status
-                        await axios.put(`/orders/${invoiceWithJob.id}`, {
-                            status: 'Completed',
-                        });
-                        await axios.post('/jobs/end-job', {
-                            job,
-                            invoice: invoiceWithJob
-                        });
-                    }
+                if (allJobsCompleted) {
+                    // Update the invoice status
+                    await axios.put(`/orders/${invoiceWithJob.id}`, {
+                        status: 'Completed',
+                    });
                 }
                 this.endTimer(job);
             } catch (error) {
                 console.error("Error in ending job:", error);
             }
         },
+
 
         endTimer(job) {
             const actionId = this.getActionId(job);

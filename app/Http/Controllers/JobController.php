@@ -625,19 +625,25 @@ class JobController extends Controller
     }
 
     public function fireStartJobEvent(Request $request) {
-        $jobData = $request->input('job');
-        $invoiceData = $request->input('invoice');
+        try {
+            // Retrieve job and invoice IDs from the request
+            $jobId = $request->input('job');
+            $invoiceId = $request->input('invoice');
 
-        // Create job and invoice instances
-        $job = new Job($jobData);
-        $invoice = new Invoice($invoiceData);
+            // Find existing job and invoice
+            $job = Job::findOrFail($jobId);
+            $invoice = Invoice::findOrFail($invoiceId);
 
-        $job->started_by = auth()->id();
+            // Update job information and save
+            $job->started_by = auth()->id();
+            $job->save();
 
-        $job->save();
-
-        // Dispatch the JobStarted event with both job and invoice
-        event(new JobStarted($job, $invoice));
+            // Dispatch the JobStarted event with both job and invoice
+            event(new JobStarted($job, $invoice));
+        } catch (\Exception $e) {
+            // Handle exceptions
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
     }
 
     public function fireEndJobEvent(Request $request) {
