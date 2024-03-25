@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\CertificateController;
 use App\Http\Controllers\ClientController;
 use App\Http\Controllers\ContactController;
 use App\Http\Controllers\InvoiceController;
@@ -72,6 +73,12 @@ Route::middleware(['auth', 'verified'])->group(function() {
     Route::get('/unique-clients', [InvoiceController::class, 'getUniqueClients']);
     Route::get('/orders/{id}/pdf', [InvoiceController::class, 'generateInvoicePdf'])->name('invoice.generateInvoicePdf');
     Route::get('/invoice/{id}', [InvoiceController::class, 'getGeneratedInvoice'])->name('invoices.getGeneratedInvoice');
+
+    Route::get('/statements', [CertificateController::class, 'index'])->name('certificates.index');
+    Route::get('/unique-banks', [CertificateController::class, 'getUniqueBanks']);
+    Route::get('/statements/{id}', [CertificateController::class, 'getCertificate'])->name('certificates.getCertificate');
+
+
 });
 
 //Rotues For Client

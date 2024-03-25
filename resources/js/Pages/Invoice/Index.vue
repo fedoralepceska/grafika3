@@ -37,9 +37,10 @@
                                 <option value="asc">Oldest to Newest</option>
                             </select>
                         </div>
+                            <button @click="applyFilter" class="btn create-order1">Filter</button>
+
                         </div>
                         <div class="button flex gap-3">
-                            <button @click="applyFilter" class="btn create-order1">Filter</button>
                             <button @click="navigateToCreateOrder" class="btn create-order">
                                 Create Order <i class="fa fa-plus"></i>
                             </button>
@@ -239,6 +240,9 @@ export default {
     flex-direction: column;
     justify-content: center;
 
+}
+.filter-container{
+    justify-content: space-between;
 }
 .jobInfo{
     justify-items: center;

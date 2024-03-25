@@ -14,6 +14,7 @@ const messages = {
         addClient: 'Add client',
         invoice: 'Order',
         invoice2: 'Invoice',
+        statement: 'Statement',
         invoiceTitle: 'Order title',
         createNewInvoice: 'Create new order',
         createInvoice: 'Create order',
@@ -188,7 +189,10 @@ const messages = {
         listOfNotInvoiced:'List of Uninvoiced Orders',
         ViewAllInvoices: 'View All Orders',
         UninvoicedOrders: 'Uninvoiced orders',
+        listOfAllStatements: 'List Of All Statements',
         invoicedOrders: 'Invoiced orders',
+        bankStatement:'Bank Statement',
+        currentReport:'Current Report',
         invoiceGeneration: 'Invoice Generation',
         invoiceEdit:'Edit Invoice',
         InvoiceDetails: 'Order Details',
@@ -201,7 +205,8 @@ const messages = {
         dashboard: 'Dashboard',
         actionInfo: 'Action Overview',
         address: 'Address',
-        city: "City"
+        city: "City",
+        Nr:'Nr.'
     },
     mk: {
         // Define your Macedonian translations here
@@ -217,6 +222,7 @@ const messages = {
         addClient: 'Додади клиент',
         invoice: 'Налог',
         invoice2:'Фактура',
+        statement: 'Извод',
         invoiceTitle: 'Име на налог',
         createNewInvoice: 'Креирај нов налог',
         createInvoice: 'Креирај налог',
@@ -393,9 +399,12 @@ const messages = {
         listOfAllOrders: 'Листа на сите нарачки',
         listOfAllInvoices: 'Листа на сите фактурирани нарачки',
         listOfNotInvoiced:'Листа на нефактурирани нарачки',
+        listOfAllStatements:'Листа на сите Изводи',
         ViewAllInvoices: 'Погледни ги сите нарачки',
         UninvoicedOrders:'Нефактурирани нарачки',
         invoicedOrders:'Фактурирани нарачки',
+        bankStatement: 'Извод банка',
+        currentReport:'Тековен извештај',
         invoiceGeneration:'Генерирање на фактура',
         invoiceEdit: 'Уреди фактура',
         InvoiceDetails: 'Детали за нарачка',
@@ -405,7 +414,8 @@ const messages = {
         jobPrice: 'Цена на продукт',
         salePrice: 'Продажна цена',
         address: 'Адреса',
-        city: "Град"
+        city: "Град",
+        Nr:'Бр.'
     },
 };
 

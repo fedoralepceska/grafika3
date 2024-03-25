@@ -4,15 +4,67 @@ namespace App\Http\Controllers;
 
 use App\Models\Certificate;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
+use Inertia\Inertia;
 
 class CertificateController extends Controller
 {
-    /**
-     * Display a listing of the resource.
-     */
-    public function index()
+    public function index(Request $request)
     {
-        //
+        try {
+            $query = Certificate::with(['bankCertificate']);
+
+            if ($request->has('searchQuery')) {
+                $searchQuery = $request->input('searchQuery');
+                $query->where('id', 'like', "%{$searchQuery}%");
+            }
+
+            if ($request->has('bankAccount') && $request->input('bankAccount') !== 'All') {
+                $bankAccount = $request->input('bankAccount');
+                $query->where('bankAccount', $bankAccount);
+            }
+
+            $sortOrder = $request->input('sortOrder', 'desc');
+            $query->orderBy('created_at', $sortOrder);
+
+            $certificates = $query->latest()->paginate(10);
+
+            if ($request->wantsJson()) {
+                return response()->json($certificates);
+            }
+
+            return Inertia::render('Finance/BankCertificate', [
+                'certificates' => $certificates,
+            ]);
+        } catch (\Exception $e) {
+            Log::error($e->getMessage());
+
+            return response()->json(['error' => 'Internal Server Error'], 500);
+        }
+    }
+    public function getUniqueBanks()
+    {
+        $uniqueBankAccounts = Certificate::distinct()->pluck('bankAccount');
+
+        return response()->json($uniqueBankAccounts);
+    }
+    public function getCertificate($id)
+    {
+        try {
+            $certificate = Certificate::findOrFail($id);
+
+            if (request()->wantsJson()) {
+                return response()->json($certificate);
+            }
+
+            return Inertia::render('Finance/Certificate', [
+                'certificate' => $certificate,
+            ]);
+        } catch (\Exception $e) {
+            Log::error($e->getMessage());
+
+            return response()->json(['error' => 'Certificate not found'], 404);
+        }
     }
 
     /**

@@ -102,6 +102,10 @@ export default {
                             href: '/notInvoiced',
                             title: 'Uninvoiced Orders',
                         },
+                        {
+                            href: '/statements',
+                            title: 'Bank Statements',
+                        },
                     ],
                 },
             ],
