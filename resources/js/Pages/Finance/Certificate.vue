@@ -110,13 +110,61 @@ export default {
     data() {
         return {
             isSidebarVisible: false,
-            openDialog: false
+            openDialog: false,
+            item: {
+                client_id: null,
+                certificate_id: this.certificate.id,
+                income: 0,
+                expense: 0,
+                code: '',
+                reference_to: '',
+                comment: ''
+            },
+            certificate: {
+                date: null,
+                bank: '',
+                bankAccount: '',
+            }
         }
     },
     methods: {
         toggleSidebar() {
             this.isSidebarVisible = !this.isSidebarVisible;
         },
+
+        addItem() {
+            const toast = useToast();
+            axios.post('/item', {
+                client_id: this.item.client_id,
+                certificate_id: this.item.certificate_id,
+                income: this.item.income,
+                expense: this.item.expense,
+                code: this.item.code,
+                reference_to: this.item.reference_to,
+                comment: this.item.comment
+            })
+                .then((response) => {
+                    toast.success("Item added successfully.");
+                })
+                .catch((error) => {
+                    toast.error("Error adding item!");
+                });
+        },
+
+        addCertificate() {
+            const toast = useToast();
+            axios.post('/certificate', {
+                date: this.certificate.date,
+                bank: this.certificate.bank,
+                bankAccount: this.certificate.bankAccount,
+            })
+                .then((response) => {
+                    toast.success("Certificate added successfully.");
+                })
+                .catch((error) => {
+                    toast.error("Error adding certificate!");
+                });
+        }
     },
 };
 </script>

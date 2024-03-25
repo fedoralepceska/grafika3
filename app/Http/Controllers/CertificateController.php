@@ -80,7 +80,23 @@ class CertificateController extends Controller
      */
     public function store(Request $request)
     {
-        //
+        // Validate the incoming request data for the certificate
+        $validatedData = $request->validate([
+            'date' => 'date',
+            'bank' => 'string',
+            'bankAccount' => 'string',
+        ]);
+
+        // Create a new certificate record
+        $certificate = new Certificate();
+        $certificate->date = $validatedData['date'];
+        $certificate->bank = $validatedData['bank'];
+        $certificate->bankAccount = $validatedData['bankAccount'];
+
+        // Save the certificate
+        $certificate->save();
+
+        return response()->json(['message' => 'Certificate added successfully'], 201);
     }
 
     /**

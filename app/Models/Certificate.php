@@ -9,11 +9,6 @@ class Certificate extends Model
     protected $table = 'certificate';
 
     protected $fillable = [
-        'date', 'bank', 'bankAccount', 'bank_certificate_id'
+        'date', 'bank', 'bankAccount'
     ];
-
-    public function bankCertificate()
-    {
-        return $this->belongsTo(BankCertificate::class, 'bank_certificate_id');
-    }
 }

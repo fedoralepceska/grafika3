@@ -446,113 +446,97 @@ class JobController extends Controller
         }
     }
 
-    public function jobMachinesCounts() {
-        // Initialize an empty array to hold the final counts
-        $machineCutCounts = [];
-        $machinePrintCounts = [];
+    public function jobMachinesCounts()
+    {
+        // Define desired machine actions
+        $machineActions = ['Machine print', 'Machine cut'];
 
         // Fetch jobs with specified statuses
         $jobs = DB::table('jobs')
             ->whereIn('status', ['Not started yet', 'In progress'])
             ->get();
 
-        // Iterate through jobs
+        $machineCounts = [];
+
+        // Loop through jobs
         foreach ($jobs as $job) {
-            // Fetch actions associated with the current job
-            $actions = DB::table('job_job_action')
+            $jobActions = DB::table('job_job_action')
                 ->join('job_actions', 'job_job_action.job_action_id', '=', 'job_actions.id')
                 ->where('job_job_action.job_id', $job->id)
+                ->where(function ($query) use ($machineActions) {
+                    // Filter actions using a closure and regex
+                    foreach ($machineActions as $machineAction) {
+                        $query->orWhere('job_actions.name', 'regexp', "^{$machineAction} ?\d*$"); // Match with or without index
+                    }
+                })
                 ->get();
 
-            // Counters for 'In Progress' and 'Not started yet' statuses
-            $inProgressCount = 0;
-            $notStartedYetCount = 0;
-            $onHoldCount = 0; // Initialize onHoldCount
-            $onRushCount = 0; // Counter for onRush
+            // Initialize counters
+            $totalCount = 0;
+            $secondaryCount = 0;
+            $onHoldCount = 0;
+            $onRushCount = 0;
 
-            // Iterate through actions
-            foreach ($actions as $action) {
+            // Process each machine action
+            foreach ($jobActions as $action) {
+                $totalCount++;
+
                 switch ($action->status) {
                     case 'In progress':
-                        $inProgressCount++;
                         break;
                     case 'Not started yet':
-                        $notStartedYetCount++;
+                        $secondaryCount++;
                         break;
                 }
 
-
-                // Count the 'Rush' actions and the 'On Hold' actions
-                $invoiceStatusCounts = DB::table('invoice_job')
-                    ->join('invoices', 'invoices.id', '=', 'invoice_job.invoice_id')
-                    ->join('job_job_action', 'job_job_action.job_id', '=', 'invoice_job.job_id')
-                    ->where('job_job_action.job_action_id', $action->id)
-                    ->groupBy('job_job_action.job_action_id')  // Group by job action ID
-                    ->select(DB::raw('COUNT(*) AS totalCount'),
-                        DB::raw('SUM(CASE WHEN invoices.onHold THEN 1 ELSE 0 END) AS onHoldCount'),
-                        DB::raw('SUM(CASE WHEN invoices.rush THEN 1 ELSE 0 END) AS onRushCount'))
-                    ->first();
+                // Get invoice status counts for the current action
+                $invoiceStatusCounts = $this->getInvoiceStatusCounts($action->id);
 
                 if ($invoiceStatusCounts) {
-                    $onHoldCount = $invoiceStatusCounts->onHoldCount;
-                    $onRushCount = $invoiceStatusCounts->onRushCount;
+                    $onHoldCount += $invoiceStatusCounts->onHoldCount;
+                    $onRushCount += $invoiceStatusCounts->onRushCount;
                 }
             }
 
-            if ($inProgressCount > 0 || $notStartedYetCount > 0 || $onHoldCount > 0 || $onRushCount > 0) {
-                // Create an entry for the current machineCut
-                if ($job->machineCut !== null) {
-                    $machineCutKey = $job->machineCut;
-                    if (!isset($machineCutCounts[$machineCutKey])) {
-                        $machineCutCounts[$machineCutKey] = [
-                            'name' => $machineCutKey,
-                            'total' => 0,
-                            'secondaryCount' => 0,
-                            'onHoldCount' => 0,
-                            'onRushCount' => 0,
-                        ];
-                    }
+            // Skip jobs with no relevant actions
+            if (!$totalCount) {
+                continue;
+            }
 
-                    // Add the counts to the array
-                    $machineCutCounts[$machineCutKey]['total'] += $inProgressCount;
-                    $machineCutCounts[$machineCutKey]['secondaryCount'] += $notStartedYetCount;
-                    $machineCutCounts[$machineCutKey]['onHoldCount'] += $onHoldCount;
-                    $machineCutCounts[$machineCutKey]['onRushCount'] += $onRushCount;
-
-                }
-
-                // Create an entry for the current machinePrint
-                if ($job->machinePrint !== null) {
-                    $machinePrintKey = $job->machinePrint;
-                    if (!isset($machinePrintCounts[$machinePrintKey])) {
-                        $machinePrintCounts[$machinePrintKey] = [
-                            'name' => $machinePrintKey,
-                            'total' => 0,
-                            'secondaryCount' => 0,
-                            'onHoldCount' => 0,
-                            'onRushCount' => 0,
-                        ];
-                    }
-
-                    // Add the counts to the array
-                    $machinePrintCounts[$machinePrintKey]['total'] += $inProgressCount;
-                    $machinePrintCounts[$machinePrintKey]['secondaryCount'] += $notStartedYetCount;
-                    $machinePrintCounts[$machinePrintKey]['onHoldCount'] += $onHoldCount;
-                    $machinePrintCounts[$machinePrintKey]['onRushCount'] += $onRushCount;
-
+            // Add machine data to results
+            foreach ($machineActions as $machineAction) {
+                if ($job->$machineAction !== null) {
+                    $machineCounts[$machineAction][] = [
+                        'name' => $job->$machineAction,
+                        'total' => $totalCount,
+                        'secondaryCount' => $secondaryCount,
+                        'onHoldCount' => $onHoldCount,
+                        'onRushCount' => $onRushCount,
+                    ];
                 }
             }
         }
 
-        // Convert associative arrays to simple arrays
-        $resultMachineCut = array_values($machineCutCounts);
-        $resultMachinePrint = array_values($machinePrintCounts);
+        // Flatten results and return JSON response
+        $machineCutCounts = array_collapse($machineCounts['machineCut'] ?? []);
+        $machinePrintCounts = array_collapse($machineCounts['machinePrint'] ?? []);
 
-        // Return the counts as a JSON response
         return response()->json([
-            'machineCutCounts' => $resultMachineCut,
-            'machinePrintCounts' => $resultMachinePrint,
+            'machineCutCounts' => $machineCutCounts,
+            'machinePrintCounts' => $machinePrintCounts,
         ]);
+    }
+
+    private function getInvoiceStatusCounts($jobActionId)
+    {
+        return DB::table('invoice_job')
+            ->join('invoices', 'invoices.id', '=', 'invoice_job.invoice_id')
+            ->where('job_job_action.job_action_id', $jobActionId)
+            ->groupBy('job_job_action.job_action_id')  // Group by job action ID
+            ->select(DB::raw('COUNT(*) AS totalCount'),
+                DB::raw('SUM(CASE WHEN invoices.onHold THEN 1 ELSE 0 END) AS onHoldCount'),
+                DB::raw('SUM(CASE WHEN invoices.rush THEN 1 ELSE 0 END) AS onRushCount'))
+            ->first();
     }
 
 

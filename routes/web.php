@@ -74,10 +74,12 @@ Route::middleware(['auth', 'verified'])->group(function() {
     Route::get('/orders/{id}/pdf', [InvoiceController::class, 'generateInvoicePdf'])->name('invoice.generateInvoicePdf');
     Route::get('/invoice/{id}', [InvoiceController::class, 'getGeneratedInvoice'])->name('invoices.getGeneratedInvoice');
 
+    // finance routes
     Route::get('/statements', [CertificateController::class, 'index'])->name('certificates.index');
     Route::get('/unique-banks', [CertificateController::class, 'getUniqueBanks']);
     Route::get('/statements/{id}', [CertificateController::class, 'getCertificate'])->name('certificates.getCertificate');
-
+    Route::post('/item', [\App\Http\Controllers\ItemController::class, 'store'])->name('item.store');
+    Route::post('/certificate', [CertificateController::class, 'store'])->name('certificate.store');
 
 });
 

@@ -80,6 +80,7 @@ export default {
                 const response = await axios.get('/job-machine-counts');
                 this.jobMachinesPrint = response.data?.machinePrintCounts;
                 this.jobMachinesCut = response.data?.machineCutCounts;
+                console.log(response);
             } catch (error) {
                 console.error(error);
             }

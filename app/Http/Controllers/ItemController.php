@@ -28,7 +28,29 @@ class ItemController extends Controller
      */
     public function store(Request $request)
     {
-        //
+        // Validate the incoming request data for the client
+        $validatedData = $request->validate([
+            'client_id' => 'required',
+            'certificate_id' => 'required',
+            'income' => 'numeric',
+            'expense' => 'numeric',
+            'code' => 'string',
+            'reference_to' => 'string',
+            'comment' => 'nullable|string',
+        ]);
+
+        // Create a new client record
+        $item = new Item();
+        $item->client_id = $validatedData['client_id'];
+        $item->certificate_id = $validatedData['certificate_id'];
+        $item->income = $validatedData['income'];
+        $item->expense = $validatedData['expense'];
+        $item->code = $validatedData['code'];
+        $item->reference_to = $validatedData['reference_to'];
+        $item->comment = $validatedData['comment'] ?? null; // handle nullable field
+        $item->save();
+
+        return response()->json(['message' => 'Client added successfully'], 201);
     }
 
     /**
