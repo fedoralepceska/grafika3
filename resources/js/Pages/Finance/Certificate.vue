@@ -8,7 +8,7 @@
             </div>
             <div class="left-column flex-1" style="width: 25%">
                 <div class="flex justify-between">
-                    <Header title="statement" subtitle="currentReport" icon="invoice.png" link="certificates"/>
+                    <Header title="statement" subtitle="currentReport" icon="invoice.png" link="statements"/>
                 </div>
                 <div class="dark-gray p-5 text-white">
                     <div class="report">
