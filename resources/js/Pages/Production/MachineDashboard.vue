@@ -41,7 +41,27 @@
             Cutting Machines
 -->
             <div v-if="selectedMachineType==='cutting'" class="grid-container">
-
+                <div v-for="item in jobMachinesCut" :key="item.name" class="grid-item bg" @click="navigateToMachine(item.name)" >
+                    <div class="machine">
+                        <div class="machineName text-white">
+                            {{ $t(`machinePrint.${item.name}`) }}
+                        </div>
+                        <div class="machineInfo">
+                            <div>Total active jobs: {{item.total}}</div>
+                            <div>Total pending jobs: {{item.secondaryCount}}</div>
+                            <div>Total jobs ON HOLD: {{item.onHoldCount}}</div>
+                            <div v-if="item.onRushCount" class="red blinking">High priority jobs: {{item.onRushCount}}</div>
+                        </div>
+                    </div>
+                    <div class="status">
+                        <div v-if="item.total > 0" class="status-circle" style="background-color: #408a0b;">
+                            Online
+                        </div>
+                        <div v-else class="status-circle" style="background-color: #9e2c30;">
+                            Offline
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     </MainLayout>
@@ -77,9 +97,10 @@ export default {
     methods: {
         async fetchJobMachinesCounts() {
             try {
-                const response = await axios.get('/job-machine-counts');
-                this.jobMachinesPrint = response.data?.machinePrintCounts;
-                this.jobMachinesCut = response.data?.machineCutCounts;
+                const printResponse = await axios.get('/job-machine-print-counts');
+                const cutResponse = await axios.get('/job-machine-cut-counts');
+                this.jobMachinesPrint = printResponse.data;
+                this.jobMachinesCut = cutResponse.data;
                 console.log(response);
             } catch (error) {
                 console.error(error);

@@ -111,7 +111,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::put('/jobs/{id}', [JobController::class, 'update'])->name('jobs.update');
     Route::get('/jobs/{id}', [JobController::class, 'show'])->name('jobs.show');
     Route::get('/job-action-status-counts', [JobController::class, 'jobActionStatusCounts']);
-    Route::get('/job-machine-counts', [JobController::class, 'jobMachinesCounts']);
+    Route::get('/job-machine-print-counts', [JobController::class, 'jobMachinePrintCounts']);
+    Route::get('/job-machine-cut-counts', [JobController::class, 'jobMachineCutCounts']);
     Route::get('/production', [JobController::class, 'production'])->name('jobs.production');
     Route::get('/machines', [JobController::class, 'machine'])->name('jobs.machine');
     Route::get('/actions/{id}', [\App\Http\Controllers\ActionController::class, 'index'])->name('actions.index');
