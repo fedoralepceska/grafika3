@@ -17,13 +17,17 @@
                                 {{$t('currentReport')}} {{$t('Nr')}} {{certificate.id}} - {{certificate.date}}
                             </h1>
                         </div>
-                        <div class="justify-end flex gap-3">
-                            <button class="btn add-row">
-                                Add new Statement <i class="fa fa-plus"></i>
-                            </button>
-                            <button class="btn add-row">
-                                Add Item <i class="fa fa-plus"></i>
-                            </button>
+                        <div class="justify-end flex gap-10 pb-5 mr-3">
+                            <div>
+                                <AddCertificateDialog
+                                :certificate="certificate"
+                                />
+                            </div>
+                            <div>
+                                <AddItemDialog
+                                    :certificate="certificate"
+                                />
+                            </div>
                         </div>
                     </div>
                     <div class="form-container p-2 light-gray">
@@ -84,7 +88,6 @@
                         </div>
                     </div>
                 </div>
-
             </div>
         </div>
     </MainLayout>
@@ -97,9 +100,13 @@ import Toast, {useToast} from "vue-toastification";
 import OrderJobDetails from "@/Pages/Invoice/OrderJobDetails.vue";
 import OrderSpreadsheet from "@/Components/OrderSpreadsheet.vue";
 import Header from "@/Components/Header.vue";
+import AddItemDialog from "@/Components/AddItemDialog.vue";
+import AddCertificateDialog from "@/Components/AddCertificateDialog.vue";
 
 export default {
     components: {
+        AddItemDialog,
+        AddCertificateDialog,
         OrderSpreadsheet,
         OrderJobDetails,
         MainLayout,
@@ -110,6 +117,7 @@ export default {
     data() {
         return {
             isSidebarVisible: false,
+            addItemDialogVisible: false,
             openDialog: false,
             item: {
                 client_id: null,
@@ -120,7 +128,7 @@ export default {
                 reference_to: '',
                 comment: ''
             },
-            certificate: {
+            certificate2: {
                 date: null,
                 bank: '',
                 bankAccount: '',
@@ -131,7 +139,6 @@ export default {
         toggleSidebar() {
             this.isSidebarVisible = !this.isSidebarVisible;
         },
-
         addItem() {
             const toast = useToast();
             axios.post('/item', {

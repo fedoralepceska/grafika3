@@ -12,7 +12,7 @@ class CertificateController extends Controller
     public function index(Request $request)
     {
         try {
-            $query = Certificate::with(['bankCertificate']);
+            $query = Certificate::query();
 
             if ($request->has('searchQuery')) {
                 $searchQuery = $request->input('searchQuery');

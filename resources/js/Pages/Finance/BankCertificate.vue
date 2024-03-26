@@ -101,12 +101,12 @@ export default {
         };
     },
     mounted() {
-        this.fetchUniqueClients()
+        this.fetchUniqueBanks()
     },
     methods: {
         async applyFilter() {
             try {
-                const response = await axios.get('/certificates', {
+                const response = await axios.get('/statements', {
                     params: {
                         searchQuery: encodeURIComponent(this.searchQuery),
                         sortOrder: this.sortOrder,
@@ -114,7 +114,7 @@ export default {
                     },
                 });
                 this.localCertificates = response.data;
-                let redirectUrl = '/certificates';
+                let redirectUrl = '/statements';
                 if (this.searchQuery) {
                     redirectUrl += `?searchQuery=${encodeURIComponent(this.searchQuery)}`;
                 }
@@ -134,12 +134,12 @@ export default {
             try {
                 const response = await axios.get(`?searchQuery=${encodeURIComponent(this.searchQuery)}`);
                 this.localCertificates = response.data;
-                this.$inertia.visit(`/certificates?searchQuery=${this.searchQuery}`);
+                this.$inertia.visit(`/statements?searchQuery=${this.searchQuery}`);
             } catch (error) {
                 console.error(error);
             }
         },
-        async fetchUniqueClients() {
+        async fetchUniqueBanks() {
             try {
                 const response = await axios.get('/unique-banks');
                 this.uniqueBanks = response.data;
