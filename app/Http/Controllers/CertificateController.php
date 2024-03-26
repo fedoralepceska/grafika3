@@ -12,7 +12,7 @@ class CertificateController extends Controller
     public function index(Request $request)
     {
         try {
-            $query = Certificate::query();
+            $query = Certificate::query()->with('createdBy');
 
             if ($request->has('searchQuery')) {
                 $searchQuery = $request->input('searchQuery');
@@ -51,7 +51,7 @@ class CertificateController extends Controller
     public function getCertificate($id)
     {
         try {
-            $certificate = Certificate::findOrFail($id);
+            $certificate = Certificate::with('createdBy')->findOrFail($id);
 
             if (request()->wantsJson()) {
                 return response()->json($certificate);
@@ -92,6 +92,7 @@ class CertificateController extends Controller
         $certificate->date = $validatedData['date'];
         $certificate->bank = $validatedData['bank'];
         $certificate->bankAccount = $validatedData['bankAccount'];
+        $certificate->created_by = auth()->id();
 
         // Save the certificate
         $certificate->save();

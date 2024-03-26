@@ -358,7 +358,7 @@ class InvoiceController extends Controller
         $invoice = Invoice::with('jobs')->findOrFail($invoiceId);
 
         $pdf = PDF::loadView('invoices.pdf', compact('invoice'));
-        return $pdf->stream('invoice-' . $invoice->invoice_number . '.pdf');
+        return $pdf->stream('order-' . $invoice->invoice_number . '.pdf');
     }
 
     public function invoiceReady(Request $request){

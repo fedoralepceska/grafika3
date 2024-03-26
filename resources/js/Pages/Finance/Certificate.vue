@@ -48,7 +48,7 @@
                                 </div>
                                 <div class="info">
                                     <div>Created By</div>
-                                    <div class="bold">{{}}</div>
+                                    <div class="bold">{{certificate.created_by?.name}}</div>
                                 </div>
 
                                 <div class="info">

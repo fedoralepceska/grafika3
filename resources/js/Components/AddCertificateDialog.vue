@@ -41,7 +41,7 @@
                     <v-card-actions class="flexSpace gap-4">
                         <v-spacer></v-spacer>
                         <SecondaryButton @click="closeDialog" class="red">Close</SecondaryButton>
-                        <SecondaryButton @click="addCertificate()" class="green">Save Item</SecondaryButton>
+                        <SecondaryButton @click="addCertificate()" class="green">Save Certificate</SecondaryButton>
                     </v-card-actions>
                 </v-card>
             </v-dialog>

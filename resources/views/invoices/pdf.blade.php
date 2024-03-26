@@ -2,7 +2,7 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <title>Invoice PDF</title>
+    <title>Order PDF</title>
     <style>
         body {
             font-family: 'Open Sans', sans-serif;
