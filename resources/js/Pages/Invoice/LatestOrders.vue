@@ -138,8 +138,7 @@ export default {
 }
 
 .job-images img {
-    width: 200px; /* Adjust as needed */
-    height: 180px; /* Adjust as needed */
+    height: 180px;
     margin: 0 1rem;
 }
 .box {

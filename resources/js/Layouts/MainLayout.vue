@@ -14,15 +14,30 @@ const showingNavigationDropdown = ref(false);
     <div class="background" style="min-height: 100vh">
         <nav class="background border-b border-gray-700">
             <!-- Primary Navigation Menu -->
-            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="mx-auto px-4 sm:px-6 lg:px-16">
                 <div class="flex justify-between h-16">
                     <div class="flex">
                         <!-- Logo -->
                         <div class="shrink-0 flex items-center">
                             <Link :href="route('dashboard')">
                                 <ApplicationLogo
-                                    class="block h-9 w-auto fill-current text-gray-800"
+                                    class="block h-9 ml-4 w-auto fill-current text-gray-800"
                                 />
+                            </Link>
+                        </div>
+
+                        <!-- Place To Add Navigation Links -->
+                    </div>
+                    <div class="flex">
+                        <!-- Logo -->
+                        <div class="shrink-0 flex items-center">
+                            <Link href="/production" class="p-4 text-white text-sm leading-4 font-medium mr-6">
+                                <i class="fa-solid fa-chart-pie" style="color: white"></i>
+                                Production
+                            </Link>
+                            <Link href="/machines" class="p-4 text-white text-sm leading-4 font-medium">
+                                <i class="fa-solid fa-print" style="color: white"></i>
+                                Machines
                             </Link>
                         </div>
 
