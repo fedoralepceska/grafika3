@@ -32,7 +32,7 @@
                                     </div>
                                     <div class="form-group">
                                         <label for="bankAcc" class="mr-4 width100 ">Account</label>
-                                        <input type="text" disabled class="rounded text-gray-700" v-model="certificate.bankAccount">
+                                        <input type="text" class="rounded text-gray-700" v-model="certificate.bankAccount">
                                     </div>
                                 </div>
                             </form>
@@ -70,9 +70,6 @@ export default {
                 bankAccount: '',
             }
         };
-    },
-    props: {
-        certificate: Object,
     },
     methods: {
         openDialog() {

@@ -44,7 +44,7 @@
                                 <div class="flex items-center text-white">
                                     <div class="form-group">
                                         <label for="client" class="mr-4 width100">Client</label>
-                                        <input type="text" id="client" class="text-gray-700 rounded" :placeholder="s">
+                                        <input type="text" id="client" class="text-gray-700 rounded" :placeholder="s" v-model="newItem.client_id">
                                     </div>
                                 </div>
                                 <div class="flex items-center text-white">
