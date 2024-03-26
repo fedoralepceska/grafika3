@@ -67,18 +67,20 @@
                                 <th>Client</th>
                                 <th>Expense</th>
                                 <th>Income</th>
+                                <th>Code</th>
                                 <th>Reference to</th>
                                 <th>Comment</th>
                             </tr>
-                            <tr>
+                            <tr v-for="item in items">
                                 <th></th>
                                 <th>{{certificate.id}}</th>
-                                <th></th>
-                                <th></th>
-                                <th></th>
-                                <th></th>
-                                <th></th>
-                                <th></th>
+                                <th>{{item.id}}</th>
+                                <th>{{item.client.name}}</th>
+                                <th>{{item.expense}}</th>
+                                <th>{{item.income}}</th>
+                                <th>{{item.code}}</th>
+                                <th>{{item.reference_to}}</th>
+                                <th>{{item.comment}}</th>
                             </tr>
                         </table>
                         <div class="flex justify-end">
@@ -132,8 +134,13 @@ export default {
                 date: null,
                 bank: '',
                 bankAccount: '',
-            }
+            },
+            items: []
         }
+    },
+    async beforeMount() {
+        const response = await axios.get(`/items/${this.item.certificate_id}`);
+        this.items = response.data;
     },
     methods: {
         toggleSidebar() {

@@ -15,6 +15,16 @@ class ItemController extends Controller
         //
     }
 
+    public function getAllByCertificateId($id)
+    {
+
+        // Use Eloquent to query items with the specified certificate_id
+        $items = Item::where('certificate_id', $id)->with('client')->get();
+
+        // Return the items as a JSON response
+        return response()->json($items);
+    }
+
     /**
      * Show the form for creating a new resource.
      */

@@ -79,6 +79,7 @@ Route::middleware(['auth', 'verified'])->group(function() {
     Route::get('/unique-banks', [CertificateController::class, 'getUniqueBanks']);
     Route::get('/statements/{id}', [CertificateController::class, 'getCertificate'])->name('certificates.getCertificate');
     Route::post('/item', [\App\Http\Controllers\ItemController::class, 'store'])->name('item.store');
+    Route::get('/items/{id}', [\App\Http\Controllers\ItemController::class, 'getAllByCertificateId'])->name('item.getAllByCertificateId');
     Route::post('/certificate', [CertificateController::class, 'store'])->name('certificate.store');
 
 });

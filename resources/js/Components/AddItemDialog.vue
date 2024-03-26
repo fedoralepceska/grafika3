@@ -153,6 +153,7 @@ export default {
                 const response = await axios.post('/item', this.newItem);
                 toast.success('Item added successfully!');
                 this.closeDialog();
+                this.$inertia.visit(`/statements/${this.certificate.id}`);
             } catch (error) {
                 toast.error('Error adding item: ' + error.message);
             }
