@@ -28,7 +28,7 @@
                                 <th>City</th>
                                 <th>Contacts</th>
                                 <th>New Contact</th>
-                                <th>Delete</th>
+                                <th>Update</th>
                             </tr>
                             </thead>
                             <tbody>
@@ -55,7 +55,9 @@
                                         </div>
                                     </td>
                                     <td>
-                                        <SecondaryButton @click="deleteClient(client)" class="delete">Delete</SecondaryButton>
+                                        <div class="centered">
+                                        <UpdateClientDialog :client="client"/>
+                                        </div>
                                     </td>
                                 </tr>
                             </template>
@@ -77,9 +79,11 @@ import AddContactDialog from "@/Components/AddContactDialog.vue";
 import ViewContactsDialog from "@/Components/ViewContactsDialog.vue";
 import Pagination from "@/Components/Pagination.vue"
 import Header from "@/Components/Header.vue";
+import UpdateClientDialog from "@/Components/UpdateClientDialog.vue";
 
 export default {
     components: {
+        UpdateClientDialog,
         ViewContactsDialog,
         AddContactDialog,
         MainLayout,
@@ -109,24 +113,6 @@ export default {
             };
             const response = await axios.get('/clients', { params });
             this.fetchedClients = response.data;
-        },
-        async deleteClient(client) {
-            const confirmed = confirm('Are you sure you want to delete this client?');
-            if (!confirmed) {
-                return;
-            }
-
-            try {
-                await axios.delete(`/clients/${client.id}`);
-                // Remove the client from the clients array
-                const index = this.clients.findIndex((m) => m.id === client.id);
-                if (index !== -1) {
-                    this.clients.splice(index, 1);
-                }
-            } catch (error) {
-                console.error('Error deleting client:', error);
-            }
-            window.location.reload();
         },
         async deleteContact(client, contact) {
             try {

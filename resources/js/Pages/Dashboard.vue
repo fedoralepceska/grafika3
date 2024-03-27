@@ -154,6 +154,7 @@ export default {
     background-color: $ultra-light-gray;
 }
 .text {
+    text-align: center;
     margin-left: 10px;
 }
 

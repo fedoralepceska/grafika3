@@ -669,8 +669,8 @@ export default {
     font-weight: bold;
 }
 .jobImg {
-    width: 45px;
     height: 45px;
+    margin: 0 1rem;
 }
 /*
 spreadheet style

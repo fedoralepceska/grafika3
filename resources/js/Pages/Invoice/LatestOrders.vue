@@ -37,8 +37,10 @@
                         </div>
                     </div>
                 </div>
-                <div class="job-images">
-                    <img v-for="job in invoice.jobs" :src="getImageUrl(invoice.id, job.id)">
+                <div class="image-box">
+                    <div class="job-images">
+                        <img v-for="job in invoice.jobs" :src="getImageUrl(invoice.id, job.id)">
+                    </div>
                 </div>
             </div>
         </div>
@@ -90,15 +92,16 @@ export default {
 
 <style scoped lang="scss">
 .container {
+    width: 90%;
     display: flex;
     flex-direction: column;
-    width: max-content;
     background-color: $dark-gray;
 }
 
 .invoices-container {
     display: flex;
     flex-direction: column;
+    width: calc(100% - 20vh);
 }
 
 .invoice-card {
@@ -133,10 +136,17 @@ export default {
 
 .job-images {
     display: flex;
-    align-items: center;
-    justify-content: center;
 }
-
+.image-box{
+    margin-left: 40px;
+    background-color: $light-gray;
+    overflow: auto;
+    white-space: nowrap;
+    padding: 10px;
+}
+.image-box img{
+    padding: 5px;
+}
 .job-images img {
     height: 180px;
     margin: 0 1rem;
@@ -146,7 +156,6 @@ export default {
     flex-direction: row;
     margin-bottom: 1rem;
 }
-
 .body {
     padding: 1rem;
     color: $white;

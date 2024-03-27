@@ -72,11 +72,12 @@
                                     </button>
                                     <div v-if="showImagePopover" class="popover">
                                         <div class="popover-content bg-gray-700">
-                                            <img :src="getImageUrl(invoice.id, job.id)" alt="Job Image" />
-                                            <button @click="toggleImagePopover(null)" class="popover-close"><icon class="fa fa-close"/></button>
+                                            <img :src="getImageUrl(invoice.id, selectedJob.id)" alt="Job Image" />
+                                            <button @click="toggleImagePopover(null)" class="popover-close"><icon class="text-white fa fa-close"/></button>
                                         </div>
                                     </div>
-                                    {{job.file}}</td>
+                                    {{job.file}}
+                                </td>
                                 <td>{{job.quantity}}</td>
                                 <td>{{job.copies}}</td>
                                 <td>{{job.height.toFixed(2)}}</td>
@@ -127,6 +128,7 @@ export default {
     },
     data() {
         return {
+            selectedJob: null,
             invoices: [],
             jobs: [],
             id: null,

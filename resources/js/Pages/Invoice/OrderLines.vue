@@ -163,8 +163,7 @@ th {
 
 .jobImg {
     width: 60px;
-    height: 60px;
-    margin: 0 auto;
+    margin: 0 1rem;
     display: flex;
 }
 .thumbnail {

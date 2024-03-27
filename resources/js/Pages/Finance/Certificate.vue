@@ -71,10 +71,10 @@
                                 <th>Reference to</th>
                                 <th>Comment</th>
                             </tr>
-                            <tr v-for="item in items">
-                                <th></th>
-                                <th>{{certificate.id}}</th>
+                            <tr v-for="(item,index) in items">
                                 <th>{{item.id}}</th>
+                                <th>{{certificate.id}}</th>
+                                <th>#{{index+1}}</th>
                                 <th>{{item.client.name}}</th>
                                 <th>{{item.expense}}</th>
                                 <th>{{item.income}}</th>
