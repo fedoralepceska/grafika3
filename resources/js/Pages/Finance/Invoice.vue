@@ -9,15 +9,15 @@
             <div class="left-column flex-1" style="width: 25%">
                 <div class="flex justify-between">
                     <Header title="invoice2" subtitle="invoiceEdit" icon="invoice.png" link="allInvoices"/>
-                    <div class="flex pt-4">
-                        <div class="buttons pt-3">
+                    <div class="flex pt-5 pb-5">
                             <button class="btn comment-order" @click="toggleSpreadsheetMode">
                                 {{ spreadsheetMode ?  'Edit' : 'Exit Edit Mode' }}
                                 <i class="fa-regular fa-edit"></i>
                             </button>
-                            <button class="btn comment-order">Update Comment <i class="fa-regular fa-comment"></i></button>
+                            <div>
+                                <UpdateDialogComment :invoice="invoice"/>
+                            </div>
                             <button  class="btn generate-invoice" @click="printInvoice">Print Invoice <i class="fa-solid fa-file-invoice-dollar"></i></button>
-                        </div>
                     </div>
                 </div>
 
@@ -143,13 +143,15 @@ import Toast, {useToast} from "vue-toastification";
 import OrderJobDetails from "@/Pages/Invoice/OrderJobDetails.vue";
 import OrderSpreadsheet from "@/Components/OrderSpreadsheet.vue";
 import Header from "@/Components/Header.vue";
+import UpdateDialogComment from "@/Components/UpdateDialogComment.vue";
 
 export default {
     components: {
         OrderSpreadsheet,
         OrderJobDetails,
         MainLayout,
-        Header },
+        Header,
+        UpdateDialogComment},
     props: {
         invoice: Object,
     },

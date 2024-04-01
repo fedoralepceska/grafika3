@@ -1,7 +1,7 @@
 <template>
     <MainLayout>
         <div class="pl-7 pr-7">
-            <Header title="statement" subtitle="bankStatement" icon="invoice.png" link="statements"/>
+            <Header title="statement" subtitle="bankStatement" icon="bill.png" link="statements"/>
             <div class="dark-gray p-2 text-white">
                 <div class="form-container p-2 ">
                     <h2 class="sub-title">
@@ -28,11 +28,13 @@
                                     <option value="asc">Oldest to Newest</option>
                                 </select>
                             </div>
-                            <div class="button flex gap-3">
-                                <button @click="applyFilter" class="btn create-order1">Filter</button>
-                                <button class="btn create-order">
-                                    Add new Statement <i class="fa fa-plus"></i>
-                                </button>
+                            <div class="button flex gap-5">
+                                <div>
+                                    <button @click="applyFilter" class="btn create-order1">Filter</button>
+                                </div>
+                                    <AddCertificateDialog
+                                        :certificate="certificate"
+                                    />
                             </div>
                         </div>
                     </div>
@@ -85,9 +87,10 @@ import axios from 'axios';
 import {reactive} from "vue";
 import OrderJobDetails from "@/Pages/Invoice/OrderJobDetails.vue";
 import ViewLockDialog from "@/Components/ViewLockDialog.vue";
+import AddCertificateDialog from "@/Components/AddCertificateDialog.vue";
 
 export default {
-    components: {Header, MainLayout,Pagination,OrderJobDetails, ViewLockDialog },
+    components: {Header, MainLayout,Pagination,OrderJobDetails, ViewLockDialog,AddCertificateDialog },
     props:{
         certificates:Object,
     },
@@ -225,10 +228,6 @@ select{
 }
 .create-order1{
     background-color: $blue;
-    color: white;
-}
-.create-order{
-    background-color: $green;
     color: white;
 }
 .job-details-container {

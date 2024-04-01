@@ -186,13 +186,13 @@ input {
     margin: 0 !important;
 }
 .btn {
-    padding: 10px 15px;
+    padding: 9px 12px;
     border: none;
     cursor: pointer;
     font-weight: bold;
     border-radius: 2px;
     background-color: $blue;
-    color: white;
+    margin-top: 12px;
 }
 
 .height {

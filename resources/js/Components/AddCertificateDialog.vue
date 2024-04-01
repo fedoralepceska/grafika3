@@ -4,12 +4,12 @@
             <v-dialog
                 v-model="dialog"
                 persistent
-                max-width="700"
+                width="500"
                 class="height"
             >
                 <template v-slot:activator="{ props }">
                     <div v-bind="props" class="bt">
-                        <button class="btn" @click="openAddCertificateForm">Add Statement <i class="fa fa-plus"></i></button>
+                        <button  class="btn" @click="openAddCertificateForm">Add Statement <i class="fa fa-plus"></i></button>
                     </div>
                 </template>
                 <v-card class="height background">
@@ -41,7 +41,7 @@
                     <v-card-actions class="flexSpace gap-4">
                         <v-spacer></v-spacer>
                         <SecondaryButton @click="closeDialog" class="red">Close</SecondaryButton>
-                        <SecondaryButton @click="addCertificate()" class="green">Save Certificate</SecondaryButton>
+                        <SecondaryButton @click="addCertificate()" class="green">Save Statement</SecondaryButton>
                     </v-card-actions>
                 </v-card>
             </v-dialog>
@@ -130,13 +130,13 @@ input {
     margin: 0 !important;
 }
 .btn {
-    padding: 10px 15px;
+    padding: 9px 12px;
     border: none;
     cursor: pointer;
     font-weight: bold;
     border-radius: 2px;
     background-color: $blue;
-    color: white;
+    margin-top: 12px;
 }
 
 .height {
