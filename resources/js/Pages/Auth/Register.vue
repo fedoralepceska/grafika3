@@ -101,3 +101,12 @@ const submit = () => {
         </form>
     </GuestLayout>
 </template>
+<style>
+form {
+    height: 100vh;
+    display: flex; /* Ensure form elements stretch vertically */
+    flex-direction: column; /* Arrange elements vertically */
+    overflow: hidden; /* Hide scrollbar */
+
+}
+</style>

@@ -31,6 +31,7 @@ const submit = () => {
 
 <template>
     <GuestLayout>
+
         <Head title="Log in" />
 
         <div v-if="status" class="mb-4 font-medium text-sm text-green-600">
@@ -93,7 +94,15 @@ const submit = () => {
     </GuestLayout>
 </template>
 <style>
+
 form {
-    height: 78.3vh; /* 100% of the viewport height */
+    height: 100vh;
+    display: flex; /* Ensure form elements stretch vertically */
+    flex-direction: column; /* Arrange elements vertically */
+    overflow: hidden; /* Hide scrollbar */
+
+    /* Optional: Remove potential padding and margin from form itself */
+    padding: 0;
+    margin: 0;
 }
 </style>
