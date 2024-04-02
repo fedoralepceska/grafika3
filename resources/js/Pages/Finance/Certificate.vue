@@ -112,7 +112,8 @@ export default {
         OrderSpreadsheet,
         OrderJobDetails,
         MainLayout,
-        Header },
+        Header
+    },
     props: {
         certificate: Object,
     },

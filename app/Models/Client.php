@@ -19,4 +19,9 @@ class Client extends Model
     {
         return $this->hasMany(Contact::class);
     }
+
+    public function clientCardStatement(): \Illuminate\Database\Eloquent\Relations\HasOne
+    {
+        return $this->hasOne(ClientCardStatement::class);
+    }
 }
