@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Client;
+use App\Models\ClientCardStatement;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 use Inertia\Inertia;
@@ -58,8 +59,9 @@ class ClientController extends Controller
         $client->city = $validatedData['city'];
         $client->save();
 
-        // Get the client's ID
-        $clientId = $client->id;
+        $clientCardStatement = new ClientCardStatement();
+        $clientCardStatement->client_id = $client->id;
+        $clientCardStatement->save();
 
         // Validate and save the contacts associated with this client
         $contacts = $request->input('contacts');
