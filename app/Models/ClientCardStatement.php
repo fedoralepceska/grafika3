@@ -9,6 +9,8 @@ class ClientCardStatement extends Model
 {
     use HasFactory;
 
+    protected $table = 'client_card_statement';
+
     protected $fillable=[
         'name',
         'function',
