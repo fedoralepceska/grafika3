@@ -21,7 +21,7 @@
                             <form class="flex">
                                 <div class="form-group">
                                     <label for="client" class="mr-4 width100 ">Invoice Comment</label>
-                                    <input type="text" class="rounded text-gray-700 " v-model="invoice.faktura_comment" :placeholder="invoice[0].faktura_comment">
+                                    <input type="text" class="rounded text-gray-700 " v-model="updatedComment" :placeholder="invoice[0].faktura_comment">
                                 </div>
                             </form>
                         </div>
@@ -54,6 +54,7 @@ export default {
         return {
             dialog: false,
             showUpdateCommentForm: false,
+            updatedComment: '',
         };
     },
     props: {
@@ -70,8 +71,26 @@ export default {
             this.showUpdateCommentForm = true;
         },
         async updateComment() {
+            try {
+                const response = await axios.put(`/invoice/${this.invoice[0].fakturaId}/update-comment`, {
+                    comment: this.updatedComment
+                });
+                this.showUpdateCommentForm = false;
+                this.dialog = false;
 
+                this.invoice[0].faktura_comment = this.updatedComment;
+
+                const toast = useToast();
+                toast.success(response.data.message);
+
+
+            } catch (error) {
+                const toast = useToast();
+                toast.error('Failed to update comment');
+                console.error(error);
+            }
         },
+
     },
 };
 </script>

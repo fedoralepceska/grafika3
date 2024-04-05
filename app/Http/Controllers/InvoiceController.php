@@ -543,4 +543,26 @@ class InvoiceController extends Controller
             return response()->json(['error' => 'Internal Server Error'], 500);
         }
     }
+    public function updateInvoiceComment(Request $request, $id)
+    {
+        try {
+            // Find the Faktura by its ID
+            $faktura = Faktura::findOrFail($id);
+
+            // Update the comment
+            $faktura->update([
+                'comment' => $request->input('comment')
+            ]);
+
+            // Return success response
+            return response()->json([
+                'message' => 'Faktura comment updated successfully',
+                'invoice_id' => $faktura->id
+            ], 200);
+        } catch (\Exception $e) {
+            // Return error response
+            return response()->json(['error' => 'Failed to update Faktura comment'], 500);
+        }
+    }
+
 }
