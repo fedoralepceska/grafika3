@@ -4,15 +4,49 @@ namespace App\Http\Controllers;
 
 use App\Models\ClientCardStatement;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
+use Inertia\Inertia;
 
 class ClientCardStatementController extends Controller
 {
     /**
      * Display a listing of the resource.
      */
-    public function index()
+    public function index(Request $request)
     {
-        //
+        try {
+            $query = ClientCardStatement::query();
+
+            if ($request->has('searchQuery')) {
+                $searchQuery = $request->input('searchQuery');
+                $query->where('client_name', 'like', "%$searchQuery%");
+            }
+
+            if ($request->has('sortOrder')) {
+                $sortOrder = $request->input('sortOrder');
+                $query->orderBy('created_at', $sortOrder);
+            }
+
+            if ($request->has('client')) {
+                $client = $request->input('client');
+                if ($client != 'All') {
+                    $query->where('client_name', $client);
+                }
+            }
+            $clientCards = $query->latest()->paginate(10);
+
+            if ($request->wantsJson()) {
+                return response()->json($clientCards);
+            }
+
+            return Inertia::render('Finance/CardStatements', [
+                'clientCards' => $clientCards,
+            ]);
+        } catch (\Exception $e) {
+            Log::error($e->getMessage());
+
+            return response()->json(['error' => 'Internal Server Error'], 500);
+        }
     }
 
     /**

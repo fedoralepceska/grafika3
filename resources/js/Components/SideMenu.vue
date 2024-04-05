@@ -106,6 +106,10 @@ export default {
                             href: '/statements',
                             title: 'Bank Statements',
                         },
+                        {
+                            href: '/cardStatements',
+                            title: 'Client Card Statements',
+                        },
                     ],
                 },
             ],

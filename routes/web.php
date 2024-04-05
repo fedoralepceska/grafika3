@@ -98,6 +98,12 @@ Route::middleware(['auth', 'verified'])->group(function() {
 
 });
 
+//Routes for Client Statements
+Route::middleware(['auth', 'verified'])->group(function() {
+    Route::get('/cardStatements', [\App\Http\Controllers\ClientCardStatementController::class, 'index'])->name('clientCards.index');
+
+});
+
 //Rotues For Jobs
 Route::resource('jobs', \App\Http\Controllers\JobController::class)
     ->only(['index', 'store'])
