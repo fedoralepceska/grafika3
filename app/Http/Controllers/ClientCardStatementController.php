@@ -68,9 +68,13 @@ class ClientCardStatementController extends Controller
     /**
      * Display the specified resource.
      */
-    public function show(ClientCardStatement $clientCardStatement)
+    public function show()
     {
-        //
+        $cardStatement = ClientCardStatement::query();
+
+        return Inertia::render('Finance/ClientCardStatement', [
+            'cardStatement' => $cardStatement,
+        ]);
     }
 
     /**

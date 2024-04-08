@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\CertificateController;
+use App\Http\Controllers\ClientCardStatementController;
 use App\Http\Controllers\ClientController;
 use App\Http\Controllers\ContactController;
 use App\Http\Controllers\InvoiceController;
@@ -100,8 +101,8 @@ Route::middleware(['auth', 'verified'])->group(function() {
 
 //Routes for Client Statements
 Route::middleware(['auth', 'verified'])->group(function() {
-    Route::get('/cardStatements', [\App\Http\Controllers\ClientCardStatementController::class, 'index'])->name('clientCards.index');
-
+    Route::get('/cardStatements', [ClientCardStatementController::class, 'index'])->name('clientCards.index');
+    Route::get('/cardStatement', [ClientCardStatementController::class, 'show'])->name('cardStatement.show');
 });
 
 //Rotues For Jobs

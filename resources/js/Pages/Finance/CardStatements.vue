@@ -1,7 +1,7 @@
 <template>
     <MainLayout>
         <div class="pl-7 pr-7">
-            <Header title="Card Statements" subtitle="All Client Statments" icon="clientCard.png" link="notInvoiced"/>
+            <Header title="CardStatements" subtitle="listofallCardStatements" icon="clientCard.png" link="cardStatements"/>
             <div class="dark-gray p-2 text-white">
                 <div class="form-container p-2 ">
                     <h2 class="sub-title">
