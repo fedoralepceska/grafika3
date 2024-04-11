@@ -62,7 +62,7 @@
                                     </td>
                                     <td>
                                         <div class="centered">
-                                        <CardStatementUpdateDialog/>
+                                        <CardStatementUpdateDialog :client_id="client.id"/>
                                         </div>
                                     </td>
                                 </tr>

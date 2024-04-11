@@ -13,7 +13,7 @@ class ClientCardStatement extends Model
 
     protected $fillable=[
         'name',
-        'function',
+        'functionInfo',
         'phone',
         'fax',
         'mobile_phone',
@@ -24,6 +24,7 @@ class ClientCardStatement extends Model
         'initial_cash',
         'credit_limit',
         'payment_deadline',
+        'client_id'
     ];
 
     public function client(): \Illuminate\Database\Eloquent\Relations\BelongsTo

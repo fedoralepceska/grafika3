@@ -62,7 +62,20 @@ class ClientCardStatementController extends Controller
      */
     public function store(Request $request)
     {
-        //
+        $data = $request->all();
+
+        // Find the ClientCardStatement based on a unique identifier (e.g., client_id)
+        $clientCardStatement = ClientCardStatement::firstOrCreate(['client_id' => $data['client_id']], $data);
+
+        $clientCardStatement->update($data);
+
+        // The $clientCardStatement will now be the existing record if found, or a new one if created
+        $clientCardStatement->save(); // This might be redundant as `firstOrCreate` already saves
+
+        return response()->json([
+            'message' => 'ClientCardStatement created or updated successfully',
+            'data' => $clientCardStatement
+        ]);
     }
 
     /**

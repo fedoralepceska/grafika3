@@ -24,23 +24,23 @@
                                         <legend>Personal Information</legend>
                                     <div class="form-group">
                                         <label for="name" class="mr-4 width100 ">Name</label>
-                                        <input type="text" class="rounded text-gray-700">
+                                        <input type="text" class="rounded text-gray-700" v-model="data.name">
                                     </div>
                                     <div class="form-group">
                                         <label for="function" class="mr-4 width100 ">Function</label>
-                                        <input type="text" class="rounded text-gray-700">
+                                        <input type="text" class="rounded text-gray-700" v-model="data.functionInfo">
                                     </div>
                                     <div class="form-group">
                                         <label for="phone" class="mr-4 width100 ">Phone</label>
-                                        <input type="text" class="rounded text-gray-700" >
+                                        <input type="text" class="rounded text-gray-700" v-model="data.phone">
                                     </div>
                                     <div class="form-group">
                                         <label for="fax" class="mr-4 width100 ">Fax</label>
-                                        <input type="text" class="rounded text-gray-700" >
+                                        <input type="text" class="rounded text-gray-700" v-model="data.fax">
                                     </div>
                                     <div class="form-group">
                                         <label for="mobile" class="mr-4 width100 ">Mobile</label>
-                                        <input type="text" class="rounded text-gray-700" >
+                                        <input type="text" class="rounded text-gray-700" v-model="data.mobile_phone">
                                     </div>
                                     </fieldset>
                                 </div>
@@ -49,34 +49,34 @@
                                         <legend>Financial Information</legend>
                                     <div class="form-group">
                                         <label for="edb" class="mr-4 width100 ">EDB</label>
-                                        <input type="text" class="rounded text-gray-700">
+                                        <input type="text" class="rounded text-gray-700" v-model="data.edb">
                                     </div>
                                     <div class="form-group">
                                         <label for="account" class="mr-4 width100 ">Account</label>
-                                        <input type="text" class="rounded text-gray-700">
+                                        <input type="text" class="rounded text-gray-700" v-model="data.account">
                                     </div>
                                     <div class="form-group">
                                         <label for="bank" class="mr-4 width100 ">Bank</label>
-                                        <input type="text" class="rounded text-gray-700" >
+                                        <input type="text" class="rounded text-gray-700" v-model="data.bank">
                                     </div>
                                     </fieldset>
                                     <fieldset>
                                         <legend>Additional Information</legend>
                                         <div class="form-group">
                                             <label for="bank" class="mr-4 width100 ">Initial Statement</label>
-                                            <input type="text" class="rounded text-gray-700">
+                                            <input type="text" class="rounded text-gray-700" v-model="data.initial_statement">
                                         </div>
                                         <div class="form-group">
                                             <label for="bank" class="mr-4 width100 ">Initial Balance</label>
-                                            <input type="text" class="rounded text-gray-700" >
+                                            <input type="text" class="rounded text-gray-700" v-model="data.initial_cash">
                                         </div>
                                         <div class="form-group">
                                             <label for="bank" class="mr-4 width100 ">Credit Limit</label>
-                                            <input type="text" class="rounded text-gray-700" >
+                                            <input type="text" class="rounded text-gray-700" v-model="data.credit_limit">
                                         </div>
                                         <div class="form-group">
                                             <label for="bank" class="mr-4 width100 ">Payment Deadline</label>
-                                            <input type="text" class="rounded text-gray-700" >
+                                            <input type="text" class="rounded text-gray-700" v-model="data.payment_deadline">
                                         </div>
                                     </fieldset>
 
@@ -108,10 +108,28 @@ export default {
         SecondaryButton,
         VueMultiselect
     },
+    props: {
+        client_id: Number
+    },
     data() {
         return {
             dialog: false,
             showUpdateCardForm: false,
+            data: {
+                name: '',
+                functionInfo: '',
+                phone: 0,
+                fax: 0,
+                mobile_phone: 0,
+                edb: '',
+                account: 0,
+                bank: '',
+                initial_statement: 0.0,
+                initial_cash: 0.0,
+                credit_limit: 0.0,
+                payment_deadline: 0.0,
+                client_id: this.$props.client_id,
+            }
         };
     },
     methods: {
@@ -125,7 +143,16 @@ export default {
             this.showUpdateCardForm = true;
         },
         async updateCard(){
+            const toast = useToast();
+            axios
+                .post('/client_card_statement', this.data)
+                .then((response) => {
+                    toast.success("Client card statement added successfully.")
+                })
+                .catch((error) => {
+                    toast.error("Error adding client card statement!")
 
+                });
         }
     },
 };

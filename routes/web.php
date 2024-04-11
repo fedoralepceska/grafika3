@@ -83,7 +83,7 @@ Route::middleware(['auth', 'verified'])->group(function() {
     Route::post('/item', [\App\Http\Controllers\ItemController::class, 'store'])->name('item.store');
     Route::get('/items/{id}', [\App\Http\Controllers\ItemController::class, 'getAllByCertificateId'])->name('item.getAllByCertificateId');
     Route::post('/certificate', [CertificateController::class, 'store'])->name('certificate.store');
-
+    Route::post('/client_card_statement', [ClientCardStatementController::class, 'store'])->name('ccs.store');
 });
 
 //Rotues For Client
