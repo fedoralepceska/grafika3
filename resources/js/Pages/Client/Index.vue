@@ -29,6 +29,7 @@
                                 <th>Contacts</th>
                                 <th>New Contact</th>
                                 <th>Update</th>
+                                <th>Card Statement</th>
                             </tr>
                             </thead>
                             <tbody>
@@ -59,6 +60,11 @@
                                         <UpdateClientDialog :client="client"/>
                                         </div>
                                     </td>
+                                    <td>
+                                        <div class="centered">
+                                        <CardStatementUpdateDialog/>
+                                        </div>
+                                    </td>
                                 </tr>
                             </template>
                             </tbody>
@@ -80,9 +86,11 @@ import ViewContactsDialog from "@/Components/ViewContactsDialog.vue";
 import Pagination from "@/Components/Pagination.vue"
 import Header from "@/Components/Header.vue";
 import UpdateClientDialog from "@/Components/UpdateClientDialog.vue";
+import CardStatementUpdateDialog from "@/Components/CardStatementUpdateDialog.vue";
 
 export default {
     components: {
+        CardStatementUpdateDialog,
         UpdateClientDialog,
         ViewContactsDialog,
         AddContactDialog,
