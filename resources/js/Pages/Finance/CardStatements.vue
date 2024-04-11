@@ -48,19 +48,19 @@
                             <div class="flex gap-40 p-2">
                                 <div class="info">
                                     <div>Client ID</div>
-                                    <div class="bold">#{{}}</div>
+                                    <div class="bold">#{{card?.client_id}}</div>
                                 </div>
                                 <div class="info">
                                     <div>Name</div>
-                                    <div class="bold">{{  }}</div>
+                                    <div class="bold">{{ card?.name }}</div>
                                 </div>
                                 <div class="info">
                                     <div>Bank</div>
-                                    <div  class="bold">{{}}</div>
+                                    <div  class="bold">{{ card?.bank }}</div>
                                 </div>
                                 <div class="info">
                                     <div>Bank Account</div>
-                                    <div  class="bold">{{  }}</div>
+                                    <div  class="bold">{{ card?.account }}</div>
                                 </div>
                             </div>
                         </div>
@@ -97,6 +97,7 @@ export default {
     },
     mounted() {
         this.localCardStatements = this.clientCards.data.slice();
+        console.log(this.localCardStatements);
         this.fetchUniqueClients()
     },
     methods: {
