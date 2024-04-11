@@ -141,6 +141,9 @@ export default {
         },
         openCardForm() {
             this.showUpdateCardForm = true;
+            if(this.showUpdateCardForm) {
+              this.fetchClientData();
+            }
         },
         async updateCard(){
             const toast = useToast();
@@ -153,6 +156,13 @@ export default {
                     toast.error("Error adding client card statement!")
 
                 });
+        },
+        async fetchClientData() {
+            const response = await axios.get(`/client_card_statement/${this.client_id}`);
+            if (response.data.length !== 0) {
+                this.data = response.data;
+            }
+            this.$emit('dialogOpened');
         }
     },
 };

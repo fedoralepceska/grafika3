@@ -62,7 +62,7 @@
                                     </td>
                                     <td>
                                         <div class="centered">
-                                        <CardStatementUpdateDialog :client_id="client.id"/>
+                                        <CardStatementUpdateDialog :client_id="client.id" @dialogOpened="fetchClientData"/>
                                         </div>
                                     </td>
                                 </tr>
@@ -134,7 +134,8 @@ export default {
                 console.error('Error deleting client:', error);
             }
         },
-
+        fetchClientData() {
+        }
     },
     mounted() {
         this.fetchClients();

@@ -117,4 +117,16 @@ class ClientCardStatementController extends Controller
     {
         //
     }
+
+    public function getCCSByClientId(int $id)
+    {
+        $clientCardStatement = ClientCardStatement::where('client_id', $id)->first();
+
+        if ($clientCardStatement) {
+            return response()->json($clientCardStatement);
+        }
+        else {
+            return [];
+        }
+    }
 }

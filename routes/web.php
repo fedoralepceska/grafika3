@@ -84,6 +84,7 @@ Route::middleware(['auth', 'verified'])->group(function() {
     Route::get('/items/{id}', [\App\Http\Controllers\ItemController::class, 'getAllByCertificateId'])->name('item.getAllByCertificateId');
     Route::post('/certificate', [CertificateController::class, 'store'])->name('certificate.store');
     Route::post('/client_card_statement', [ClientCardStatementController::class, 'store'])->name('ccs.store');
+    Route::get('/client_card_statement/{id}', [ClientCardStatementController::class, 'getCCSByClientId'])->name('ccs.getCCSByClientId');
 });
 
 //Rotues For Client
