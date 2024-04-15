@@ -495,7 +495,7 @@ class InvoiceController extends Controller
     public function allFaktura(Request $request)
     {
         try {
-            $query = Faktura::where('isInvoiced', true); // Filter for generated Fakturas
+            $query = Faktura::with('createdBy')->where('isInvoiced', true); // Filter for generated Fakturas
 
             // Apply search query if provided
             if ($request->has('searchQuery')) {
