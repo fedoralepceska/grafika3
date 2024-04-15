@@ -15,7 +15,7 @@ class ClientCardStatementController extends Controller
     public function index(Request $request)
     {
         try {
-            $query = ClientCardStatement::query();
+            $query = ClientCardStatement::with('client');
 
             if ($request->has('searchQuery')) {
                 $searchQuery = $request->input('searchQuery');

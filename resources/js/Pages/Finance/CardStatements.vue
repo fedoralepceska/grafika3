@@ -47,8 +47,8 @@
                             </div>
                             <div class="flex gap-40 p-2">
                                 <div class="info">
-                                    <div>Client ID</div>
-                                    <div class="bold">#{{card?.client_id}}</div>
+                                    <div>Client</div>
+                                    <div class="bold">{{card?.client?.name}}</div>
                                 </div>
                                 <div class="info">
                                     <div>Name</div>
