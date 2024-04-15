@@ -206,7 +206,8 @@ export default {
         },
         async startJob(job) {
             const action = job.actions.find(a => a.name === this.actionId);
-            this.startTimer(action.id);
+            this.startTimer(action.id, job);
+            job.started = true;
             this.jobDisabledStatus[action.id] = true;
 
             // Persist jobDisabledStatus to localStorage
@@ -235,10 +236,13 @@ export default {
                     });
                 }
             }
-            job.started = true;
         },
-        startTimer(actionId) {
+        startTimer(actionId, job) {
             const storedStartTimeStr = localStorage.getItem(`timer_${actionId}`);
+
+            if (job !== null) {
+                job.started = true;
+            }
 
             if (storedStartTimeStr) {
                 // Resume existing timer
