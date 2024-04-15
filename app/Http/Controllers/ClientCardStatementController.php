@@ -19,7 +19,7 @@ class ClientCardStatementController extends Controller
 
             if ($request->has('searchQuery')) {
                 $searchQuery = $request->input('searchQuery');
-                $query->where('client_name', 'like', "%$searchQuery%");
+                $query->where('account', 'like', "%$searchQuery%");
             }
 
             if ($request->has('sortOrder')) {
@@ -30,11 +30,10 @@ class ClientCardStatementController extends Controller
             if ($request->has('client')) {
                 $client = $request->input('client');
                 if ($client != 'All') {
-                    $query->where('client_name', $client);
+                    $query->where('client_id', $client);
                 }
             }
             $clientCards = $query->latest()->paginate(10);
-
             if ($request->wantsJson()) {
                 return response()->json($clientCards);
             }

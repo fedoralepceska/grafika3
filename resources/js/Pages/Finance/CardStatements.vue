@@ -9,7 +9,7 @@
                     </h2>
                     <div class="filter-container flex pb-10">
                         <div class="search flex gap-2">
-                            <input v-model="searchQuery" placeholder="Enter client name" class="text-black" style="width: 50vh; border-radius: 3px" @keyup.enter="searchCardStatements" />
+                            <input v-model="searchQuery" placeholder="Enter bank account" class="text-black" style="width: 50vh; border-radius: 3px" @keyup.enter="searchCardStatements" />
                             <button class="btn create-order1" @click="searchCardStatements">Search</button>
                         </div>
                         <div class="flex gap-3">
@@ -18,7 +18,7 @@
                                 <select v-model="filterClient" class="text-black">
                                     <option value="All" hidden>Clients</option>
                                     <option value="All">All Clients</option>
-                                    <option v-for="client in uniqueClients" :key="client">{{ client.name }}</option>
+                                    <option v-for="client in uniqueClients" :key="client.id" :value="client">{{ client.name }}</option>
                                 </select>
                             </div>
                             <div class="date">
@@ -101,12 +101,15 @@ export default {
     },
     methods: {
         async applyFilter() {
+            if (this.filterClient === 'All') {
+                this.filterClient = null;
+            }
             try {
                 const response = await axios.get('/cardStatements', {
                     params: {
                         searchQuery: encodeURIComponent(this.searchQuery),
                         sortOrder: this.sortOrder,
-                        client: this.filterClient.id,
+                        client: this.filterClient?.id,
                     },
                 });
                 this.localCardStatements = response.data;
@@ -115,7 +118,7 @@ export default {
                     redirectUrl += `?searchQuery=${encodeURIComponent(this.searchQuery)}`;
                 }
                 if (this.sortOrder) {
-                    redirectUrl += `${this.searchQuery}sortOrder=${this.sortOrder}`;
+                    redirectUrl += `${this.searchQuery}?sortOrder=${this.sortOrder}`;
                 }
                 if (this.filterClient) {
                     redirectUrl += `${this.searchQuery || this.sortOrder ? '&' : '?'}client=${this.filterClient.id}`;
