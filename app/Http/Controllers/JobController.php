@@ -409,7 +409,7 @@ class JobController extends Controller
             'height' => 'sometimes|required|numeric',
             'quantity' => 'sometimes|required|numeric',
             'status' => 'sometimes|required',
-
+            'salePrice' => 'sometimes|required',
         ]);
 
         // Update the job with only the validated data that's present in the request
@@ -417,7 +417,8 @@ class JobController extends Controller
             'width',
             'height',
             'quantity',
-            'status'
+            'status',
+            'salePrice'
         ]));
 
         return response()->json(['message' => 'Job updated successfully']);

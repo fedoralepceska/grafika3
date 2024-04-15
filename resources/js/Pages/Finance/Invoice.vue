@@ -25,7 +25,7 @@
                     <div class="invoice flex gap-60 relative mb-2">
                         <div class="info">
                             <div>Invoice ID</div>
-                            <div>{{ invoice[0]?.fakturaId }}/{{new Date(invoice[0].created).toLocaleDateString('en-US', { year: 'numeric'})}}</div>
+                            <div>{{ invoice[0]?.fakturaId }}/{{new Date(invoice[0]?.created).toLocaleDateString('en-US', { year: 'numeric'})}}</div>
                         </div>
                         <div class="info">
                             <div>Created by</div>
@@ -37,7 +37,7 @@
                         </div>
                         <div class="info">
                             <div>Date Created</div>
-                            <div>{{new Date(invoice[0].created).toLocaleDateString('en-US', { year: 'numeric', month: '2-digit', day: '2-digit' })}}</div>
+                            <div>{{new Date(invoice[0]?.created).toLocaleDateString('en-US', { year: 'numeric', month: '2-digit', day: '2-digit' })}}</div>
                         </div>
                     </div>
 
@@ -113,7 +113,7 @@
                                         </div>
                                         <div class="jobPriceInfo absolute right-0 bottom-10 bg-white text-black bold">
                                             <div class="p-2">
-                                                {{$t('salePrice')}}: <span class="bold"> ден.</span>
+                                                {{$t('salePrice')}}: <span class="bold">{{job.salePrice.toFixed(2)}} ден.</span>
                                             </div>
                                         </div>
                                         <div class="jobPriceInfo absolute right-0 bottom-0 bg-white text-black bold">

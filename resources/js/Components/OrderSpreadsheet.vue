@@ -19,6 +19,7 @@
                 <th>Job Status</th>
                 <th>Unit Price</th>
                 <th>Job Price</th>
+                <th>Sale Price</th>
             </tr>
             </thead>
             <tbody>
@@ -37,6 +38,12 @@
                 <td>{{job.status}}</td>
                 <td>{{ job?.small_material?.small_format_material?.price_per_unit }}.ден</td>
                 <td>{{job.totalPrice.toFixed(2)}}.ден</td>
+                <td v-if="editMode">
+                    <input type="text" class="text-black" v-model="job.editableSalePrice" />
+                </td>
+                <td v-else>
+                    {{job.salePrice}}.ден
+                </td>
             </tr>
             </tbody>
         </table>
@@ -65,6 +72,9 @@ export default {
                     if (!job.editableQuantity) {
                         job.editableQuantity = job.quantity;
                     }
+                    if (!job.editableSalePrice) {
+                        job.editableSalePrice = job.salePrice;
+                    }
                 });
             }
         },
@@ -77,14 +87,17 @@ export default {
             // Handle the save changes action
             const promises = this.invoice.jobs.map(async (job) => {
                 if (
-                    job.editableQuantity !== job.quantity
+                    job.editableQuantity !== job.quantity ||
+                    job.editableSalePrice !== job.salePrice
                 ) {
                     try {
                         const response = await axios.put(`/jobs/${job.id}`, {
                             quantity: job.editableQuantity,
+                            salePrice: job.editableSalePrice
                         });
                         // Update the material with the response data
                         job.quantity = response.data.quantity;
+                        job.salePrice = response.data.salePrice;
                     } catch (error) {
                         console.error('Error updating job:', error);
                     }
@@ -96,6 +109,7 @@ export default {
             // Reset the editable fields and exit edit mode
             this.invoice.jobs.forEach((job) => {
                 job.editableQuantity = null;
+                job.editableSalePrice = null;
             });
             this.editMode = false;
             window.location.reload();

@@ -34,7 +34,9 @@ class Job extends Model
         'status',
         'quantity',
         'copies',
-        'started_by'
+        'started_by',
+        'price',
+        'salePrice'
     ];
 
     protected $attributes = [

@@ -281,6 +281,9 @@ export default {
                     await axios.put(`/orders/${invoiceWithJob.id}`, {
                         status: 'Completed',
                     });
+                    await axios.put(`/jobs/${lastJob.id}`, {
+                        status: 'Completed',
+                    });
                     this.$inertia.visit(`/orders/${invoiceWithJob.id}`);
                 }
 
