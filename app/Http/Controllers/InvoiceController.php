@@ -68,14 +68,6 @@ class InvoiceController extends Controller
             });
         }
     }
-    public function getUniqueClients()
-    {
-        $uniqueClients = Invoice::join('clients', 'invoices.client_id', '=', 'clients.id')
-            ->distinct()
-            ->pluck('clients.name');
-
-        return response()->json($uniqueClients);
-    }
     public function create()
     {
         return Inertia::render('Invoice/InvoiceForm', [

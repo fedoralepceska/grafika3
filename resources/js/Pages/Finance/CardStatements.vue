@@ -97,7 +97,6 @@ export default {
     },
     mounted() {
         this.localCardStatements = this.clientCards.data.slice();
-        console.log(this.localCardStatements);
         this.fetchUniqueClients()
     },
     methods: {
@@ -140,12 +139,13 @@ export default {
             try {
                 const response = await axios.get('/unique-clients');
                 this.uniqueClients = response.data;
+                console.log(this.uniqueClients)
             } catch (error) {
                 console.error(error);
             }
         },
         viewCard(id) {
-            this.$inertia.visit(`/cardStatements/${id}`);
+            this.$inertia.visit(`/cardStatement/${id}`);
         },
 
     },

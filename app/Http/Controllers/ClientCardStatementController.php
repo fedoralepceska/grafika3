@@ -81,9 +81,9 @@ class ClientCardStatementController extends Controller
     /**
      * Display the specified resource.
      */
-    public function show()
+    public function show($id)
     {
-        $cardStatement = ClientCardStatement::query();
+        $cardStatement = ClientCardStatement::query()->findOrFail($id);
 
         return Inertia::render('Finance/ClientCardStatement', [
             'cardStatement' => $cardStatement,

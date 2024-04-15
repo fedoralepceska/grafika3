@@ -147,4 +147,12 @@ class ClientController extends Controller
 
         return $query;
     }
+    public function getUniqueClients()
+    {
+        $uniqueClients = Client::query()
+            ->distinct()
+            ->pluck('clients.name');
+
+        return response()->json($uniqueClients);
+    }
 }

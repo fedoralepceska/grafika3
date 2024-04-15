@@ -71,7 +71,7 @@ Route::middleware(['auth', 'verified'])->group(function() {
     Route::get('/orders/end-date/count', [InvoiceController::class, 'countShippingToday'])->name('invoices.countShippingToday');
     Route::get('/orders/seven-days/count', [InvoiceController::class, 'countInvoicesSevenOrMoreDaysAgo'])->name('invoices.countInvoicesSevenOrMoreDaysAgo');
     Route::get('/order/download', [InvoiceController::class, 'downloadInvoiceFiles'])->name('invoice.download');
-    Route::get('/unique-clients', [InvoiceController::class, 'getUniqueClients']);
+    Route::get('/unique-clients', [ClientController::class, 'getUniqueClients']);
     Route::get('/orders/{id}/pdf', [InvoiceController::class, 'generateInvoicePdf'])->name('invoice.generateInvoicePdf');
     Route::get('/invoice/{id}', [InvoiceController::class, 'getGeneratedInvoice'])->name('invoices.getGeneratedInvoice');
     Route::put('/invoice/{id}/update-comment', [InvoiceController::class, 'updateInvoiceComment'])->name('invoices.updateInvoiceComment');
@@ -103,7 +103,7 @@ Route::middleware(['auth', 'verified'])->group(function() {
 //Routes for Client Statements
 Route::middleware(['auth', 'verified'])->group(function() {
     Route::get('/cardStatements', [ClientCardStatementController::class, 'index'])->name('clientCards.index');
-    Route::get('/cardStatement', [ClientCardStatementController::class, 'show'])->name('cardStatement.show');
+    Route::get('/cardStatement/{id}', [ClientCardStatementController::class, 'show'])->name('cardStatement.show');
 });
 
 //Rotues For Jobs

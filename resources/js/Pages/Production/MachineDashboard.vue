@@ -2,46 +2,8 @@
     <MainLayout>
         <div class="pl-7 pr-7">
             <Header title="Machines" subtitle="Dashboard" icon="machines.png" link="machines"/>
-              <div class="flex">
-                <div class="text-white">
-                    Select machine type
-                </div>
-                <div class="flex px-3">
-                    <div @click="selectMachineType('printing')" :class="{ 'selected-type': selectedMachineType === 'printing' }" class="type light-gray px-3">Printing <span class="mdi mdi-printer-outline"></span></div>
-                    <div @click="selectMachineType('cutting')" :class="{ 'selected-type': selectedMachineType === 'cutting' }" class="type light-gray px-3">Cutting <span class="mdi mdi-box-cutter"></span></div>
-                </div>
-              </div>
-<!--
-            PrintingMachines
--->
-            <div v-if="selectedMachineType==='printing'" class="grid-container">
+            <div class="grid-container">
                 <div v-for="item in jobMachinesPrint" :key="item.name" class="grid-item bg" @click="navigateToMachine(item.name)" >
-                    <div class="machine">
-                        <div class="machineName text-white">
-                            {{ $t(`machinePrint.${item.name}`) }}
-                        </div>
-                        <div class="machineInfo">
-                            <div>Total active jobs: {{item.total}}</div>
-                            <div>Total pending jobs: {{item.secondaryCount}}</div>
-                            <div>Total jobs ON HOLD: {{item.onHoldCount}}</div>
-                            <div v-if="item.onRushCount" class="red blinking">High priority jobs: {{item.onRushCount}}</div>
-                        </div>
-                    </div>
-                    <div class="status">
-                        <div v-if="item.total > 0" class="status-circle" style="background-color: #408a0b;">
-                            Online
-                        </div>
-                        <div v-else class="status-circle" style="background-color: #9e2c30;">
-                            Offline
-                        </div>
-                    </div>
-                </div>
-            </div>
-<!--
-            Cutting Machines
--->
-            <div v-if="selectedMachineType==='cutting'" class="grid-container">
-                <div v-for="item in jobMachinesCut" :key="item.name" class="grid-item bg" @click="navigateToMachine(item.name)" >
                     <div class="machine">
                         <div class="machineName text-white">
                             {{ $t(`machinePrint.${item.name}`) }}
