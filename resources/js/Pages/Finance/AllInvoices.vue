@@ -18,7 +18,7 @@
                             <select v-model="filterClient" class="text-black">
                                 <option value="All" hidden>Clients</option>
                                 <option value="All">All Clients</option>
-                                <option v-for="client in uniqueClients" :key="client">{{ client }}</option>
+                                <option v-for="client in uniqueClients" :key="client">{{ client.name }}</option>
                             </select>
                         </div>
                         <div class="date">
