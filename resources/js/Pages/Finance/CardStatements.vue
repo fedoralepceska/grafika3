@@ -18,7 +18,7 @@
                                 <select v-model="filterClient" class="text-black">
                                     <option value="All" hidden>Clients</option>
                                     <option value="All">All Clients</option>
-                                    <option v-for="client in uniqueClients" :key="client">{{ client }}</option>
+                                    <option v-for="client in uniqueClients" :key="client">{{ client.name }}</option>
                                 </select>
                             </div>
                             <div class="date">
@@ -106,7 +106,7 @@ export default {
                     params: {
                         searchQuery: encodeURIComponent(this.searchQuery),
                         sortOrder: this.sortOrder,
-                        client: this.filterClient,
+                        client: this.filterClient.id,
                     },
                 });
                 this.localCardStatements = response.data;
@@ -118,7 +118,7 @@ export default {
                     redirectUrl += `${this.searchQuery}sortOrder=${this.sortOrder}`;
                 }
                 if (this.filterClient) {
-                    redirectUrl += `${this.searchQuery || this.sortOrder ? '&' : '?'}client=${this.filterClient}`;
+                    redirectUrl += `${this.searchQuery || this.sortOrder ? '&' : '?'}client=${this.filterClient.id}`;
                 }
 
                 this.$inertia.visit(redirectUrl);
@@ -139,7 +139,6 @@ export default {
             try {
                 const response = await axios.get('/unique-clients');
                 this.uniqueClients = response.data;
-                console.log(this.uniqueClients)
             } catch (error) {
                 console.error(error);
             }
