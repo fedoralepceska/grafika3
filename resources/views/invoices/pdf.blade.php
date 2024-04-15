@@ -58,7 +58,7 @@
                     <div class="order1">Order: <span class="order">num.{{ $invoice->id }}/{{ date('Y') }}</span></div>
                 </td>
                 <td>
-                    <img src="{{ storage_path('app/public/uploads/' . $job->file) }}" alt="Job Image" style="padding-left: 370px; width: 85px; height: 75px;">
+                    <img src="{{ storage_path('app/public/images/logo_blue.png') }}" alt="Job Image" style="padding: 0 340px; height: 75px;">
                 </td>
             </tr>
         </table>
