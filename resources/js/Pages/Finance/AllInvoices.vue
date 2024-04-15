@@ -58,7 +58,7 @@
                                 </div>
                                 <div class="info">
                                     <div>Created By</div>
-                                    <div  class="bold">{{}}</div>
+                                    <div  class="bold">{{faktura.created_by}}</div>
                                 </div>
                                 <div class="info">
                                     <div>Invoice for Orders</div>

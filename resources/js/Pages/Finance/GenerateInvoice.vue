@@ -93,7 +93,7 @@
                                         </div>
                                         <div class="jobPriceInfo absolute right-0 bottom-10 bg-white text-black bold">
                                             <div class="p-2">
-                                                {{$t('salePrice')}}: <span class="bold">{{job.salePrice.toFixed(2)}} ден.</span>
+                                                {{$t('salePrice')}}: <span class="bold">{{job.salePrice?.toFixed(2)}} ден.</span>
                                             </div>
                                         </div>
                                         <div class="jobPriceInfo absolute right-0 bottom-0 bg-white text-black bold">
