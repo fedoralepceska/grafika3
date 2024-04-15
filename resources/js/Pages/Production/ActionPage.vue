@@ -88,7 +88,7 @@
                                     <button style="min-width: 230px; max-width: 230px" :class="['bg-white', 'text-black', 'p-2', 'rounded', 'mr-2', { 'disabled' : invoice.onHold },{ 'disabled' : jobDisabledStatus[getActionId(job)]}]" @click="startJob(job)" :disabled="invoice.onHold || jobDisabledStatus[getActionId(job)]">
                                         <strong>Start job <i class="fa-regular fa-clock"></i><span>{{ elapsedTimes[getActionId(job)] }}</span></strong>
                                     </button>
-                                    <button v-if="job.started" :class="['red', 'p-2', 'rounded', { 'disabled' : invoice.onHold }]" @click="endJob(job)" :disabled="invoice.onHold">
+                                    <button v-if="job.started || elapsedTimes[job.id] !== null" :class="['red', 'p-2', 'rounded', { 'disabled' : invoice.onHold }]" @click="endJob(job)" :disabled="invoice.onHold">
                                         <strong>End job</strong>
                                     </button>
                                 </td>
@@ -239,10 +239,6 @@ export default {
         },
         startTimer(actionId, job) {
             const storedStartTimeStr = localStorage.getItem(`timer_${actionId}`);
-
-            if (job !== null) {
-                job.started = true;
-            }
 
             if (storedStartTimeStr) {
                 // Resume existing timer
