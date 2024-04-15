@@ -115,6 +115,7 @@ import MainLayout from "@/Layouts/MainLayout.vue";
 import Header from "@/Components/Header.vue";
 import CommentModal from "@/Components/CommentModal.vue";
 import axios from "axios";
+import {useToast} from "vue-toastification";
 
 export default {
     name: 'ActionPage',
@@ -297,6 +298,8 @@ export default {
                     });
                 }
                 this.endTimer(job);
+                const toast  = useToast();
+                toast.success(`Job finished for ${this.elapsedTimes[action.id]}`);
             } catch (error) {
                 console.error("Error in ending job:", error);
             }
