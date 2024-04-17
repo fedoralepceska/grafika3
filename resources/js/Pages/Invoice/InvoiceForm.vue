@@ -29,11 +29,11 @@
                                     </div>
                                     <div class="form-group gap-4">
                                         <label for="client_email">{{ $t('company') }}:</label>
-                                        <span id="client_email">{{ selectedClientCompany || contact?.name }}</span>
+                                        <input type="text" disabled :placeholder="selectedClientCompany || contact?.name">
                                     </div>
                                     <div class="form-group gap-4">
                                         <label for="client_email">{{ $t('phone') }}:</label>
-                                        <span id="client_email">{{ selectedClientPhone || contact?.phone }}</span>
+                                        <input type="text" disabled :placeholder=" selectedClientPhone || contact?.phone ">
                                     </div>
                                 </div>
                                 <div class="right-column">
@@ -268,9 +268,12 @@ export default {
 </script>
 
 <style scoped lang="scss">
-input[data-v-81b90cf3], select[data-v-81b90cf3]{
-    width: 70%;
+input, select{
+    width: 60%;
     border-radius: 3px;
+}
+.w70{
+    width: 60%;
 }
 .bold{
     font-weight: bolder;

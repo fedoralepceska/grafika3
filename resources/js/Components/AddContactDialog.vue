@@ -99,6 +99,9 @@ export default {
 .bt{
     margin: 12px 24px;
 }
+input{
+    border-radius: 3px;
+}
 .height {
     height: calc(100vh - 300px);
 }
