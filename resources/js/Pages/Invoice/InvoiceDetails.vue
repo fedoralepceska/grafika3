@@ -605,7 +605,9 @@ export default {
     position: absolute;
     top: 10px;
     right: 10px;
-    color: black;
+    padding: 1px 4px;
+    border-radius: 2px;
+    background-color: $red;
 }
 
 .right-column {
