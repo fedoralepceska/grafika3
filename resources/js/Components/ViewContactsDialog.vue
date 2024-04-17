@@ -6,6 +6,7 @@
             persistent
             max-width="1200"
             class="height"
+            @keydown.esc="closeDialog"
         >
             <template v-slot:activator="{ props }">
                 <div v-bind="props" class="bt">
@@ -113,6 +114,14 @@ export default {
                 console.error('Error deleting client:', error);
             }
         },
+        handleEscapeKey(event) {
+            if (event.key === 'Escape') {
+                this.closeDialog();
+            }
+        }
+    },
+    mounted() {
+        document.addEventListener('keydown', this.handleEscapeKey);
     },
 };
 </script>

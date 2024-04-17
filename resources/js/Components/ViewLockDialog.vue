@@ -7,6 +7,7 @@
             max-height="250"
             max-width="500"
             class="height"
+            @keydown.esc="closeDialog"
         >
             <template v-slot:activator="{ props }">
                 <div v-bind="props" class="bt">
@@ -89,6 +90,14 @@ export default {
             });
             this.actionOptions = actions;
         },
+        handleEscapeKey(event) {
+            if (event.key === 'Escape') {
+                this.closeDialog();
+            }
+        }
+    },
+    mounted() {
+        document.addEventListener('keydown', this.handleEscapeKey);
     },
 };
 </script>

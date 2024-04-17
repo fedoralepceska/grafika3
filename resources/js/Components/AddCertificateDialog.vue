@@ -6,6 +6,7 @@
                 persistent
                 width="500"
                 class="height"
+                @keydown.esc="closeDialog"
             >
                 <template v-slot:activator="{ props }">
                     <div v-bind="props" class="bt">
@@ -94,8 +95,16 @@ export default {
                 .catch((error) => {
                     toast.error("Error adding certificate!");
                 });
+        },
+        handleEscapeKey(event) {
+            if (event.key === 'Escape') {
+                this.closeDialog();
+            }
         }
-    }
+    },
+    mounted() {
+        document.addEventListener('keydown', this.handleEscapeKey);
+    },
 };
 </script>
 

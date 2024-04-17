@@ -6,6 +6,7 @@
                 persistent
                 max-width="700"
                 class="height"
+                @keydown.esc="closeDialog"
             >
                 <template v-slot:activator="{ props }">
                     <div v-bind="props" class="bt">
@@ -157,8 +158,16 @@ export default {
             } catch (error) {
                 toast.error('Error adding item: ' + error.message);
             }
+        },
+        handleEscapeKey(event) {
+            if (event.key === 'Escape') {
+                this.closeDialog();
+            }
         }
-    }
+    },
+    mounted() {
+        document.addEventListener('keydown', this.handleEscapeKey);
+    },
 };
 </script>
 

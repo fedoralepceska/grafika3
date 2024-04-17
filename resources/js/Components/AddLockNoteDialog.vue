@@ -5,6 +5,7 @@
             persistent
             max-width="500"
             class="height"
+            @keydown.esc="closeDialog"
         >
             <template v-slot:activator="{ props }">
                 <button v-bind="props" class="btn lock-order">Lock Order <span class="mdi mdi-lock"></span></button>
@@ -72,6 +73,14 @@ export default {
             });
             this.closeDialog();
         },
+        handleEscapeKey(event) {
+            if (event.key === 'Escape') {
+                this.closeDialog();
+            }
+        }
+    },
+    mounted() {
+        document.addEventListener('keydown', this.handleEscapeKey);
     },
 };
 </script>
