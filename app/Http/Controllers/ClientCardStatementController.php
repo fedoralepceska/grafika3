@@ -3,6 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Models\ClientCardStatement;
+use App\Models\Faktura;
+use App\Models\Item;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
@@ -84,8 +86,72 @@ class ClientCardStatementController extends Controller
     {
         $cardStatement = ClientCardStatement::query()->findOrFail($id);
 
+        // Fetch items related to the client
+        $items = Item::query()
+            ->where('client_id', $cardStatement->client_id)
+            ->get();
+
+        // Fetch relevant fakturas (isInvoices=true and client_id matches)
+        $fakturas = Faktura::query()
+            ->where('isInvoiced', true)
+            ->whereHas('invoices', function($query) use ($cardStatement) {
+                $query->where('client_id', $cardStatement->client_id);
+            })
+            ->get();
+
+        // Format data for items
+        $formattedItems = $items->map(function ($item) {
+            $document = $item->income ? 'Statement Income' : 'Statement Expense';
+            $number = sprintf('%03d/%d', $item->id, $item->created_at->format('Y'));
+            $statementValue = $item->income ?: $item->expense;
+
+            return [
+                'date' => $item->created_at->format('Y-m-d'),
+                'document' => $document,
+                'number' => $number,
+                'incoming_invoice' => 0,
+                'output_invoice' => 0,
+                'statement_income' => $item->income,
+                'statement_expense' => $item->expense, // Expense only if not income
+                'comment' => $item->comment,
+            ];
+        })->toArray();
+
+        // Format data for faktūras
+        $formattedFakturas = $fakturas->map(function ($faktura) use ($cardStatement) {
+            $invoice = $faktura->invoices->first();
+            if (!$invoice || $invoice->client_id !== $cardStatement->client_id) {
+                return null; // Skip fakturas without a matching client in the first invoice
+            }
+
+            // Eager load jobs for efficient access
+            $invoice->load('jobs'); // Load jobs relationship for the current invoice
+
+            $invoiceTotal = $invoice->jobs->sum('salePrice'); // Sum salePrice from loaded jobs
+
+            return [
+                'date' => $faktura->created_at->format('Y-m-d'),
+                'document' => 'Output invoice',
+                'number' => sprintf('%03d/%d', $faktura->id, $faktura->created_at->format('Y')),
+                'incoming_invoice' => 0,
+                'output_invoice' => $invoiceTotal,
+                'statement_income' => 0,
+                'statement_expense' => 0,
+                'comment' => $faktura->comment,
+            ];
+        })->toArray();
+
+        // Merge formatted data for both sources
+        $tableData = array_merge($formattedItems, $formattedFakturas);
+
+        // Sort data by date (ascending)
+        usort($tableData, function ($a, $b) {
+            return strtotime($a['date']) <=> strtotime($b['date']);
+        });
+
         return Inertia::render('Finance/ClientCardStatement', [
             'cardStatement' => $cardStatement,
+            'tableData' => $tableData,
         ]);
     }
 

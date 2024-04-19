@@ -65,15 +65,15 @@
                                 <th>Statement - Expense</th>
                                 <th>Comment</th>
                             </tr>
-                            <tr>
-                                <th></th>
-                                <th></th>
-                                <th></th>
-                                <th></th>
-                                <th></th>
-                                <th></th>
-                                <th></th>
-                                <th></th>
+                            <tr v-for="item in tableData">
+                                <th>{{ item?.date }}</th>
+                                <th>{{ item?.document }}</th>
+                                <th>{{ item?.number }}</th>
+                                <th>{{ item?.incoming_invoice }}</th>
+                                <th>{{ item?.output_invoice }}</th>
+                                <th>{{ item?.statement_income }}</th>
+                                <th>{{ item?.statement_expense }}</th>
+                                <th>{{ item?.comment }}</th>
                             </tr>
                         </table>
                     </div>
@@ -101,6 +101,7 @@ export default {
         UpdateDialogComment},
     props: {
         cardStatement: Object,
+        tableData: []
     },
     data() {
         return {

@@ -60,7 +60,7 @@ class ItemController extends Controller
         $item->comment = $validatedData['comment'] ?? null; // handle nullable field
         $item->save();
 
-        return response()->json(['message' => 'Client added successfully'], 201);
+        return response()->json(['message' => 'Item added successfully'], 201);
     }
 
     /**
