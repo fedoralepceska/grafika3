@@ -3,6 +3,7 @@
         <div class="pl-7 pr-7">
             <Header title="statement" subtitle="bankStatement" icon="bill.png" link="statements"/>
             <div class="dark-gray p-2 text-white">
+                <RedirectTabs :route="$page.url" />
                 <div class="form-container p-2 ">
                     <h2 class="sub-title">
                         {{ $t('listOfAllStatements') }}
@@ -88,9 +89,10 @@ import {reactive} from "vue";
 import OrderJobDetails from "@/Pages/Invoice/OrderJobDetails.vue";
 import ViewLockDialog from "@/Components/ViewLockDialog.vue";
 import AddCertificateDialog from "@/Components/AddCertificateDialog.vue";
+import RedirectTabs from "@/Components/RedirectTabs.vue";
 
 export default {
-    components: {Header, MainLayout,Pagination,OrderJobDetails, ViewLockDialog,AddCertificateDialog },
+    components: {Header, MainLayout,Pagination,OrderJobDetails, ViewLockDialog,AddCertificateDialog, RedirectTabs},
     props:{
         certificates:Object,
     },
