@@ -85,7 +85,19 @@ export default {
             this.showUpdateClientForm = true;
         },
         async updateContact() {
-
+            const toast = useToast();
+            try {
+                const response = await axios.put(`/clients/${this.client.id}`, {
+                    name: this.client.name,
+                    city: this.client.city,
+                    address: this.client.address
+                });
+                toast.success(response.data.message);
+                this.closeDialog();
+            } catch (error) {
+                toast.error("Error updating client!");
+                console.error(error);
+            }
         },
         handleEscapeKey(event) {
             if (event.key === 'Escape') {
