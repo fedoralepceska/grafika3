@@ -45,25 +45,27 @@
                                 <div class="flex items-center text-white">
                                     <div class="form-group">
                                         <label for="client" class="mr-4 width100">Client</label>
-                                        <input type="text" id="client" class="text-gray-700 rounded" :placeholder="s" v-model="newItem.client_id">
+                                        <select v-model="newItem.client_id">
+                                            <option v-for="client in uniqueClients" :key="client.id" :value="client.id" class="text-gray-700">{{ client.name }}</option>
+                                        </select>
                                     </div>
                                 </div>
                                 <div class="flex items-center text-white">
                                     <div class="form-group">
                                         <label for="address" class="mr-4 width100">Address</label>
-                                        <input type="text" disabled id="address" class="text-gray-700 rounded"  :placeholder="s">
+                                        <input type="text" disabled id="address" class="text-gray-700 rounded"  placeholder="s">
                                      </div>
                                 </div>
                                 <div class="flex items-center text-white">
                                     <div class="form-group">
                                         <label for="phone" class="mr-4 width100">Phone/Fax</label>
-                                        <input type="text" disabled id="phone" class="text-gray-700 rounded"  :placeholder="s">
+                                        <input type="text" disabled id="phone" class="text-gray-700 rounded"  placeholder="s">
                                     </div>
                                 </div>
                                 <div class="flex items-center text-white">
                                     <div class="form-group">
                                         <label for="account" class="mr-4 width100">Account</label>
-                                        <input type="text" disabled id="account" class="text-gray-700 rounded"  :placeholder="s">
+                                        <input type="text" disabled id="account" class="text-gray-700 rounded" placeholder="s">
                                     </div>
                                 </div>
                             </div>
@@ -124,6 +126,7 @@ export default {
         return {
             dialog: false,
             showAddItemForm: false,
+            uniqueClients:[],
             newItem: {
                 client_id: null,
                 certificate_id: this.certificate.id,
@@ -159,6 +162,14 @@ export default {
                 toast.error('Error adding item: ' + error.message);
             }
         },
+        async fetchUniqueClients() {
+            try {
+                const response = await axios.get('/unique-clients');
+                this.uniqueClients = response.data;
+            } catch (error) {
+                console.error(error);
+            }
+        },
         handleEscapeKey(event) {
             if (event.key === 'Escape') {
                 this.closeDialog();
@@ -167,6 +178,7 @@ export default {
     },
     mounted() {
         document.addEventListener('keydown', this.handleEscapeKey);
+        this.fetchUniqueClients()
     },
 };
 </script>
@@ -182,6 +194,11 @@ export default {
 }
 .width100 {
     width: 150px;
+}
+select{
+    color: black;
+    width: 225px;
+    border-radius: 3px;
 }
 .type{
     display: flex;

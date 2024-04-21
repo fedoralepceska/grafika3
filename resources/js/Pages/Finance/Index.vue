@@ -3,6 +3,7 @@
         <div class="pl-7 pr-7">
             <Header title="invoice2" subtitle="UninvoicedOrders" icon="invoice.png" link="notInvoiced"/>
             <div class="dark-gray p-2 text-white">
+                <RedirectTabs :route="$page.url" />
                 <div class="form-container p-2 ">
                     <h2 class="sub-title">
                         {{ $t('listOfNotInvoiced') }}
@@ -119,9 +120,10 @@ import axios from 'axios';
 import {reactive} from "vue";
 import OrderJobDetails from "@/Pages/Invoice/OrderJobDetails.vue";
 import ViewLockDialog from "@/Components/ViewLockDialog.vue";
+import RedirectTabs from "@/Components/RedirectTabs.vue";
 
 export default {
-    components: {Header, MainLayout,Pagination,OrderJobDetails, ViewLockDialog },
+    components: {Header, MainLayout,Pagination,OrderJobDetails, ViewLockDialog, RedirectTabs },
     props:{
         invoices:Object,
     },
