@@ -149,9 +149,35 @@ class ClientCardStatementController extends Controller
             return strtotime($a['date']) <=> strtotime($b['date']);
         });
 
+        $formattedItems = collect($formattedItems);
+        $formattedFakturas = collect($formattedFakturas);
+
+        // Calculate total statement expense
+        $totalStatementExpense = $formattedItems->sum('statement_expense');
+
+        // Calculate total output invoice amount
+        $totalOutputInvoice = $formattedFakturas->sum('output_invoice');
+
+        // Calculate total statement income
+        $totalStatementIncome = $formattedItems->sum('statement_income');
+
+        // Calculate total incoming invoice
+        $totalIncomingInvoice = $formattedItems->sum('incoming_invoice');
+
+        // Calculate total amount owed
+        $owes = $totalStatementExpense + $totalOutputInvoice;
+
+        // Calculate total amount requested (income)
+        $requests = $totalStatementIncome + $totalIncomingInvoice;
+
+        $totalBalance = $owes > $requests ? $owes - $requests : $requests - $owes;
+
         return Inertia::render('Finance/ClientCardStatement', [
             'cardStatement' => $cardStatement,
             'tableData' => $tableData,
+            'owes' => $owes,
+            'requests' => $requests,
+            'balance' => $totalBalance
         ]);
     }
 

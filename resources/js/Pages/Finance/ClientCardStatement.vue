@@ -34,19 +34,19 @@
                                 </div>
                             </div>
                             <div class="mt-10 pr-2 pl-16">
-                                Total Balance:
+                                Total Balance (.ден):
                             </div>
                             <div>
                                 <div>Requests</div>
-                                <input type="text" class="rounded" disabled>
+                                <input type="text" class="rounded text-black" disabled :value="requests">
                             </div>
                             <div>
                                 <div>Owes</div>
-                                <input type="text"  class="rounded" disabled>
+                                <input type="text" class="rounded text-black" disabled :value="owes">
                             </div>
                             <div>
                                 <div>Balance</div>
-                                <input type="text"  class="rounded" disabled>
+                                <input type="text"  class="rounded text-black" disabled :value="balance">
                             </div>
                         </div>
                     </div>
@@ -101,7 +101,10 @@ export default {
         UpdateDialogComment},
     props: {
         cardStatement: Object,
-        tableData: []
+        tableData: [],
+        owes: null,
+        requests: null,
+        balance: null,
     },
     data() {
         return {
