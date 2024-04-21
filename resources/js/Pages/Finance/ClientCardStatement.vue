@@ -15,37 +15,37 @@
                     <div class="invoice flex gap-60 mb-2">
                         <div class="info flex">
                             <div class="client pr-11">
-                                <div>Client</div>
+                                <div>{{ $t('client') }}</div>
                                 <div class="mt-5">client.name</div>
                             </div>
 
                             <div class="date flex">
                                 <div>
-                                    <div>From</div>
+                                    <div>{{ $t('from') }}</div>
                                     <div>
                                         <input type="date">
                                     </div>
                                 </div>
                                 <div>
-                                    <div>To</div>
+                                    <div>{{ $t('to') }}</div>
                                     <div>
                                         <input type="date">
                                     </div>
                                 </div>
                             </div>
                             <div class="mt-10 pr-2 pl-16">
-                                Total Balance (.ден):
+                                {{ $t('totalBalance') }} (.ден):
                             </div>
                             <div>
-                                <div>Requests</div>
+                                <div>{{ $t('requests') }}</div>
                                 <input type="text" class="rounded text-black" disabled :value="requests">
                             </div>
                             <div>
-                                <div>Owes</div>
+                                <div>{{ $t('owes') }}</div>
                                 <input type="text" class="rounded text-black" disabled :value="owes">
                             </div>
                             <div>
-                                <div>Balance</div>
+                                <div>{{ $t('balance') }}</div>
                                 <input type="text"  class="rounded text-black" disabled :value="balance">
                             </div>
                         </div>
@@ -56,14 +56,14 @@
                     <div class="form-container p-2 light-gray">
                         <table>
                             <tr>
-                                <th>Date</th>
-                                <th>Document</th>
-                                <th>Number</th>
-                                <th>Incoming Invoice</th>
-                                <th>Output Invoice</th>
-                                <th>Statement - Income</th>
-                                <th>Statement - Expense</th>
-                                <th>Comment</th>
+                                <th>{{ $t('date') }}</th>
+                                <th>{{ $t('document') }}</th>
+                                <th>{{ $t('number') }}</th>
+                                <th>{{ $t('incomingInvoice') }}</th>
+                                <th>{{ $t('outcomeInvoice') }}</th>
+                                <th>{{ $t('statementIncome') }}</th>
+                                <th>{{ $t('statementExpense') }}</th>
+                                <th>{{ $t('comment') }}</th>
                             </tr>
                             <tr v-for="item in tableData">
                                 <th>{{ item?.date }}</th>

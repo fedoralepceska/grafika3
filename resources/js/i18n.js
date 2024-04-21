@@ -209,7 +209,20 @@ const messages = {
         actionInfo: 'Action Overview',
         address: 'Address',
         city: "City",
-        Nr:'Nr.'
+        Nr:'Nr.',
+        from: 'From',
+        to: 'To',
+        owes: 'Owes',
+        requests: 'Requests',
+        balance: 'Balance',
+        totalBalance: 'Total balance',
+        date: 'Date',
+        number: 'Number',
+        document: 'Document',
+        incomingInvoice: 'Incoming invoice',
+        outcomeInvoice: 'Outcome invoice',
+        statementIncome: 'Statement - income',
+        statementExpense: 'Statement - expense'
     },
     mk: {
         // Define your Macedonian translations here
@@ -421,7 +434,20 @@ const messages = {
         salePrice: 'Продажна цена',
         address: 'Адреса',
         city: "Град",
-        Nr:'Бр.'
+        Nr:'Бр.',
+        from: 'Од',
+        to: 'До',
+        owes: 'Должи',
+        requests: 'Платил',
+        balance: 'Баланс',
+        totalBalance: 'Вкупен баланс',
+        date: 'Датум',
+        number: 'Број',
+        document: 'Документ',
+        incomingInvoice: 'Влезна фактура',
+        outcomeInvoice: 'Излезна фактура',
+        statementIncome: 'Извод - уплата',
+        statementExpense: 'Извод - исплата'
     },
 };
 
