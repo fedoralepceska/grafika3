@@ -1,5 +1,5 @@
 <template>
-    <div class="status-box">
+    <div class="status-box" @click="openLink">
         <div class="icon-container" :style="{border : borderColor}">
             <i :class="icon" :style="{ color: color }"/>
         </div>
@@ -21,6 +21,13 @@ export default {
         borderColor:{
             type:String,
             default: '2px solid #0073a9',
+        },
+        link: String
+    },
+    methods: {
+        openLink() {
+            // Open the new window with the specified route
+            window.open(this.link, '_self');
         }
     }
 }

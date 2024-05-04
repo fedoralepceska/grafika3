@@ -12,10 +12,10 @@ import StatusBox from "@/Components/StatusBox.vue";
     <MainLayout>
         <div class="status-boxes dark-gray">
             <StatusBox icon="fa-solid fa-gear fa-2xl" title="All jobs not shipped" number="0" color="#1497D5" />
-            <StatusBox icon="fa-solid fa-cart-shopping fa-2xl" title="Entered today" :number="invoicesToday" color="#E6AE49" :border-color="dynamicColor2" />
-            <StatusBox icon="fa-solid fa-truck fa-2xl" title="Shipping today" :number="invoicesShippingToday" color="#1497D5" />
-            <StatusBox icon="fa-solid fa-truck fa-2xl" title="Shipping in 2 days" :number="invoicesShippingTomorrow" color="#E6AE49" :border-color="dynamicColor2"/>
-            <StatusBox icon="fa-solid fa-triangle-exclamation fa-2xl" title="> 7 days old: NOT shipped" :number="invoicesSevenDays" color="#A53D3F" :border-color="dynamicColor"/>
+            <StatusBox icon="fa-solid fa-cart-shopping fa-2xl" title="Entered today" :number="invoicesToday" color="#E6AE49" :border-color="dynamicColor2" :link="'/orders?start_date=' + getFormattedDate()"/>
+            <StatusBox icon="fa-solid fa-truck fa-2xl" title="Shipping today" :number="invoicesShippingToday" color="#1497D5" :link="'/orders?end_date=' + getFormattedDate()"/>
+            <StatusBox icon="fa-solid fa-truck fa-2xl" title="Shipping in 2 days" :number="invoicesShippingTomorrow" color="#E6AE49" :border-color="dynamicColor2" :link="'/orders?end_date=' + getFormattedDate(new Date(), true)"/>
+            <StatusBox icon="fa-solid fa-triangle-exclamation fa-2xl" title="> 7 days old: NOT shipped" :number="invoicesSevenDays" color="#A53D3F" :border-color="dynamicColor" :link="'/orders?end_date=' + getFormattedDate()"/>
         </div>
         <div class="flex dark-gray" style="padding: 25px">
             <nav class="sidebar-menu dark-gray">
@@ -56,7 +56,7 @@ export default {
             invoicesSevenDays: 0,
             invoicesShippingTomorrow: 0,
             dynamicColor: '2px solid #A53D3F',
-            dynamicColor2: '2px solid #E6AE49'
+            dynamicColor2: '2px solid #E6AE49',
         }
     },
     created() {
@@ -105,6 +105,17 @@ export default {
                     console.error('Error fetching the number of today\'s invoices:', error);
                     // Handle the error appropriately
                 });
+        },
+        getFormattedDate(date = new Date(), shouldAddDay = false) {
+            const tomorrow = new Date(date);
+            if (shouldAddDay) {
+                tomorrow.setDate(tomorrow.getDate() + 1); // Add 1 day if needed
+            }
+            const year = tomorrow.getFullYear();
+            const month = String(tomorrow.getMonth() + 1).padStart(2, '0'); // Pad with leading zero
+            const day = String(tomorrow.getDate()).padStart(2, '0'); // Pad with leading zero
+
+            return `${year}-${month}-${day}`;
         }
     }
 }

@@ -25,7 +25,29 @@ class InvoiceController extends Controller
         try {
             $query = Invoice::with(['jobs', 'user', 'client']);
 
-            $this->applySearch($query, $request,$request->input('status'));
+            // Apply search filters
+            $this->applySearch($query, $request, $request->input('status'));
+
+            // Add start_date and end_date search if available
+            if ($request->has('start_date') && $request->has('end_date')) {
+                $startDate = $request->input('start_date');
+                $endDate = $request->input('end_date');
+
+                $query->whereDate('end_date', '>=', $startDate) // Filter by end_date >= start_date
+                ->whereDate('end_date', '<=', $endDate);   // Filter by end_date <= end_date
+            } else if ($request->has('start_date')) {
+                $startDate = $request->input('start_date');
+                $query->whereDate('end_date', '>=', $startDate); // Filter by end_date >= start_date
+            } else if ($request->has('end_date')) {
+                $endDate = $request->input('end_date');
+                $query->whereDate('end_date', '<=', $endDate); // Filter by end_date <= end_date
+            }
+
+            // Maintain search by status (if applicable)
+            $status = $request->input('status');
+            if ($status && $status !== 'All') {
+                $query->where('status', $status);
+            }
 
             $query->orderBy('created_at', $request->input('sortOrder', 'desc'));
 
