@@ -91,6 +91,21 @@ export default {
                 },
                 {
                     href: '',
+                    title: 'Articles',
+                    icon: 'fa-regular fa-newspaper',
+                    child: [
+                        {
+                            href: '/articles',
+                            title: 'View all articles',
+                        },
+                        {
+                            href: '/articles/create',
+                            title: 'Add new article',
+                        },
+                    ],
+                },
+                {
+                    href: '',
                     title: 'Finances',
                     icon: 'fa-solid fa-file-invoice-dollar',
                     child: [

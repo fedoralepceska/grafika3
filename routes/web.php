@@ -10,7 +10,7 @@ use App\Http\Controllers\LargeFormatMaterialController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\SmallFormatMaterialController;
 use App\Http\Controllers\SmallMaterialController;
-use Illuminate\Foundation\Application;
+use App\Http\Controllers\ArticleController;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
@@ -168,6 +168,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::put('/materials-large-format/{material}', [LargeFormatMaterialController::class, 'update'])->name('materials.update');
     Route::delete('/materials-large-format/{material}', [LargeFormatMaterialController::class, 'destroy']);
     Route::get('/contacts', [ContactController::class, 'index'])->name('contact.index');
+});
+
+//Routes For Articles
+Route::middleware(['auth', 'verified'])->group(function () {
+    Route::get('/articles', [ArticleController::class, 'index'])->name('articles.index');
+    Route::get('/articles/create', [ArticleController::class, 'store'])->name('articles.create');
 });
 
 
