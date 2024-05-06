@@ -118,6 +118,10 @@ export default {
                             title: 'Uninvoiced Orders',
                         },
                         {
+                            href: '/incomingInvoice',
+                            title: 'Incoming Invoice',
+                        },
+                        {
                             href: '/statements',
                             title: 'Bank Statements',
                         },

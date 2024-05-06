@@ -75,6 +75,8 @@ Route::middleware(['auth', 'verified'])->group(function() {
     Route::get('/orders/{id}/pdf', [InvoiceController::class, 'generateInvoicePdf'])->name('invoice.generateInvoicePdf');
     Route::get('/invoice/{id}', [InvoiceController::class, 'getGeneratedInvoice'])->name('invoices.getGeneratedInvoice');
     Route::put('/invoice/{id}/update-comment', [InvoiceController::class, 'updateInvoiceComment'])->name('invoices.updateInvoiceComment');
+    Route::get('/incomingInvoice', [\App\Http\Controllers\IncomingFakturaController::class, 'index'])->name('incomingInvoice.index');
+
 
     // finance routes
     Route::get('/statements', [CertificateController::class, 'index'])->name('certificates.index');
