@@ -25,19 +25,19 @@
                                         <div class="flex items-center text-white">
                                             <div class="form-group">
                                                 <label for="client" class="mr-4 width100">Client</label>
-                                                <select>
+                                                <select v-model="newInvoice.client_id">
                                                     <option v-for="client in uniqueClients" :key="client.id" :value="client.id" class="text-gray-700">{{ client.name }}</option>
                                                 </select>
                                             </div>
                                             <div class="form-group">
                                                 <label for="date" class="pl-8 mr-11">Date</label>
-                                                <input type="date" class="rounded text-black">
+                                                <input type="date" class="rounded text-black" v-model="newInvoice.date">
                                             </div>
                                         </div>
                                         <div class="flex items-center text-white">
                                             <div class="form-group">
                                                 <label for="address" class="mr-4 width100">Address</label>
-                                                <input type="text" disabled id="address" class="text-gray-700 rounded"  placeholder="s">
+                                                <input type="text" disabled id="address" class="text-gray-700 rounded" placeholder="s">
                                             </div>
                                         </div>
                                         <div class="flex items-center text-white">
@@ -79,13 +79,13 @@
                                         <div class="flex items-center text-white">
                                             <div class="form-group">
                                                 <label for="desc" class="mr-4 width100">Description</label>
-                                                <input type="text" id="desc" class="text-gray-700 rounded" >
+                                                <input type="text" id="desc" class="text-gray-700 rounded" v-model="newInvoice.description">
                                             </div>
                                         </div>
                                         <div class="flex items-center text-white">
                                             <div class="form-group">
                                                 <label for="desc" class="mr-4 width100">Comment</label>
-                                                <input type="text" id="comm" class="text-gray-700 rounded" >
+                                                <input type="text" id="comm" class="text-gray-700 rounded" v-model="newInvoice.comment">
                                             </div>
                                         </div>
                                     </div>
@@ -106,7 +106,7 @@
                                         </div>
                                         <div class="form-group">
                                             <label for="amount" class=" pl-8 mr-4 width100 price">Amount:</label>
-                                            <input type="number" class="text-gray-700 rounded">
+                                            <input type="number" class="text-gray-700 rounded" v-model="newInvoice.amount">
                                         </div>
                                     </div>
                                     <div class="flex items-center text-white">
@@ -117,7 +117,7 @@
                                         </div>
                                         <div class="form-group">
                                             <label for="amount" class=" pl-8 mr-4 width100 price">Tax:</label>
-                                            <input type="number" class="text-gray-700 rounded">
+                                            <input type="number" class="text-gray-700 rounded" v-model="newInvoice.tax">
                                         </div>
                                     </div>
                                     <div class="flex items-center text-white">
@@ -166,7 +166,11 @@ export default {
             uniqueClients:[],
             newInvoice:{
                 client_id: null,
-
+                description: '',
+                comment: '',
+                amount: 0.0,
+                tax: 0.0,
+                date: null
             },
         };
     },
@@ -184,7 +188,15 @@ export default {
             this.showAddIncomingInvoiceForm = true;
         },
         async addIncomingInvoice() {
-
+            const toast = useToast();
+            try {
+                const response = await axios.post('/incomingInvoice', this.newInvoice);
+                console.log(response);
+                toast.success('Incoming invoice added successfully!');
+                this.closeDialog();
+            } catch (error) {
+                toast.error('Error adding incoming invoice: ' + error.message);
+            }
         },
         async fetchUniqueClients() {
             try {
