@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Article;
 use Illuminate\Http\Request;
+use Inertia\Inertia;
 
 class ArticleController extends Controller
 {
@@ -13,6 +14,8 @@ class ArticleController extends Controller
     public function index()
     {
         //
+        return Inertia::render('Article/Index');
+
     }
 
     /**
@@ -29,6 +32,7 @@ class ArticleController extends Controller
     public function store(Request $request)
     {
         //
+        return Inertia::render('Article/ArticleCreate');
     }
 
     /**
