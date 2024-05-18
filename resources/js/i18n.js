@@ -41,6 +41,10 @@ const messages = {
         Barcode: 'Barcode',
         Delete:'Delete',
         Edit:'Edit',
+        receipt:'Receipt',
+        addNewReceipt:'Add new Receipt',
+        receiptDetails:'Receipt Details',
+        warehouse:'Warehouse',
         toast: {
             success: 'Successfully created order.',
             error: 'Failed to create order.'
@@ -291,6 +295,10 @@ const messages = {
         Barcode: 'Бар Код',
         Delete:'Избриши',
         Edit:'Измени',
+        receipt:'Приемница',
+        addNewReceipt:'Додади нова приемница',
+        receiptDetails:'Детали за приемница',
+        warehouse: 'Магацин',
         toast: {
             success: 'Налогот е успешно креиран.',
             error: 'Настана грешка при креирање на налогот.'

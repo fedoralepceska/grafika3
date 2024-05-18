@@ -179,5 +179,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/articles/create', [ArticleController::class, 'store'])->name('articles.create');
 });
 
+//Routes for Priemnici
+Route::middleware(['auth', 'verified'])->group(function () {
+    Route::get('/receipt', [\App\Http\Controllers\PriemnicaController::class, 'index'])->name('priemnica.index');
+    Route::get('/receipt/create', [\App\Http\Controllers\PriemnicaController::class, 'store'])->name('priemnica.create');
+});
 
 require __DIR__.'/auth.php';
