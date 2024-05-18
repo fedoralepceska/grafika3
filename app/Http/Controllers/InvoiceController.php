@@ -371,7 +371,16 @@ class InvoiceController extends Controller
     {
         $invoice = Invoice::with('jobs')->findOrFail($invoiceId);
 
-        $pdf = PDF::loadView('invoices.pdf', compact('invoice'));
+        // Load the view and pass data
+        $pdf = Pdf::loadView('invoices.pdf', compact('invoice'));
+
+        // Set Dompdf options
+        $pdf->setOptions([
+            'isHtml5ParserEnabled' => true,
+            'isRemoteEnabled' => true,
+            'isFontSubsettingEnabled' => true,
+        ]);
+
         return $pdf->stream('order-' . $invoice->invoice_number . '.pdf');
     }
 
