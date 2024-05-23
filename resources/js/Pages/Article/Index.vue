@@ -1,7 +1,7 @@
 <template>
     <MainLayout>
         <div class="pl-7 pr-7">
-            <Header title="article" subtitle="allArticles" icon="Materials.png" link="clients"/>
+            <Header title="article" subtitle="allArticles" icon="Materials.png" link="articles"/>
             <div class="form-container p15">
                 <div class="dark-gray p-5 text-white">
                     <div class="form-container p-2 light-gray">
@@ -20,7 +20,7 @@
                                 </select>
                             </div>
                         </div>
-                        <table class="excel-table ">
+                        <table class="excel-table">
                             <thead>
                                 <tr>
                                     <th></th>
@@ -30,7 +30,7 @@
                                     <th>{{$t('fprice')}}</th>
                                     <th>{{$t('pprice')}}</th>
                                     <th>{{$t('price')}}</th>
-                                    <th>{{$t('Tax')}}</th>
+                                    <th>{{$t('VAT')}}</th>
                                     <th>{{$t('Barcode')}}</th>
                                     <th>{{$t('comment')}}</th>
                                 </tr>

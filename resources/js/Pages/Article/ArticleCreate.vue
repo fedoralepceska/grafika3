@@ -19,7 +19,7 @@
                                 <input type="text" id="name" class="text-gray-700 rounded" required>
                             </div>
                             <div class="form-group">
-                                <label for="tax" class="mr-4 width100">{{ $t('Tax') }}:</label>
+                                <label for="tax" class="mr-4 width100">{{ $t('VAT') }}:</label>
                                 <select v-model="selectedOption" class="text-gray-700 rounded" id="taxA">
                                     <option value="DDV A">DDV A</option>
                                     <option value="DDV B">DDV B</option>

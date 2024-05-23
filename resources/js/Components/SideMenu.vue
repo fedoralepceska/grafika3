@@ -106,6 +106,21 @@ export default {
                 },
                 {
                     href: '',
+                    title: 'Receipt',
+                    icon: 'fa-solid fa-file-invoice',
+                    child: [
+                        {
+                            href: '/receipt',
+                            title: 'View all receipts',
+                        },
+                        {
+                            href: '/receipt/create',
+                            title: 'Add new receipt',
+                        },
+                    ],
+                },
+                {
+                    href: '',
                     title: 'Finances',
                     icon: 'fa-solid fa-file-invoice-dollar',
                     child: [
