@@ -64,4 +64,8 @@ class Invoice extends Model
     public function client() {
         return $this->belongsTo(Client::class, 'client_id');
     }
+    public function contact()
+    {
+        return $this->belongsTo(Contact::class, 'contact_id');
+    }
 }

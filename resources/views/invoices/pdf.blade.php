@@ -5,22 +5,32 @@
     <title>Order PDF</title>
     <style>
         @font-face {
-            font-family: 'DejaVu Sans';
-            src: url('{{ storage_path('fonts/DejaVuSans.ttf') }}') format('truetype');
+            font-family: 'Tahoma';
+            src: url('{{ storage_path('fonts/tahoma.ttf') }}') format('truetype');
             font-weight: normal;
             font-style: normal;
         }
+        @font-face {
+            font-family: 'Tahoma';
+            src: url('{{ storage_path('fonts/tahomabd.ttf') }}') format('truetype');
+            font-weight: bold;
+            font-style: normal;
+        }
         body {
-            font-family: 'DejaVu Sans', sans-serif;
+            font-family: 'Tahoma', sans-serif;
+            background-color: white;
         }
         .order {
-            font-size: 28px;
+            font-size: 30px;
             font-weight: bolder;
             padding-left: 5px;
         }
 
         .order1 {
-            font-size: 18px;
+            font-size: 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
         }
 
         .info {
@@ -31,27 +41,38 @@
 
         .left, .right {
             width: 45%;
-            padding: 10px;
+            padding:0;
             box-sizing: border-box; /* Ensure box sizing includes borders */
+            font-size: 16px;
+        }
+        .right{
+            padding-left: 5px;
         }
 
         .left {
-            border-right: 1px solid gray; /* Add a vertical line to the right of .left */
+            border-right: 3px solid #cccccc; /* Add a vertical line to the right of .left */
         }
 
         .bolder {
-            font-weight: bolder;
+            font-weight: bold;
         }
 
         .divider {
             height: 1px;
-            background-color: gray;
+            background-color: #cccccc;
         }
         .job-table tr td:nth-child(2){
-         border-bottom: 1px solid gainsboro;
+            border-bottom: 1px solid #f7f4f4;
+            padding-left: 3px;
+        }
+        .job-table tr td:nth-child(1){
+            width: 180px;
         }
         .page-break {
             page-break-after: always;
+        }
+        .copies-cell {
+            border-bottom: 1px solid #f7f4f4;
         }
     </style>
 </head>
@@ -60,108 +81,115 @@
     <div class="invoice-info">
         <table class="flex-container">
             <tr>
-                <td>
-                    <div class="order1">Налог: <span class="order">бр.{{ $invoice->id }}/{{ date('Y') }}</span></div>
+                <td style="width: 360px">
+                    <div>
+                        <span style="color: #333333; font-size: 18px">Работен налог:</span> <span class="order">бр.{{ $invoice->id }}/{{ date('Y', strtotime($invoice->start_date)) }}</span>
+                    </div>
                 </td>
                 <td>
-                    <img src="{{ storage_path('app/public/images/logo_blue.png') }}" alt="Job Image" style="padding: 0 340px; height: 75px;">
+                    <img src="" alt="LOGO" style="padding: 0 153px; height: 75px;">
                 </td>
-            </tr>
+
         </table>
         <div class="divider"></div>
         <div class="info">
-            <table style="width: 100%;">
+            <table style="width: 100%; color: #333333">
                 <tr>
                     <td class="left">
-                        <div>Почетен датум: <span class="bolder">{{ $invoice->start_date }}</span></div>
-                        <div>Краен датум: <span class="bolder">{{ $invoice->end_date }}</span></div>
-                        <div>Креиран од: <span class="bolder">{{$invoice->created_by}}</span></div>
+                        <div >Датум на отварање: <span class="bolder">{{ date('m/d/Y', strtotime($invoice->start_date)) }}</span></div>
+                        <div >Краен рок: <span class="bolder">{{ date('m/d/Y', strtotime($invoice->end_date)) }}</span></div>
+                        <div >Одговорно лице: <span class="bolder">{{$invoice->user->name}}</span></div>
                     </td>
                     <td class="right">
-                        <div>Клиент: <span class="bolder">{{ $invoice->client->name }}</span></div>
-                        <div>Контакт: <span class="bolder">{{$invoice->contact_id}}</span></div>
-                        <div>Контакт број: </div>
+                        <div >Клиент: <span class="bolder">{{ $invoice->client->name }}</span></div>
+                        <div >Контакт: <span class="bolder">{{$invoice->contact->name }}</span></div>
+                        <div >Контакт број: <span class="bolder">{{$invoice->contact->phone }}</span> </div>
                     </td>
                 </tr>
             </table>
         </div>
         <div class="divider"></div>
     </div>
-    <div  class="bolder" style="margin-left: 25px; margin-top: 8px">
-        Работен налог бр.01
+    <div  class="bolder" style="margin-left: 25px; margin-top: 8px; font-size: 14px; color: #333333">
+        РАБОТЕН НАЛОГ БР. 01
     </div>
     <div class="job-info" style="margin-left: 15px; margin-top: 20px">
-        <table class="job-table" style="width: 70%;">
+        <table class="job-table" style="width: 100%; border-collapse: collapse; font-size: 15px" >
+            <tr>
+                <td style="background-color: #F0EFEF; padding-left: 5px; border-bottom: 1px solid #cccccc; margin: 0">Производ</td>
+                <td colspan="3"> {{ $invoice->invoice_title }}</td>
+            </tr>
             <tr >
-                <td style="background-color: gainsboro; padding: 5px 5px 5px 5px;">Име на ставка </td>
-                <td> {{ $job->file }}</td>
-            </tr>
-            <tr >
-                <td style="background-color: gainsboro; padding: 5px 5px 5px 5px;">Машина</td>
-                <td> {{ $job->machinePrint }}</td>
+                <td style="background-color: #F0EFEF; padding-left: 5px; border-bottom: 1px solid #cccccc;;">Машина</td>
+                <td colspan="3"> {{ $job->machinePrintName }}</td>
             </tr>
             <tr>
-                <td style="background-color: gainsboro; padding: 5px 5px 5px 5px;">Ширина:</td>
-                <td>{{ $job->width }}</td>
+                <td style="background-color: #F0EFEF; padding-left: 5px; border-bottom: 1px solid #cccccc;;">Ширина:</td>
+                <td colspan="3">{{ $job->width }} mm</td>
             </tr>
             <tr>
-                <td style="background-color: gainsboro; padding: 5px 5px 5px 5px;">Висина:</td>
-                <td>{{ $job->height }}</td>
+                <td style="background-color: #F0EFEF; padding-left: 5px; border-bottom: 1px solid #cccccc;;">Висина:</td>
+                <td colspan="3">{{ $job->height }} mm</td>
             </tr>
             <tr>
-                <td style="background-color: gainsboro; padding: 5px 5px 5px 5px;">Вкупно во мм:</td>
-                <td>{{ $job->height * $job->width}}</td>
+                <td style="background-color: #F0EFEF; padding-left: 5px; border-bottom: 1px solid #cccccc;">Површина: </td>
+                <td colspan="3">{{ number_format(($job->height/1000) * ($job->width/1000),5)}} m²</td>
             </tr>
             @if($job->small_material)
                 <tr>
-                    <td style="background-color: gainsboro; padding: 5px 5px 5px 5px;">Материјал:</td>
-                    <td>{{ $job->small_material->name }}</td>
+                    <td style="background-color: #F0EFEF; padding-left: 5px; border-bottom: 1px solid #cccccc;">Материјал:</td>
+                    <td colspan="3">{{ $job->small_material->name }}</td>
                 </tr>
             @endif
             @if($job->large_material)
                 <tr>
-                    <td style="background-color: gainsboro; padding: 5px 5px 5px 5px;">Материјал:</td>
-                    <td>{{ $job->large_material->name }}</td>
+                    <td style="background-color: #F0EFEF; padding-left: 5px; border-bottom: 1px solid #cccccc;">Материјал:</td>
+                    <td colspan="3">{{ $job->large_material->name }}</td>
                 </tr>
             @endif
             <tr>
-                <td style="background-color: gainsboro; padding: 5px 5px 5px 5px;">Количина:</td>
+                <td style="background-color: #F0EFEF; padding-left: 5px; border-bottom: 1px solid #cccccc;">Количина:</td>
                 <td>{{ $job->quantity }}</td>
+
+                <td style="background-color: #F0EFEF; padding-left: 5px; border-bottom: 1px solid #cccccc !important; width: 160px">Копии:</td>
+                <td class="copies-cell" style=" width: 80px">{{ $job->copies }}</td>
             </tr>
             <tr>
-                <td style="background-color: gainsboro; padding: 5px 5px 5px 5px;">Копии:</td>
-                <td>{{ $job->copies }}</td>
+                <td style="background-color: #F0EFEF; padding-left: 5px; border-bottom: 1px solid #cccccc;">Работни фајлови</td>
+                <td colspan="3" >{{ $job->file }}</td>
+
             </tr>
             <tr>
-                <td style="background-color: gainsboro; padding: 5px 5px 5px 5px;">Коментар:</td>
-                <td>{{ $invoice->comment }}</td>
+                <td style="background-color: #F0EFEF; padding-left: 5px; border-bottom: 1px solid #cccccc;">Коментар</td>
+                <td colspan="3" >{{ $invoice->comment }}</td>
+
             </tr>
         </table>
     </div>
-    <div  class="bolder" style="margin-left: 15px; margin-top: 8px">
-         Доработка бр.02
+    <div  class="bolder" style="margin-left: 15px; margin-top: 8px; font-size: 14px; color: #333333">
+         ДОРАБОТКА БР. 01
         <div class="divider"></div>
     </div>
         <div style="margin-left: 15px; margin-top: 5px">
-        <table>
-            <tr>
-                <td style="background-color: gainsboro; padding: 5px 5px 5px 160px;">Доработка</td>
-                <td style="border-bottom: 1px solid gainsboro">{{$job->actions}}</td>
+        <table style="border-collapse: collapse; font-size: 15px">
+            <tr style="padding-bottom: 20px">
+                <td style="background-color: #F0EFEF; padding: 0 5px 0 160px;  border-bottom: 1px solid #cccccc;">Доработка</td>
+                <td colspan="3" style="border-bottom: 1px solid #f7f4f4"></td>
             </tr>
             <tr>
-                <td style="background-color: gainsboro; padding: 5px 5px 5px 160px; text-align: right">Достава</td>
-                <td style="border-bottom: 1px solid gainsboro">{{$invoice->shippinginfo}}</td>
+                <td style="background-color: #F0EFEF; padding: 0 5px 0 160px; text-align: right; border-bottom: 1px solid #cccccc;">Достава</td>
+                <td colspan="3" style="border-bottom: 1px solid #f7f4f4">{{$job->shippingInfo}}</td>
             </tr>
 
         </table>
         </div>
 
-    <div  class="bolder" style="margin-top: 10px">
-        Слики:
+    <div  class="bolder" style="margin-top: 10px; color: #3f3f3f">
+        ART BOARD:
     </div>
     @if ($job->file)
-        <div style="text-align: center;">
-            <img src="{{ storage_path('app/public/uploads/' . $job->file) }}" alt="Job Image" style="width: 310px; height: 310px;">
+        <div style="text-align: center;" >
+            <img src="{{ storage_path('app/public/uploads/' . $job->file) }}" alt="Job Image" style="max-height: 385px; min-height: 385px">
         </div>
     @endif
 
@@ -172,9 +200,9 @@
             <td style="padding: 15px; width: 30%">Монтажа и контрола</td>
         </tr>
         <tr>
-            <td style="padding: 15px; border-bottom: 1px solid dimgray;"></td>
-            <td style="padding: 15px; border-bottom: 1px solid dimgray;"></td>
-            <td style="padding: 15px; border-bottom: 1px solid dimgray;"></td>
+            <td style="padding: 15px; border-bottom: 1px solid #cccccc;"></td>
+            <td style="padding: 15px; border-bottom: 1px solid #cccccc;"></td>
+            <td style="padding: 15px; border-bottom: 1px solid #cccccc;"></td>
         </tr>
     </table>
     @if (!$loop->last)
