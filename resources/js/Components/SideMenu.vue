@@ -90,6 +90,11 @@ export default {
                     ],
                 },
                 {
+                    href: '/refinements',
+                    title: 'Refinements',
+                    icon: 'fa-solid fa-screwdriver-wrench',
+                },
+                {
                     href: '',
                     title: 'Articles',
                     icon: 'fa-regular fa-newspaper',

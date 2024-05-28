@@ -185,4 +185,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/receipt/create', [\App\Http\Controllers\PriemnicaController::class, 'store'])->name('priemnica.create');
 });
 
+//Routes for Refinements
+Route::middleware(['auth', 'verified'])->group(function () {
+    Route::get('/refinements', [\App\Http\Controllers\RefinementsController::class, 'index'])->name('refinements.index');
+});
+
 require __DIR__.'/auth.php';
