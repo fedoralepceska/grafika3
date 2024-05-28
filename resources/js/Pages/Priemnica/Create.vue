@@ -4,7 +4,7 @@
             <Header title="receipt" subtitle="addNewReceipt" icon="Materials.png"/>
             <div class="dark-gray p-5">
                 <div class="form-container p-2 light-gray">
-                    <div class="flex gap-2">
+                    <div class="flex gap-2 upper">
                         <div class="border p-2 mb-2 mag">
                             <h2 class="text-white bold">
                                 {{$t('warehouse')}}
@@ -19,20 +19,26 @@
                                 <input type="text" class="text-gray-700 rounded" style="width: 40vh;">
                             </div>
                         </div>
-                        <div class="border p-2 mb-2 cl">
-                            <h2 class="text-white bold">
-                                {{$t('client')}}
-                            </h2>
-                            <div class="px-4 py-1">
-                                <select class="text-gray-700 rounded" style="width: 72vh;"></select>
+                        <div class="border p-2 mb-2 cl flex gap-16">
+                            <div>
+                                <h2 class="text-white bold">
+                                    {{$t('client')}}
+                                </h2>
+                                <div class="px-4 py-1">
+                                    <select class="text-gray-700 rounded" style="width: 72vh;"></select>
+                                </div>
+                                <div class="px-4 pb-1 gap-1 flex">
+                                    <input type="text" class="text-gray-700 rounded" style="width: 40vh;">
+                                    <input type="text" class="text-gray-700 rounded" style="width: 31.3vh;">
+                                </div>
+                                <div class="px-4 pb-1 gap-1 flex">
+                                    <input type="text" class="text-gray-700 rounded" style="width: 25vh;">
+                                    <input type="text" class="text-gray-700 rounded" style="width: 46.3vh;">
+                                </div>
                             </div>
-                            <div class="px-4 pb-1 gap-1 flex">
-                                <input type="text" class="text-gray-700 rounded" style="width: 40vh;">
-                                <input type="text" class="text-gray-700 rounded" style="width: 31.3vh;">
-                            </div>
-                            <div class="px-4 pb-1 gap-1 flex">
-                                <input type="text" class="text-gray-700 rounded" style="width: 25vh;">
-                                <input type="text" class="text-gray-700 rounded" style="width: 46.3vh;">
+                            <div>
+                                 <h2 class="text-white bold">{{$t('Date')}}</h2>
+                                <input type="date" class="text-gray-700 rounded" style="width: 40vh;">
                             </div>
                         </div>
                     </div>
@@ -65,16 +71,16 @@
                             <tr v-for="(row, index) in rows" :key="index">
                                 <td></td>
                                 <td>{{ index + 1 }}</td>
-                                <td><input v-model="row.code" type="text"></td>
-                                <td><input v-model="row.articleName" type="text"></td>
-                                <td><input v-model="row.qty" type="number"></td>
-                                <td><input v-model="row.price" type="number"></td>
-                                <td><input v-model="row.vat" type="number"></td>
+                                <td><input v-model="row.code" type="text" class="table-input"></td>
+                                <td><input v-model="row.articleName" type="text" class="table-input"></td>
+                                <td><input v-model="row.qty" type="number" class="table-input"></td>
+                                <td></td>
+                                <td></td>
                                 <td>{{ calculatePriceWithVAT(row) }}</td>
                                 <td>{{ calculateAmount(row) }}</td>
                                 <td>{{ calculateTax(row) }}</td>
                                 <td>{{ calculateTotal(row) }}</td>
-                                <td><input v-model="row.comment" type="text"></td>
+                                <td><input v-model="row.comment" type="text" class="table-input"></td>
                             </tr>
                             </tbody>
                         </table>
@@ -161,6 +167,19 @@ export default {
 </script>
 
 <style scoped lang="scss">
+.table-input {
+    background-color: transparent;
+    border: transparent;
+}
+
+.table-input:focus {
+    background-color: $ultra-light-gray;
+    border:transparent;
+}
+.upper{
+    display: flex;
+    justify-content: space-around;
+}
 .mag {
     width: fit-content;
     border-radius: 3px;
@@ -257,7 +276,6 @@ legend {
 .excel-table th,
 .excel-table td {
     border: 1px solid #dddddd;
-    padding: 4px;
     text-align: center;
     overflow: hidden;
     white-space: nowrap;
