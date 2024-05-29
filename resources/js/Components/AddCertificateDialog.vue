@@ -10,7 +10,7 @@
             >
                 <template v-slot:activator="{ props }">
                     <div v-bind="props" class="bt">
-                        <button  class="btn" @click="openAddCertificateForm">Add Statement <i class="fa fa-plus"></i></button>
+                        <button class="btn" @click="openAddCertificateForm">Add Statement <i class="fa fa-plus"></i></button>
                     </div>
                 </template>
                 <v-card class="height background">
@@ -22,18 +22,21 @@
                             <form>
                                 <div>
                                     <div class="dateStyle">
-                                        <label for="date" class="mr-4  ">Date</label>
-                                        <input type="date" class="rounded text-black" v-model="certificate.date" >
+                                        <label for="date" class="mr-4">Date</label>
+                                        <input type="date" class="rounded text-black" v-model="certificate.date">
                                     </div>
                                 </div>
                                 <div class="border p-1">
-                                    <div class="form-group">
-                                        <label for="Bank" class="mr-4 width100 ">Bank</label>
-                                        <input type="text" class="rounded text-black" v-model="certificate.bank" >
+                                    <div class="form-group pb-3">
+                                        <label for="Bank" class="mr-4 width100">Bank</label>
+                                        <select v-model="selectedBank" @change="setSelectedBank" class="text-black rounded" style="width: 31.8vh">
+                                            <option value="" class="text-black">Select Bank</option>
+                                            <option v-for="bank in banks" :key="bank.id" :value="bank" class="text-black">{{ bank.name }}</option>
+                                        </select>
                                     </div>
                                     <div class="form-group">
-                                        <label for="bankAcc" class="mr-4 width100 ">Account</label>
-                                        <input type="text" class="rounded text-gray-700" v-model="certificate.bankAccount">
+                                        <label for="bankAcc" class="mr-4 width100">Account</label>
+                                        <input type="text" class="rounded text-gray-700" v-model="certificate.bankAccount" :disabled="!selectedBank">
                                     </div>
                                 </div>
                             </form>
@@ -50,15 +53,14 @@
     </div>
 </template>
 
+
 <script>
 import SecondaryButton from "@/Components/buttons/SecondaryButton.vue";
-import PrimaryButton from "@/Components/buttons/PrimaryButton.vue";
 import { useToast } from "vue-toastification";
 import axios from "axios";
 
 export default {
     components: {
-        PrimaryButton,
         SecondaryButton
     },
     data() {
@@ -69,10 +71,27 @@ export default {
                 date: null,
                 bank: '',
                 bankAccount: '',
-            }
+            },
+            banks: [],
+            selectedBank: null
         };
     },
     methods: {
+        setSelectedBank() {
+            if (this.selectedBank) {
+                this.certificate.bankAccount = this.selectedBank.address;
+            } else {
+                this.certificate.bankAccount = '';
+            }
+        },
+        async fetchBanks() {
+            try {
+                const response = await axios.get('/api/banks');
+                this.banks = response.data;
+            } catch (error) {
+                console.error('Error fetching banks:', error);
+            }
+        },
         openDialog() {
             this.dialog = true;
         },
@@ -83,18 +102,34 @@ export default {
             this.showAddCertificateForm = true;
         },
         async addCertificate() {
+            if (!this.selectedBank) {
+                const toast = useToast();
+                toast.error("Please select a bank!");
+                return;
+            }
+
             const toast = useToast();
-            axios.post('/certificate', {
-                date: this.certificate.date,
-                bank: this.certificate.bank,
-                bankAccount: this.certificate.bankAccount,
-            })
-                .then((response) => {
-                    toast.success("Certificate added successfully.");
-                })
-                .catch((error) => {
-                    toast.error("Error adding certificate!");
+            try {
+                const response = await axios.post('/certificate', {
+                    date: this.certificate.date,
+                    bank: this.selectedBank.name, // Use bank name from selected object
+                    bankAccount: this.certificate.bankAccount,
                 });
+
+                toast.success("Certificate added successfully.");
+                // Reset form data
+                this.certificate.date = null;
+                this.selectedBank = null;
+                this.certificate.bankAccount = '';
+
+                setTimeout(() => {
+                    window.location.reload();
+                }, 1000); // Adding a slight delay before reload to ensure the toast message is displayed
+
+            } catch (error) {
+                console.error('Error adding certificate:', error);
+                toast.error("Error adding certificate!");
+            }
         },
         handleEscapeKey(event) {
             if (event.key === 'Escape') {
@@ -104,6 +139,7 @@ export default {
     },
     mounted() {
         document.addEventListener('keydown', this.handleEscapeKey);
+        this.fetchBanks();
     },
 };
 </script>
