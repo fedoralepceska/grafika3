@@ -198,7 +198,13 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('/api/banks', [\App\Http\Controllers\BanksController::class, 'createBank']);
     Route::get('/api/banks', [\App\Http\Controllers\BanksController::class, 'getBanks']);
     Route::delete('/api/banks/{id}', [\App\Http\Controllers\BanksController::class, 'deleteBank']);
+});
 
+//Routes for Dorabotki
+Route::middleware(['auth', 'verified'])->group(function () {
+    Route::get('/dorabotki', [\App\Http\Controllers\DorabotkaController::class, 'index'])->name('dorabotka.index');
+    Route::get('/dorabotki/create', [\App\Http\Controllers\DorabotkaController::class, 'create'])->name('dorabotka.create');
+    Route::post('/dorabotki/create', [\App\Http\Controllers\DorabotkaController::class, 'store'])->name('dorabotka.store');
 });
 
 require __DIR__.'/auth.php';

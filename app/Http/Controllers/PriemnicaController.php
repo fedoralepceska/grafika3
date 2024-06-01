@@ -15,7 +15,6 @@ class PriemnicaController extends Controller
     {
         $receipts = Priemnica::with(['client', 'article'])->get();
         return Inertia::render('Priemnica/Index', $receipts);
-
     }
 
     /**
