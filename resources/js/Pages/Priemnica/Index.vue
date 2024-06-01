@@ -109,6 +109,7 @@ export default {
     },
     props: {
         priem: Object,
+        receipts: []
     },
     data() {
         return {
