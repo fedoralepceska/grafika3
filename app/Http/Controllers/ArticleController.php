@@ -23,7 +23,7 @@ class ArticleController extends Controller
      */
     public function create()
     {
-        //
+        return Inertia::render('Article/ArticleCreate');
     }
 
     /**
@@ -31,8 +31,13 @@ class ArticleController extends Controller
      */
     public function store(Request $request)
     {
-        //
-        return Inertia::render('Article/ArticleCreate');
+        $data = $request->all();
+        $article = new Article();
+
+        $article->update($data);
+        $article->save();
+
+        return response()->json(['message' => 'Article added successfully'], 201);
     }
 
     /**

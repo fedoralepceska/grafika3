@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Priemnica;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 
@@ -22,7 +23,7 @@ class PriemnicaController extends Controller
      */
     public function create()
     {
-        //
+        return Inertia::render('Priemnica/Create');
     }
 
     /**
@@ -30,8 +31,13 @@ class PriemnicaController extends Controller
      */
     public function store(Request $request)
     {
-        //
-        return Inertia::render('Priemnica/Create');
+        $data = $request->all();
+        $priemnica = new Priemnica();
+
+        $priemnica->update($data);
+        $priemnica->save();
+
+        return response()->json(['message' => 'Receipt added successfully'], 201);
     }
 
 }

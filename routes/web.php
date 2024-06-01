@@ -176,13 +176,15 @@ Route::middleware(['auth', 'verified'])->group(function () {
 //Routes For Articles
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/articles', [ArticleController::class, 'index'])->name('articles.index');
-    Route::get('/articles/create', [ArticleController::class, 'store'])->name('articles.create');
+    Route::get('/articles/create', [ArticleController::class, 'create'])->name('articles.create');
+    Route::post('/articles/create', [ArticleController::class, 'store'])->name('articles.store');
 });
 
 //Routes for Priemnici
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/receipt', [\App\Http\Controllers\PriemnicaController::class, 'index'])->name('priemnica.index');
-    Route::get('/receipt/create', [\App\Http\Controllers\PriemnicaController::class, 'store'])->name('priemnica.create');
+    Route::get('/receipt/create', [\App\Http\Controllers\PriemnicaController::class, 'create'])->name('priemnica.create');
+    Route::post('/receipt/create', [\App\Http\Controllers\PriemnicaController::class, 'store'])->name('priemnica.store');
 });
 
 //Routes for Refinements
