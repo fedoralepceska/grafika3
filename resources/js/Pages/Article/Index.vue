@@ -51,7 +51,8 @@
                             </tbody>
                         </table>
                         <div class="button-container mt-2 gap-2">
-                            <SecondaryButton class="delete" type="submit">{{ $t('Delete') }}</SecondaryButton>
+                            <!-- TODO: add article as param to delete method -->
+                            <SecondaryButton class="delete" type="submit" @click="deleteArticle">{{ $t('Delete') }}</SecondaryButton>
                             <SecondaryButton type="submit" class="blue"> {{ $t('Edit') }}</SecondaryButton>
                             <PrimaryButton type="submit">{{ $t('addArticle') }}</PrimaryButton>
                         </div>
@@ -97,6 +98,13 @@ export default {
         };
     },
     methods: {
+        async deleteArticle(article) {
+            try {
+                await axios.delete(`/article/${article.id}`);
+            } catch (error) {
+                console.error('Error deleting article:', error);
+            }
+        },
     },
 };
 </script>
