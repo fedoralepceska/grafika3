@@ -173,6 +173,19 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/contacts', [ContactController::class, 'index'])->name('contact.index');
 });
 
+//Routes for Materials
+Route::middleware(['auth', 'verified'])->group(function() {
+    Route::get('/materials', [\App\Http\Controllers\MaterialController::class, 'index'])->name('material.index');
+});
+
+//Routes for Warehouse
+Route::middleware(['auth', 'verified'])->group(function() {
+    Route::get('/warehouse', [\App\Http\Controllers\WarehouseController::class, 'index'])->name('warehouse.index');
+    Route::post('/api/warehouses', [\App\Http\Controllers\WarehouseController::class, 'createWarehouse']);
+    Route::get('/api/warehouses', [\App\Http\Controllers\WarehouseController::class, 'getWarehouses']);
+    Route::delete('/api/warehouse/{id}', [\App\Http\Controllers\WarehouseController::class, 'deleteWarehouse']);
+});
+
 //Routes For Articles
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/articles', [ArticleController::class, 'index'])->name('articles.index');

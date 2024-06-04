@@ -49,11 +49,13 @@ const messages = {
         addNewReceipt:'Add new Receipt',
         receiptDetails:'Receipt Details',
         warehouse:'Warehouse',
+        wItems: 'Warehouse articles',
         toast: {
             success: 'Successfully created order.',
             error: 'Failed to create order.'
         },
         material: 'Material',
+        materialList: 'List of all Materials',
         smallMaterial: 'Small Material',
         format: 'Format',
         materials: {
@@ -222,7 +224,8 @@ const messages = {
         contact: 'Contact',
         contacts: 'Contacts',
         otherContacts: 'Other contacts',
-        listOfSmallMaterials: 'List of small materials',
+        listOfSmallMaterials: 'List of Small Materials',
+        listOfLargeMaterials:'List of Large Materials',
         listOfAllOrders: 'List Of All Orders',
         listOfAllInvoices: 'List Of All Invoiced Orders',
         listOfNotInvoiced:'List of Uninvoiced Orders',
@@ -262,7 +265,7 @@ const messages = {
         incomingInvoice: 'Incoming invoice',
         outcomeInvoice: 'Outcome invoice',
         statementIncome: 'Statement - income',
-        statementExpense: 'Statement - expense'
+        statementExpense: 'Statement - expense',
     },
     mk: {
         // Define your Macedonian translations here
@@ -313,11 +316,13 @@ const messages = {
         addNewReceipt:'Додади нова приемница',
         receiptDetails:'Детали за приемница',
         warehouse: 'Магацин',
+        wItems:'Магацински артикли',
         toast: {
             success: 'Налогот е успешно креиран.',
             error: 'Настана грешка при креирање на налогот.'
         },
         material: 'Материјал',
+        materialList: 'Листа на сите материјали',
         smallMaterial: 'Мал Материјал',
         format: 'Формат',
         materials: {
@@ -480,7 +485,8 @@ const messages = {
         NewRow:'Нов Ред',
         SmallFormatMaterials: 'Материјали - мал формат',
         listOfSmallFormat: 'Листа на материјали - мал формат',
-        listOfSmallMaterials: 'Листа на мали материјали',
+        listOfSmallMaterials: 'Листа на Мали Материјали',
+        listOfLargeMaterials:'Листа на Големи Материјали',
         pricePerUnit: 'Цена по парче',
         contact: 'Контакт',
         contacts: 'Контакти',
@@ -527,7 +533,7 @@ const messages = {
         incomingInvoice: 'Влезна фактура',
         outcomeInvoice: 'Излезна фактура',
         statementIncome: 'Извод - уплата',
-        statementExpense: 'Извод - исплата'
+        statementExpense: 'Извод - исплата',
     },
 };
 

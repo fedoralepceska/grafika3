@@ -35,6 +35,10 @@ export default {
                     icon: 'fa-solid fa-layer-group',
                     child: [
                         {
+                            href: '/materials',
+                            title: 'Materials',
+                        },
+                        {
                             href: '/smallFormat/materials/create',
                             title: 'Add Material - Small',
                         },
@@ -51,6 +55,11 @@ export default {
                             title: 'View Material Format - Large',
                         },
                     ],
+                },
+                {
+                  href: 'warehouse',
+                  title: 'Warehouse',
+                    icon: 'fa-solid fa-warehouse',
                 },
                 {
                     href: '',
