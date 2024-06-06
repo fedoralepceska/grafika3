@@ -9,6 +9,8 @@ class Priemnica extends Model
 {
     use HasFactory;
 
+    protected $table = 'priemnica';
+
     protected $fillable = [
         'warehouse',
         'client_id',

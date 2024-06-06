@@ -2,7 +2,10 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Article;
+use App\Models\LargeFormatMaterial;
 use App\Models\Priemnica;
+use App\Models\SmallMaterial;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 
@@ -34,7 +37,30 @@ class PriemnicaController extends Controller
         $priemnica = new Priemnica();
 
         $priemnica->update($data);
+        $article = Article::where('code', $data['code'])->first();
+        $priemnica->article_id = $article->id;
         $priemnica->save();
+
+        $materialType = ($article->format_type === 1) ? SmallMaterial::class : LargeFormatMaterial::class;
+        $materialData = [
+            'name' => $article->name,
+            'width' => $article->width,
+            'height' => $article->height,
+            'price' => $article->purchase_price,
+        ];
+
+        // Check for existing material based on name (assuming name is unique)
+        $existingMaterial = $materialType::where('name', $materialData['name'])->first();
+
+        if ($existingMaterial) {
+            // Update existing material quantity
+            $existingMaterial->quantity += $data['qty'];
+            $existingMaterial->save();
+        } else {
+            // Create a new material with additional data from $data['qty']
+            $materialData['quantity'] = $data['qty'];
+            $material = $materialType::create($materialData);
+        }
 
         return response()->json(['message' => 'Receipt added successfully'], 201);
     }

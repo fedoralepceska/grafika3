@@ -86,7 +86,7 @@
                         </table>
                     </form>
                     <div class="button-container mt-10">
-                        <PrimaryButton @click="addRow" type="submit">{{ $t('add') }}</PrimaryButton>
+                        <PrimaryButton @click="addPrimenica()" type="submit">{{ $t('add') }}</PrimaryButton>
                     </div>
                 </div>
             </div>
@@ -161,6 +161,23 @@ export default {
         stopResize() {
             document.documentElement.removeEventListener('mousemove', this.resizeColumn);
             document.documentElement.removeEventListener('mouseup', this.stopResize);
+        },
+        addPrimenica() {
+            const toast = useToast();
+            axios.post('/receipt/create', this.rows[0])
+                .then((response) => {
+                    this.dialog = false;
+                    toast.success('Receipt created successfully!');
+
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 1000); // Adding a slight delay before reload to ensure the toast message is displayed
+
+                })
+
+                .catch((error) => {
+                    toast.error('Failed to create receipt!');
+                });
         }
     },
 };
