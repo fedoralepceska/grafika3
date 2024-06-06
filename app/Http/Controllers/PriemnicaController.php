@@ -46,7 +46,7 @@ class PriemnicaController extends Controller
             'name' => $article->name,
             'width' => $article->width,
             'height' => $article->height,
-            'price' => $article->purchase_price,
+            'price_per_unit' => $article->purchase_price,
         ];
 
         // Check for existing material based on name (assuming name is unique)
@@ -59,7 +59,7 @@ class PriemnicaController extends Controller
         } else {
             // Create a new material with additional data from $data['qty']
             $materialData['quantity'] = $data['qty'];
-            $material = $materialType::create($materialData);
+            $materialType::create($materialData);
         }
 
         return response()->json(['message' => 'Receipt added successfully'], 201);

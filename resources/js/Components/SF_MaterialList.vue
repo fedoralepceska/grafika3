@@ -69,7 +69,7 @@
                 <tr>
                     <th>Name</th>
                     <th>Quantity</th>
-                    <th>Material - Small Format</th>
+<!--                    <th>Material - Small Format</th>-->
                     <th></th>
                 </tr>
                 </thead>
@@ -82,7 +82,7 @@
                     <td v-else>
                         {{material.quantity}}
                     </td>
-                    <td style="font-weight: bolder">{{ material.small_format_material.name }}</td>
+<!--                    <td style="font-weight: bolder">{{ material.small_format_material.name }}</td>-->
                     <td class="centered">
                         <SecondaryButton @click="deleteMaterialSmall(material)" class="delete">Delete</SecondaryButton>
                     </td>
