@@ -21,7 +21,10 @@
                                 <label class="pr-3">Filter Warehouse</label>
                                 <select class="text-black rounded ">
                                     <option value="All" hidden>Warehouse</option>
-                                    <option v-for="client in uniqueClients" :key="client">{{ client.name }}</option>
+                                    <option value="All">All Warehouses</option>
+                                    <option v-for="warehouse in warehouses" :key="warehouse.id" :value="warehouse.id">
+                                        {{ warehouse.name }}
+                                    </option>
                                 </select>
                             </div>
 
@@ -60,6 +63,7 @@ import Pagination from "@/Components/Pagination.vue"
 import Header from "@/Components/Header.vue";
 import AddWarehouseDialog from "@/Components/AddWarehouseDialog.vue";
 import ViewWarehousesDialog from "@/Components/ViewWarehousesDialog.vue";
+import axios from "axios";
 
 
 export default {
@@ -80,9 +84,23 @@ export default {
             startX: 0,
             startWidth: 0,
             columnIndex: -1,
+
+            warehouses:[],
         };
     },
+    mounted() {
+        this.fetchWarehouses();
+    },
     methods: {
+        fetchWarehouses() {
+            axios.get('/api/warehouses')
+                .then(response => {
+                    this.warehouses = response.data;
+                })
+                .catch(error => {
+                    console.error('Error fetching warehouses:', error);
+                });
+        },
         initResize(event, index) {
             this.startX = event.clientX;
             this.startWidth = event.target.parentElement.offsetWidth;

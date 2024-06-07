@@ -10,30 +10,38 @@
                                 {{$t('warehouse')}}
                             </h2>
                             <div class="px-4 py-1">
-                                <select class="text-gray-700 rounded" style="width: 40vh;"></select>
+                                <select v-model="selectedWarehouseId" @change="updateWarehouseDetails" class="text-gray-700 rounded" style="width: 40vh;">
+                                    <option v-for="warehouse in warehouses" :key="warehouse.id" :value="warehouse.id">
+                                        {{ warehouse.name }}
+                                    </option>
+                                </select>
                             </div>
                             <div class="px-4 pb-1">
-                                <input type="text" class="text-gray-700 rounded" style="width: 40vh;">
+                                <input type="text" v-model="selectedWarehouse.address" class="text-gray-500 rounded" style="width: 40vh;" readonly>
                             </div>
                             <div class="px-4 pb-1">
-                                <input type="text" class="text-gray-700 rounded" style="width: 40vh;">
+                                <input type="text" v-model="selectedWarehouse.phone" class="text-gray-500 rounded" style="width: 40vh;" readonly>
                             </div>
                         </div>
                         <div class="border p-2 mb-2 cl flex gap-16">
                             <div>
                                 <h2 class="text-white bold">
-                                    {{$t('client')}}
+                                    {{ $t('client') }}
                                 </h2>
                                 <div class="px-4 py-1">
-                                    <select class="text-gray-700 rounded" style="width: 72vh;"></select>
+                                    <select v-model="selectedClientId" @change="updateClientDetails" class="text-gray-700 rounded" style="width: 72vh;">
+                                        <option v-for="client in clients" :key="client.id" :value="client.id">
+                                            {{ client.name }}
+                                        </option>
+                                    </select>
                                 </div>
                                 <div class="px-4 pb-1 gap-1 flex">
-                                    <input type="text" class="text-gray-700 rounded" style="width: 40vh;">
-                                    <input type="text" class="text-gray-700 rounded" style="width: 31.3vh;">
+                                    <input v-model="selectedClient.address" type="text" class="text-gray-500 rounded" style="width: 40vh;" readonly>
+                                    <input v-model="selectedClient.city" type="text" class="text-gray-500 rounded" style="width: 31.3vh;" readonly>
                                 </div>
                                 <div class="px-4 pb-1 gap-1 flex">
-                                    <input type="text" class="text-gray-700 rounded" style="width: 25vh;">
-                                    <input type="text" class="text-gray-700 rounded" style="width: 46.3vh;">
+                                    <input v-model="selectedClientCardStatement.name" type="text" class="text-gray-500 rounded" style="width: 25vh;" readonly>
+                                    <input v-model="selectedClientCardStatement.phone" type="text" class="text-gray-500 rounded" style="width: 46.3vh;" readonly>
                                 </div>
                             </div>
                             <div>
@@ -111,9 +119,96 @@ export default {
             startX: 0,
             startWidth: 0,
             columnIndex: -1,
+
+            warehouses: [],
+            selectedWarehouseId: null,
+            selectedWarehouse: {
+                address: '',
+                phone: ''
+            },
+
+            clients: [],
+            selectedClientId: null,
+            selectedClient: {
+                address: '',
+                city: ''
+            },
+            selectedClientCardStatement: {
+                name: '',
+                phone: ''
+            }
         };
     },
+    mounted() {
+        this.fetchWarehouses();
+        this.fetchClients();
+    },
     methods: {
+
+        //Clients fetching and prefilling
+        fetchClients() {
+            axios.get('/api/clients') // Adjust the URL to your endpoint
+                .then(response => {
+                    this.clients = response.data;
+                })
+                .catch(error => {
+                    console.error('Error fetching clients:', error);
+                });
+        },
+        updateClientDetails() {
+            const selected = this.clients.find(client => client.id === this.selectedClientId);
+            if (selected) {
+                this.selectedClient = {
+                    address: selected.address,
+                    city: selected.city
+                };
+                if (selected.client_card_statement) {
+                    this.selectedClientCardStatement = {
+                        name: selected.client_card_statement.name,
+                        phone: selected.client_card_statement.phone
+                    };
+                } else {
+                    this.selectedClientCardStatement = {
+                        name: '',
+                        phone: ''
+                    };
+                }
+            } else {
+                this.selectedClient = {
+                    address: '',
+                    city: ''
+                };
+                this.selectedClientCardStatement = {
+                    name: '',
+                    phone: ''
+                };
+            }
+        },
+
+        //Warehouse fetching and prefilling
+        fetchWarehouses() {
+            axios.get('/api/warehouses')
+                .then(response => {
+                    this.warehouses = response.data;
+                })
+                .catch(error => {
+                    console.error('Error fetching warehouses:', error);
+                });
+        },
+        updateWarehouseDetails() {
+            const selected = this.warehouses.find(warehouse => warehouse.id === this.selectedWarehouseId);
+            if (selected) {
+                this.selectedWarehouse = {
+                    address: selected.address,
+                    phone: selected.phone
+                };
+            } else {
+                this.selectedWarehouse = {
+                    address: '',
+                    phone: ''
+                };
+            }
+        },
         addRow() {
             this.rows.push({
                 code: '',

@@ -161,5 +161,12 @@ class ClientController extends Controller
 
         return response()->json($uniqueClients);
     }
+    public function getClients(Request $request)
+    {
+        $clients = Client::with('clientCardStatement')->get();
+
+        return response()->json($clients, 200);
+    }
+
 
 }

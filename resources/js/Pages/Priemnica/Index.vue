@@ -13,7 +13,11 @@
                                 <div class="mr-1 ml-2">Client</div>
                                 <div class="ml-2">
                                     <select  class="rounded text-black" @change="">
-
+                                        <option value="All" hidden>Clients</option>
+                                        <option value="All">All Clients</option>
+                                        <option v-for="client in clients" :key="client.id" :value="client.id">
+                                            {{ client.name }}
+                                        </option>
                                     </select>
                                 </div>
                             </div>
@@ -21,7 +25,11 @@
                                 <div class="mr-1 ml-2">Warehouse</div>
                                 <div class="ml-2">
                                     <select  class="rounded text-black" @change="">
-
+                                        <option value="All" hidden>Warehouses</option>
+                                        <option value="All">All Warehouses</option>
+                                        <option v-for="warehouse in warehouses" :key="warehouse.id" :value="warehouse.id">
+                                            {{ warehouse.name }}
+                                        </option>
                                     </select>
                                 </div>
                             </div>
@@ -116,9 +124,34 @@ export default {
             startX: 0,
             startWidth: 0,
             columnIndex: -1,
+
+            clients:[],
+            warehouses:[],
         };
     },
+    mounted() {
+      this.fetchClients();
+      this.fetchWarehouses();
+    },
     methods: {
+        fetchClients() {
+            axios.get('/api/clients') // Adjust the URL to your endpoint
+                .then(response => {
+                    this.clients = response.data;
+                })
+                .catch(error => {
+                    console.error('Error fetching clients:', error);
+                });
+        },
+        fetchWarehouses() {
+            axios.get('/api/warehouses')
+                .then(response => {
+                    this.warehouses = response.data;
+                })
+                .catch(error => {
+                    console.error('Error fetching warehouses:', error);
+                });
+        },
         initResize(event, index) {
             this.startX = event.clientX;
             this.startWidth = event.target.parentElement.offsetWidth;
