@@ -47,7 +47,7 @@
                                 <transition name="slide-fade">
                                     <div v-if="showActions" class="ultra-light-green text-white pl-1 pt-1 pb-1">
                                         <div v-for="(action,index) in actions(job.id)" :key="action">
-                                            <span>{{index+1}}. <strong>{{ action.startsWith('Machine') ? $t(`machinePrint.${action}`) : $t(`actions.${action}`) }}</strong></span>
+                                            <span>{{index+1}}. <strong>{{ action.startsWith('Machine') ? $t(`machinePrint.${action}`) : action }}</strong></span>
                                         </div>
                                     </div>
                                 </transition>

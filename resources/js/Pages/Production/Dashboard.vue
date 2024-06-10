@@ -23,7 +23,7 @@
                             <div> {{ item.onRushCount }}</div>
                         </div>
                     </div>
-                    <span class="text-white">{{ $t(`actions.${item.name}`) }}</span>
+                    <span class="text-white">{{ item.name }}</span>
                 </div>
             </div>
         </div>

@@ -62,18 +62,18 @@
                 <div class="form-group mt-2 p-2 text-black sameRow">
                     <label class="label-fixed-width">{{ $t('action') }} {{ index + 1 }}</label>
                     <select v-model="action.selectedAction" class="select-fixed-width">
-                        <option v-for="actionOption in actionOptions" :key="actionOption" :value="actionOption">
-                            {{ $t(`actions.${actionOption}`) }}
+                        <option v-for="actionOption in refinements" :key="actionOption" :value="actionOption">
+                            {{ actionOption.name }}
                         </option>
                     </select>
                     <button class="addBtn" @click="addAction"><span class="mdi mdi-plus-circle"></span></button>
                     <button v-if="index > 0" class="removeBtn" @click="removeAction(index)"><span class="mdi mdi-minus-circle"></span></button>
                 </div>
-            </div>
-
-            <div class="form-group mt-2 p-2 text-black sameRow">
-                <label class="label-fixed-width">{{ $t('Quantity') }}</label>
-                <input type="number" v-model="quantity">
+                <div v-if="action.selectedAction?.isMaterialized" class="form-group mt-2 p-2 text-black sameRow">
+                    <label class="label-fixed-width">{{ $t('Quantity') }}</label>
+                    <input type="number" min="0" v-model="action.quantity">
+                    <span class="text-white ml-2">{{ getUnit(action.selectedAction) }}</span>
+                </div>
             </div>
             <div class="form-group mt-2 p-2 text-black sameRow">
                 <label class="label-fixed-width">{{ $t('Copies') }}</label>
@@ -98,13 +98,6 @@
         <div>
             <label class="text-white">{{ $t('syncJobs') }}</label>
             <div>
-<!--                <v-select
-                    id="#select"
-                    multiple
-                    v-model="selectedJobs"
-                    :items="formattedJobOptions"
-                    class="select"
-                ></v-select>-->
                 <VueMultiselect
                     :searchable="false"
                     v-model="selectedJobs"
@@ -136,9 +129,11 @@ import { useToast } from "vue-toastification";
 import SecondaryButton from "@/Components/buttons/SecondaryButton.vue";
 import store from '../orderStore.js';
 import VueMultiselect from 'vue-multiselect'
+import axios from "axios";
+import Checkbox from "@/Components/inputs/Checkbox.vue";
 export default {
     name: "OrderInfo",
-    components: {VueMultiselect, SecondaryButton, PrimaryButton },
+    components: {Checkbox, VueMultiselect, SecondaryButton, PrimaryButton },
     props: {
         jobs: Array,
         shippingDetails: String,
@@ -160,7 +155,8 @@ export default {
             largeMaterials: this.generateMaterials(),
             materialsSmall: this.generateMaterialsSmall(),
             machinesPrint: this.generateMachinesPrint(),
-            machinesCut: this.generateMachinesCut()
+            machinesCut: this.generateMachinesCut(),
+            refinements: this.getRefinements()
         }
     },
     computed: {
@@ -191,6 +187,10 @@ export default {
             const response = await axios.get('/get-materials-small');
             this.materialsSmall = response.data;
         },
+        async getRefinements() {
+            const response = await axios.get('/refinements/all');
+            this.refinements = response.data;
+        },
         generateActionOptions() {
             const actions = [];
             for (let i = 1; i <= 28; i++) {
@@ -199,6 +199,7 @@ export default {
             return actions;
         },
         addAction() {
+            console.log(this.actions);
             this.actions.push({});
         },
         removeAction(index) {
@@ -222,6 +223,7 @@ export default {
             const jobsWithActions = jobIds.map(jobId => {
                 const actions = this.actions.map(action => ({
                     action_id: action.selectedAction,
+                    quantity: action.quantity,
                     status: 'Not started yet'
                 }));
 
@@ -290,8 +292,26 @@ export default {
                 .catch(error => {
                     toast.error("Couldn't sync jobs");
                 });
-        }
+        },
+        getUnit(refinement) {
+            const small = refinement?.small_material;
+            const large = refinement?.large_format_material;
 
+            if (small !== null || large !== null) {
+                if (small?.article?.in_meters === 1 || large?.article?.in_meters === 1) {
+                    return 'meters'
+                }
+                else if (small?.article?.in_kilograms === 1 || large?.article?.in_kilograms === 1) {
+                    return 'kilograms'
+                }
+                else if (small?.article?.in_pieces === 1 || large?.article?.in_pieces === 1) {
+                    return 'pieces'
+                }
+            }
+            else {
+                return '';
+            }
+        }
     }
 };
 </script>

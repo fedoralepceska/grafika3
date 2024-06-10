@@ -207,6 +207,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
 //Routes for Refinements
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/refinements', [\App\Http\Controllers\RefinementsController::class, 'index'])->name('refinements.index');
+    Route::get('/refinements/all', [\App\Http\Controllers\RefinementsController::class, 'getRefinements'])->name('refinements.getRefinements');
     Route::post('/refinements/create', [\App\Http\Controllers\RefinementsController::class, 'store'])->name('refinements.store');
 });
 

@@ -8,6 +8,7 @@ use App\Events\JobEnded;
 use App\Events\JobStarted;
 use App\Models\Invoice;
 use App\Models\Job;
+use App\Models\LargeFormatMaterial;
 use App\Models\SmallMaterial;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -148,9 +149,19 @@ class JobController extends Controller
 
             foreach ($jobWithActions['actions'] as $actionData) {
                 $actions[] = new JobAction([
-                    'name' => $actionData['action_id'],
+                    'name' => $actionData['action_id']['name'],
                     'status' => $actionData['status'],
                 ]);
+                $small_material = null;
+                $large_material = null;
+                if (array_key_exists('large_format_material_id', $actionData['action_id'])) {
+                    $large_material = LargeFormatMaterial::find($actionData['action_id']['large_format_material_id']);
+                    $large_material->quantity -= $actionData['quantity'];
+                }
+                if (array_key_exists('small_material_id', $actionData['action_id'])) {
+                    $small_material = SmallMaterial::find($actionData['action_id']['small_material_id']);
+                    $small_material->quantity -= $actionData['quantity'];
+                }
             }
 
             $job->actions()->saveMany($actions);

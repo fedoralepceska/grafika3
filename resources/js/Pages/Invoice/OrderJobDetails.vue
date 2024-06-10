@@ -93,7 +93,7 @@ export default {
                 return this.$t(`machinePrint.${action.name}`);
             } else {
                 // Use the 'actions.${action.name}' translation for other actions
-                return this.$t(`actions.${action.name}`);
+                return action.name;
             }
         },
     },

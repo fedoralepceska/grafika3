@@ -47,4 +47,9 @@ class RefinementsController extends Controller
 
         return redirect()->route('dorabotka.index');
     }
+
+    public function getRefinements()
+    {
+        return Dorabotka::with(['smallMaterial.article', 'largeFormatMaterial.article'])->get();
+    }
 }
