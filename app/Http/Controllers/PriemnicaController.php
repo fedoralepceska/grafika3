@@ -39,6 +39,10 @@ class PriemnicaController extends Controller
         $priemnica->update($data);
         $article = Article::where('code', $data['code'])->first();
         $priemnica->article_id = $article->id;
+        $priemnica->client_id = $data['client_id'];
+        $priemnica->warehouse = $data['warehouse'];
+        $priemnica->quantity = $data['qty'];
+        $priemnica->comment = $data['comment'];
         $priemnica->save();
 
         $materialType = ($article->format_type === 1) ? SmallMaterial::class : LargeFormatMaterial::class;
@@ -47,6 +51,7 @@ class PriemnicaController extends Controller
             'width' => $article->width,
             'height' => $article->height,
             'price_per_unit' => $article->purchase_price,
+            'article_id' => $article->id
         ];
 
         // Check for existing material based on name (assuming name is unique)

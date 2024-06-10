@@ -15,5 +15,6 @@ class LargeFormatMaterial extends Model
         'height',
         'quantity',
         'price_per_unit',
+        'article_id'
     ];
 }

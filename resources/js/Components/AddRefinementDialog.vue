@@ -35,8 +35,8 @@
                                             </div>
                                             <div class="form-group gap-3">
                                                 <label for="materialSelect" class="width100">Material</label>
-                                                <select id="materialSelect" v-model="newRefinement.materials"  class="text-black rounded" style="width: 50vh">
-                                                    <option v-for="material in availableMaterials" :key="material.id">
+                                                <select id="materialSelect" v-model="selectedMaterial"  class="text-black rounded" style="width: 50vh">
+                                                    <option v-for="material in availableMaterials" :key="material.id" :value="material">
                                                         {{ material.name }}
                                                     </option>
                                                 </select>
@@ -76,8 +76,11 @@ export default {
             newRefinement: {
                 name: "",
                 isMaterialRefinement: false,
-                materials: [],
-            }
+                material_id: null,
+                material_type: null
+            },
+            availableMaterials: [],
+            selectedMaterial: null
         };
     },
     props: {
@@ -94,15 +97,37 @@ export default {
             this.showAddRefinementForm = true;
         },
         async saveItem() {
+            this.newRefinement.material_id = this.selectedMaterial.id;
+            this.newRefinement.material_type = this.selectedMaterial?.small_format_material !== undefined ? 'SmallMaterial' : 'LargeFormatMaterial';
+            const toast = useToast();
+            axios.post('/refinements/create', this.newRefinement)
+                .then((response) => {
+                    this.dialog = false;
+                    toast.success('Refinement created successfully!');
 
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 1000); // Adding a slight delay before reload to ensure the toast message is displayed
+
+                })
+
+                .catch((error) => {
+                    toast.error('Failed to create refinement!');
+                });
         },
         handleEscapeKey(event) {
             if (event.key === 'Escape') {
                 this.closeDialog();
             }
-        }
+        },
+        async generateMaterials() {
+            const large = await axios.get('/get-large-materials');
+            const small = await axios.get('/get-materials-small');
+            this.availableMaterials = [...large.data, ...small.data];
+        },
     },
-    mounted() {
+    async mounted() {
+        await this.generateMaterials();
         document.addEventListener('keydown', this.handleEscapeKey);
     },
 };

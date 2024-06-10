@@ -24,11 +24,11 @@
                             </tr>
                             </thead>
                             <tbody>
-                            <tr>
-                                <th></th>
-                                <th></th>
-                                <th></th>
-                                <th></th>
+                            <tr v-for="refinement in refinements">
+                                <th>{{ refinement.id }}</th>
+                                <th>{{ refinement.name }}</th>
+                                <th>{{ refinement.isMaterialized === 1 ? 'Yes' : 'No' }}</th>
+                                <th>{{ getUnit(refinement) }}</th>
                                 <th><input type="checkbox" class="rounded"></th>
                             </tr>
                             </tbody>
@@ -74,7 +74,7 @@ export default {
         PriemInfoDialog
     },
     props: {
-        Refinements: Object,
+        refinements: Object,
     },
     data() {
         return {
@@ -104,6 +104,25 @@ export default {
         stopResize() {
             document.documentElement.removeEventListener('mousemove', this.resizeColumn);
             document.documentElement.removeEventListener('mouseup', this.stopResize);
+        },
+        getUnit(refinement) {
+            const small = refinement.small_material;
+            const large = refinement.large_format_material;
+
+            if (small !== null || large !== null) {
+                if (small.article.in_meters === 1 || large.article.in_meters === 1) {
+                    return 'meters'
+                }
+                else if (small.article.in_kilograms === 1 || large.article.in_kilograms === 1) {
+                    return 'kilograms'
+                }
+                else if (small.article.in_pieces === 1 || large.article.in_pieces === 1) {
+                    return 'pieces'
+                }
+            }
+            else {
+                return '';
+            }
         }
     },
 };

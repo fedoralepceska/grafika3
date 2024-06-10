@@ -16,6 +16,7 @@ class SmallMaterial extends Model
         'width',
         'height',
         'small_format_material_id',
+        'article_id'
     ];
 
     public function smallFormatMaterial(): \Illuminate\Database\Eloquent\Relations\BelongsTo
@@ -31,5 +32,10 @@ class SmallMaterial extends Model
 
     public function format() {
         return $this->belongsTo(SmallFormatMaterial::class, 'small_format_material_id');
+    }
+
+    public function article(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    {
+        return $this->belongsTo(Article::class, 'article_id');
     }
 }

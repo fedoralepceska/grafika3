@@ -259,6 +259,8 @@ export default {
         },
         addPrimenica() {
             const toast = useToast();
+            this.rows[0].client_id = this.selectedClientId;
+            this.rows[0].warehouse = this.selectedWarehouseId;
             axios.post('/receipt/create', this.rows[0])
                 .then((response) => {
                     this.dialog = false;
