@@ -156,11 +156,15 @@ class JobController extends Controller
                 $large_material = null;
                 if (array_key_exists('large_format_material_id', $actionData['action_id'])) {
                     $large_material = LargeFormatMaterial::find($actionData['action_id']['large_format_material_id']);
-                    $large_material->quantity -= $actionData['quantity'];
+                    if (array_key_exists('quantity', $actionData)) {
+                        $large_material->quantity -= $actionData['quantity'];
+                    }
                 }
                 if (array_key_exists('small_material_id', $actionData['action_id'])) {
                     $small_material = SmallMaterial::find($actionData['action_id']['small_material_id']);
-                    $small_material->quantity -= $actionData['quantity'];
+                    if (array_key_exists('quantity', $actionData)) {
+                        $small_material->quantity -= $actionData['quantity'];
+                    }
                 }
             }
 
