@@ -46,26 +46,26 @@
                                     <div class="form-group">
                                         <label for="client" class="mr-4 width100">Client</label>
                                         <select v-model="newItem.client_id">
-                                            <option v-for="client in uniqueClients" :key="client.id" :value="client.id" class="text-gray-700">{{ client.name }}</option>
+                                            <option v-for="client in clients" :key="client.id" :value="client.id" class="text-gray-700">{{ client.name }}</option>
                                         </select>
                                     </div>
                                 </div>
                                 <div class="flex items-center text-white">
                                     <div class="form-group">
                                         <label for="address" class="mr-4 width100">Address</label>
-                                        <input type="text" disabled id="address" class="text-gray-700 rounded"  placeholder="s">
+                                        <input type="text" disabled id="address" class="text-gray-700 rounded"  :placeholder="getClient?.address">
                                      </div>
                                 </div>
                                 <div class="flex items-center text-white">
                                     <div class="form-group">
                                         <label for="phone" class="mr-4 width100">Phone/Fax</label>
-                                        <input type="text" disabled id="phone" class="text-gray-700 rounded"  placeholder="s">
+                                        <input type="text" disabled id="phone" class="text-gray-700 rounded"  :placeholder="getClient?.phone">
                                     </div>
                                 </div>
                                 <div class="flex items-center text-white">
                                     <div class="form-group">
                                         <label for="account" class="mr-4 width100">Account</label>
-                                        <input type="text" disabled id="account" class="text-gray-700 rounded" placeholder="s">
+                                        <input type="text" disabled id="account" class="text-gray-700 rounded" :placeholder="getClient?.client_card_statement?.account">
                                     </div>
                                 </div>
                             </div>
@@ -126,7 +126,7 @@ export default {
         return {
             dialog: false,
             showAddItemForm: false,
-            uniqueClients:[],
+            clients:[],
             newItem: {
                 client_id: null,
                 certificate_id: this.certificate.id,
@@ -140,6 +140,11 @@ export default {
     },
     props: {
         certificate: Object,
+    },
+    computed: {
+        getClient() {
+            return this.clients.find(c => c.id === this.newItem?.client_id);
+        }
     },
     methods: {
         openDialog() {
@@ -162,13 +167,14 @@ export default {
                 toast.error('Error adding item: ' + error.message);
             }
         },
-        async fetchUniqueClients() {
-            try {
-                const response = await axios.get('/unique-clients');
-                this.uniqueClients = response.data;
-            } catch (error) {
-                console.error(error);
-            }
+        fetchClients() {
+            axios.get('/api/clients') // Adjust the URL to your endpoint
+                .then(response => {
+                    this.clients = response.data;
+                })
+                .catch(error => {
+                    console.error('Error fetching clients:', error);
+                });
         },
         handleEscapeKey(event) {
             if (event.key === 'Escape') {
@@ -178,7 +184,7 @@ export default {
     },
     mounted() {
         document.addEventListener('keydown', this.handleEscapeKey);
-        this.fetchUniqueClients()
+        this.fetchClients()
     },
 };
 </script>
