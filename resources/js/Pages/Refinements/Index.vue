@@ -106,17 +106,17 @@ export default {
             document.documentElement.removeEventListener('mouseup', this.stopResize);
         },
         getUnit(refinement) {
-            const small = refinement.small_material;
-            const large = refinement.large_format_material;
+            const small = refinement?.small_material;
+            const large = refinement?.large_format_material;
 
             if (small !== null || large !== null) {
-                if (small.article.in_meters === 1 || large.article.in_meters === 1) {
+                if (small.article?.in_meters === 1 || large.article?.in_meters === 1) {
                     return 'meters'
                 }
-                else if (small.article.in_kilograms === 1 || large.article.in_kilograms === 1) {
+                else if (small.article?.in_kilograms === 1 || large.article?.in_kilograms === 1) {
                     return 'kilograms'
                 }
-                else if (small.article.in_pieces === 1 || large.article.in_pieces === 1) {
+                else if (small.article?.in_pieces === 1 || large.article?.in_pieces === 1) {
                     return 'pieces'
                 }
             }
