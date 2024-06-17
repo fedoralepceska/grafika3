@@ -9,106 +9,106 @@
                             {{ $t('allArticles') }}
                         </h2>
                         <div class="search-container p-3 flex">
-                            <input type="text" class="text-black rounded" id="ArticleSearch" v-model="search" @keyup="" placeholder="Search by Article Code or Name">
+                            <input type="text" class="text-black rounded" style="width: 320px" v-model="search" @keyup="fetchArticles" placeholder="Search by Article Code or Name">
                             <div class="centered mr-1 ml-4 ">Articles per page</div>
                             <div class="ml-3">
-                                <select v-model="perPage" class="rounded text-black" @change="">
-                                    <option value="5">5 per page</option>
-                                    <option value="10">10 per page</option>
+                                <select v-model="perPage" class="rounded text-black" @change="fetchArticles">
                                     <option value="20">20 per page</option>
-                                    <option value="0">Show All</option>
+                                    <option value="40">40 per page</option>
+                                    <option value="60">60 per page</option>
                                 </select>
                             </div>
                         </div>
                         <table class="excel-table">
                             <thead>
-                                <tr>
-                                    <th></th>
-                                    <th>{{$t('Code')}}</th>
-                                    <th>{{$t('Article')}}</th>
-                                    <th>{{$t('Unit')}}</th>
-                                    <th>{{$t('fprice')}}</th>
-                                    <th>{{$t('pprice')}}</th>
-                                    <th>{{$t('price')}}</th>
-                                    <th>{{$t('VAT')}}</th>
-                                    <th>{{$t('Barcode')}}</th>
-                                    <th>{{$t('comment')}}</th>
-                                </tr>
+                            <tr>
+                                <th></th>
+                                <th>{{$t('Code')}}</th>
+                                <th>{{$t('Article')}}</th>
+                                <th>{{$t('Unit')}}</th>
+                                <th>{{$t('fprice')}}</th>
+                                <th>{{$t('pprice')}}</th>
+                                <th>{{$t('price')}}</th>
+                                <th>{{$t('VAT')}}</th>
+                                <th>{{$t('Barcode')}}</th>
+                                <th>{{$t('comment')}}</th>
+                            </tr>
                             </thead>
                             <tbody>
-                                <tr>
-                                    <th class="check"><input type="checkbox"  class="rounded"></th>
-                                    <th></th>
-                                    <th></th>
-                                    <th></th>
-                                    <th></th>
-                                    <th></th>
-                                    <th></th>
-                                    <th></th>
-                                    <th></th>
-                                    <th></th>
-                                </tr>
+                            <tr v-for="article in articles.data" :key="article.id">
+                                <th class="check"><input type="checkbox" class="rounded"></th>
+                                <th>{{ article.code }}</th>
+                                <th>{{ article.name }}</th>
+                                <th>{{ article.in_meters }}{{ article.in_kilograms }}{{ article.in_pieces }}</th>
+                                <th>{{ article.factory_price }}</th>
+                                <th>{{ article.purchase_price }}</th>
+                                <th>{{ article.price_1 }}</th>
+                                <th>{{ article.tax_type }}</th>
+                                <th>{{ article.barcode }}</th>
+                                <th>{{ article.comment }}</th>
+                            </tr>
                             </tbody>
                         </table>
                         <div class="button-container mt-2 gap-2">
-                            <!-- TODO: add article as param to delete method -->
                             <SecondaryButton class="delete" type="submit" @click="deleteArticle">{{ $t('Delete') }}</SecondaryButton>
                             <SecondaryButton type="submit" class="blue"> {{ $t('Edit') }}</SecondaryButton>
                             <PrimaryButton type="submit">{{ $t('addArticle') }}</PrimaryButton>
                         </div>
-<!--
-                        <Pagination />
--->
+                        <Pagination :pagination="articles" @pagination-change-page="fetchArticles"/>
                     </div>
                 </div>
             </div>
         </div>
     </MainLayout>
 </template>
+
 <script>
 import MainLayout from "@/Layouts/MainLayout.vue";
 import PrimaryButton from "@/Components/buttons/PrimaryButton.vue";
 import SecondaryButton from "@/Components/buttons/SecondaryButton.vue";
+import Pagination from "@/Components/Pagination.vue";
 import axios from "axios";
-import AddContactDialog from "@/Components/AddContactDialog.vue";
-import ViewContactsDialog from "@/Components/ViewContactsDialog.vue";
-import Pagination from "@/Components/Pagination.vue"
 import Header from "@/Components/Header.vue";
-import UpdateClientDialog from "@/Components/UpdateClientDialog.vue";
-import CardStatementUpdateDialog from "@/Components/CardStatementUpdateDialog.vue";
 
 export default {
     components: {
-        CardStatementUpdateDialog,
-        UpdateClientDialog,
-        ViewContactsDialog,
-        AddContactDialog,
         MainLayout,
         PrimaryButton,
         SecondaryButton,
         Pagination,
         Header
     },
-    props: {
-
-    },
     data() {
         return {
-
+            search: '',
+            perPage: 20,
+            articles: {}
         };
     },
     methods: {
+        async fetchArticles(page = 1) {
+            const params = {
+                page,
+                per_page: this.perPage,
+                search: this.search
+            };
+            const response = await axios.get('/articles', { params });
+            this.articles = response.data;
+        },
         async deleteArticle(article) {
             try {
-                await axios.delete(`/article/${article.id}`);
+                await axios.delete(`/articles/${article.id}`);
+                this.fetchArticles();
             } catch (error) {
                 console.error('Error deleting article:', error);
             }
-        },
+        }
     },
+    mounted() {
+        this.fetchArticles();
+    }
 };
 </script>
-
 <style scoped lang="scss">
 
 #ArticleSearch{
@@ -212,10 +212,7 @@ export default {
     text-align: center;
 }
 
-/* Alternate row color */
-.excel-table tr:nth-child(even) {
-    background-color: #f9f9f9;
-}
+
 .info {
     border: 2px solid white;
     min-width: 90vh;

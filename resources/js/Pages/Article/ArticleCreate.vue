@@ -7,20 +7,20 @@
                     <h2 class="sub-title">
                         {{ $t('articleDetails') }}
                     </h2>
-                    <form @submit.prevent="" class="flex gap-3 justify-center">
+                    <form @submit.prevent="createArticle" class="flex gap-3 justify-center">
                         <fieldset>
                             <legend>{{ $t('GeneralInfo') }}</legend>
                             <div class="form-group gap-4">
-                                <label for="name">{{ $t('Code') }}:</label>
-                                <input type="text" id="code" class="text-gray-700 rounded" required>
+                                <label for="code">{{ $t('Code') }}:</label>
+                                <input type="text" id="code" v-model="form.code" class="text-gray-700 rounded" required>
                             </div>
                             <div class="form-group gap-4">
                                 <label for="name">{{ $t('name') }}:</label>
-                                <input type="text" id="name" class="text-gray-700 rounded" required>
+                                <input type="text" id="name" v-model="form.name" class="text-gray-700 rounded" required>
                             </div>
                             <div class="form-group">
                                 <label for="tax" class="mr-4 width100">{{ $t('VAT') }}:</label>
-                                <select v-model="selectedOption" class="text-gray-700 rounded" id="taxA">
+                                <select v-model="form.selectedOption" class="text-gray-700 rounded" id="taxA">
                                     <option value="DDV A">DDV A</option>
                                     <option value="DDV B">DDV B</option>
                                     <option value="DDV C">DDV C</option>
@@ -29,70 +29,74 @@
                             </div>
                             <div class="form-group gap-4">
                                 <label for="type">{{ $t('Product') }}/{{ $t('Service') }}:</label>
-                                <select  class="text-gray-700 rounded" >
+                                <select v-model="form.type" class="text-gray-700 rounded" >
                                     <option value="product">{{ $t('Product') }}</option>
                                     <option value="service">{{ $t('Service') }}</option>
                                 </select>
                             </div>
                             <div class="form-group gap-4">
                                 <label for="barcode">{{ $t('Barcode') }}:</label>
-                                <input type="text" class="text-gray-700 rounded" >
+                                <input type="text" v-model="form.barcode" class="text-gray-700 rounded" >
                             </div>
                             <div class="form-group gap-4">
                                 <label for="comment">{{ $t('comment') }}:</label>
-                                <input type="text" id="comment" class="text-gray-700 rounded" >
+                                <input type="text" id="comment" v-model="form.comment" class="text-gray-700 rounded" >
                             </div>
                         </fieldset>
                         <fieldset>
                             <legend>{{$t('additionalInfo')}}</legend>
                             <div class="form-group gap-4">
                                 <label for="height">{{ $t('height') }}:</label>
-                                <input type="text" class="text-gray-700 rounded" >
+                                <input type="text" v-model="form.height" class="text-gray-700 rounded" >
                             </div>
                             <div class="form-group gap-4">
                                 <label for="width">{{ $t('width') }}:</label>
-                                <input type="text"  class="text-gray-700 rounded" >
+                                <input type="text" v-model="form.width" class="text-gray-700 rounded" >
                             </div>
                             <div class="form-group gap-4">
                                 <label for="length">{{ $t('length') }}:</label>
-                                <input type="text"  class="text-gray-700 rounded" >
+                                <input type="text" v-model="form.length" class="text-gray-700 rounded" >
                             </div>
                             <div class="form-group gap-4">
                                 <label for="weight">{{ $t('weight') }}:</label>
-                                <input type="text"  class="text-gray-700 rounded" >
+                                <input type="text" v-model="form.weight" class="text-gray-700 rounded" >
                             </div>
                             <div class="form-group gap-4">
                                 <label for="color">{{ $t('color') }}:</label>
-                                <input type="text"  class="text-gray-700 rounded" >
+                                <input type="text" v-model="form.color" class="text-gray-700 rounded" >
+                            </div>
+                            <div class="form-group gap-4">
+                                <label for="unit" class="mr-12">{{ $t('Format') }}:</label>
+                                <select v-model="form.format_type" class="text-gray-700 rounded" >
+                                    <option value="2">{{ $t('Large') }}</option>
+                                    <option value="1">{{ $t('Small') }}</option>
+                                </select>
                             </div>
                             <div class="form-group gap-4">
                                 <label for="unit" class="mr-12">{{ $t('Unit') }}:</label>
-                                <label><input type="checkbox" value="kilogram" class="rounded"> {{ $t('Kg') }}</label>
-                                <label><input type="checkbox" value="meters" class="rounded"> {{ $t('M') }}</label>
-                                <label><input type="checkbox" value="pieces" class="rounded"> {{ $t('Pcs') }}</label>
+                                <label><input type="checkbox" v-model="form.in_kilograms" value="kilogram" class="rounded"> {{ $t('Kg') }}</label>
+                                <label><input type="checkbox" v-model="form.in_meters" value="meters" class="rounded"> {{ $t('M') }}</label>
+                                <label><input type="checkbox" v-model="form.in_pieces" value="pieces" class="rounded"> {{ $t('Pcs') }}</label>
                             </div>
                         </fieldset>
                         <fieldset>
                             <legend>{{$t('pricelist')}}</legend>
                             <div class="form-group gap-4">
                                 <label for="fprice">{{ $t('fprice') }}:</label>
-                                <input type="text" class="text-gray-700 rounded" >
+                                <input type="text" v-model="form.fprice" class="text-gray-700 rounded" >
                             </div>
                             <div class="form-group gap-4">
                                 <label for="pprice">{{ $t('pprice') }}:</label>
-                                <input type="text"  class="text-gray-700 rounded" >
+                                <input type="text" v-model="form.pprice" class="text-gray-700 rounded" >
                             </div>
                             <div class="form-group gap-4">
                                 <label for="price">{{ $t('price') }}:</label>
-                                <input type="text"  class="text-gray-700 rounded" >
+                                <input type="text" v-model="form.price" class="text-gray-700 rounded" >
                             </div>
                         </fieldset>
-
-
-                        <!-- Other form fields... -->
                     </form>
                     <div class="button-container mt-10">
-                        <PrimaryButton type="submit">{{ $t('addArticle') }}</PrimaryButton>
+                        <PrimaryButton type="submit" @click="createArticle">{{ $t('addArticle') }}</PrimaryButton>
                     </div>
                 </div>
             </div>
@@ -109,15 +113,34 @@ import Header from "@/Components/Header.vue";
 
 export default {
     name: 'Create',
-    components: {Header, MainLayout, PrimaryButton },
+    components: { Header, MainLayout, PrimaryButton },
     data() {
         return {
-            selectedOption: 'DDV A'
+            form: {
+                code: '',
+                name: '',
+                selectedOption: 'DDV A',
+                type: 'product',
+                barcode: '',
+                comment: '',
+                height: '',
+                width: '',
+                length: '',
+                weight: '',
+                color: '',
+                format_type:'small',
+                in_meters:'',
+                in_kilograms:'',
+                in_pieces:'',
+                fprice: '',
+                pprice: '',
+                price: ''
+            }
         }
     },
-    computed:{
-        placeholderText: function () {
-            switch (this.selectedOption) {
+    computed: {
+        placeholderText() {
+            switch (this.form.selectedOption) {
                 case "DDV A":
                     return "18%";
                 case "DDV B":
@@ -130,7 +153,37 @@ export default {
         }
     },
     methods: {
-
+        async createArticle() {
+            try {
+                const response = await axios.post('/articles/create', this.form);
+                const toast = useToast();
+                // Clear form after successful submission
+                toast.success('Item added successfully!');
+                this.form = {
+                    code: '',
+                    name: '',
+                    selectedOption: 'DDV A',
+                    type: 'product',
+                    barcode: '',
+                    comment: '',
+                    height: '',
+                    width: '',
+                    length: '',
+                    weight: '',
+                    color: '',
+                    in_meters:'',
+                    in_kilograms:'',
+                    in_pieces:'',
+                    format_type:'small',
+                    fprice: '',
+                    pprice: '',
+                    price: ''
+                };
+            } catch (error) {
+                console.error(error);
+                this.toast.error('Failed to add article');
+            }
+        }
     },
 };
 </script>
