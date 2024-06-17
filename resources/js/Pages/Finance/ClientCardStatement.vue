@@ -16,7 +16,7 @@
                         <div class="info flex">
                             <div class="client pr-11">
                                 <div>{{ $t('client') }}</div>
-                                <div class="mt-5">client.name</div>
+                                <div class="mt-5">{{ getClient?.name }}</div>
                             </div>
 
                             <div class="date flex">
@@ -113,8 +113,17 @@ export default {
             isSidebarVisible: false,
             spreadsheetMode:true,
             backgroundColor: null,
-            openDialog: false
+            openDialog: false,
+            clients: []
         }
+    },
+    computed: {
+        getClient() {
+            return this.clients.find(c => c.id === this.cardStatement?.client_id);
+        }
+    },
+    beforeMount() {
+        this.fetchClients();
     },
     methods: {
         toggleSidebar() {
@@ -122,6 +131,15 @@ export default {
         },
         toggleSpreadsheetMode(){
             this.spreadsheetMode = !this.spreadsheetMode;
+        },
+        fetchClients() {
+            axios.get('/api/clients') // Adjust the URL to your endpoint
+                .then(response => {
+                    this.clients = response.data;
+                })
+                .catch(error => {
+                    console.error('Error fetching clients:', error);
+                });
         },
     },
 };
