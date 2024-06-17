@@ -17,4 +17,9 @@ class LargeFormatMaterial extends Model
         'price_per_unit',
         'article_id'
     ];
+
+    public function article(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    {
+        return $this->belongsTo(Article::class, 'article_id');
+    }
 }

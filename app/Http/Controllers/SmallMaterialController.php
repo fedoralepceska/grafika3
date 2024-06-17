@@ -19,7 +19,7 @@ class SmallMaterialController extends Controller
 
     public function getSmallMaterials(): \Illuminate\Database\Eloquent\Collection
     {
-        $materials = SmallMaterial::with(['smallFormatMaterial'])->get();
+        $materials = SmallMaterial::with(['article'])->get();
         return $materials;
     }
 

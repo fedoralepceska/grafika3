@@ -19,7 +19,7 @@ class LargeFormatMaterialController extends Controller
 
     public function getLargeMaterials(): \Illuminate\Database\Eloquent\Collection
     {
-        $materials = LargeFormatMaterial::all();
+        $materials = LargeFormatMaterial::with(['article'])->get();
         return $materials;
     }
 

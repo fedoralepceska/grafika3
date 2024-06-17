@@ -22,11 +22,11 @@
                             </tr>
                             </thead>
                             <tbody>
-                            <tr>
-                                <th></th>
-                                <th></th>
-                                <th></th>
-                                <th></th>
+                            <tr v-for="m in largeMaterials">
+                                <th>{{ m?.id }}</th>
+                                <th>{{ m?.name }}</th>
+                                <th>{{ m?.quantity }}</th>
+                                <th>{{ getUnit(m) }}</th>
                             </tr>
                             </tbody>
                         </table>
@@ -49,11 +49,11 @@
                                 </tr>
                                 </thead>
                                 <tbody>
-                                <tr>
-                                    <th></th>
-                                    <th></th>
-                                    <th></th>
-                                    <th></th>
+                                <tr v-for="m in smallMaterials">
+                                    <th>{{ m?.id }}</th>
+                                    <th>{{ m?.name }}</th>
+                                    <th>{{ m?.quantity }}</th>
+                                    <th>{{ getUnit(m) }}</th>
                                 </tr>
                                 </tbody>
                             </table>
@@ -105,7 +105,14 @@ export default {
             startX: 0,
             startWidth: 0,
             columnIndex: -1,
+            largeMaterials: [],
+            smallMaterials: [],
         };
+    },
+    beforeMount() {
+        this.fetchSmallMaterials();
+        this.fetchLargeMaterials();
+        console.log(this.materials);
     },
     methods: {
         initResize(event, index) {
@@ -128,6 +135,41 @@ export default {
         stopResize() {
             document.documentElement.removeEventListener('mousemove', this.resizeColumn);
             document.documentElement.removeEventListener('mouseup', this.stopResize);
+        },
+        fetchSmallMaterials() {
+            axios.get('/get-materials-small') // Adjust the URL to your endpoint
+                .then(response => {
+                    this.smallMaterials = response.data;
+                })
+                .catch(error => {
+                    console.error('Error fetching clients:', error);
+                });
+        },
+        fetchLargeMaterials() {
+            axios.get('/get-large-materials') // Adjust the URL to your endpoint
+                .then(response => {
+                    this.largeMaterials = response.data;
+                })
+                .catch(error => {
+                    console.error('Error fetching clients:', error);
+                });
+        },
+        getUnit(material) {
+            console.log(material);
+            if (material !== null) {
+                if (material?.article?.in_meters === 1) {
+                    return 'meters'
+                }
+                else if (material?.article?.in_kilograms === 1) {
+                    return 'kilograms'
+                }
+                else if (material?.article?.in_pieces === 1) {
+                    return 'pieces'
+                }
+            }
+            else {
+                return '';
+            }
         }
     },
 };

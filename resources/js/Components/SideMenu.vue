@@ -38,22 +38,22 @@ export default {
                             href: '/materials',
                             title: 'Materials',
                         },
-                        {
-                            href: '/smallFormat/materials/create',
-                            title: 'Add Material - Small',
-                        },
-                        {
-                            href: '/materials-small-format',
-                            title: 'View Material - Small',
-                        },
-                        {
-                            href: '/largeFormat/materials/create',
-                            title: 'Add Material Format - Large',
-                        },
-                        {
-                            href: '/materials-large',
-                            title: 'View Material Format - Large',
-                        },
+                        // {
+                        //     href: '/smallFormat/materials/create',
+                        //     title: 'Add Material - Small',
+                        // },
+                        // {
+                        //     href: '/materials-small-format',
+                        //     title: 'View Material - Small',
+                        // },
+                        // {
+                        //     href: '/largeFormat/materials/create',
+                        //     title: 'Add Material Format - Large',
+                        // },
+                        // {
+                        //     href: '/materials-large',
+                        //     title: 'View Material Format - Large',
+                        // },
                     ],
                 },
                 {
