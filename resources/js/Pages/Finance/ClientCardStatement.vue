@@ -16,7 +16,7 @@
                         <div class="info flex">
                             <div class="client pr-11">
                                 <div>{{ $t('client') }}</div>
-                                <div class="mt-5">{{ getClient?.name }}</div>
+                                <div class="mt-5">{{ client?.name }}</div> <!-- Display client's name -->
                             </div>
 
                             <div class="date flex">
@@ -65,7 +65,7 @@
                                 <th>{{ $t('statementExpense') }}</th>
                                 <th>{{ $t('comment') }}</th>
                             </tr>
-                            <tr v-for="item in tableData">
+                            <tr v-for="item in tableData.data" :key="item.number">
                                 <th>{{ item?.date }}</th>
                                 <th>{{ item?.document }}</th>
                                 <th>{{ item?.number }}</th>
@@ -76,6 +76,7 @@
                                 <th>{{ item?.comment }}</th>
                             </tr>
                         </table>
+                        <Pagination :pagination="tableData" @pagination-change-page="fetchTableData"/>
                     </div>
                 </div>
             </div>
@@ -86,25 +87,22 @@
 <script>
 import MainLayout from "@/Layouts/MainLayout.vue";
 import axios from "axios";
-import Toast, {useToast} from "vue-toastification";
-import OrderJobDetails from "@/Pages/Invoice/OrderJobDetails.vue";
-import OrderSpreadsheet from "@/Components/OrderSpreadsheet.vue";
 import Header from "@/Components/Header.vue";
-import UpdateDialogComment from "@/Components/UpdateDialogComment.vue";
+import Pagination from "@/Components/Pagination.vue";
 
 export default {
     components: {
-        OrderSpreadsheet,
-        OrderJobDetails,
         MainLayout,
         Header,
-        UpdateDialogComment},
+        Pagination
+    },
     props: {
         cardStatement: Object,
-        tableData: [],
-        owes: null,
-        requests: null,
-        balance: null,
+        client: Object, // Add client prop
+        tableData: Object,
+        owes: Number,
+        requests: Number,
+        balance: Number,
     },
     data() {
         return {
@@ -114,36 +112,43 @@ export default {
             spreadsheetMode:true,
             backgroundColor: null,
             openDialog: false,
-            clients: []
+            clients: [],
+            perPage: 20,
         }
     },
-    computed: {
-        getClient() {
-            return this.clients.find(c => c.id === this.cardStatement?.client_id);
-        }
-    },
-    beforeMount() {
+    mounted() {
         this.fetchClients();
     },
     methods: {
         toggleSidebar() {
             this.isSidebarVisible = !this.isSidebarVisible;
         },
-        toggleSpreadsheetMode(){
-            this.spreadsheetMode = !this.spreadsheetMode;
+        openPopover() {
+            this.showImagePopover = true;
+        },
+        closePopover() {
+            this.showImagePopover = false;
         },
         fetchClients() {
-            axios.get('/api/clients') // Adjust the URL to your endpoint
+            axios.get('/clients')
                 .then(response => {
-                    this.clients = response.data;
-                })
-                .catch(error => {
-                    console.error('Error fetching clients:', error);
+                    this.clients = response.data.clients;
                 });
         },
-    },
-};
+        fetchTableData(page = 1) {
+            axios.get(`/card-statements/${this.cardStatement.id}`, {
+                params: {
+                    page: page,
+                    per_page: this.perPage,
+                }
+            }).then(response => {
+                this.tableData = response.data.tableData;
+            });
+        }
+    }
+}
 </script>
+
 
 <style scoped lang="scss">
 

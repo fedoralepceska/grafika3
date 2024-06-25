@@ -9,6 +9,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
 
+
 class ClientCardStatementController extends Controller
 {
     /**
@@ -82,9 +83,13 @@ class ClientCardStatementController extends Controller
     /**
      * Display the specified resource.
      */
-    public function show($id)
+
+    public function show(Request $request, $id)
     {
         $cardStatement = ClientCardStatement::query()->findOrFail($id);
+
+        // Fetch the client
+        $client = $cardStatement->client;
 
         // Fetch items related to the client
         $items = Item::query()
@@ -94,7 +99,7 @@ class ClientCardStatementController extends Controller
         // Fetch relevant fakturas (isInvoices=true and client_id matches)
         $fakturas = Faktura::query()
             ->where('isInvoiced', true)
-            ->whereHas('invoices', function($query) use ($cardStatement) {
+            ->whereHas('invoices', function ($query) use ($cardStatement) {
                 $query->where('client_id', $cardStatement->client_id);
             })
             ->get();
@@ -117,7 +122,7 @@ class ClientCardStatementController extends Controller
             ];
         })->toArray();
 
-        // Format data for faktūras
+        // Format data for fakturas
         $formattedFakturas = $fakturas->map(function ($faktura) use ($cardStatement) {
             $invoice = $faktura->invoices->first();
             if (!$invoice || $invoice->client_id !== $cardStatement->client_id) {
@@ -149,20 +154,26 @@ class ClientCardStatementController extends Controller
             return strtotime($a['date']) <=> strtotime($b['date']);
         });
 
-        $formattedItems = collect($formattedItems);
-        $formattedFakturas = collect($formattedFakturas);
+        // Paginate table data
+        $page = $request->query('page', 1);
+        $perPage = $request->query('per_page', 20);
+        $paginatedTableData = collect($tableData)->slice(($page - 1) * $perPage, $perPage)->values();
+        $pagination = new \Illuminate\Pagination\LengthAwarePaginator($paginatedTableData, count($tableData), $perPage, $page, [
+            'path' => $request->url(),
+            'query' => $request->query(),
+        ]);
 
         // Calculate total statement expense
-        $totalStatementExpense = $formattedItems->sum('statement_expense');
+        $totalStatementExpense = collect($formattedItems)->sum('statement_expense');
 
         // Calculate total output invoice amount
-        $totalOutputInvoice = $formattedFakturas->sum('output_invoice');
+        $totalOutputInvoice = collect($formattedFakturas)->sum('output_invoice');
 
         // Calculate total statement income
-        $totalStatementIncome = $formattedItems->sum('statement_income');
+        $totalStatementIncome = collect($formattedItems)->sum('statement_income');
 
         // Calculate total incoming invoice
-        $totalIncomingInvoice = $formattedItems->sum('incoming_invoice');
+        $totalIncomingInvoice = collect($formattedItems)->sum('incoming_invoice');
 
         // Calculate total amount owed
         $owes = $totalStatementExpense + $totalOutputInvoice;
@@ -174,12 +185,15 @@ class ClientCardStatementController extends Controller
 
         return Inertia::render('Finance/ClientCardStatement', [
             'cardStatement' => $cardStatement,
-            'tableData' => $tableData,
+            'client' => $client, // Include client information
+            'tableData' => $pagination,
             'owes' => $owes,
             'requests' => $requests,
             'balance' => $totalBalance
         ]);
     }
+
+
 
     /**
      * Show the form for editing the specified resource.
