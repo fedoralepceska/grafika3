@@ -155,7 +155,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
 //Routes For Small Materials
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/materials-small', [SmallMaterialController::class, 'index'])->name('materials-small.index');
-    Route::get('/get-materials-small', [SmallMaterialController::class, 'getSmallMaterials'])->name('materials-small.getSmallMaterials');
+    Route::get('/materials/small', [SmallMaterialController::class, 'getSmallMaterials'])->name('materials-small.getSmallMaterials');
     Route::get('/small/materials/create', [SmallMaterialController::class, 'create'])->name('materials.create');
     Route::post('/materials-small', [SmallMaterialController::class, 'store'])->name('materials.store');
     Route::get('/materials-small/{material}/edit', [SmallMaterialController::class, 'edit'])->name('materials.edit');
@@ -167,7 +167,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
 //Rotues For Large Format Materials
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/materials-large', [LargeFormatMaterialController::class, 'index'])->name('materials.index');
-    Route::get('/get-large-materials', [LargeFormatMaterialController::class, 'getLargeMaterials'])->name('largeMaterials.getLargeMaterials');
+    Route::get('/materials/large', [LargeFormatMaterialController::class, 'getLargeMaterials'])->name('largeMaterials.getLargeMaterials');
     Route::get('/largeFormat/materials/create', [LargeFormatMaterialController::class, 'create'])->name('materials.create');
     Route::post('/materials-large', [LargeFormatMaterialController::class, 'store'])->name('materials.store');
     Route::get('/materials/{material}/edit', [LargeFormatMaterialController::class, 'edit'])->name('materials.edit');

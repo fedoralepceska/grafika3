@@ -17,10 +17,22 @@ class SmallMaterialController extends Controller
         ]);
     }
 
-    public function getSmallMaterials(): \Illuminate\Database\Eloquent\Collection
+    public function getSmallMaterials(Request $request)
     {
-        $materials = SmallMaterial::with(['article'])->get();
-        return $materials;
+        $perPage = $request->query('per_page', 20);
+        $smallMaterialsQuery = SmallMaterial::query()->with(['article']);
+
+
+        $smallMaterials = $smallMaterialsQuery->paginate($perPage);
+
+        if ($request->wantsJson()) {
+            return response()->json($smallMaterials);
+        }
+
+        return Inertia::render('Materials/SmallMaterials', [
+            'smallMaterials' => $smallMaterials,
+            'perPage' => $perPage,
+        ]);
     }
 
     public function create()

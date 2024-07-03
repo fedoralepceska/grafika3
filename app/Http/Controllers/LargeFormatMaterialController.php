@@ -17,10 +17,18 @@ class LargeFormatMaterialController extends Controller
         ]);
     }
 
-    public function getLargeMaterials(): \Illuminate\Database\Eloquent\Collection
+    public function getLargeMaterials(Request $request)
     {
-        $materials = LargeFormatMaterial::with(['article'])->get();
-        return $materials;
+        $perPage = $request->query('per_page', 20);
+        $largeMaterialsQuery = LargeFormatMaterial::query()->with(['article']);
+
+
+        $largeMaterials=$largeMaterialsQuery->paginate($perPage);
+
+        return Inertia::render('Materials/LargeMaterials', [
+            'largeMaterials' => $largeMaterials,
+            'perPage' => $perPage,
+        ]);
     }
 
     public function create()

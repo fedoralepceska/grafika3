@@ -35,8 +35,12 @@ export default {
                     icon: 'fa-solid fa-layer-group',
                     child: [
                         {
-                            href: '/materials',
-                            title: 'Materials',
+                            href: '/materials/small',
+                            title: 'Small Materials',
+                        },
+                        {
+                            href: '/materials/large',
+                            title: 'Large Materials',
                         },
                         // {
                         //     href: '/smallFormat/materials/create',
