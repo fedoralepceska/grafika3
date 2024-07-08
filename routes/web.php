@@ -7,6 +7,7 @@ use App\Http\Controllers\ContactController;
 use App\Http\Controllers\InvoiceController;
 use App\Http\Controllers\JobController;
 use App\Http\Controllers\LargeFormatMaterialController;
+use App\Http\Controllers\PriemnicaController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\SmallFormatMaterialController;
 use App\Http\Controllers\SmallMaterialController;
@@ -200,6 +201,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
 //Routes for Priemnici
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/receipt', [\App\Http\Controllers\PriemnicaController::class, 'index'])->name('priemnica.index');
+    Route::get('/api/priemnica', [PriemnicaController::class, 'fetchPriemnica']);
     Route::get('/receipt/create', [\App\Http\Controllers\PriemnicaController::class, 'create'])->name('priemnica.create');
     Route::post('/receipt/create', [\App\Http\Controllers\PriemnicaController::class, 'store'])->name('priemnica.store');
 });

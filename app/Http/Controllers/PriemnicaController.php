@@ -28,6 +28,32 @@ class PriemnicaController extends Controller
         return Inertia::render('Priemnica/Create');
     }
 
+    public function fetchPriemnica(Request $request)
+    {
+        $warehouseId = $request->query('warehouse');
+        $perPage = $request->query('per_page', 20);
+
+        $query = Priemnica::query()
+            ->join('article', 'priemnica.article_id', '=', 'article.id')
+            ->join('warehouses', 'priemnica.warehouse', '=', 'warehouses.id')
+            ->select('priemnica.*', 'article.name as article_name', 'warehouses.name as warehouse_name');
+
+        if ($warehouseId && $warehouseId !== 'All') {
+            $query->where('priemnica.warehouse', $warehouseId);
+        }
+
+        $priemnica = $query->paginate($perPage);
+
+        if ($request->wantsJson()) {
+            return response()->json($priemnica);
+        }
+
+        return Inertia::render('Warehouse/Index', [
+            'priemnica' => $priemnica,
+        ]);
+
+    }
+
     /**
      * Store a newly created resource in storage.
      */

@@ -16,10 +16,9 @@
                         <h2 class="sub-title">
                             {{ $t('wItems') }}
                         </h2>
-
                             <div class="pb-3">
                                 <label class="pr-3">Filter Warehouse</label>
-                                <select class="text-black rounded ">
+                                <select class="text-black rounded " v-model="selectedWarehouse" @change="fetchPriemnica">
                                     <option value="All" hidden>Warehouse</option>
                                     <option value="All">All Warehouses</option>
                                     <option v-for="warehouse in warehouses" :key="warehouse.id" :value="warehouse.id">
@@ -29,7 +28,7 @@
                             </div>
 
 
-                        <table class="excel-table ">
+                        <table class="excel-table mb-3 ">
                             <thead>
                             <tr>
                                 <th style="width: 45px;">{{$t('Nr')}}</th>
@@ -37,18 +36,16 @@
                                 <th>{{$t('warehouse')}}<div class="resizer" @mousedown="initResize($event, 2)"></div></th>
                             </tr>
                             </thead>
-                            <tbody>
+                            <tbody v-for="(item,index) in priemnica.data" >
                             <tr>
-                                <th></th>
-                                <th></th>
-                                <th></th>
+                                <th>{{index+1}}</th>
+                                <th>{{item.article_name}}</th>
+                                <th>{{item.warehouse_name}}</th>
                             </tr>
                             </tbody>
                         </table>
 
-                        <!--
-                                                <Pagination />
-                        -->
+                        <Pagination :pagination="priemnica" />
                     </div>
                 </div>
             </div>
@@ -84,12 +81,15 @@ export default {
             startX: 0,
             startWidth: 0,
             columnIndex: -1,
-
+            perPage: 20,
+            priemnica: {},
             warehouses:[],
+            selectedWarehouse: 'All',
         };
     },
     mounted() {
         this.fetchWarehouses();
+        this.fetchPriemnica();
     },
     methods: {
         fetchWarehouses() {
@@ -100,6 +100,16 @@ export default {
                 .catch(error => {
                     console.error('Error fetching warehouses:', error);
                 });
+        },
+        async fetchPriemnica() {
+            try {
+                const response = await axios.get('/api/priemnica', {
+                    params: { warehouse_id: this.selectedWarehouse }
+                });
+                this.priemnica = response.data;
+            } catch (error) {
+                console.error(error);
+            }
         },
         initResize(event, index) {
             this.startX = event.clientX;

@@ -61,7 +61,7 @@ export default {
                     ],
                 },
                 {
-                  href: 'warehouse',
+                  href: '/warehouse',
                   title: 'Warehouse',
                     icon: 'fa-solid fa-warehouse',
                 },
