@@ -6,6 +6,7 @@ use App\Models\ClientCardStatement;
 use App\Models\Faktura;
 use App\Models\Item;
 use Illuminate\Http\Request;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
 
@@ -86,23 +87,45 @@ class ClientCardStatementController extends Controller
 
     public function show(Request $request, $id)
     {
-        $cardStatement = ClientCardStatement::query()->findOrFail($id);
+        $cardStatement = ClientCardStatement::findOrFail($id);
 
         // Fetch the client
         $client = $cardStatement->client;
 
-        // Fetch items related to the client
-        $items = Item::query()
-            ->where('client_id', $cardStatement->client_id)
-            ->get();
+        // Get the date filters from the request
+        $fromDate = $request->query('from_date') ?? now()->startOfYear()->format('Y-m-d');
+        $toDate = $request->query('to_date') ?? now()->format('Y-m-d');
 
-        // Fetch relevant fakturas (isInvoices=true and client_id matches)
-        $fakturas = Faktura::query()
+        // Fetch items related to the client
+        $itemsQuery = Item::query()
+            ->where('client_id', $cardStatement->client_id);
+
+        if ($fromDate) {
+            $itemsQuery->whereDate('created_at', '>=', $fromDate);
+        }
+
+        if ($toDate) {
+            $itemsQuery->whereDate('created_at', '<=', $toDate);
+        }
+
+        $items = $itemsQuery->get();
+
+        // Fetch relevant fakturas (isInvoiced=true and client_id matches)
+        $fakturasQuery = Faktura::query()
             ->where('isInvoiced', true)
             ->whereHas('invoices', function ($query) use ($cardStatement) {
                 $query->where('client_id', $cardStatement->client_id);
-            })
-            ->get();
+            });
+
+        if ($fromDate) {
+            $fakturasQuery->whereDate('created_at', '>=', $fromDate);
+        }
+
+        if ($toDate) {
+            $fakturasQuery->whereDate('created_at', '<=', $toDate);
+        }
+
+        $fakturas = $fakturasQuery->get();
 
         // Format data for items
         $formattedItems = $items->map(function ($item) {
@@ -144,7 +167,7 @@ class ClientCardStatementController extends Controller
                 'statement_expense' => 0,
                 'comment' => $faktura->comment,
             ];
-        })->toArray();
+        })->filter()->toArray(); // Filter out any null values
 
         // Merge formatted data for both sources
         $tableData = array_merge($formattedItems, $formattedFakturas);
@@ -183,6 +206,12 @@ class ClientCardStatementController extends Controller
 
         $totalBalance = $owes > $requests ? $owes - $requests : $requests - $owes;
 
+
+
+        if ($request->wantsJson()) {
+            return response()->json($pagination);
+        }
+
         return Inertia::render('Finance/ClientCardStatement', [
             'cardStatement' => $cardStatement,
             'client' => $client, // Include client information
@@ -192,6 +221,8 @@ class ClientCardStatementController extends Controller
             'balance' => $totalBalance
         ]);
     }
+
+
 
 
 

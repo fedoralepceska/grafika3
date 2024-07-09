@@ -23,13 +23,13 @@
                                 <div>
                                     <div>{{ $t('from') }}</div>
                                     <div>
-                                        <input type="date" class="rounded text-black">
+                                        <input type="date" v-model="fromDate" class="rounded text-black">
                                     </div>
                                 </div>
                                 <div>
                                     <div>{{ $t('to') }}</div>
                                     <div>
-                                        <input type="date" class="rounded text-black">
+                                        <input type="date" v-model="toDate" class="rounded text-black">
                                     </div>
                                 </div>
                             </div>
@@ -53,7 +53,6 @@
                             </div>
                         </div>
                     </div>
-
                 </div>
                 <div class="dark-gray p-5 text-white" >
                     <div class="form-container p-2 light-gray">
@@ -101,8 +100,7 @@ export default {
     },
     props: {
         cardStatement: Object,
-        client: Object, // Add client prop
-        tableData: Object,
+        client: Object,
         owes: Number,
         requests: Number,
         balance: Number,
@@ -112,15 +110,20 @@ export default {
             showImagePopover: false,
             selectedJob: null,
             isSidebarVisible: false,
-            spreadsheetMode:true,
+            spreadsheetMode: true,
             backgroundColor: null,
             openDialog: false,
             clients: [],
+            tableData:{},
             perPage: 20,
+            fromDate: null,
+            toDate: null,
+
         }
     },
     mounted() {
         this.fetchClients();
+        this.fetchTableData();
     },
     methods: {
         toggleSidebar() {
@@ -139,18 +142,29 @@ export default {
                 });
         },
         fetchTableData(page = 1) {
-            axios.get(`/card-statements/${this.cardStatement.id}`, {
+            axios.get(`/cardStatement/${this.cardStatement.id}`, {
                 params: {
                     page: page,
                     per_page: this.perPage,
+                    from_date: this.fromDate,
+                    to_date: this.toDate
                 }
             }).then(response => {
-                this.tableData = response.data.tableData;
+                console.log(response.data);  // Log the response data for debugging
+                this.tableData = response.data;
+            }).catch(error => {
+                console.error("Error fetching data: ", error);
             });
+        },
+        applyFilter() {
+            this.fetchTableData();
         }
     }
 }
 </script>
+
+
+
 
 
 <style scoped lang="scss">
