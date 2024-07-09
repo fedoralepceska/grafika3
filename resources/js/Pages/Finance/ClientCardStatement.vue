@@ -16,22 +16,25 @@
                         <div class="info flex">
                             <div class="client pr-11">
                                 <div>{{ $t('client') }}</div>
-                                <div class="mt-5">{{ client?.name }}</div> <!-- Display client's name -->
+                                <input type="text" :placeholder="client?.name" disabled class="rounded">
                             </div>
 
                             <div class="date flex">
                                 <div>
                                     <div>{{ $t('from') }}</div>
                                     <div>
-                                        <input type="date">
+                                        <input type="date" class="rounded text-black">
                                     </div>
                                 </div>
                                 <div>
                                     <div>{{ $t('to') }}</div>
                                     <div>
-                                        <input type="date">
+                                        <input type="date" class="rounded text-black">
                                     </div>
                                 </div>
+                            </div>
+                            <div class="buttF ml-3">
+                                <button @click="applyFilter" class="btn create-order1">Filter</button>
                             </div>
                             <div class="mt-10 pr-2 pl-16">
                                 {{ $t('totalBalance') }} (.ден):
@@ -152,10 +155,23 @@ export default {
 
 <style scoped lang="scss">
 
-
+.buttF{
+    padding-top: 23.5px;
+}
+.btn {
+    padding: 9px 12px;
+    border: none;
+    cursor: pointer;
+    font-weight: bold;
+    border-radius: 2px;
+}
+.create-order1{
+    background-color: $blue;
+    color: white;
+}
 .rounded{
     border-radius: 3px 3px 3px 3px;
-    width: 140px;
+    width: 155px;
 }
 .round{
     border-radius: 3px 3px 0 0;
