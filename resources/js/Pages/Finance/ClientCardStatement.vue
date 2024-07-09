@@ -150,7 +150,6 @@ export default {
                     to_date: this.toDate
                 }
             }).then(response => {
-                console.log(response.data);  // Log the response data for debugging
                 this.tableData = response.data;
             }).catch(error => {
                 console.error("Error fetching data: ", error);
