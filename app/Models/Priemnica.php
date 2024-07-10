@@ -23,7 +23,8 @@ class Priemnica extends Model
         return $this->belongsTo(Client::class, 'client_id');
     }
 
-    public function article() {
-        return $this->belongsTo(Article::class, 'article_id');
+    public function articles()
+    {
+        return $this->hasMany(Article::class, 'priemnica_id'); // Using the bridge table (optional)
     }
 }

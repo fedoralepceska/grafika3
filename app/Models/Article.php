@@ -26,4 +26,9 @@ class Article extends Model
         'in_kilograms',
         'in_pieces'
     ];
+
+    public function priemnica()
+    {
+        return $this->belongsTo(Priemnica::class); // Using the bridge table (optional)
+    }
 }
