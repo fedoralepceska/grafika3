@@ -18,7 +18,7 @@ import "vue-toastification/dist/index.css";
 import i18n from './i18n';
 import VueSidebarMenu from 'vue-sidebar-menu'
 
-const appName = import.meta.env.VITE_APP_NAME || 'Laravel';
+const appName = import.meta.env.VITE_APP_NAME || 'GrafikaPlus';
 
 const vuetify = createVuetify({
     components,
