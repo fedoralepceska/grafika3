@@ -16,7 +16,7 @@ class PriemnicaController extends Controller
      */
     public function index()
     {
-        $receipts = Priemnica::with(['client', 'article'])->get();
+        $receipts = Priemnica::with(['client', 'articles'])->get();
         return Inertia::render('Priemnica/Index', $receipts);
     }
 

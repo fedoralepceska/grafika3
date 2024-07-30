@@ -25,6 +25,6 @@ class Priemnica extends Model
 
     public function articles()
     {
-        return $this->hasMany(Article::class, 'priemnica_id'); // Using the bridge table (optional)
+        return $this->belongsToMany(Article::class, 'priemnica_articles');
     }
 }

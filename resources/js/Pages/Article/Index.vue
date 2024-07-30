@@ -36,7 +36,11 @@
                             </thead>
                             <tbody>
                             <tr v-for="article in articles.data" :key="article.id">
-                                <th class="check"><input type="checkbox" class="rounded"></th>
+                                <th class="check">
+                                    <input type="checkbox" class="rounded"
+                                           v-model="selectedArticles"
+                                           :value="article">
+                                </th>
                                 <th>{{ article.code }}</th>
                                 <th>{{ article.name }}</th>
                                 <th>{{ article.in_meters }}{{ article.in_kilograms }}{{ article.in_pieces }}</th>
@@ -51,7 +55,7 @@
                         </table>
                         <div class="button-container mt-2 gap-2">
                             <SecondaryButton class="delete" type="submit" @click="deleteArticle">{{ $t('Delete') }}</SecondaryButton>
-                            <SecondaryButton type="submit" class="blue"> {{ $t('Edit') }}</SecondaryButton>
+                            <ArticleEdit :article="selectedArticles[0]"/>
                             <PrimaryButton type="submit">{{ $t('addArticle') }}</PrimaryButton>
                         </div>
                         <Pagination :pagination="articles" @pagination-change-page="fetchArticles"/>
@@ -69,6 +73,7 @@ import SecondaryButton from "@/Components/buttons/SecondaryButton.vue";
 import Pagination from "@/Components/Pagination.vue";
 import axios from "axios";
 import Header from "@/Components/Header.vue";
+import ArticleEdit from "@/Pages/Article/ArticleEdit.vue";
 
 export default {
     components: {
@@ -76,13 +81,15 @@ export default {
         PrimaryButton,
         SecondaryButton,
         Pagination,
-        Header
+        Header,
+        ArticleEdit
     },
     data() {
         return {
             search: '',
             perPage: 20,
-            articles: {}
+            articles: {},
+            selectedArticles: [],
         };
     },
     methods: {
