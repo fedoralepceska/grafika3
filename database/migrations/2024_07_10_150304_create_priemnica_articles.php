@@ -12,12 +12,12 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('priemnica', function (Blueprint $table) {
-            $table->unsignedBigInteger('article_id')->nullable();
-            $table->foreign('article_id')->references('id')->on('article')->onDelete('cascade');
-        });
-        Schema::table('priemnica', function (Blueprint $table) {
             $table->dropForeign(['article_id']);
             $table->dropColumn('article_id');
+        });
+        Schema::table('priemnica', function (Blueprint $table) {
+            $table->unsignedBigInteger('article_id')->nullable();
+            $table->foreign('article_id')->references('id')->on('article')->onDelete('cascade');
         });
         Schema::create('priemnica_articles', function (Blueprint $table) {
                 $table->id();
