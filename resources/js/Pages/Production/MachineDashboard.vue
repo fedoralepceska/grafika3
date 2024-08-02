@@ -1,7 +1,15 @@
 <template>
     <MainLayout>
         <div class="pl-7 pr-7">
-            <Header title="Machines" subtitle="Dashboard" icon="machines.png" link="machines"/>
+            <div class="flex justify-between">
+                <Header title="Machines" subtitle="Dashboard" icon="machines.png" link="machines"/>
+                <div class="flex pt-4">
+                    <div class="flex gap-2 pt-3">
+                        <button class="btn"><ViewMachinesDialog :machinesCut="jobMachinesCut" :machinesPrint="jobMachinesPrint"/></button>
+                        <button class="btn"><AddMachineDialog /></button>
+                    </div>
+                </div>
+            </div>
             <div class="grid-container">
                 <div v-for="item in jobMachinesPrint" :key="item.name" class="grid-item bg" @click="navigateToMachine(item.name)" >
                     <div class="machine">
@@ -34,8 +42,8 @@
 import axios from 'axios';
 import MainLayout from "@/Layouts/MainLayout.vue";
 import Header from "@/Components/Header.vue";
-import TabsWrapper from "@/Components/tabs/TabsWrapper.vue";
-import Tab from "@/Components/tabs/Tab.vue";
+import AddMachineDialog from "@/Components/AddMachineDialog.vue";
+import ViewMachinesDialog from "@/Components/ViewMachinesDialog.vue";
 import TabsWrapperV2 from "@/Components/tabs/TabsWrapperV2.vue";
 import TabV2 from "@/Components/tabs/TabV2.vue";
 
@@ -45,6 +53,8 @@ export default {
         TabsWrapperV2,
         MainLayout,
         Header,
+        AddMachineDialog,
+        ViewMachinesDialog
     },
     data() {
         return {
@@ -63,7 +73,6 @@ export default {
                 const cutResponse = await axios.get('/job-machine-cut-counts');
                 this.jobMachinesPrint = printResponse.data;
                 this.jobMachinesCut = cutResponse.data;
-                console.log(response);
             } catch (error) {
                 console.error(error);
             }
@@ -168,6 +177,13 @@ export default {
 }
 .red {
     color: $red;
+}
+.btn {
+    padding: 9px 12px;
+    border: none;
+    cursor: pointer;
+    font-weight: bold;
+    border-radius: 2px;
 }
 
 </style>

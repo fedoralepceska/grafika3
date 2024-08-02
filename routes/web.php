@@ -190,6 +190,13 @@ Route::middleware(['auth', 'verified'])->group(function() {
     Route::delete('/api/warehouse/{id}', [\App\Http\Controllers\WarehouseController::class, 'deleteWarehouse']);
 });
 
+//Routes for Machines
+Route::middleware(['auth', 'verified'])->group(function() {
+    Route::get('/get-machines', [\App\Http\Controllers\MachineController::class, 'getMachines'])->name('machine.index');
+    Route::post('/machines', [\App\Http\Controllers\MachineController::class, 'createMachine']);
+    Route::delete('/machines/{id}', [\App\Http\Controllers\MachineController::class, 'deleteMachine']);
+});
+
 //Routes For Articles
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/articles', [ArticleController::class, 'index'])->name('articles.index');
