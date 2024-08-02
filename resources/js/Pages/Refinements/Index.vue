@@ -27,7 +27,7 @@
                             <tr v-for="refinement in refinements">
                                 <th>{{ refinement.id }}</th>
                                 <th>{{ refinement.name }}</th>
-                                <th>{{ refinement.isMaterialized === 1 ? 'Yes' : 'No' }}</th>
+                                <th>{{ getMaterial(refinement) }}</th>
                                 <th>{{ getUnit(refinement) }}</th>
                                 <th><input type="checkbox" class="rounded"></th>
                             </tr>
@@ -122,6 +122,15 @@ export default {
             }
             else {
                 return '';
+            }
+        },
+        getMaterial(refinement) {
+            if (refinement?.small_material) {
+                return refinement?.small_material?.name + "-" + refinement?.small_material?.quantity;
+            } else if (refinement?.large_material) {
+                return refinement?.large_material?.name + "-" + refinement?.large_material?.quantity;
+            } else {
+                return "X";
             }
         }
     },
