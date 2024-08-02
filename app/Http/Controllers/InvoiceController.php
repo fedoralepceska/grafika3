@@ -101,17 +101,24 @@ class InvoiceController extends Controller
         $request->validate([
             'client_id' => 'required',
             'contact_id' => 'required',
-            'invoice_title' => 'required',
             'start_date' => 'required|date',
             'end_date' => 'required|date',
             'comment' => 'string|nullable',
             'jobs' => 'array',
+            'selected_article' => 'required'
         ]);
 
         $invoiceData = $request->all();
 
         // Create the invoice
-        $invoice = new Invoice($invoiceData);
+        $invoice = new Invoice();
+        $invoice->client_id = $invoiceData['client_id'];
+        $invoice->contact_id = $invoiceData['contact_id'];
+        $invoice->start_date = $invoiceData['start_date'];
+        $invoice->end_date = $invoiceData['end_date'];
+        $invoice->comment = $invoiceData['comment'];
+        $invoice->article_id = $invoiceData['selected_article']['id'];
+        $invoice->invoice_title = $invoiceData['selected_article']['name'];
         $invoice->status = 'Not started yet';
         $invoice->created_by = Auth::id();
 
