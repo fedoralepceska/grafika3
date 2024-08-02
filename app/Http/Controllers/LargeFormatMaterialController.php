@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\SmallMaterial;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use App\Models\LargeFormatMaterial;
@@ -20,17 +21,25 @@ class LargeFormatMaterialController extends Controller
     public function getLargeMaterials(Request $request)
     {
         $perPage = $request->query('per_page', 20);
-        $largeMaterialsQuery = LargeFormatMaterial::query()->with(['article']);
+        $searchQuery = $request->query('search_query', '');
 
+        $largeMaterialsQuery = LargeFormatMaterial::query()
+            ->with(['article'])
+            ->when($searchQuery, function ($query, $searchQuery) {
+                $query->where('name', 'like', "%{$searchQuery}%");
+            });
 
-        $largeMaterials=$largeMaterialsQuery->paginate($perPage);
+        $largeMaterials = $largeMaterialsQuery->paginate($perPage);
+
+        if ($request->wantsJson()) {
+            return response()->json($largeMaterials);
+        }
 
         return Inertia::render('Materials/LargeMaterials', [
             'largeMaterials' => $largeMaterials,
             'perPage' => $perPage,
         ]);
     }
-
     public function create()
     {
         return Inertia::render('LargeFormatMaterial/Create');
@@ -75,5 +84,30 @@ class LargeFormatMaterialController extends Controller
         $material->delete();
 
         return redirect()->route('materials.index');
+    }
+    public function generateLargeMaterialsPdf(Request $request)
+    {
+        $searchQuery = $request->query('search_query', '');
+        $perPage = $request->query('per_page', 20);
+
+        $materials = LargeFormatMaterial::query()
+            ->when($searchQuery, function ($query, $searchQuery) {
+                $query->where('name', 'like', "%{$searchQuery}%");
+            })
+            ->take($perPage)
+            ->get();
+
+        $pdf = PDF::loadView('materials.large_pdf', compact('materials'));
+
+        return $pdf->stream('Large_Materials.pdf');
+    }
+
+    public function generateAllLargeMaterialsPdf()
+    {
+        $materials = LargeFormatMaterial::orderBy('created_at', 'desc')->get();
+
+        $pdf = PDF::loadView('materials.large_pdf', compact('materials'));
+
+        return $pdf->stream('All_Large_Materials.pdf');
     }
 }

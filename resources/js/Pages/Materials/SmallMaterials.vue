@@ -1,14 +1,39 @@
 <template>
     <MainLayout>
         <div class="pl-7 pr-7">
-            <Header title="material" subtitle="materialList" icon="Materials.png" link="materials"/>
+            <Header title="material" subtitle="materialList" icon="Materials.png" link="materials/small"/>
             <div class="form-container p15">
                 <div class="dark-gray p-5 text-white">
                     <div class="form-container p-2 light-gray overflow-x-auto">
                         <h2 class="sub-title">
                             {{ $t('listOfSmallMaterials') }}
                         </h2>
-
+                        <div class=" flex justify-between gap-4 pb-10">
+                            <div class=" flex gap-4">
+                                <div class="search flex gap-2">
+                                    <input v-model="searchQuery" placeholder="Enter material name" class="text-black" style="width: 50vh; border-radius: 3px" @keyup.enter="searchMaterials" />
+                                    <button class="btn create-order1" @click="searchMaterials">Search</button>
+                                </div>
+                                <div class="flex gap-2">
+                                    <div class="status">
+                                        <label class="pr-3">Per page</label>
+                                        <select v-model="filterStatus" class="text-black rounded" @change="fetchSmallMaterials" style="width: 80px" >
+                                            <option value="20">20</option>
+                                            <option value="40">40</option>
+                                            <option value="100">100</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="button flex gap-3">
+                                <button @click="printMaterials" class="btn create-order">
+                                    Print Materials <i class="fa-solid fa-print"></i>
+                                </button>
+                                <button @click="printAllMaterials" class="btn create-order2">
+                                    Print All Materials <i class="fa-solid fa-print"></i>
+                                </button>
+                            </div>
+                        </div>
                         <div>
                             <table class="excel-table mb-3">
                                 <thead>
@@ -56,6 +81,8 @@ export default {
             startWidth: 0,
             columnIndex: -1,
             smallMaterials: {},
+            searchQuery: '',
+            filterStatus: 20,
             perPage: 20,
         };
     },
@@ -87,7 +114,8 @@ export default {
         async fetchSmallMaterials(page = 1) {
             const params = {
                 page,
-                per_page: this.perPage,
+                per_page: this.filterStatus, // Use filterStatus for per page value
+                search_query: this.searchQuery,
             };
             try {
                 const response = await axios.get('/materials/small', { params });
@@ -95,6 +123,21 @@ export default {
             } catch (error) {
                 console.error('Error fetching small materials:', error);
             }
+        },
+        searchMaterials() {
+            this.fetchSmallMaterials();
+        },
+        async printMaterials() {
+            const params = {
+                search_query: this.searchQuery,
+                per_page: this.filterStatus,
+            };
+            const url = `/materials/pdf?${new URLSearchParams(params).toString()}`;
+            window.open(url, '_blank');
+        },
+        async printAllMaterials() {
+            const url = `/materials/all-pdf`;
+            window.open(url, '_blank');
         },
         getUnit(material) {
             if (material) {
@@ -134,10 +177,19 @@ select{
     font-weight: bold;
     border-radius: 2px;
 }
+.create-order{
+    background-color: $blue;
+    color: white;
+}
 .create-order1{
     background-color: $blue;
     color: white;
 }
+.create-order2{
+    background-color: $green;
+    color: white;
+}
+
 .centered {
     display: flex;
     justify-content: center;

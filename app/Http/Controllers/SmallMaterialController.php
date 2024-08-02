@@ -4,6 +4,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\SmallMaterial;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 
@@ -20,8 +21,13 @@ class SmallMaterialController extends Controller
     public function getSmallMaterials(Request $request)
     {
         $perPage = $request->query('per_page', 20);
-        $smallMaterialsQuery = SmallMaterial::query()->with(['article']);
+        $searchQuery = $request->query('search_query', '');
 
+        $smallMaterialsQuery = SmallMaterial::query()
+            ->with(['article'])
+            ->when($searchQuery, function ($query, $searchQuery) {
+                $query->where('name', 'like', "%{$searchQuery}%");
+            });
 
         $smallMaterials = $smallMaterialsQuery->paginate($perPage);
 
@@ -34,6 +40,7 @@ class SmallMaterialController extends Controller
             'perPage' => $perPage,
         ]);
     }
+
 
     public function create()
     {
@@ -73,5 +80,30 @@ class SmallMaterialController extends Controller
     {
         $material->delete();
 
+    }
+    public function generateSmallMaterialsPdf(Request $request)
+    {
+        $searchQuery = $request->query('search_query', '');
+        $perPage = $request->query('per_page', 20);
+
+        $materials = SmallMaterial::query()
+            ->when($searchQuery, function ($query, $searchQuery) {
+                $query->where('name', 'like', "%{$searchQuery}%");
+            })
+            ->take($perPage)
+            ->get();
+
+        $pdf = PDF::loadView('materials.small_pdf', compact('materials'));
+
+        return $pdf->stream('Small_Materials.pdf');
+    }
+
+    public function generateAllSmallMaterialsPdf()
+    {
+        $materials = SmallMaterial::orderBy('created_at', 'desc')->get();
+
+        $pdf = PDF::loadView('materials.small_pdf', compact('materials'));
+
+        return $pdf->stream('All_Small_Materials.pdf');
     }
 }

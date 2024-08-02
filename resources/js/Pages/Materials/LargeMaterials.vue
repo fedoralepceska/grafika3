@@ -1,13 +1,39 @@
 <template>
     <MainLayout>
         <div class="pl-7 pr-7">
-            <Header title="material" subtitle="materialList" icon="Materials.png" link="materials"/>
+            <Header title="material" subtitle="materialList" icon="Materials.png" link="materials/large"/>
             <div class="form-container p15">
                 <div class="dark-gray p-5 text-white">
                     <div class="form-container p-2 light-gray overflow-x-auto">
                         <h2 class="sub-title">
                             {{ $t('listOfLargeMaterials') }}
                         </h2>
+                        <div class=" flex justify-between gap-4 pb-10">
+                            <div class=" flex gap-4">
+                                <div class="search flex gap-2">
+                                    <input v-model="searchQuery" placeholder="Enter material name" class="text-black" style="width: 50vh; border-radius: 3px" @keyup.enter="searchMaterials" />
+                                    <button class="btn create-order1" @click="searchMaterials">Search</button>
+                                </div>
+                                <div class="flex gap-2">
+                                    <div class="status">
+                                        <label class="pr-3">Per page</label>
+                                        <select v-model="filterStatus" class="text-black rounded" @change="fetchLargeMaterials" style="width: 80px" >
+                                            <option value="20">20</option>
+                                            <option value="40">40</option>
+                                            <option value="100">100</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="button flex gap-3">
+                                <button @click="printMaterials" class="btn create-order">
+                                    Print Materials <i class="fa-solid fa-print"></i>
+                                </button>
+                                <button @click="printAllMaterials" class="btn create-order2">
+                                    Print All Materials <i class="fa-solid fa-print"></i>
+                                </button>
+                            </div>
+                        </div>
                         <div>
                             <table class="excel-table mb-3">
                                 <thead>
@@ -30,45 +56,24 @@
                             </table>
                             <Pagination :pagination="largeMaterials" />
                         </div>
-
                     </div>
                 </div>
             </div>
         </div>
     </MainLayout>
 </template>
+
 <script>
 import MainLayout from "@/Layouts/MainLayout.vue";
-import PrimaryButton from "@/Components/buttons/PrimaryButton.vue";
-import SecondaryButton from "@/Components/buttons/SecondaryButton.vue";
 import axios from "axios";
-import AddContactDialog from "@/Components/AddContactDialog.vue";
-import ViewContactsDialog from "@/Components/ViewContactsDialog.vue";
 import Pagination from "@/Components/Pagination.vue"
 import Header from "@/Components/Header.vue";
-import UpdateClientDialog from "@/Components/UpdateClientDialog.vue";
-import CardStatementUpdateDialog from "@/Components/CardStatementUpdateDialog.vue";
-import PriemInfoDialog from "@/Components/PriemInfoDialog.vue";
-import AddRefinementDialog from "@/Components/AddRefinementDialog.vue";
-import EditRefinementDialog from "@/Components/EditRefinementDialog.vue";
 
 export default {
     components: {
-        EditRefinementDialog,
-        AddRefinementDialog,
-        CardStatementUpdateDialog,
-        UpdateClientDialog,
-        ViewContactsDialog,
-        AddContactDialog,
         MainLayout,
-        PrimaryButton,
-        SecondaryButton,
         Pagination,
-        Header,
-        PriemInfoDialog
-    },
-    props: {
-        Refinements: Object,
+        Header
     },
     data() {
         return {
@@ -76,10 +81,11 @@ export default {
             startWidth: 0,
             columnIndex: -1,
             largeMaterials: {},
-            perPage:20,
+            searchQuery: '',
+            filterStatus: 20,
         };
     },
-    beforeMount() {
+    mounted() {
         this.fetchLargeMaterials();
     },
     methods: {
@@ -107,26 +113,42 @@ export default {
         async fetchLargeMaterials(page = 1) {
             const params = {
                 page,
-                per_page: this.perPage,
+                per_page: this.filterStatus,
+                search_query: this.searchQuery,
             };
-            const response = await axios.get('/materials/large', { params });
-            this.largeMaterials = response.data;
+            try {
+                const response = await axios.get('/materials/large', { params });
+                this.largeMaterials = response.data;
+            } catch (error) {
+                console.error('Error fetching large materials:', error);
+            }
+        },
+        searchMaterials() {
+            this.fetchLargeMaterials();
+        },
+        async printMaterials() {
+            const params = {
+                search_query: this.searchQuery,
+                per_page: this.filterStatus,
+            };
+            const url = `/materials/large/pdf?${new URLSearchParams(params).toString()}`;
+            window.open(url, '_blank');
+        },
+        async printAllMaterials() {
+            const url = `/materials/large/all-pdf`;
+            window.open(url, '_blank');
         },
         getUnit(material) {
-            if (material !== null) {
-                if (material?.article?.in_meters === 1) {
-                    return 'meters'
-                }
-                else if (material?.article?.in_kilograms === 1) {
-                    return 'kilograms'
-                }
-                else if (material?.article?.in_pieces === 1) {
-                    return 'pieces'
+            if (material) {
+                if (material.article?.in_meters) {
+                    return 'meters';
+                } else if (material.article?.in_kilograms) {
+                    return 'kilograms';
+                } else if (material.article?.in_pieces) {
+                    return 'pieces';
                 }
             }
-            else {
-                return '';
-            }
+            return '';
         }
     },
 };
@@ -138,13 +160,13 @@ export default {
     justify-content: center;
     align-items: center;
 }
-.filters{
+.filters {
     justify-content: space-between;
 }
-select{
+select {
     width: 240px;
 }
-.buttF{
+.buttF {
     padding-top: 23.5px;
 }
 .btn {
@@ -154,8 +176,16 @@ select{
     font-weight: bold;
     border-radius: 2px;
 }
-.create-order1{
+.create-order {
     background-color: $blue;
+    color: white;
+}
+.create-order1 {
+    background-color: $blue;
+    color: white;
+}
+.create-order2 {
+    background-color: $green;
     color: white;
 }
 .centered {
@@ -163,29 +193,29 @@ select{
     justify-content: center;
     align-items: center;
 }
-.delete{
+.delete {
     border: none;
     color: white;
     background-color: $red;
 }
-.delete:hover{
+.delete:hover {
     background-color: darkred;
 }
-.green-text{
+.green-text {
     color: $green;
 }
-.blue{
+.blue {
     background-color: $blue;
     border: none;
     color: white;
 }
-.blue:hover{
+.blue:hover {
     background-color: cornflowerblue;
 }
-.green{
+.green {
     background-color: $green;
 }
-.header{
+.header {
     display: flex;
     align-items: center;
 }
@@ -196,10 +226,9 @@ select{
     min-height: 20vh;
     min-width: 80vh;
 }
-.light-gray{
+.light-gray {
     background-color: $light-gray;
 }
-
 .client-form {
     width: 100%;
     justify-content: left;
@@ -214,7 +243,7 @@ select{
     align-items: center;
     color: $white;
 }
-.sub-title{
+.sub-title {
     font-size: 20px;
     font-weight: bold;
     margin-bottom: 20px;
@@ -222,7 +251,6 @@ select{
     align-items: center;
     color: $white;
 }
-
 .image-icon {
     margin-left: 2px;
     max-width: 40px;
@@ -235,13 +263,12 @@ select{
     margin-bottom: 10px;
     color: $white;
 }
-
 .label {
     flex: 1;
     text-align: left;
     margin-right: 20px;
 }
-.button-container{
+.button-container {
     display: flex;
     justify-content: end;
 }
