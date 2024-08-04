@@ -121,7 +121,7 @@
             </tr>
             <tr >
                 <td style="background-color: #F0EFEF; padding-left: 5px; border-bottom: 1px solid #cccccc;;">Машина</td>
-                <td colspan="3"> {{ $job->machinePrintName }}</td>
+                <td colspan="3"> {{ $job->machinePrint }}</td>
             </tr>
             <tr>
                 <td style="background-color: #F0EFEF; padding-left: 5px; border-bottom: 1px solid #cccccc;;">Ширина:</td>

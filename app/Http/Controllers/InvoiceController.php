@@ -378,42 +378,13 @@ class InvoiceController extends Controller
     {
         $invoice = Invoice::with(['jobs','contact','user'])->findOrFail($invoiceId);
 
-        $machinePrintMapping = [
-            'Machine print 1' => 'Mimaki UV',
-            'Machine print 2' => 'Pitney bowe s di380',
-            'Machine print 3' => 'Mimaki eco slovent',
-            'Machine print 4' => 'Horex iGen 150',
-            'Machine print 5' => 'Horex Versant 2100',
-            'Machine print 6' => 'Durst 320',
-            'Machine print 7' => 'Scitex XL 1500',
-            'Machine print 8' => 'Durst p10',
-            'Machine print 9' => 'Cannon B&W imagePress 1125',
-            'Machine print 10' => 'HP Injet X476W',
-        ];
-        foreach ($invoice->jobs as $job) {
-            if (isset($machinePrintMapping[$job->machinePrint])) {
-                $job->machinePrintName = $machinePrintMapping[$job->machinePrint];
-            } else {
-                $job->machinePrintName = $job->machinePrint; // Fallback if not found
-            }
-        }
         // Load the view and pass data
-
         $pdf = Pdf::loadView('invoices.pdf', compact('invoice'), [
             'isHtml5ParserEnabled' => true,
             'isRemoteEnabled' => true,
             'isFontSubsettingEnabled' => true,
             'chroot' => storage_path('fonts'),
         ]);
-
-        // Set Dompdf options
-        /*$pdf->setOptions([
-            'isHtml5ParserEnabled' => true,
-            'isRemoteEnabled' => true,
-            'isFontSubsettingEnabled' => true,
-            'chroot' => base_path('public'),
-            'chroot' => storage_path('fonts')
-        ]);*/
 
         return $pdf->stream('Order_' . $invoice->id .'/'. date('Y', strtotime($invoice->start_date)) . '.pdf');
     }
