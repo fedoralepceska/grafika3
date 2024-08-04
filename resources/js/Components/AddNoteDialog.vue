@@ -24,9 +24,9 @@
                         :options="actionOptions"
                         :multiple="true"
                         placeholder="Select Actions"
-                        :custom-label="customLabel">
+                    >
                         <template v-slot:option="{ option }">
-                            {{ option.startsWith('Machine') ? $t('machinePrint.' + option) : $t('actions.' + option) }}
+                            {{ option }}
                         </template>
                     </VueMultiselect>
                 </v-card-text>
@@ -76,9 +76,6 @@ export default {
         },
     },
     methods: {
-        customLabel(option) {
-            return this.$t('actions.' + option);
-        },
         openDialog() {
             this.dialog = true;
         },

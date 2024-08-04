@@ -82,8 +82,8 @@
                                 <td>{{job.copies}}</td>
                                 <td>{{job.height.toFixed(2)}}</td>
                                 <td>{{job.width.toFixed(2)}}</td>
-                                <td>{{$t(`machinePrint.${job.machinePrint}`)}}</td>
-                                <td>{{$t(`machineCut.${job.machineCut}`)}}</td>
+                                <td>{{ job.machinePrint }}</td>
+                                <td>{{ job.machineCut }}</td>
                                 <td>
                                     <button style="min-width: 230px; max-width: 230px" :class="['bg-white', 'text-black', 'p-2', 'rounded', 'mr-2', { 'disabled' : invoice.onHold },{ 'disabled' : jobDisabledStatus[getActionId(job)]}]" @click="startJob(job)" :disabled="invoice.onHold || jobDisabledStatus[getActionId(job)]">
                                         <strong>Start job <i class="fa-regular fa-clock"></i><span>{{ elapsedTimes[getActionId(job)] }}</span></strong>

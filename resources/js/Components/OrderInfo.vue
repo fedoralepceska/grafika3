@@ -22,8 +22,8 @@
             <div class="form-group mt-2 p-2 text-black sameRow">
                 <label class="label-fixed-width">{{ $t('machineP') }}</label>
                 <select v-model="selectedMachinePrint" class="select-fixed-width">
-                    <option v-for="machine in machinesPrint" :key="machine" :value="machine">
-                        {{ $t(`machinePrint.${machine}`) }}
+                    <option v-for="machine in machinesPrint" :key="machine.id" :value="machine.name">
+                        {{ machine.name }}
                     </option>
                 </select>
             </div>
@@ -31,8 +31,8 @@
             <div class="form-group mt-2 p-2 text-black sameRow">
                 <label class="label-fixed-width">{{ $t('machineC') }}</label>
                 <select v-model="selectedMachineCut" class="select-fixed-width">
-                    <option v-for="machine in machinesCut" :key="machine" :value="machine">
-                        {{ $t(`machineCut.${machine}`) }}
+                    <option v-for="machine in machinesCut" :key="machine.id" :value="machine.name">
+                        {{ machine.name }}
                     </option>
                 </select>
             </div>
@@ -154,8 +154,8 @@ export default {
             actionOptions: this.generateActionOptions(),
             largeMaterials: this.generateMaterials(),
             materialsSmall: this.generateMaterialsSmall(),
-            machinesPrint: this.generateMachinesPrint(),
-            machinesCut: this.generateMachinesCut(),
+            machinesPrint: [],
+            machinesCut: [],
             refinements: this.getRefinements()
         }
     },
@@ -164,20 +164,19 @@ export default {
             return this.jobs?.map((job, index) => ({ value: job.id, title: `#${index + 1}` }));
         }
     },
+    beforeMount() {
+        this.fetchMachines();
+    },
     methods: {
-        generateMachinesPrint() {
-            const materials = [];
-            for (let i = 1; i <= 10; i++) {
-                materials.push(`Machine print ${i}`);
-            }
-            return materials;
-        },
-        generateMachinesCut() {
-            const materials = [];
-            for (let i = 1; i <= 2; i++) {
-                materials.push(`Machine cut ${i}`);
-            }
-            return materials;
+        fetchMachines() {
+            axios.get('/get-machines')
+                .then((response) => {
+                    this.machinesCut = response.data.machinesCut;
+                    this.machinesPrint = response.data.machinesPrint;
+                })
+                .catch((error) => {
+                    console.error('Error fetching machines:', error);
+                });
         },
         async generateMaterials() {
             const response = await axios.get('/get-large-materials');
@@ -232,7 +231,7 @@ export default {
                     actions: actions
                 };
             });
-
+            console.log(this.selectedMachineCut, this.selectedMachinePrint);
             axios.post('/sync-all-jobs', {
                 selectedMaterial: this.selectedMaterial.id,
                 selectedMachinePrint: this.selectedMachinePrint,

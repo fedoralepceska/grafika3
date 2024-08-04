@@ -23,7 +23,7 @@
                       }">
                         <span v-if="action.status === 'Completed'">&#10003;</span>
                     </div>
-                        <span>{{ getTranslation(action) }}</span>
+                        <span>{{ action.name }}</span>
                 </div>
             </div>
             <div class="completed line ">
@@ -85,16 +85,6 @@ export default {
                 }
             }
             return false; // Return a default value if there are no actions for the job
-        },
-        getTranslation(action) {
-            // Check if the name starts with "Machine"
-            if (action.name.startsWith('Machine')) {
-                // Use the 'machinePrint.${action.name}' translation
-                return this.$t(`machinePrint.${action.name}`);
-            } else {
-                // Use the 'actions.${action.name}' translation for other actions
-                return action.name;
-            }
         },
     },
 };

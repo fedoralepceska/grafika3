@@ -29,7 +29,7 @@
                     </div>
                     <div class="info">
                         <div>Current Step</div>
-                        <div class="bold">{{$t(`machinePrint.${machineId}`)}}</div>
+                        <div class="bold">{{ machineId }}</div>
                     </div>
                     <div class="btns">
                         <div class="bt" @click="viewJobs(index)"><i class="fa-solid fa-bars"></i></div>
@@ -90,8 +90,8 @@
                             <td>{{job.copies}}</td>
                             <td>{{job.height.toFixed(2)}}</td>
                             <td>{{job.width.toFixed(2)}}</td>
-                            <td>{{$t(`machinePrint.${job.machinePrint}`)}}</td>
-                            <td>{{$t(`machineCut.${job.machineCut}`)}}</td>
+                            <td>{{ job.machinePrint }}</td>
+                            <td>{{ job.machineCut }}</td>
                             <td>
                                 <button class="bg-white text-black p-2 rounded mr-2" @click="startJob(job)"><strong>Start job <i class="fa-regular fa-clock"></i>0min </strong></button>
                                 <button class="red p-2 rounded" @click="endJob(job)"><strong>End job</strong></button>

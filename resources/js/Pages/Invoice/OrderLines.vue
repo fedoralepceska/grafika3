@@ -19,12 +19,12 @@
                         <td><img :src="getImageUrl(job.id)" alt="Job Image" class="jobImg thumbnail" /></td>
                         <td>
                             <div v-if="job.machinePrint">
-                                {{  $t('machineP') }} : <span class="bold"> {{$t(`machinePrint.${job.machinePrint}`) }}</span>
+                                {{  $t('machineP') }} : <span class="bold"> {{ job.machinePrint }}</span>
                             </div>
                         </td>
                         <td>
                             <div v-if="job.machineCut">
-                                {{  $t('machineC') }} : <span class="bold"> {{$t(`machineCut.${job.machineCut}`) }}</span>
+                                {{  $t('machineC') }} : <span class="bold"> {{ job.machineCut }}</span>
                             </div>
                         </td>
                         <td>
