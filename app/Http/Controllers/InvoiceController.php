@@ -12,6 +12,7 @@ use Exception;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
@@ -528,6 +529,29 @@ class InvoiceController extends Controller
             return response()->json(['error' => 'Invoice not found'], 404);
         }
     }
+
+    public function generateAllInvoicesPdf(Request $request)
+    {
+        $invoiceIds = explode(',', $request->query->all()['invoices']);
+
+        $invoices = Invoice::with(
+            'jobs',
+            'jobs.actions',
+            'jobs.small_material.article',
+            'jobs.large_material.article'
+        )->whereIn('id', $invoiceIds)->get();
+
+        // Load the view and pass data
+        $pdf = Pdf::loadView('invoices.generated_invoice', compact('invoices'), [
+            'isHtml5ParserEnabled' => true,
+            'isRemoteEnabled' => true,
+            'isFontSubsettingEnabled' => true,
+            'chroot' => storage_path('fonts'),
+        ]);
+
+        return $pdf->stream('Invoice_' . Date::now()->format('Y') . '.pdf');
+    }
+
     public function allFaktura(Request $request)
     {
         try {

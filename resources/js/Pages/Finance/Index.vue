@@ -228,7 +228,8 @@ export default {
         generateInvoice() {
             const selectedInvoiceIds = Object.keys(this.selectedInvoices).filter(id => this.selectedInvoices[id]);
             if (selectedInvoiceIds.length) {
-                this.$inertia.visit(`/invoiceGeneration?invoices=${selectedInvoiceIds.join(',')}`);
+                window.open(`/invoice-generation?invoices=${selectedInvoiceIds.join(',')}`, '_blank');
+                // this.$inertia.visit(`/invoiceGeneration?invoices=${selectedInvoiceIds.join(',')}`);
             }
         },
     },
