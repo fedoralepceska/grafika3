@@ -87,7 +87,7 @@
                     </div>
                 </td>
                 <td>
-                    <img src="" alt="LOGO" style="padding: 0 153px; height: 75px;">
+                    <img src="{{ public_path('logo_blue.png') }}" alt="LOGO" style="padding: 0 153px; height: 75px;">
                 </td>
 
         </table>
