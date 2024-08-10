@@ -179,11 +179,11 @@ export default {
                 });
         },
         async generateMaterials() {
-            const response = await axios.get('/get-large-materials');
+            const response = await axios.get('/materials/large/all');
             this.largeMaterials = response.data;
         },
         async generateMaterialsSmall() {
-            const response = await axios.get('/get-materials-small');
+            const response = await axios.get('/materials/small/all');
             this.materialsSmall = response.data;
         },
         async getRefinements() {

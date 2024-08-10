@@ -157,6 +157,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/materials-small', [SmallMaterialController::class, 'index'])->name('materials-small.index');
     Route::get('/materials/small', [SmallMaterialController::class, 'getSmallMaterials'])->name('materials-small.getSmallMaterials');
+    Route::get('/materials/small/all', [SmallMaterialController::class, 'getAllMaterials'])->name('materials-small.getAllMaterials');
     Route::get('/materials/pdf', [SmallMaterialController::class, 'generateSmallMaterialsPdf'])->name('materials.pdf');
     Route::get('/materials/all-pdf', [SmallMaterialController::class, 'generateAllSmallMaterialsPdf'])->name('materials.all-pdf');
     Route::get('/small/materials/create', [SmallMaterialController::class, 'create'])->name('materials.create');
@@ -171,6 +172,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/materials-large', [LargeFormatMaterialController::class, 'index'])->name('materials.index');
     Route::get('/materials/large', [LargeFormatMaterialController::class, 'getLargeMaterials'])->name('largeMaterials.getLargeMaterials');
+    Route::get('/materials/large/all', [LargeFormatMaterialController::class, 'getAllMaterials'])->name('largeMaterials.getAllMaterials');
     Route::get('/materials/large/pdf', [LargeFormatMaterialController::class, 'generateLargeMaterialsPdf'])->name('materials.large.pdf');
     Route::get('/materials/large/all-pdf', [LargeFormatMaterialController::class, 'generateAllLargeMaterialsPdf'])->name('materials.large.all-pdf');
     Route::get('/largeFormat/materials/create', [LargeFormatMaterialController::class, 'create'])->name('materials.create');

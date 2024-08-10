@@ -21,6 +21,7 @@ class Job extends Model
     use HasFactory;
 
     protected $fillable = [
+        'id',
         'width',
         'height',
         'file',
@@ -39,6 +40,8 @@ class Job extends Model
         'salePrice'
     ];
 
+    protected $with = ['actions'];
+
     protected $attributes = [
         'estimatedTime' => 0, // Set a default value for estimatedTime
         'shippingInfo' => '', // Set a default value for shippingInfo
@@ -51,7 +54,7 @@ class Job extends Model
 
     public function actions(): BelongsToMany
     {
-        return $this->belongsToMany(JobAction::class)->withPivot('status');
+        return $this->belongsToMany(JobAction::class)->withPivot(['status', 'quantity']);
     }
 
     public function invoices(): BelongsToMany
@@ -78,46 +81,21 @@ class Job extends Model
 
     public function getTotalPriceAttribute(): float|int
     {
-        // Check if the small material is set
-        $smallMaterial = $this->small_material()->with('smallFormatMaterial')->first();
-        $largeMaterial = $this->large_material()->first();
-
-        if ($smallMaterial === null && $largeMaterial === null) {
-            // Return a default value if no small material is set
-            return 0;
+        $smallMaterial = SmallMaterial::with('article')->find($this->small_material_id);
+        $largeMaterial = LargeFormatMaterial::with('article')->find($this->large_material_id);
+        $price = 0;
+        $job = Job::with('actions')->find($this->id)->toArray();
+        foreach ($job['actions'] as $action) {
+            if ($action['quantity']) {
+                if (isset($smallMaterial)) {
+                    $price = $price + ($action['quantity']*$smallMaterial->article->price_1);
+                }
+                if (isset($largeMaterial)) {
+                    $price = $price + ($action['quantity']*$largeMaterial->article->price_1);
+                }
+            }
         }
-        $result = 0;
-        if ($smallMaterial) {
-            // Calculate the number of used materials.
-            $formatQuantity = $smallMaterial->smallFormatMaterial->quantity; //100
-            $formatPrice = $smallMaterial->smallFormatMaterial->price_per_unit; //10
-            $baseQuantity = $this->quantity; // 500
-            $baseCopies = $this->copies; // 50
-            $materialQuantity = $smallMaterial->quantity; // 9
-            $remainingQuantity = $formatQuantity - ($baseCopies / $materialQuantity); // total - used
-
-            $smallMaterial->smallFormatMaterial->update(['quantity' => $remainingQuantity]);
-
-            $result = ceil($baseCopies / $materialQuantity) * $formatPrice;
-        }
-        if ($largeMaterial) {
-            $materialWidth = $largeMaterial->width;
-            $materialHeight = $largeMaterial->height;
-            $materialPrice = $largeMaterial->price_per_unit;
-            $baseWidth = number_format($this->width / 1000, 2);
-            $baseHeight = number_format($this->height / 1000, 2);
-            $remainder = $materialWidth - $baseWidth;
-            $remainderTotal = $remainder * $baseHeight;
-            $jobTotal = $baseWidth * $baseHeight;
-
-            $total = $remainderTotal + $jobTotal;
-
-            $largeMaterial->update(['height' => $materialHeight - $baseHeight]);
-
-            $result = $total * $materialPrice;
-        }
-
-        return $result;
+        return $price;
     }
 
 

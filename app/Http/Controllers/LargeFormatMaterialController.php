@@ -40,6 +40,11 @@ class LargeFormatMaterialController extends Controller
             'perPage' => $perPage,
         ]);
     }
+
+    public function getAllMaterials() {
+        return LargeFormatMaterial::all();
+    }
+
     public function create()
     {
         return Inertia::render('LargeFormatMaterial/Create');

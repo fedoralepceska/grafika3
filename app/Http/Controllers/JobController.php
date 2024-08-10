@@ -151,6 +151,7 @@ class JobController extends Controller
                 $actions[] = new JobAction([
                     'name' => $actionData['action_id']['name'],
                     'status' => $actionData['status'],
+                    'quantity' => $actionData['quantity']
                 ]);
                 $small_material = null;
                 $large_material = null;
@@ -209,33 +210,22 @@ class JobController extends Controller
 
     private function calculateTotalPrice($job)
     {
-        // Check if the job has a small material
-        if (!isset($job['small_material_id'])) {
-            return 0; // Return a default value if no small material is set
+        $smallMaterial = SmallMaterial::with('article')->find($job['small_material_id']);
+        $largeMaterial = LargeFormatMaterial::with('article')->find($job['large_material_id']);
+        $price = 0;
+        $jobWithActions = Job::with('actions')->find($job['id'])->toArray();
+
+        foreach ($jobWithActions['actions'] as $action) {
+            if ($action['quantity']) {
+                if (isset($smallMaterial)) {
+                    $price = $price + ($action['quantity']*$smallMaterial->article->price_1);
+                }
+                if (isset($largeMaterial)) {
+                    $price = $price + ($action['quantity']*$largeMaterial->article->price_1);
+                }
+            }
         }
-
-        // Fetch the small material
-        $smallMaterial = SmallMaterial::with('smallFormatMaterial')->find($job['small_material_id']);
-
-        // If small material not found or format material not set, return 0
-        if (!$smallMaterial || !$smallMaterial->smallFormatMaterial) {
-            return 0;
-        }
-
-        // Extract required data
-        $formatQuantity = $smallMaterial->smallFormatMaterial->quantity ?? 0;
-        $formatPrice = intval($smallMaterial->smallFormatMaterial->price_per_unit ?? 0);
-        $baseCopies = $job['copies'] ?? 0;
-        $materialQuantity = $smallMaterial->quantity ?? 0;
-
-        $remainingQuantity = $formatQuantity - ($baseCopies / $materialQuantity); // total - used
-
-        $smallMaterial->smallFormatMaterial->update(['quantity' => $remainingQuantity]);
-
-        // Calculate total price
-        $totalPrice = ceil($baseCopies / $materialQuantity) * $formatPrice;
-
-        return $totalPrice;
+        return $price;
     }
 
     public function getJobsByActionId(Request $request, $actionId)

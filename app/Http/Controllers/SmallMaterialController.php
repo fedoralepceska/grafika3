@@ -41,6 +41,9 @@ class SmallMaterialController extends Controller
         ]);
     }
 
+    public function getAllMaterials() {
+        return SmallMaterial::all();
+    }
 
     public function create()
     {
