@@ -79,9 +79,13 @@
                             <tr v-for="(row, index) in rows" :key="index">
                                 <td></td>
                                 <td>{{ index + 1 }}</td>
-                                <td><input v-model="row.code" type="text" class="table-input"></td>
-                                <td><input v-model="row.articleName" type="text" class="table-input"></td>
-                                <td><input v-model="row.qty" type="number" class="table-input"></td>
+                                <td>
+                                    <input v-model="row.code" type="text" class="table-input" @keyup.enter="findArticleByCode(row.code, index)">
+                                </td>
+                                <td>
+                                    <input v-model="row.name" type="text" class="table-input" @keyup.enter="findArticleByName(row.name, index)">
+                                </td>
+                                <td><input v-model="row.quantity" type="number" class="table-input"></td>
                                 <td></td>
                                 <td></td>
                                 <td>{{ calculatePriceWithVAT(row) }}</td>
@@ -121,6 +125,7 @@ export default {
             columnIndex: -1,
 
             warehouses: [],
+            articles: [],
             selectedWarehouseId: null,
             selectedWarehouse: {
                 address: '',
@@ -142,6 +147,7 @@ export default {
     mounted() {
         this.fetchWarehouses();
         this.fetchClients();
+        this.fetchArticles();
     },
     methods: {
 
@@ -195,6 +201,14 @@ export default {
                     console.error('Error fetching warehouses:', error);
                 });
         },
+        async fetchArticles() {
+            try {
+                let response = await axios.get('/articles'); // Adjust this endpoint to your API route
+                this.articles = response.data;
+            } catch (error) {
+                console.error("Failed to fetch articles:", error);
+            }
+        },
         updateWarehouseDetails() {
             const selected = this.warehouses.find(warehouse => warehouse.id === this.selectedWarehouseId);
             if (selected) {
@@ -212,8 +226,8 @@ export default {
         addRow() {
             this.rows.push({
                 code: '',
-                articleName: '',
-                qty: 0,
+                name: '',
+                quantity: 0,
                 price: 0,
                 vat: 0,
                 comment: ''
@@ -228,13 +242,13 @@ export default {
             return (row.price * (1 + row.vat / 100)).toFixed(2);
         },
         calculateAmount(row) {
-            return (row.qty * row.price).toFixed(2);
+            return (row.quantity * row.price).toFixed(2);
         },
         calculateTax(row) {
-            return (row.qty * row.price * (row.vat / 100)).toFixed(2);
+            return (row.quantity * row.price * (row.vat / 100)).toFixed(2);
         },
         calculateTotal(row) {
-            return (row.qty * row.price * (1 + row.vat / 100)).toFixed(2);
+            return (row.quantity * row.price * (1 + row.vat / 100)).toFixed(2);
         },
         initResize(event, index) {
             this.startX = event.clientX;
@@ -259,9 +273,16 @@ export default {
         },
         addPrimenica() {
             const toast = useToast();
-            this.rows[0].client_id = this.selectedClientId;
-            this.rows[0].warehouse = this.selectedWarehouseId;
-            axios.post('/receipt/create', this.rows[0])
+            const receiptData = [];
+
+            for (const row of this.rows) {
+                receiptData.push({
+                    client_id: this.selectedClientId,
+                    warehouse: this.selectedWarehouseId,
+                    ...row, // Include all other data from each row
+                });
+            }
+            axios.post('/receipt/create', receiptData)
                 .then((response) => {
                     this.dialog = false;
                     toast.success('Receipt created successfully!');
@@ -275,7 +296,37 @@ export default {
                 .catch((error) => {
                     toast.error('Failed to create receipt!');
                 });
-        }
+        },
+        findArticleByCode(code, index) {
+            const toast = useToast();
+            if (!code) return; // Handle empty code case
+
+            const foundArticle = this.articles.data.find(article => article.code === code);
+            if (foundArticle) {
+                this.rows[index] = {
+                    ...this.rows[index], // Preserve existing data
+                    ...foundArticle, // Override with article data
+                };
+                this.addRow();
+            } else {
+                toast.error(`Article ${code} not found!`);
+            }
+        },
+        findArticleByName(name, index) {
+            const toast = useToast();
+            if (!name) return; // Handle empty name case
+
+            const foundArticle = this.articles.data.find(article => article.name.toLowerCase().includes(name.toLowerCase())); // Case-insensitive search
+            if (foundArticle) {
+                this.rows[index] = {
+                    ...this.rows[index],
+                    ...foundArticle,
+                };
+                this.addRow();
+            } else {
+                toast.error(`Article ${name} not found!`);
+            }
+        },
     },
 };
 </script>
