@@ -1,7 +1,7 @@
 <template>
     <MainLayout>
         <div class="pl-7 pr-7">
-            <Header title="receipt" subtitle="addNewReceipt" icon="Materials.png"/>
+            <Header title="receipt" subtitle="addNewReceipt" icon="Materials.png" link="receipt"/>
             <div class="dark-gray p-5">
                 <div class="form-container p-2 light-gray">
                     <div class="flex gap-2 upper">

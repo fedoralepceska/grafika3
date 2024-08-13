@@ -43,11 +43,11 @@
                                 </th>
                                 <th>{{ article.code }}</th>
                                 <th>{{ article.name }}</th>
-                                <th>{{ article.in_meters }}{{ article.in_kilograms }}{{ article.in_pieces }}</th>
+                                <th>{{getUnit(article)}}</th>
                                 <th>{{ article.factory_price }}</th>
                                 <th>{{ article.purchase_price }}</th>
                                 <th>{{ article.price_1 }}</th>
-                                <th>{{ article.tax_type }}</th>
+                                <th>{{ getVAT(article)}}</th>
                                 <th>{{ article.barcode }}</th>
                                 <th>{{ article.comment }}</th>
                             </tr>
@@ -56,7 +56,7 @@
                         <div class="button-container mt-2 gap-2">
                             <SecondaryButton class="delete" type="submit" @click="deleteArticle">{{ $t('Delete') }}</SecondaryButton>
                             <ArticleEdit :article="selectedArticles[0]"/>
-                            <PrimaryButton type="submit">{{ $t('addArticle') }}</PrimaryButton>
+                            <PrimaryButton @click="navigateToArticles">{{ $t('addArticle') }}</PrimaryButton>
                         </div>
                         <Pagination :pagination="articles" @pagination-change-page="fetchArticles"/>
                     </div>
@@ -102,6 +102,38 @@ export default {
             const response = await axios.get('/articles', { params });
             this.articles = response.data;
         },
+        getUnit(article) {
+            if (article !== null) {
+                if (article?.in_meters === 1) {
+                    return 'Meters'
+                }
+                else if (article?.in_kilograms === 1) {
+                    return 'Kilograms'
+                }
+                else if (article?.in_pieces === 1) {
+                    return 'Pieces'
+                }
+            }
+            else {
+                return '';
+            }
+        },
+        getVAT(article) {
+            if (article !== null) {
+                if (article?.tax_type === 1) {
+                    return 'DDV A (18%)'
+                }
+                else if (article?.tax_type === 2) {
+                    return 'DDV B (5%)'
+                }
+                else if (article?.tax_type === 3) {
+                    return 'DDV C (10%)'
+                }
+            }
+            else {
+                return '';
+            }
+        },
         async deleteArticle(article) {
             try {
                 await axios.delete(`/articles/${article.id}`);
@@ -109,8 +141,12 @@ export default {
             } catch (error) {
                 console.error('Error deleting article:', error);
             }
-        }
+        },
+        navigateToArticles(){
+            this.$inertia.visit(`/articles/create`);
+        },
     },
+
     mounted() {
         this.fetchArticles();
     }

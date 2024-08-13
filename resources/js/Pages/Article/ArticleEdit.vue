@@ -30,12 +30,12 @@
                                         <label for="name">{{ $t('name') }}:</label>
                                         <input type="text" id="name" v-model="article.name" class="text-gray-700 rounded" required>
                                     </div>
-                                    <div class="form-group">
+                                    <div class="form-group gap-4">
                                         <label for="tax" class="mr-4 width100">{{ $t('VAT') }}:</label>
                                         <select v-model="article.tax_type" class="text-gray-700 rounded" id="taxA">
-                                            <option value="DDV A">DDV A</option>
-                                            <option value="DDV B">DDV B</option>
-                                            <option value="DDV C">DDV C</option>
+                                            <option value="1">DDV A</option>
+                                            <option value="2">DDV B</option>
+                                            <option value="3">DDV C</option>
                                         </select>
                                         <input type="text" disabled class="rounded text-gray-500" id="taxA2" :placeholder="placeholderText">
                                     </div>
@@ -86,9 +86,15 @@
                                     </div>
                                     <div class="form-group gap-4">
                                         <label for="unit" class="mr-12">{{ $t('Unit') }}:</label>
-                                        <label><input type="checkbox" v-model="article.in_kilograms" value="kilogram" class="rounded"> {{ $t('Kg') }}</label>
-                                        <label><input type="checkbox" v-model="article.in_meters" value="meters" class="rounded"> {{ $t('M') }}</label>
-                                        <label><input type="checkbox" v-model="article.in_pieces" value="pieces" class="rounded"> {{ $t('Pcs') }}</label>
+                                        <label>
+                                            <input type="checkbox" v-model="articleUnits.in_kilograms" @change="selectUnit('in_kilograms')" class="rounded"> {{ $t('Kg') }}
+                                        </label>
+                                        <label>
+                                            <input type="checkbox" v-model="articleUnits.in_meters" @change="selectUnit('in_meters')" class="rounded"> {{ $t('M') }}
+                                        </label>
+                                        <label>
+                                            <input type="checkbox" v-model="articleUnits.in_pieces" @change="selectUnit('in_pieces')" class="rounded"> {{ $t('Pcs') }}
+                                        </label>
                                     </div>
                                 </fieldset>
                                 <fieldset>
@@ -140,6 +146,11 @@ export default {
             jobs: [],
             showEditForm: false,
             selectedArticleId: null,
+            articleUnits: {
+                in_kilograms: false,
+                in_meters: false,
+                in_pieces: false,
+            },
         }
     },
     props: {
@@ -148,18 +159,26 @@ export default {
     computed: {
         placeholderText() {
             switch (this.article.tax_type) {
-                case 1:
+                case '1':
                     return "18%";
-                case 2:
+                case '2':
                     return "5%";
-                case 3:
+                case '3':
                     return "10%";
                 default:
                     return "";
             }
         }
     },
+
     methods: {
+        initializeCheckboxValues() {
+            if (this.article){
+            this.articleUnits.in_kilograms = this.article.in_kilograms===1;
+            this.articleUnits.in_meters = this.article.in_meters===1;
+            this.articleUnits.in_pieces = this.article.in_pieces===1;
+            }
+        },
         openDialog() {
             this.dialog = true;
         },
@@ -169,10 +188,25 @@ export default {
         openEditForm(article) {
             this.selectedArticleId = article.id;
             this.showEditForm = true;
+            this.initializeCheckboxValues();
+        },
+        selectUnit(selectedUnit) {
+            // Reset all units to false
+            this.articleUnits.in_kilograms = false;
+            this.articleUnits.in_meters = false;
+            this.articleUnits.in_pieces = false;
+
+            // Set the selected unit to true
+            this.articleUnits[selectedUnit] = true;
         },
         async updateArticle() {
             const toast = useToast();
             try {
+                this.article.in_kilograms = this.articleUnits.in_kilograms ? 1 : null;
+                this.article.in_meters = this.articleUnits.in_meters ? 1 : null;
+                this.article.in_pieces = this.articleUnits.in_pieces ? 1 : null;
+
+
                 const response = await axios.put(`/articles/${this.article.id}`, this.article);
                 toast.success(response.data.message);
                 this.closeDialog();
@@ -187,222 +221,100 @@ export default {
 
 <style scoped lang="scss">
 
-.blue{
-    background-color: $blue;
-    border: none;
-    color: white;
-}
-
-fieldset {
-    border: 1px solid #ffffff;
-    border-radius: 3px;
-    width: fit-content;
-    padding-right: 35px;
-}
-legend {
-    margin-left: 10px;
-    color: white;
-}
-#taxA{
-    width: 120px;
-}
-#taxA2{
-    width: 80px;
-}
-.green-text{
-    color: $green;
-}
-.header{
-    display: flex;
-    align-items: center;
-}
-.dark-gray {
-    background-color: $dark-gray;
-    justify-content: left;
-    align-items: center;
-    min-height: 20vh;
-
-}
-.light-gray{
-    background-color: $light-gray;
-}
-
-.client-form {
-    width: 100%;
-    max-width: 1000px;
-    justify-content: left;
-    align-items: center;
-    min-height: 20vh;
-    padding: 5px;
-    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-}
-
-.sub-title{
-    font-size: 20px;
-    font-weight: bold;
-    margin-bottom: 20px;
-    display: flex;
-    align-items: center;
-    color: $white;
-}
-
-.form-group {
-    display: flex;
-    justify-content: right;
-    align-items: center;
-    width: 350px;
-    margin-bottom: 10px;
-    color: $white;
-}
-
-.label {
-    flex: 1;
-    text-align: left;
-    margin-right: 20px;
-}
-.button-container{
-    display: flex;
-    justify-content: end;
-}
-fieldset {
-    border: 1px solid #ffffff;
-    border-radius: 3px;
-    width: fit-content;
-    padding-right: 35px;
-}
-legend {
-    margin-left: 10px;
-    color: white;
-}
-#taxA{
-    width: 120px;
-}
-#taxA2{
-    width: 80px;
-}
-.green-text{
-    color: $green;
-}
-.header{
-    display: flex;
-    align-items: center;
-}
-.dark-gray {
-    background-color: $dark-gray;
-    justify-content: left;
-    align-items: center;
-    min-height: 20vh;
-
-}
-.light-gray{
-    background-color: $light-gray;
-}
-
-.client-form {
-    width: 100%;
-    max-width: 1000px;
-    justify-content: left;
-    align-items: center;
-    min-height: 20vh;
-    padding: 5px;
-    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-}
-
-.sub-title{
-    font-size: 20px;
-    font-weight: bold;
-    margin-bottom: 20px;
-    display: flex;
-    align-items: center;
-    color: $white;
-}
-
-.form-group {
-    display: flex;
-    justify-content: right;
-    align-items: center;
-    width: 350px;
-    margin-bottom: 10px;
-    color: $white;
-}
-
-.label {
-    flex: 1;
-    text-align: left;
-    margin-right: 20px;
-}
-.button-container{
-    display: flex;
-    justify-content: end;
-}
-.form-group {
-    display: flex;
-    justify-content: left;
-    align-items: center;
-    width: 350px;
-    color: $white;
-    padding-left: 10px;
-}
-.width100 {
-    width: 150px;
-}
-select{
-    color: black;
-    width: 225px;
-    border-radius: 3px;
-}
-.type{
-    display: flex;
-    justify-content: space-evenly;
-}
-.label-input-group {
-    display: flex;
-    flex-direction: column;
-}
-input {
-    margin: 0 !important;
-}
-.btn {
-    padding: 9px 12px;
-    border: none;
-    cursor: pointer;
-    font-weight: bold;
-    border-radius: 2px;
-    background-color: $blue;
-    margin-top: 12px;
-}
-
 .height {
     height: 100vh;
 }
+
 .background {
     background-color: $light-gray;
 }
-.flexSpace {
+
+.form-container {
     display: flex;
-    justify-content: space-around;
+    flex-wrap: wrap;
+    gap: 20px;
+    justify-content: space-between;
 }
-input {
-    margin: 12px 0;
+
+fieldset {
+    border: 1px solid #ffffff;
+    border-radius: 5px;
+    padding: 20px;
+    min-width: 400px;
+    background-color: rgba(255, 255, 255, 0.1);
 }
+
+legend {
+    color: white;
+    padding: 0 10px;
+    font-weight: bold;
+}
+
+.form-group {
+    display: flex;
+    align-items: center;
+    margin-bottom: 15px;
+    color: white;
+}
+
+.form-group label {
+    width: 150px; /* Set a fixed width for label alignment */
+    margin-right: 10px;
+    font-weight: 600;
+    text-align: right;
+}
+
+.form-group input,
+.form-group select {
+    padding: 8px;
+    width: calc(100% - 160px); /* Adjust width based on label width */
+    box-sizing: border-box;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    color: black;
+    background-color: white;
+}
+
+.input-combo {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+#taxA {
+    width: 100px;
+}
+
+#taxA2 {
+    width: 80px;
+}
+
+.blue {
+    background-color: $blue;
+    border: none;
+    color: white;
+}
+
 .red {
     background-color: $red;
     color: white;
     border: none;
 }
+
 .green {
     background-color: $green;
     color: white;
     border: none;
 }
-.redBackground{
-    background-color: $red;
-}
-.greenBackground{
-    background-color: $green;
-}
-.bt{
+
+.bt {
     margin: 12px 12px;
 }
+
+input[type="checkbox"]:checked {
+    background-color: #007bff;
+    border-color: #007bff;
+}
+
 
 </style>

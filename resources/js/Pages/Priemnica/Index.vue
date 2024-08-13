@@ -1,7 +1,7 @@
 <template>
     <MainLayout>
         <div class="pl-7 pr-7">
-            <Header title="receipt" subtitle="allReceipts" icon="Materials.png"/>
+            <Header title="receipt" subtitle="allReceipts" icon="Materials.png" link="receipt" />
             <div class="form-container p15">
                 <div class="dark-gray p-5 text-white">
                     <div class="form-container p-2 light-gray overflow-x-auto">
