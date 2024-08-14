@@ -21,8 +21,8 @@ class RefinementsController extends Controller
         $data = $request->validate([
             'name' => 'required|string',
             'isMaterialRefinement' => 'boolean|nullable',
-            'material_id' => 'required|integer',
-            'material_type' => 'required',
+            'material_id' => 'nullable|integer',
+            'material_type' => 'nullable',
         ]);
 
         $dorabotka = Dorabotka::create();
@@ -31,9 +31,11 @@ class RefinementsController extends Controller
         $materialType = $data['material_type'] === 'SmallMaterial' ? SmallMaterial::class : LargeFormatMaterial::class;
 
         $dorabotka->material_type = $materialType;
-        $dorabotka->small_material_id = $data['material_type'] === 'SmallMaterial' ? $data['material_id'] : null;
-        $dorabotka->large_material_id = $data['material_type'] === 'LargeFormatMaterial' ? $data['material_id'] : null;
-        $dorabotka->isMaterialized = $data['isMaterialRefinement'];
+        if (isset($data['material_id'])) {
+            $dorabotka->small_material_id = $data['material_type'] === 'SmallMaterial' ? $data['material_id'] : null;
+            $dorabotka->large_material_id = $data['material_type'] === 'LargeFormatMaterial' ? $data['material_id'] : null;
+            $dorabotka->isMaterialized = $data['isMaterialRefinement'];
+        }
         $dorabotka->name = $data['name'];
 
         $dorabotka->save();

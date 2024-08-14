@@ -97,8 +97,8 @@ export default {
             this.showAddRefinementForm = true;
         },
         async saveItem() {
-            this.newRefinement.material_id = this.selectedMaterial.id;
-            this.newRefinement.material_type = this.selectedMaterial?.small_format_material !== undefined ? 'SmallMaterial' : 'LargeFormatMaterial';
+            this.newRefinement.material_id = this?.selectedMaterial?.id;
+            this.newRefinement.material_type = this?.selectedMaterial?.small_format_material !== undefined ? 'SmallMaterial' : 'LargeFormatMaterial';
             const toast = useToast();
             axios.post('/refinements/create', this.newRefinement)
                 .then((response) => {
@@ -121,8 +121,8 @@ export default {
             }
         },
         async generateMaterials() {
-            const large = await axios.get('/get-large-materials');
-            const small = await axios.get('/get-materials-small');
+            const large = await axios.get('/materials/large/all');
+            const small = await axios.get('/materials/small/all');
             this.availableMaterials = [...large.data, ...small.data];
         },
     },

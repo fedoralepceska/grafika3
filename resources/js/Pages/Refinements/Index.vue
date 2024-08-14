@@ -110,13 +110,13 @@ export default {
             const large = refinement?.large_format_material;
 
             if (small !== null || large !== null) {
-                if (small.article?.in_meters === 1 || large.article?.in_meters === 1) {
+                if (small?.article?.in_meters === 1 || large?.article?.in_meters === 1) {
                     return 'meters'
                 }
-                else if (small.article?.in_kilograms === 1 || large.article?.in_kilograms === 1) {
+                else if (small?.article?.in_kilograms === 1 || large?.article?.in_kilograms === 1) {
                     return 'kilograms'
                 }
-                else if (small.article?.in_pieces === 1 || large.article?.in_pieces === 1) {
+                else if (small?.article?.in_pieces === 1 || large?.article?.in_pieces === 1) {
                     return 'pieces'
                 }
             }
@@ -127,8 +127,8 @@ export default {
         getMaterial(refinement) {
             if (refinement?.small_material) {
                 return refinement?.small_material?.name + "-" + refinement?.small_material?.quantity;
-            } else if (refinement?.large_material) {
-                return refinement?.large_material?.name + "-" + refinement?.large_material?.quantity;
+            } else if (refinement?.large_format_material) {
+                return refinement?.large_format_material?.name + "-" + refinement?.large_format_material?.quantity;
             } else {
                 return "X";
             }
