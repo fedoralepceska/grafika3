@@ -3,9 +3,11 @@
 namespace App\Http\Controllers;
 
 use App\Models\Article;
+use App\Models\Client;
 use App\Models\LargeFormatMaterial;
 use App\Models\Priemnica;
 use App\Models\SmallMaterial;
+use App\Models\Warehouse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 
@@ -14,10 +16,39 @@ class PriemnicaController extends Controller
     /**
      * Display a listing of the resource.
      */
-    public function index()
+    public function index(Request $request)
     {
-        $receipts = Priemnica::with(['client', 'articles'])->get();
-        return Inertia::render('Priemnica/Index', $receipts);
+        $receiptsQuery = Priemnica::with(['client', 'articles'])
+            ->join('warehouses', 'priemnica.warehouse', '=', 'warehouses.id')
+            ->select('priemnica.*', 'warehouses.name as warehouse_name');
+
+        if ($request->filled('client_id') && $request->client_id !== 'All') {
+            $receiptsQuery->where('client_id', $request->client_id);
+        }
+
+        if ($request->filled('warehouse_id') && $request->warehouse_id !== 'All') {
+            $receiptsQuery->where('warehouse', $request->warehouse_id);
+        }
+
+        if ($request->filled('from_date')) {
+            $receiptsQuery->whereDate('priemnica.created_at', '>=', $request->from_date);
+        }
+
+        if ($request->filled('to_date')) {
+            $receiptsQuery->whereDate('priemnica.created_at', '<=', $request->to_date);
+        }
+
+        $receipts = $receiptsQuery->get();
+
+        if ($request->wantsJson()) {
+            return response()->json($receipts);
+        }
+
+        return Inertia::render('Priemnica/Index', [
+            'receipts' => $receipts,
+            'clients' => Client::all(),
+            'warehouses' => Warehouse::all(),
+        ]);
     }
 
     /**

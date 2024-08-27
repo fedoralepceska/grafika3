@@ -9,10 +9,11 @@
                             {{ $t('allReceipts') }}
                         </h2>
                         <div class="filters flex gap-10">
+                            <!-- Client Filter -->
                             <div class="search-container pb-2">
                                 <div class="mr-1 ml-2">Client</div>
                                 <div class="ml-2">
-                                    <select  class="rounded text-black" @change="">
+                                    <select v-model="filters.client_id" class="rounded text-black">
                                         <option value="All" hidden>Clients</option>
                                         <option value="All">All Clients</option>
                                         <option v-for="client in clients" :key="client.id" :value="client.id">
@@ -21,10 +22,11 @@
                                     </select>
                                 </div>
                             </div>
+                            <!-- Warehouse Filter -->
                             <div class="search-container pb-2">
                                 <div class="mr-1 ml-2">Warehouse</div>
                                 <div class="ml-2">
-                                    <select  class="rounded text-black" @change="">
+                                    <select v-model="filters.warehouse_id" class="rounded text-black">
                                         <option value="All" hidden>Warehouses</option>
                                         <option value="All">All Warehouses</option>
                                         <option v-for="warehouse in warehouses" :key="warehouse.id" :value="warehouse.id">
@@ -33,29 +35,32 @@
                                     </select>
                                 </div>
                             </div>
+                            <!-- Date Range Filters -->
                             <div class="flex">
                                 <div class="search-container pb-2">
                                     <div class="mr-1 ml-2">From Date</div>
                                     <div class="ml-2">
-                                        <input type="date" class="rounded">
+                                        <input type="date" v-model="filters.from_date" class="rounded">
                                     </div>
                                 </div>
                                 <div class="search-container pb-2">
                                     <div class="mr-1 ml-2">To Date</div>
                                     <div class="ml-2">
-                                        <input type="date" class="rounded">
+                                        <input type="date" v-model="filters.to_date" class="rounded">
                                     </div>
                                 </div>
                             </div>
+                            <!-- Filter Button -->
                             <div class="buttF gap-3">
                                 <button @click="applyFilter" class="btn create-order1">Filter</button>
                             </div>
                         </div>
-                        <table class="excel-table ">
+                        <table class="excel-table">
                             <thead>
                             <tr>
                                 <th style="width: 45px;">{{$t('Nr')}}</th>
-                                <th>{{$t('ID')}}<div class="resizer" @mousedown="initResize($event, 1)"></div></th>
+                                <th style="width: 75px">{{$t('ID')}}</th>
+                                <th>{{$t('date')}}<div class="resizer" @mousedown="initResize($event, 1)"></div></th>
                                 <th>{{$t('warehouse')}}<div class="resizer" @mousedown="initResize($event, 2)"></div></th>
                                 <th>{{$t('client')}}<div class="resizer" @mousedown="initResize($event, 3)"></div></th>
                                 <th>{{$t('price')}}<div class="resizer" @mousedown="initResize($event, 4)"></div></th>
@@ -64,92 +69,76 @@
                             </tr>
                             </thead>
                             <tbody>
-                            <tr>
-                                <th></th>
-                                <th></th>
-                                <th></th>
-                                <th></th>
-                                <th></th>
-                                <th></th>
+                            <tr v-for="(receipt, index) in localReceipts" :key="receipt.id">
+                                <th>{{index + 1}}</th>
+                                <th>{{receipt.id}}</th>
+                                <th>{{ new Date(receipt.created_at).toLocaleDateString('en-GB') }}</th>
+                                <th>{{receipt.warehouse_name}}</th>
+                                <th>{{receipt.client.name}}</th>
+                                <th>{{ calculateTotalPrice(receipt.articles) }}</th>
+                                <th>{{receipt.comment}}</th>
                                 <th>
                                     <div class="centered">
-                                        <PriemInfoDialog :priem="priem"/>
+                                        <PriemInfoDialog :priem="receipt" />
                                     </div>
                                 </th>
                             </tr>
                             </tbody>
                         </table>
-
-                        <!--
-                                                <Pagination />
-                        -->
+                        <Pagination :pagination="receipts" />
                     </div>
                 </div>
             </div>
         </div>
     </MainLayout>
 </template>
+
 <script>
 import MainLayout from "@/Layouts/MainLayout.vue";
-import PrimaryButton from "@/Components/buttons/PrimaryButton.vue";
-import SecondaryButton from "@/Components/buttons/SecondaryButton.vue";
-import axios from "axios";
-import AddContactDialog from "@/Components/AddContactDialog.vue";
-import ViewContactsDialog from "@/Components/ViewContactsDialog.vue";
-import Pagination from "@/Components/Pagination.vue"
+import Pagination from "@/Components/Pagination.vue";
 import Header from "@/Components/Header.vue";
-import UpdateClientDialog from "@/Components/UpdateClientDialog.vue";
-import CardStatementUpdateDialog from "@/Components/CardStatementUpdateDialog.vue";
 import PriemInfoDialog from "@/Components/PriemInfoDialog.vue";
+import axios from "axios";
 
 export default {
     components: {
-        CardStatementUpdateDialog,
-        UpdateClientDialog,
-        ViewContactsDialog,
-        AddContactDialog,
         MainLayout,
-        PrimaryButton,
-        SecondaryButton,
         Pagination,
         Header,
         PriemInfoDialog
     },
     props: {
-        priem: Object,
-        receipts: []
+        receipts: Array,
+        clients: Array,
+        warehouses: Array,
     },
     data() {
         return {
+            localReceipts: [...this.receipts],
+            filters: {
+                client_id: 'All',
+                warehouse_id: 'All',
+                from_date: '',
+                to_date: '',
+            },
             startX: 0,
             startWidth: 0,
             columnIndex: -1,
-
-            clients:[],
-            warehouses:[],
         };
     },
-    mounted() {
-      this.fetchClients();
-      this.fetchWarehouses();
-    },
     methods: {
-        fetchClients() {
-            axios.get('/api/clients') // Adjust the URL to your endpoint
-                .then(response => {
-                    this.clients = response.data;
-                })
-                .catch(error => {
-                    console.error('Error fetching clients:', error);
-                });
+        calculateTotalPrice(articles) {
+            return articles.reduce((total, article) => {
+                return total + (article.purchase_price || 0);
+            }, 0);
         },
-        fetchWarehouses() {
-            axios.get('/api/warehouses')
+        applyFilter() {
+            axios.get('/receipt', { params: this.filters })
                 .then(response => {
-                    this.warehouses = response.data;
+                    this.localReceipts = response.data;
                 })
                 .catch(error => {
-                    console.error('Error fetching warehouses:', error);
+                    console.error('Error applying filters:', error);
                 });
         },
         initResize(event, index) {

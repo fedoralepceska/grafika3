@@ -37,20 +37,23 @@
                                 </tr>
                                 </thead>
                                 <tbody>
-<!--                                <tr v-for="(row, index) in rows" :key="index">
-                                    <td></td>
-                                    <td>{{ index + 1 }}</td>
-                                    <td><input v-model="row.code" type="text"></td>
-                                    <td><input v-model="row.articleName" type="text"></td>
-                                    <td><input v-model="row.qty" type="number"></td>
-                                    <td><input v-model="row.price" type="number"></td>
-                                    <td><input v-model="row.vat" type="number"></td>
-                                    <td>{{ calculatePriceWithVAT(row) }}</td>
-                                    <td>{{ calculateAmount(row) }}</td>
-                                    <td>{{ calculateTax(row) }}</td>
-                                    <td>{{ calculateTotal(row) }}</td>
-                                    <td><input v-model="row.comment" type="text"></td>
-                                </tr>-->
+                                     <tr v-for="(p,index) in priem.articles" >
+                                         <th>{{index+1}}</th>
+                                         <th>{{p.id}}</th>
+                                         <th>{{p.code}}</th>
+                                         <th>{{p.name}}</th>
+                                         <th></th>
+                                         <th></th>
+                                         <th></th>
+                                         <th></th>
+                                         <th></th>
+                                         <th></th>
+                                         <th></th>
+                                         <th>{{p.comment? p.comment:'/'}}</th>
+
+
+
+                                     </tr>
                                 </tbody>
                             </table>
                         </div>
@@ -124,7 +127,7 @@ export default {
     margin: 12px 24px;
 }
 .height {
-    height: calc(100vh - 300px);
+    height: calc(100vh - 100px);
 }
 .background {
     background-color: $light-gray;
