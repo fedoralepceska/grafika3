@@ -42,7 +42,7 @@
                                          <th>{{p.id}}</th>
                                          <th>{{p.code}}</th>
                                          <th>{{p.name}}</th>
-                                         <th></th>
+                                         <th>{{p.pivot.quantity}}</th>
                                          <th></th>
                                          <th></th>
                                          <th></th>

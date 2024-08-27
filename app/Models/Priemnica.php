@@ -25,6 +25,6 @@ class Priemnica extends Model
 
     public function articles()
     {
-        return $this->belongsToMany(Article::class, 'priemnica_articles');
+        return $this->belongsToMany(Article::class, 'priemnica_articles')->withPivot('quantity');
     }
 }

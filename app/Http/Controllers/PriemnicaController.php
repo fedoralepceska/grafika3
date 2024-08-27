@@ -9,6 +9,7 @@ use App\Models\Priemnica;
 use App\Models\SmallMaterial;
 use App\Models\Warehouse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 
 class PriemnicaController extends Controller
@@ -20,7 +21,21 @@ class PriemnicaController extends Controller
     {
         $receiptsQuery = Priemnica::with(['client', 'articles'])
             ->join('warehouses', 'priemnica.warehouse', '=', 'warehouses.id')
-            ->select('priemnica.*', 'warehouses.name as warehouse_name');
+            ->select(
+                'priemnica.id',
+                'priemnica.client_id',
+                'priemnica.warehouse',
+                'priemnica.created_at',
+                'warehouses.name as warehouse_name'
+            )
+            ->get();
+
+        foreach ($receiptsQuery as $receipt) {
+            $receipt->articles = DB::table('priemnica_articles')
+                ->where('priemnica_id', $receipt->id)
+                ->select('priemnica_id', 'article_id', 'quantity')
+                ->get();
+        }
 
         if ($request->filled('client_id') && $request->client_id !== 'All') {
             $receiptsQuery->where('client_id', $request->client_id);
@@ -38,7 +53,7 @@ class PriemnicaController extends Controller
             $receiptsQuery->whereDate('priemnica.created_at', '<=', $request->to_date);
         }
 
-        $receipts = $receiptsQuery->get();
+        $receipts = $receiptsQuery;
 
         if ($request->wantsJson()) {
             return response()->json($receipts);
@@ -67,7 +82,8 @@ class PriemnicaController extends Controller
         $query = Priemnica::query()
             ->join('article', 'priemnica.article_id', '=', 'article.id')
             ->join('warehouses', 'priemnica.warehouse', '=', 'warehouses.id')
-            ->select('priemnica.*', 'article.name as article_name', 'warehouses.name as warehouse_name');
+            ->join('priemnica_articles', 'priemnica.id', '=', 'priemnica_articles.priemnica_id')
+            ->select('priemnica.*', 'article.name as article_name', 'warehouses.name as warehouse_name','priemnica_articles.quantity as article_quantity');
 
         if ($warehouseId && $warehouseId !== 'All') {
             $query->where('priemnica.warehouse', $warehouseId);
@@ -100,7 +116,7 @@ class PriemnicaController extends Controller
             $article = Article::where('code', $row['code'])->first();
 
             if ($article) {
-                $priemnica->articles()->attach($article->id);
+                $priemnica->articles()->attach($article->id, ['quantity' => $row['quantity']]);
                 $materialData = [
                     'name' => $article->name,
                     'width' => $article->width,
