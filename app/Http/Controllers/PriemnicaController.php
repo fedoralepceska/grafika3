@@ -27,15 +27,7 @@ class PriemnicaController extends Controller
                 'priemnica.warehouse',
                 'priemnica.created_at',
                 'warehouses.name as warehouse_name'
-            )
-            ->get();
-
-        foreach ($receiptsQuery as $receipt) {
-            $receipt->articles = DB::table('priemnica_articles')
-                ->where('priemnica_id', $receipt->id)
-                ->select('priemnica_id', 'article_id', 'quantity')
-                ->get();
-        }
+            );
 
         if ($request->filled('client_id') && $request->client_id !== 'All') {
             $receiptsQuery->where('client_id', $request->client_id);
@@ -53,7 +45,14 @@ class PriemnicaController extends Controller
             $receiptsQuery->whereDate('priemnica.created_at', '<=', $request->to_date);
         }
 
-        $receipts = $receiptsQuery;
+        $receipts = $receiptsQuery->get();
+
+        foreach ($receipts as $receipt) {
+            $receipt->articles = DB::table('priemnica_articles')
+                ->where('priemnica_id', $receipt->id)
+                ->select('priemnica_id', 'article_id', 'quantity')
+                ->get();
+        }
 
         if ($request->wantsJson()) {
             return response()->json($receipts);
