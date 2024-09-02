@@ -617,4 +617,37 @@ class InvoiceController extends Controller
         }
     }
 
+    public function getUserInvoiceCounts(Request $request)
+    {
+        $date = $request->query('date');
+        $dateFormat = strlen($date);
+
+        switch ($dateFormat) {
+            case 4: // Year only
+                $startDate = Carbon::createFromFormat('Y', $date)->startOfYear();
+                $endDate = Carbon::createFromFormat('Y', $date)->endOfYear();
+                break;
+
+            case 7: // Year and Month
+                $startDate = Carbon::createFromFormat('Y-m', $date)->startOfMonth();
+                $endDate = Carbon::createFromFormat('Y-m', $date)->endOfMonth();
+                break;
+
+            case 10: // Full Date (Year, Month, Day)
+                $startDate = Carbon::createFromFormat('Y-m-d', $date)->startOfDay();
+                $endDate = Carbon::createFromFormat('Y-m-d', $date)->endOfDay();
+                break;
+
+            default:
+                return response()->json(['error' => 'Invalid date format'], 400);
+        }
+
+        $invoiceCounts = Invoice::join('users', 'invoices.created_by', '=', 'users.id')
+            ->whereBetween('invoices.created_at', [$startDate, $endDate])
+            ->select('users.name as user_name', DB::raw('count(*) as invoice_count'))
+            ->groupBy('users.id', 'users.name')
+            ->get();
+
+        return response()->json($invoiceCounts);
+    }
 }

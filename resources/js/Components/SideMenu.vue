@@ -164,6 +164,17 @@ export default {
                         },
                     ],
                 },
+                {
+                    href: '',
+                    title: 'Analytics',
+                    icon: 'fa-solid fa-chart-pie',
+                    child: [
+                        {
+                            href: '/analytics-orders',
+                            title: 'Order - User',
+                        },
+                    ],
+                },
             ],
         }
     },

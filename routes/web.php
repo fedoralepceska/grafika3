@@ -236,4 +236,13 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::delete('/api/banks/{id}', [\App\Http\Controllers\BanksController::class, 'deleteBank']);
 });
 
+// Analytics
+Route::middleware(['auth', 'verified'])->group(function () {
+    Route::get('/user-invoice-counts', [InvoiceController::class, 'getUserInvoiceCounts']);
+    Route::get('/analytics-orders', function () {
+        return Inertia::render('Analytics/UserInvoiceAnalytics');
+    });
+});
+
+
 require __DIR__.'/auth.php';

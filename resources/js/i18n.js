@@ -266,6 +266,7 @@ const messages = {
         outcomeInvoice: 'Outcome invoice',
         statementIncome: 'Statement - income',
         statementExpense: 'Statement - expense',
+        analyticsInvoice: 'Analytics for Order - User'
     },
     mk: {
         // Define your Macedonian translations here
@@ -534,6 +535,7 @@ const messages = {
         outcomeInvoice: 'Излезна фактура',
         statementIncome: 'Извод - уплата',
         statementExpense: 'Извод - исплата',
+        analyticsInvoice: 'Аналитика на налози - корисници'
     },
 };
 
