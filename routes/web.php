@@ -239,9 +239,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
 // Analytics
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/user-invoice-counts', [InvoiceController::class, 'getUserInvoiceCounts']);
+    Route::get('/article-invoice-counts', [InvoiceController::class, 'getArticlesInvoiceCounts']);
     Route::get('/analytics-orders', function () {
         return Inertia::render('Analytics/UserInvoiceAnalytics');
     });
+    Route::post('insert-analytics', [JobController::class, 'insertAnalytics']);
 });
 
 

@@ -235,10 +235,12 @@ export default {
                         await axios.put(`/orders/${invoiceWithJob.id}`, {
                             status: 'Completed',
                         });
-                        await axios.post('/jobs/end-job', {
-                            job,
-                            invoice: invoiceWithJob
-                        });
+                        // await axios.post('/jobs/end-job', {
+                        //     job,
+                        //     invoice: invoiceWithJob,
+                        //     action: machine.id,
+                        //     time_spent: this.elapsedTimes[action.id]
+                        // });
                     }
                 }
             } catch (error) {

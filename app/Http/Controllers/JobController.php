@@ -10,6 +10,7 @@ use App\Models\Invoice;
 use App\Models\Job;
 use App\Models\LargeFormatMaterial;
 use App\Models\SmallMaterial;
+use App\Models\WorkerAnalytics;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -155,16 +156,18 @@ class JobController extends Controller
                 ]);
                 $small_material = null;
                 $large_material = null;
-                if (array_key_exists('large_format_material_id', $actionData['action_id'])) {
-                    $large_material = LargeFormatMaterial::find($actionData['action_id']['large_format_material_id']);
+                if (array_key_exists('large_material_id', $actionData['action_id']) && !empty($actionData['action_id']['large_material_id'])) {
+                    $large_material = LargeFormatMaterial::find($actionData['action_id']['large_material_id']);
                     if (array_key_exists('quantity', $actionData)) {
                         $large_material->quantity -= $actionData['quantity'];
+                        $large_material->save();
                     }
                 }
-                if (array_key_exists('small_material_id', $actionData['action_id'])) {
+                if (array_key_exists('small_material_id', $actionData['action_id']) && !empty($actionData['action_id']['small_material_id'])) {
                     $small_material = SmallMaterial::find($actionData['action_id']['small_material_id']);
                     if (array_key_exists('quantity', $actionData)) {
                         $small_material->quantity -= $actionData['quantity'];
+                        $small_material->save();
                     }
                 }
             }
@@ -643,6 +646,7 @@ class JobController extends Controller
             // Retrieve job and invoice IDs from the request
             $jobId = $request->input('job');
             $invoiceId = $request->input('invoice');
+            $actionId = $request->input('action');
 
             // Find existing job and invoice
             $job = Job::findOrFail($jobId);
@@ -652,6 +656,17 @@ class JobController extends Controller
             $job->started_by = auth()->id();
             $job->save();
 
+            // Create a new record in the workers_analytics table
+            DB::table('workers_analytics')->insert([
+                'invoice_id' => $invoiceId,
+                'job_id' => $jobId,
+                'action_id' => $actionId,
+                'user_id' => auth()->id(),
+                'time_spent' => 0, // Initially set to 0
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+
             // Dispatch the JobStarted event with both job and invoice
             event(new JobStarted($job, $invoice));
         } catch (\Exception $e) {
@@ -660,16 +675,53 @@ class JobController extends Controller
         }
     }
 
-    public function fireEndJobEvent(Request $request) {
+        public function fireEndJobEvent(Request $request) {
+            $jobData = $request->input('job');
+            $invoiceData = $request->input('invoice');
+            $actionId = $request->input('action');
+            $time_spent = $request->input('time_spent');
+
+            // Find the matching record in the workers_analytics table
+            $workerAnalytics = DB::table('workers_analytics')->where('job_id', $jobData['id'])
+                ->where('invoice_id', $invoiceData['id'])
+                ->where('action_id', $actionId)
+                ->where('user_id', auth()->id())
+                ->first();
+
+            dd($jobData['id'], $invoiceData['id'], $actionId, $time_spent, $workerAnalytics);
+
+            // If the record exists, update the time_spent
+            if ($workerAnalytics) {
+                $workerAnalytics->time_spent = $time_spent;
+                $workerAnalytics->save();
+            }
+
+            // Create job and invoice instances
+            $job = new Job($jobData);
+            $invoice = new Invoice($invoiceData);
+
+            // Dispatch the JobEnded event with both job and invoice
+            event(new JobEnded($job, $invoice));
+        }
+    public function insertAnalytics(Request $request) {
         $jobData = $request->input('job');
         $invoiceData = $request->input('invoice');
+        $actionId = $request->input('action');
+        $time_spent = $request->input('time_spent');
 
-        // Create job and invoice instances
-        $job = new Job($jobData);
-        $invoice = new Invoice($invoiceData);
+        // Find the matching record in the workers_analytics table
+        $workerAnalytics = WorkerAnalytics::where('job_id', $jobData['id'])
+            ->where('invoice_id', $invoiceData['id'])
+            ->where('action_id', $actionId)
+            ->where('user_id', auth()->id())
+            ->first();
 
-        // Dispatch the JobEnded event with both job and invoice
-        event(new JobEnded($job, $invoice));
+        // If the record exists, update the time_spent
+        if ($workerAnalytics) {
+            $workerAnalytics->time_spent = $time_spent;
+            $workerAnalytics->save();
+        }
     }
+
 
 }

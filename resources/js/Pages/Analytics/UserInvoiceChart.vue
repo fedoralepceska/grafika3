@@ -10,7 +10,7 @@ import { ref } from 'vue';
 import ECharts from 'vue-echarts';
 import * as echarts from 'echarts/core'; // Import core ECharts functions
 import { CanvasRenderer } from 'echarts/renderers'; // Import the necessary renderers
-import { BarChart } from 'echarts/charts'; // Import the BarChart
+import { BarChart, PieChart } from 'echarts/charts'; // Import the BarChart
 import { TitleComponent, TooltipComponent, GridComponent } from 'echarts/components'; // Import necessary components
 import CustomDatePicker from "@/Components/inputs/CustomDatePicker.vue";
 
@@ -18,6 +18,7 @@ import CustomDatePicker from "@/Components/inputs/CustomDatePicker.vue";
 echarts.use([
     CanvasRenderer,
     BarChart,
+    PieChart,
     TitleComponent,
     TooltipComponent,
     GridComponent,
@@ -41,7 +42,7 @@ export default {
             series: [
                 {
                     data: [],
-                    type: 'bar',
+                    type: 'pie',
                 },
             ],
         });
@@ -72,7 +73,7 @@ export default {
                 series: [
                     {
                         data: [],
-                        type: 'bar',
+                        type: 'pie',
                     },
                 ],
             };

@@ -232,7 +232,8 @@ export default {
                     });
                     await axios.post('/jobs/start-job', {
                         job: job.id,
-                        invoice: invoiceWithJob.id
+                        invoice: invoiceWithJob.id,
+                        action: action.id
                     });
                 }
             }
@@ -290,13 +291,19 @@ export default {
 
                 // Check if all jobs in the invoice are completed
                 const allJobsCompleted = invoiceWithJob.jobs.every(j => j.actions.every(a => a.status === 'Completed'));
-
                 if (allJobsCompleted) {
                     // Update the invoice status
                     await axios.put(`/orders/${invoiceWithJob.id}`, {
                         status: 'Completed',
                     });
                 }
+                console.log(this.elapsedTimes[action.id]);
+                await axios.post('/insert-analytics', {
+                    job,
+                    invoice: invoiceWithJob,
+                    action: action.id,
+                    time_spent: this.elapsedTimes[action.id]
+                });
                 this.endTimer(job);
                 const toast  = useToast();
                 toast.success(`Job finished for ${this.elapsedTimes[action.id]}`);
