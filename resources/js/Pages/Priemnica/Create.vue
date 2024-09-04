@@ -66,7 +66,7 @@
                                 <th>{{$t('Code')}}<div class="resizer" @mousedown="initResize($event, 2)"></div></th>
                                 <th>{{$t('articleName')}}<div class="resizer" @mousedown="initResize($event, 3)"></div></th>
                                 <th>{{$t('Qty')}}<div class="resizer" @mousedown="initResize($event, 4)"></div></th>
-                                <th>{{$t('price')}}<div class="resizer" @mousedown="initResize($event, 5)"></div></th>
+                                <th>{{$t('price')}} (.ден)<div class="resizer" @mousedown="initResize($event, 5)"></div></th>
                                 <th>{{$t('VAT')}}%<div class="resizer" @mousedown="initResize($event, 6)"></div></th>
                                 <th>{{$t('price')}} {{$t('VAT')}}<div class="resizer" @mousedown="initResize($event, 7)"></div></th>
                                 <th>{{$t('Amount')}}<div class="resizer" @mousedown="initResize($event, 8)"></div></th>
@@ -85,13 +85,13 @@
                                 <td>
                                     <input v-model="row.name" type="text" class="table-input" @keyup.enter="findArticleByName(row.name, index)">
                                 </td>
-                                <td><input v-model="row.quantity" type="number" class="table-input"></td>
-                                <td></td>
-                                <td></td>
-                                <td>{{ calculatePriceWithVAT(row) }}</td>
-                                <td>{{ calculateAmount(row) }}</td>
-                                <td>{{ calculateTax(row) }}</td>
-                                <td>{{ calculateTotal(row) }}</td>
+                                <td><input v-model.number="row.quantity" type="number" class="table-input" @input="updateRowValues(index)"></td>
+                                <td>{{row.purchase_price}}</td>
+                                <td>{{ taxTypePercentage(row.tax_type) }}%</td>
+                                <td>{{formatNumber(row.priceWithVAT) }}</td>
+                                <td>{{ formatNumber(row.amount) }}</td>
+                                <td>{{ formatNumber(row.tax) }}</td>
+                                <td>{{ formatNumber(row.total) }}</td>
                                 <td><input v-model="row.comment" type="text" class="table-input"></td>
                             </tr>
                             </tbody>
@@ -150,7 +150,6 @@ export default {
         this.fetchArticles();
     },
     methods: {
-
         //Clients fetching and prefilling
         fetchClients() {
             axios.get('/api/clients') // Adjust the URL to your endpoint
@@ -227,9 +226,13 @@ export default {
             this.rows.push({
                 code: '',
                 name: '',
-                quantity: 0,
+                quantity: 1,
                 price: 0,
                 vat: 0,
+                priceWithVAT: 0,
+                amount: 0,
+                tax: 0,
+                total: 0,
                 comment: ''
             });
         },
@@ -238,17 +241,28 @@ export default {
                 this.rows.pop();
             }
         },
-        calculatePriceWithVAT(row) {
-            return (row.price * (1 + row.vat / 100)).toFixed(2);
+        formatNumber(number) {
+            return Number(number).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
         },
-        calculateAmount(row) {
-            return (row.quantity * row.price).toFixed(2);
+        updateRowValues(index) {
+            let row = this.rows[index];
+            row.priceWithVAT = row.purchase_price + (row.purchase_price * this.taxTypePercentage(row.tax_type) / 100);
+            row.amount = row.quantity * row.purchase_price;
+            row.tax = row.amount * this.taxTypePercentage(row.tax_type) / 100;
+            row.total = row.amount + row.tax;
+
         },
-        calculateTax(row) {
-            return (row.quantity * row.price * (row.vat / 100)).toFixed(2);
-        },
-        calculateTotal(row) {
-            return (row.quantity * row.price * (1 + row.vat / 100)).toFixed(2);
+        taxTypePercentage(taxType) {
+            switch (taxType) {
+                case 1:
+                    return 18;
+                case 2:
+                    return 5;
+                case 3:
+                    return 10;
+                default:
+                    return 0;
+            }
         },
         initResize(event, index) {
             this.startX = event.clientX;
