@@ -63,7 +63,7 @@
                                 <th>{{$t('date')}}<div class="resizer" @mousedown="initResize($event, 1)"></div></th>
                                 <th>{{$t('warehouse')}}<div class="resizer" @mousedown="initResize($event, 2)"></div></th>
                                 <th>{{$t('client')}}<div class="resizer" @mousedown="initResize($event, 3)"></div></th>
-                                <th>{{$t('price')}}<div class="resizer" @mousedown="initResize($event, 4)"></div></th>
+                                <th>{{$t('price')}} (.ден)<div class="resizer" @mousedown="initResize($event, 4)"></div></th>
                                 <th>{{$t('comment')}}<div class="resizer" @mousedown="initResize($event, 5)"></div></th>
                                 <th></th>
                             </tr>
@@ -76,7 +76,7 @@
                                 <th>{{receipt.warehouse_name}}</th>
                                 <th>{{receipt.client.name}}</th>
                                 <th>{{ calculateTotalPrice(receipt.articles) }}</th>
-                                <th>{{receipt.comment}}</th>
+                                <th>{{receipt.comment ? receipt.comment: '/'}}</th>
                                 <th>
                                     <div class="centered">
                                         <PriemInfoDialog :priem="receipt" />
@@ -129,7 +129,8 @@ export default {
     methods: {
         calculateTotalPrice(articles) {
             return articles.reduce((total, article) => {
-                return total + (article.purchase_price || 0);
+                const articleTotal = (article.purchase_price || 0) * (article.pivot.quantity || 0);
+                return total + articleTotal;
             }, 0);
         },
         applyFilter() {

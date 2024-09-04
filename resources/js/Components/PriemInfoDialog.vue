@@ -21,7 +21,7 @@
                         <div v-if="showPriemnicaForm">
                             <table class="excel-table">
                                 <thead>
-                                <tr>
+                                <tr class="first-row">
                                     <th style="width: 20px">#</th>
                                     <th style="width: 45px;">{{$t('Nr')}}</th>
                                     <th>{{$t('Code')}}<div class="resizer" @mousedown="initResize($event, 2)"></div></th>
@@ -29,6 +29,7 @@
                                     <th>{{$t('Qty')}}<div class="resizer" @mousedown="initResize($event, 4)"></div></th>
                                     <th>{{$t('price')}}<div class="resizer" @mousedown="initResize($event, 5)"></div></th>
                                     <th>{{$t('VAT')}}%<div class="resizer" @mousedown="initResize($event, 6)"></div></th>
+                                    <th>{{$t('VAT')}}<div class="resizer" @mousedown="initResize($event, 6)"></div></th>
                                     <th>{{$t('price')}} {{$t('VAT')}}<div class="resizer" @mousedown="initResize($event, 7)"></div></th>
                                     <th>{{$t('Amount')}}<div class="resizer" @mousedown="initResize($event, 8)"></div></th>
                                     <th>{{$t('Tax')}}<div class="resizer" @mousedown="initResize($event, 9)"></div></th>
@@ -43,16 +44,14 @@
                                          <th>{{p.code}}</th>
                                          <th>{{p.name}}</th>
                                          <th>{{p.pivot.quantity}}</th>
-                                         <th></th>
-                                         <th></th>
-                                         <th></th>
-                                         <th></th>
-                                         <th></th>
-                                         <th></th>
+                                         <th>{{p.purchase_price}}</th>
+                                         <th>{{taxTypePercentage(p.tax_type)}}%</th>
+                                         <th>{{calculateVAT(p.purchase_price, p.tax_type)}}</th>
+                                         <th>{{priceWithVAT(p.purchase_price, p.tax_type)}}</th>
+                                         <th>{{calculateAmount(p.pivot.quantity, p.purchase_price)}}</th>
+                                         <th>{{calculateTax(p.purchase_price, p.tax_type, p.pivot.quantity)}}</th>
+                                         <th>{{calculateTotal(p.purchase_price, p.tax_type, p.pivot.quantity)}}</th>
                                          <th>{{p.comment? p.comment:'/'}}</th>
-
-
-
                                      </tr>
                                 </tbody>
                             </table>
@@ -110,6 +109,47 @@ export default {
             if (event.key === 'Escape') {
                 this.closeDialog();
             }
+        },
+        taxTypePercentage(taxType) {
+            switch (taxType) {
+                case 1:
+                    return 18;
+                case 2:
+                    return 5;
+                case 3:
+                    return 10;
+                default:
+                    return 0;
+            }
+        },
+        formatNumber(number) {
+            return Number(number).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        },
+        calculateVAT(purchasePrice, taxType) {
+            const vatPercentage = this.taxTypePercentage(taxType);
+            const vatAmount = (purchasePrice * vatPercentage) / 100;
+            return this.formatNumber(vatAmount);
+        },
+        priceWithVAT(purchasePrice, taxType) {
+            const vatAmount = this.calculateVAT(purchasePrice, taxType);
+            const totalPrice = parseFloat(purchasePrice) + parseFloat(vatAmount);
+            return this.formatNumber(totalPrice);
+        },
+        calculateAmount(quantity, purchasePrice) {
+            const amount = quantity * purchasePrice;
+            return this.formatNumber(amount);
+        },
+        calculateTax(purchasePrice, taxType, quantity) {
+            const vatPercentage = this.taxTypePercentage(taxType);
+            const vatAmountPerUnit = (purchasePrice * vatPercentage) / 100;
+            const totalVatAmount = vatAmountPerUnit * quantity;
+            return this.formatNumber(totalVatAmount);
+        },
+        calculateTotal(purchasePrice, taxType, quantity) {
+            const totalAmount = parseFloat(this.calculateAmount(quantity, purchasePrice).replace(/,/g, ''));
+            const totalTax = parseFloat(this.calculateTax(purchasePrice, taxType, quantity).replace(/,/g, ''));
+            const total = totalAmount + totalTax;
+            return this.formatNumber(total);
         }
     },
     mounted() {
