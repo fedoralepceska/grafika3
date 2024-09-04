@@ -78,17 +78,30 @@ class PriemnicaController extends Controller
         $warehouseId = $request->query('warehouse');
         $perPage = $request->query('per_page', 20);
 
-        $query = Priemnica::query()
-            ->join('article', 'priemnica.article_id', '=', 'article.id')
+        $receiptsQuery = Priemnica::with(['client', 'articles'])
             ->join('warehouses', 'priemnica.warehouse', '=', 'warehouses.id')
-            ->join('priemnica_articles', 'priemnica.id', '=', 'priemnica_articles.priemnica_id')
-            ->select('priemnica.*', 'article.name as article_name', 'warehouses.name as warehouse_name','priemnica_articles.quantity as article_quantity');
+            ->select(
+                'priemnica.id',
+                'priemnica.client_id',
+                'priemnica.warehouse',
+                'priemnica.created_at',
+                'warehouses.name as warehouse_name'
+            );
 
         if ($warehouseId && $warehouseId !== 'All') {
-            $query->where('priemnica.warehouse', $warehouseId);
+            $receiptsQuery->where('priemnica.warehouse', $warehouseId);
         }
 
-        $priemnica = $query->paginate($perPage);
+        $receipts = $receiptsQuery->get();
+
+        foreach ($receipts as $receipt) {
+            $receipt->articles = DB::table('priemnica_articles')
+                ->where('priemnica_id', $receipt->id)
+                ->select('priemnica_id', 'article_id', 'quantity')
+                ->get();
+        }
+
+        $priemnica = $receiptsQuery->paginate($perPage);
 
         if ($request->wantsJson()) {
             return response()->json($priemnica);
@@ -112,6 +125,11 @@ class PriemnicaController extends Controller
         $priemnica->save();
 
         foreach ($data as $row) {
+            // Skip processing if the required fields are missing
+            if (empty($row['code']) || empty($row['name'])) {
+                continue;
+            }
+
             $article = Article::where('code', $row['code'])->first();
 
             if ($article) {
@@ -123,6 +141,7 @@ class PriemnicaController extends Controller
                     'price_per_unit' => $article->purchase_price,
                     'article_id' => $article->id
                 ];
+
                 if ($article->format_type === 1) {
                     $existingMaterial = SmallMaterial::where('name', $materialData['name'])->first();
                 }

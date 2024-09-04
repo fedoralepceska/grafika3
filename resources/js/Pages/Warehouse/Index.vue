@@ -30,20 +30,27 @@
 
                         <table class="excel-table mb-3 ">
                             <thead>
-                            <tr>
-                                <th style="width: 45px;">{{$t('Nr')}}</th>
-                                <th>{{$t('article')}}<div class="resizer" @mousedown="initResize($event, 1)"></div></th>
-                                <th>{{$t('warehouse')}}<div class="resizer" @mousedown="initResize($event, 2)"></div></th>
-                            </tr>
+                                <tr>
+                                    <th style="width: 45px;">{{$t('Nr')}}</th>
+                                    <th>{{$t('receiptId')}}<div class="resizer" @mousedown="initResize($event, 1)"></div></th>
+                                    <th>{{$t('article')}}<div class="resizer" @mousedown="initResize($event, 1)"></div></th>
+                                    <th>{{$t('warehouse')}}<div class="resizer" @mousedown="initResize($event, 2)"></div></th>
+                                </tr>
                             </thead>
-                            <tbody v-for="(item,index) in priemnica.data" >
-                            <tr>
-                                <th>{{index+1}}</th>
-                                <th>{{item.article_name}}</th>
-                                <th>{{item.warehouse_name}}</th>
-                            </tr>
+                            <tbody>
+                                <template v-for="(item, index) in priemnica.data" :key="index">
+                                    <template v-for="(article, articleIndex) in item.articles" :key="articleIndex">
+                                        <tr>
+                                            <th>{{ index + 1 }}</th>
+                                            <th>{{ article.pivot.priemnica_id }}</th>
+                                            <th>{{ article.name }}</th>
+                                            <th>{{ item.warehouse_name }}</th>
+                                        </tr>
+                                    </template>
+                                </template>
                             </tbody>
-                        </table>
+
+</table>
 
                         <Pagination :pagination="priemnica" />
                     </div>
