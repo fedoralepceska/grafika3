@@ -1,6 +1,6 @@
 <template>
     <div class="flex flex-row justify-between">
-        <CustomDatePicker @date-selected="fetchArticleInvoiceCounts" @reset-filters="resetData" class="mt-16"/>
+        <CustomDatePicker @date-selected="fetchUserInvoiceCounts" @reset-filters="resetData" class="mt-16"/>
         <v-chart :option="chartOption" style="height: 400px;"></v-chart>
     </div>
 </template>
@@ -9,9 +9,9 @@
 import {onBeforeMount, ref} from 'vue';
 import ECharts from 'vue-echarts';
 import * as echarts from 'echarts/core'; // Import core ECharts functions
-import { CanvasRenderer } from 'echarts/renderers'; // Import the necessary renderers
-import { PieChart } from 'echarts/charts'; // Import the PieChart
-import { TitleComponent, TooltipComponent, LegendComponent } from 'echarts/components'; // Import necessary components
+import {CanvasRenderer} from 'echarts/renderers'; // Import the necessary renderers
+import {PieChart} from 'echarts/charts'; // Import the PieChart
+import {LegendComponent, TitleComponent, TooltipComponent} from 'echarts/components'; // Import necessary components
 import CustomDatePicker from "@/Components/inputs/CustomDatePicker.vue";
 
 // Register the components
@@ -24,7 +24,7 @@ echarts.use([
 ]);
 
 export default {
-    name: 'ArticleInvoiceChart',
+    name: 'ClientInvoiceCosts',
     components: {
         'v-chart': ECharts,
         CustomDatePicker,
@@ -32,7 +32,7 @@ export default {
     setup() {
         const chartOption = ref({
             title: {
-                text: 'Invoice Count by Article',
+                text: 'Invoice Costs (ден.) by Client',
                 left: 'center',
             },
             tooltip: {
@@ -44,7 +44,7 @@ export default {
             },
             series: [
                 {
-                    name: 'Invoice Count',
+                    name: 'Invoice Costs (ден.)',
                     type: 'pie',
                     radius: '50%',
                     data: [],
@@ -59,18 +59,19 @@ export default {
             ],
         });
 
-        const fetchArticleInvoiceCounts = async (selectedDate) => {
+        const fetchUserInvoiceCounts = async (selectedDate) => {
             try {
-                const response = await axios.get('/article-invoice-counts', {
+                const response = await axios.get('/client-invoice-costs-counts', {
                     params: { date: selectedDate },
                 });
 
                 const data = response.data;
-                chartOption.value.series[0].data = data.map(item => ({
-                    value: item.invoice_count,
-                    name: item.article_name,
+                chartOption.value.series[0].data = Object.values(data).map(item => ({
+                    value: item.total_cost,
+                    name: item.client_name,
                 }));
-                chartOption.value.legend.data = data.map(item => item.article_name);
+
+                chartOption.value.legend.data = data.map(item => item.client_name);
             } catch (error) {
                 console.error('Error fetching user invoice counts:', error);
             }
@@ -79,7 +80,7 @@ export default {
         const resetData = () => {
             chartOption.value = {
                 title: {
-                    text: 'Invoice Count by Article',
+                    text: 'Invoice Costs (ден.) by Client',
                     left: 'center',
                 },
                 tooltip: {
@@ -91,7 +92,7 @@ export default {
                 },
                 series: [
                     {
-                        name: 'Invoice Count',
+                        name: 'Invoice Costs (ден.)',
                         type: 'pie',
                         radius: '50%',
                         data: [],
@@ -108,12 +109,12 @@ export default {
         };
 
         onBeforeMount(() => {
-            fetchArticleInvoiceCounts();
+            fetchUserInvoiceCounts();
         });
 
         return {
             chartOption,
-            fetchArticleInvoiceCounts,
+            fetchUserInvoiceCounts,
             resetData,
         };
     },

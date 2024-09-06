@@ -12,6 +12,7 @@ use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\SmallFormatMaterialController;
 use App\Http\Controllers\SmallMaterialController;
 use App\Http\Controllers\ArticleController;
+use App\Http\Controllers\AnalyticsController;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
@@ -238,12 +239,14 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
 // Analytics
 Route::middleware(['auth', 'verified'])->group(function () {
-    Route::get('/user-invoice-counts', [InvoiceController::class, 'getUserInvoiceCounts']);
-    Route::get('/article-invoice-counts', [InvoiceController::class, 'getArticlesInvoiceCounts']);
+    Route::get('/user-invoice-counts', [AnalyticsController::class, 'getUserInvoiceCounts']);
+    Route::get('/article-invoice-counts', [AnalyticsController::class, 'getArticlesInvoiceCounts']);
     Route::get('/analytics-orders', function () {
         return Inertia::render('Analytics/UserInvoiceAnalytics');
     });
     Route::post('insert-analytics', [JobController::class, 'insertAnalytics']);
+    Route::get('/client-invoice-counts', [AnalyticsController::class, 'getClientsInvoiceCounts']);
+    Route::get('/client-invoice-costs-counts', [AnalyticsController::class, 'getClientCosts']);
 });
 
 

@@ -6,7 +6,7 @@
 </template>
 
 <script>
-import { ref } from 'vue';
+import {onBeforeMount, ref} from 'vue';
 import ECharts from 'vue-echarts';
 import * as echarts from 'echarts/core'; // Import core ECharts functions
 import { CanvasRenderer } from 'echarts/renderers'; // Import the necessary renderers
@@ -78,6 +78,10 @@ export default {
                 ],
             };
         };
+
+        onBeforeMount(() => {
+            fetchUserInvoiceCounts();
+        });
 
         return {
             chartOption,

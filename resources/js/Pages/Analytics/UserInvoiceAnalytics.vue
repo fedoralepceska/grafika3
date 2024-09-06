@@ -4,6 +4,8 @@
             <Header title="analyticsInvoice" subtitle="dashboard" icon="dashboard.png" link="analytics/invoice"/>
             <UserInvoiceChart />
             <ArticleInvoiceChart />
+            <ClientInvoiceChart />
+            <ClientInvoiceCosts />
         </div>
     </MainLayout>
 </template>
@@ -13,9 +15,13 @@ import UserInvoiceChart from "@/Pages/Analytics/UserInvoiceChart.vue";
 import MainLayout from "@/Layouts/MainLayout.vue";
 import Header from "@/Components/Header.vue";
 import ArticleInvoiceChart from "@/Pages/Analytics/ArticleInvoiceChart.vue";
+import ClientInvoiceChart from "@/Pages/Analytics/ClientInvoiceChart.vue";
+import ClientInvoiceCosts from "@/Pages/Analytics/ClientInvoiceCosts.vue";
 
 export default {
     components: {
+        ClientInvoiceCosts,
+        ClientInvoiceChart,
         ArticleInvoiceChart,
         UserInvoiceChart,
         Header,

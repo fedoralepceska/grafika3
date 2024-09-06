@@ -1,6 +1,6 @@
 <template>
     <div class="flex flex-row justify-between">
-        <CustomDatePicker @date-selected="fetchArticleInvoiceCounts" @reset-filters="resetData" class="mt-16"/>
+        <CustomDatePicker @date-selected="fetchUserInvoiceCounts" @reset-filters="resetData" class="mt-16"/>
         <v-chart :option="chartOption" style="height: 400px;"></v-chart>
     </div>
 </template>
@@ -24,7 +24,7 @@ echarts.use([
 ]);
 
 export default {
-    name: 'ArticleInvoiceChart',
+    name: 'ClientInvoiceChart',
     components: {
         'v-chart': ECharts,
         CustomDatePicker,
@@ -32,7 +32,7 @@ export default {
     setup() {
         const chartOption = ref({
             title: {
-                text: 'Invoice Count by Article',
+                text: 'Invoice Count by Client',
                 left: 'center',
             },
             tooltip: {
@@ -59,18 +59,18 @@ export default {
             ],
         });
 
-        const fetchArticleInvoiceCounts = async (selectedDate) => {
+        const fetchUserInvoiceCounts = async (selectedDate) => {
             try {
-                const response = await axios.get('/article-invoice-counts', {
+                const response = await axios.get('/client-invoice-counts', {
                     params: { date: selectedDate },
                 });
 
                 const data = response.data;
                 chartOption.value.series[0].data = data.map(item => ({
                     value: item.invoice_count,
-                    name: item.article_name,
+                    name: item.client_name,
                 }));
-                chartOption.value.legend.data = data.map(item => item.article_name);
+                chartOption.value.legend.data = data.map(item => item.client_name);
             } catch (error) {
                 console.error('Error fetching user invoice counts:', error);
             }
@@ -79,7 +79,7 @@ export default {
         const resetData = () => {
             chartOption.value = {
                 title: {
-                    text: 'Invoice Count by Article',
+                    text: 'Invoice Count by Client',
                     left: 'center',
                 },
                 tooltip: {
@@ -108,12 +108,12 @@ export default {
         };
 
         onBeforeMount(() => {
-            fetchArticleInvoiceCounts();
+            fetchUserInvoiceCounts();
         });
 
         return {
             chartOption,
-            fetchArticleInvoiceCounts,
+            fetchUserInvoiceCounts,
             resetData,
         };
     },
