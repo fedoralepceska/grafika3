@@ -268,6 +268,7 @@ const messages = {
         statementExpense: 'Statement - expense',
         analyticsInvoice: 'Analytics for Order - User',
         receiptId: 'Receipt ID',
+        other: 'Other'
     },
     mk: {
         // Define your Macedonian translations here
@@ -538,6 +539,7 @@ const messages = {
         statementExpense: 'Извод - исплата',
         analyticsInvoice: 'Аналитика на налози - корисници',
         receiptId: 'Приемница бр.',
+        other: 'Друго'
     },
 };
 

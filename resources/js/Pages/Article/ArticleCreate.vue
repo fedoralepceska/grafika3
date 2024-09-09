@@ -70,6 +70,7 @@
                                 <select v-model="form.format_type" class="text-gray-700 rounded" >
                                     <option value="2">{{ $t('Large') }}</option>
                                     <option value="1">{{ $t('Small') }}</option>
+                                    <option value="3">{{ $t('Other') }}</option>
                                 </select>
                             </div>
                             <div class="form-group gap-4">

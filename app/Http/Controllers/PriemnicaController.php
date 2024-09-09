@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Article;
 use App\Models\Client;
 use App\Models\LargeFormatMaterial;
+use App\Models\OtherMaterial;
 use App\Models\Priemnica;
 use App\Models\SmallMaterial;
 use App\Models\Warehouse;
@@ -148,6 +149,9 @@ class PriemnicaController extends Controller
                 if ($article->format_type === 2) {
                     $existingMaterial = LargeFormatMaterial::where('name', $materialData['name'])->first();
                 }
+                if ($article->format_type === 3) {
+                    $existingMaterial = OtherMaterial::where('name', $materialData['name'])->first();
+                }
                 if ($existingMaterial && isset($data[0])) {
                     // Update existing material quantity
                     $existingMaterial->quantity += $data[0]['quantity'];
@@ -158,9 +162,13 @@ class PriemnicaController extends Controller
                         $materialData['quantity'] = $data[0]['quantity'];
                         SmallMaterial::create($materialData);
                     }
-                    else {
+                    else if ($article->format_type === 2) {
                         $materialData['quantity'] = $data[0]['quantity'];
                         LargeFormatMaterial::create($materialData);
+                    }
+                    else {
+                        $materialData['quantity'] = $data[0]['quantity'];
+                        OtherMaterial::create($materialData);
                     }
                 }
             }
