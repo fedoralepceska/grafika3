@@ -6,9 +6,15 @@ use App\Models\Invoice;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use Inertia\Inertia;
 
 class AnalyticsController extends Controller
 {
+    public function index(Request $request)
+    {
+        return Inertia::render('Analytics/Index', [
+        ]);
+    }
     public function getUserInvoiceCounts(Request $request)
     {
         $date = $request->query('date');

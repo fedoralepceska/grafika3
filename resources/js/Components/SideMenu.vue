@@ -165,7 +165,7 @@ export default {
                     ],
                 },
                 {
-                    href: '',
+                    href: '/analytics',
                     title: 'Analytics',
                     icon: 'fa-solid fa-chart-pie',
                     child: [

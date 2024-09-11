@@ -239,14 +239,28 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
 // Analytics
 Route::middleware(['auth', 'verified'])->group(function () {
+    Route::get('/analytics', [AnalyticsController::class, 'index']);
+    Route::post('insert-analytics', [JobController::class, 'insertAnalytics']);
+
     Route::get('/user-invoice-counts', [AnalyticsController::class, 'getUserInvoiceCounts']);
-    Route::get('/article-invoice-counts', [AnalyticsController::class, 'getArticlesInvoiceCounts']);
-    Route::get('/analytics-orders', function () {
+    Route::get('/analytics/orders', function () {
         return Inertia::render('Analytics/UserInvoiceAnalytics');
     });
-    Route::post('insert-analytics', [JobController::class, 'insertAnalytics']);
+
+    Route::get('/article-invoice-counts', [AnalyticsController::class, 'getArticlesInvoiceCounts']);
+    Route::get('/analytics/articles', function () {
+        return Inertia::render('Analytics/ArticleAnalytics');
+    });
+
+    Route::get('/analytics/workers', function () {
+        return Inertia::render('Analytics/WorkerAnalytics');
+    });
+
     Route::get('/client-invoice-counts', [AnalyticsController::class, 'getClientsInvoiceCounts']);
     Route::get('/client-invoice-costs-counts', [AnalyticsController::class, 'getClientCosts']);
+    Route::get('/analytics/clients', function () {
+        return Inertia::render('Analytics/ClientAnalytics');
+    });
 });
 
 
