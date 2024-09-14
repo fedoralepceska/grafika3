@@ -460,42 +460,37 @@ class JobController extends Controller
         // Initialize an empty array to hold the final counts
         $counts = [];
 
-        // Get the names of actions starting with "machinePrint"
-        $actionNames = DB::table('job_actions')
-            ->where('name', 'LIKE', 'Machine print%') // Filter for actions starting with "machinePrint"
+        // Get the names of machines from the machine_print table
+        $machineNames = DB::table('machines_print')
             ->pluck('name')
             ->unique();
 
-        // For each action name, get the counts of different statuses
-        foreach ($actionNames as $name) {
-            $total = DB::table('job_job_action')
-                ->join('job_actions', 'job_job_action.job_action_id', '=', 'job_actions.id')
-                ->where('job_actions.name', $name)
-                ->where('job_job_action.status', 'In Progress')
+        // For each machine name, get the counts of different statuses
+        foreach ($machineNames as $name) {
+            $total = DB::table('jobs')
+                ->where('machinePrint', $name) // Assuming 'machine_name' is the column storing the machine's name
+                ->where('status', 'In Progress')
                 ->count();
 
-            $secondaryCount = DB::table('job_job_action')
-                ->join('job_actions', 'job_job_action.job_action_id', '=', 'job_actions.id')
-                ->where('job_actions.name', $name)
-                ->where('job_job_action.status', 'Not started yet')
+            $secondaryCount = DB::table('jobs')
+                ->where('machinePrint', $name)
+                ->where('status', 'Not started yet')
                 ->count();
 
-            $onHoldCount = DB::table('job_job_action')
-                ->join('job_actions', 'job_job_action.job_action_id', '=', 'job_actions.id')
-                ->join('invoice_job', 'invoice_job.job_id', '=', 'job_job_action.job_id')
+            $onHoldCount = DB::table('jobs')
+                ->join('invoice_job', 'invoice_job.job_id', '=', 'jobs.id')
                 ->join('invoices', 'invoices.id', '=', 'invoice_job.invoice_id')
-                ->where('job_actions.name', $name)
+                ->where('jobs.machinePrint', $name)
                 ->where('invoices.onHold', true)
-                ->whereIn('job_job_action.status', ['Not started yet', 'In Progress'])
+                ->whereIn('jobs.status', ['Not started yet', 'In Progress'])
                 ->count();
 
-            $onRushCount = DB::table('job_job_action')
-                ->join('job_actions', 'job_job_action.job_action_id', '=', 'job_actions.id')
-                ->join('invoice_job', 'invoice_job.job_id', '=', 'job_job_action.job_id')
+            $onRushCount = DB::table('jobs')
+                ->join('invoice_job', 'invoice_job.job_id', '=', 'jobs.id')
                 ->join('invoices', 'invoices.id', '=', 'invoice_job.invoice_id')
-                ->where('job_actions.name', $name)
+                ->where('jobs.machinePrint', $name)
                 ->where('invoices.rush', true)
-                ->whereIn('job_job_action.status', ['Not started yet', 'In Progress'])
+                ->whereIn('jobs.status', ['Not started yet', 'In Progress'])
                 ->count();
 
             // Add the counts to the array if applicable
@@ -519,42 +514,37 @@ class JobController extends Controller
         // Initialize an empty array to hold the final counts
         $counts = [];
 
-        // Get the names of actions starting with "machinePrint"
-        $actionNames = DB::table('job_actions')
-            ->where('name', 'LIKE', 'Machine cut%') // Filter for actions starting with "machinePrint"
+        // Get the names of machines from the machine_print table
+        $machineNames = DB::table('machines_cut')
             ->pluck('name')
             ->unique();
 
-        // For each action name, get the counts of different statuses
-        foreach ($actionNames as $name) {
-            $total = DB::table('job_job_action')
-                ->join('job_actions', 'job_job_action.job_action_id', '=', 'job_actions.id')
-                ->where('job_actions.name', $name)
-                ->where('job_job_action.status', 'In Progress')
+        // For each machine name, get the counts of different statuses
+        foreach ($machineNames as $name) {
+            $total = DB::table('jobs')
+                ->where('machineCut', $name) // Assuming 'machine_name' is the column storing the machine's name
+                ->where('status', 'In Progress')
                 ->count();
 
-            $secondaryCount = DB::table('job_job_action')
-                ->join('job_actions', 'job_job_action.job_action_id', '=', 'job_actions.id')
-                ->where('job_actions.name', $name)
-                ->where('job_job_action.status', 'Not started yet')
+            $secondaryCount = DB::table('jobs')
+                ->where('machineCut', $name)
+                ->where('status', 'Not started yet')
                 ->count();
 
-            $onHoldCount = DB::table('job_job_action')
-                ->join('job_actions', 'job_job_action.job_action_id', '=', 'job_actions.id')
-                ->join('invoice_job', 'invoice_job.job_id', '=', 'job_job_action.job_id')
+            $onHoldCount = DB::table('jobs')
+                ->join('invoice_job', 'invoice_job.job_id', '=', 'jobs.id')
                 ->join('invoices', 'invoices.id', '=', 'invoice_job.invoice_id')
-                ->where('job_actions.name', $name)
+                ->where('jobs.machineCut', $name)
                 ->where('invoices.onHold', true)
-                ->whereIn('job_job_action.status', ['Not started yet', 'In Progress'])
+                ->whereIn('jobs.status', ['Not started yet', 'In Progress'])
                 ->count();
 
-            $onRushCount = DB::table('job_job_action')
-                ->join('job_actions', 'job_job_action.job_action_id', '=', 'job_actions.id')
-                ->join('invoice_job', 'invoice_job.job_id', '=', 'job_job_action.job_id')
+            $onRushCount = DB::table('jobs')
+                ->join('invoice_job', 'invoice_job.job_id', '=', 'jobs.id')
                 ->join('invoices', 'invoices.id', '=', 'invoice_job.invoice_id')
-                ->where('job_actions.name', $name)
+                ->where('jobs.machineCut', $name)
                 ->where('invoices.rush', true)
-                ->whereIn('job_job_action.status', ['Not started yet', 'In Progress'])
+                ->whereIn('jobs.status', ['Not started yet', 'In Progress'])
                 ->count();
 
             // Add the counts to the array if applicable

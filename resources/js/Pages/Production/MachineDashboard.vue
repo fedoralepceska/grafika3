@@ -14,7 +14,7 @@
                 <div v-for="item in jobMachinesPrint" :key="item.name" class="grid-item bg" @click="navigateToMachine(item.name)" >
                     <div class="machine">
                         <div class="machineName text-white">
-                            {{ $t(`machinePrint.${item.name}`) }}
+                            {{ item.name }}
                         </div>
                         <div class="machineInfo">
                             <div>Total active jobs: {{item.total}}</div>
@@ -71,6 +71,7 @@ export default {
             try {
                 const printResponse = await axios.get('/job-machine-print-counts');
                 const cutResponse = await axios.get('/job-machine-cut-counts');
+                console.log(cutResponse);
                 this.jobMachinesPrint = printResponse.data;
                 this.jobMachinesCut = cutResponse.data;
             } catch (error) {
