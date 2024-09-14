@@ -1,7 +1,7 @@
 <template>
     <MainLayout>
         <div class="pl-7 pr-7">
-            <Header title="analyticsInvoice" subtitle="dashboard" icon="dashboard.png" link="analytics/invoice"/>
+            <Header title="analyticsInvoice" subtitle="dashboard" icon="dashboard.png" link="analytics"/>
         </div>
     </MainLayout>
 </template>
