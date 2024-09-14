@@ -45,27 +45,16 @@ export default {
         return {
             jobActionStatusCounts: {},
             jobMachinesCut: {},
-            jobMachinesPrint: {}
         };
     },
     created() {
         this.fetchJobActionStatusCounts();
-        this.fetchJobMachinesCounts();
     },
     methods: {
         async fetchJobActionStatusCounts() {
             try {
                 const response = await axios.get('/job-action-status-counts');
                 this.jobActionStatusCounts = response.data;
-            } catch (error) {
-                console.error(error);
-            }
-        },
-        async fetchJobMachinesCounts() {
-            try {
-                const response = await axios.get('/job-machine-counts');
-                this.jobMachinesPrint = response.data?.machinePrintCounts;
-                this.jobMachinesCut = response.data?.machineCutCounts;
             } catch (error) {
                 console.error(error);
             }
