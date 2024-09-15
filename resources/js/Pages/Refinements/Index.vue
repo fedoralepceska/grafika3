@@ -10,7 +10,7 @@
                         </h2>
                         <div class="flex justify-end pr-3 pb-5">
                             <button class="btn delete mr-5">Delete</button>
-                            <EditRefinementDialog class="mr-8" :refinement="Refinements"/>
+                            <EditRefinementDialog class="mr-8" :refinement="selectedRefinement"/>
                             <AddRefinementDialog :refinement="Refinements"/>
                         </div>
                         <table class="excel-table ">
@@ -29,7 +29,9 @@
                                 <th>{{ refinement.name }}</th>
                                 <th>{{ getMaterial(refinement) }}</th>
                                 <th>{{ getUnit(refinement) }}</th>
-                                <th><input type="checkbox" class="rounded"></th>
+                                <th>
+                                    <input type="checkbox" class="rounded" :value="refinement" @change="toggleSelection(refinement)" :checked="isSelected(refinement)" />
+                                </th>
                             </tr>
                             </tbody>
                         </table>
@@ -81,9 +83,31 @@ export default {
             startX: 0,
             startWidth: 0,
             columnIndex: -1,
+            selectedRefinements: [],
         };
     },
+    computed: {
+        // Return the first selected refinement (if needed for the dialog)
+        selectedRefinement() {
+            return this.selectedRefinements.length > 0 ? this.selectedRefinements[0] : null;
+        },
+    },
     methods: {
+        // Check if a refinement is selected
+        isSelected(refinement) {
+            return this.selectedRefinements.includes(refinement);
+        },
+        // Toggle the selection of a refinement
+        toggleSelection(refinement) {
+            const index = this.selectedRefinements.indexOf(refinement);
+            if (index > -1) {
+                // If the refinement is already selected, remove it
+                this.selectedRefinements.splice(index, 1);
+            } else {
+                // Otherwise, add it to the selected refinements
+                this.selectedRefinements.push(refinement);
+            }
+        },
         initResize(event, index) {
             this.startX = event.clientX;
             this.startWidth = event.target.parentElement.offsetWidth;

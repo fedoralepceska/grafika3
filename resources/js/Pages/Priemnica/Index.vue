@@ -40,13 +40,13 @@
                                 <div class="search-container pb-2">
                                     <div class="mr-1 ml-2">From Date</div>
                                     <div class="ml-2">
-                                        <input type="date" v-model="filters.from_date" class="rounded">
+                                        <input type="date" v-model="filters.from_date" class="rounded text-black">
                                     </div>
                                 </div>
                                 <div class="search-container pb-2">
                                     <div class="mr-1 ml-2">To Date</div>
                                     <div class="ml-2">
-                                        <input type="date" v-model="filters.to_date" class="rounded">
+                                        <input type="date" v-model="filters.to_date" class="rounded text-black">
                                     </div>
                                 </div>
                             </div>

@@ -43,6 +43,36 @@ class RefinementsController extends Controller
         return response()->json($dorabotka, 201); // Created status code
     }
 
+    public function update(Request $request, $id)
+    {
+        // Validate incoming request data
+        $validatedData = $request->validate([
+            'material_type' => 'string|nullable',
+            'material_id' => 'integer|nullable',
+        ]);
+
+        // Find the refinement record
+        $dorabotka = Dorabotka::find($id);
+
+        // Determine the material type based on the format_type
+        $materialType = $validatedData['material_type'] === 'SmallMaterial' ? SmallMaterial::class : LargeFormatMaterial::class;
+
+        // Update the material_type field in the refinement
+        $dorabotka->material_type = $materialType;
+
+        // Ensure material_id exists in the request and update the corresponding material ID field
+        if (isset($validatedData['material_id'])) {
+            $dorabotka->small_material_id = $validatedData['material_type'] === 'SmallMaterial' ? $validatedData['material_id'] : null;
+            $dorabotka->large_material_id = $validatedData['material_type'] === 'LargeFormatMaterial' ? $validatedData['material_id'] : null;
+        }
+
+        // Save the changes
+        $dorabotka->save();
+
+        // Return success response
+        return response()->json(['message' => 'Refinement updated successfully', 'refinement' => $dorabotka]);
+    }
+
     public function destroy(Dorabotka $dorabotka): \Illuminate\Http\RedirectResponse
     {
         $dorabotka->delete();

@@ -105,9 +105,6 @@ Route::middleware(['auth', 'verified'])->group(function() {
     Route::put('/clients/{client}', [ClientController::class, 'update'])->name('clients.update');
     Route::delete('/clients/{client}', [ClientController::class, 'destroy'])->name('clients.destroy');
     Route::get('/api/clients', [ClientController::class, 'getClients'])->name('clients.getClients');
-
-
-
 });
 
 //Routes for Client Statements
@@ -228,6 +225,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/refinements', [\App\Http\Controllers\RefinementsController::class, 'index'])->name('refinements.index');
     Route::get('/refinements/all', [\App\Http\Controllers\RefinementsController::class, 'getRefinements'])->name('refinements.getRefinements');
     Route::post('/refinements/create', [\App\Http\Controllers\RefinementsController::class, 'store'])->name('refinements.store');
+    Route::put('/refinements/{refinement}', [\App\Http\Controllers\RefinementsController::class, 'update'])->name('refinements.update');
 });
 
 //Routes for Banks

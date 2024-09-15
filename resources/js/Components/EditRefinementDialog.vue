@@ -26,10 +26,11 @@
                                             <div class="form-group gap-3">
                                                 <label for="newRefinementName" class="width100">Name</label>
                                                 <input
+                                                    disabled
                                                     type="text"
                                                     id="newRefinementName"
                                                     class="text-black rounded"
-                                                    v-model="updatingRefinement.name"
+                                                    :value="refinement.name"
                                                     style="width: 50vh"
                                                 />
                                             </div>
@@ -41,6 +42,7 @@
                                                         class="rounded"
                                                         id="isMaterialRefinement"
                                                         v-model="updatingRefinement.isMaterialRefinement"
+                                                        :checked="refinement.isMaterialized"
                                                         style="padding: 8px"
                                                     />
                                                 </label>
@@ -53,7 +55,7 @@
                                                     class="text-black rounded"
                                                     style="width: 50vh"
                                                 >
-                                                    <option v-for="material in availableMaterials" :key="material.id">
+                                                    <option v-for="material in availableMaterials" :value="material" :key="material.id">
                                                         {{ material.name }}
                                                     </option>
                                                 </select>
@@ -96,6 +98,7 @@ export default {
                 materials: [],
             },
             updatingRefinement: {},
+            availableMaterials: [],
         };
     },
     props: {
@@ -109,20 +112,38 @@ export default {
         closeDialog() {
             this.dialog = false;
             this.updatingRefinement = {};
+            window.location.reload();
         },
         openAddItemForm() {
             this.showAddRefinementForm = true;
         },
         async updateItem() {
-
+            const toast = useToast();
+            try {
+                const updatedObject = {};
+                updatedObject.material_type = this?.updatingRefinement?.materials?.small_format_material_id === null ? 'SmallMaterial' : 'LargeFormatMaterial';
+                updatedObject.material_id = this?.updatingRefinement?.materials?.id;
+                const response = await axios.put(`/refinements/${this.refinement.id}`, updatedObject);
+                toast.success(response.data.message);
+                this.closeDialog();
+            } catch (error) {
+                toast.error("Error updating article!");
+                console.error(error);
+            }
         },
         handleEscapeKey(event) {
             if (event.key === 'Escape') {
                 this.closeDialog();
             }
-        }
+        },
+        async generateMaterials() {
+            const large = await axios.get('/materials/large/all');
+            const small = await axios.get('/materials/small/all');
+            this.availableMaterials = [...large.data, ...small.data];
+        },
     },
-    mounted() {
+    async mounted() {
+        await this.generateMaterials();
         document.addEventListener('keydown', this.handleEscapeKey);
     },
 };
