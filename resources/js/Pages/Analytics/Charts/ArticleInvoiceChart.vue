@@ -10,6 +10,7 @@
             <div class="w-full max-w-md mx-auto ">
                 <CustomDatePicker
                     @date-selected="fetchData"
+                    @reset-filters="resetData"
                     class="w-full"
                 />
                 <!-- Chart Type Selection Dropdown -->
@@ -47,7 +48,7 @@
         <div class="mt-8">
             <h3 class="text-xl font-semibold text-white mb-4">Detailed Breakdown</h3>
             <div class="overflow-x-auto">
-                <table class="min-w-full bg-white">
+                <table class="min-w-full bg-white text-black">
                     <thead class="bg-gray-200 text-gray-700">
                     <tr>
                         <th class="py-2 px-4 text-left">Article Name</th>
@@ -216,6 +217,11 @@ export default {
             }
         };
 
+        const resetData = () => {
+            chartData.value = [];
+            fetchData();
+        };
+
         onMounted(() => {
             fetchData();
         });
@@ -226,6 +232,7 @@ export default {
             loading,
             error,
             fetchData,
+            resetData,
             selectedChartType, // Expose chart type
         };
     },
