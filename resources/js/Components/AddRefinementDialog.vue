@@ -98,7 +98,7 @@ export default {
         },
         async saveItem() {
             this.newRefinement.material_id = this?.selectedMaterial?.id;
-            this.newRefinement.material_type = this?.selectedMaterial?.small_format_material !== undefined ? 'SmallMaterial' : 'LargeFormatMaterial';
+            this.newRefinement.material_type = this?.selectedMaterial?.small_format_material_id === null ? 'SmallMaterial' : 'LargeFormatMaterial';
             const toast = useToast();
             axios.post('/refinements/create', this.newRefinement)
                 .then((response) => {
