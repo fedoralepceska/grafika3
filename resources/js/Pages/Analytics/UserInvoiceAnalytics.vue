@@ -15,15 +15,9 @@
 import UserInvoiceChart from "@/Pages/Analytics/Charts/UserInvoiceChart.vue";
 import MainLayout from "@/Layouts/MainLayout.vue";
 import Header from "@/Components/Header.vue";
-import ArticleInvoiceChart from "@/Pages/Analytics/Charts/ArticleInvoiceChart.vue";
-import ClientInvoiceChart from "@/Pages/Analytics/Charts/ClientInvoiceChart.vue";
-import ClientInvoiceCosts from "@/Pages/Analytics/Charts/ClientInvoiceCosts.vue";
 
 export default {
     components: {
-        ClientInvoiceCosts,
-        ClientInvoiceChart,
-        ArticleInvoiceChart,
         UserInvoiceChart,
         Header,
         MainLayout

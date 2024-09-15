@@ -253,6 +253,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/analytics/workers', function () {
         return Inertia::render('Analytics/WorkerAnalytics');
     });
+    Route::get('/user-invoice-time-spent', [AnalyticsController::class, 'getWorkerAnalytics']);
 
     Route::get('/client-invoice-counts', [AnalyticsController::class, 'getClientsInvoiceCounts']);
     Route::get('/client-invoice-costs-counts', [AnalyticsController::class, 'getClientCosts']);

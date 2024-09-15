@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Invoice;
+use App\Models\WorkerAnalytics;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -202,5 +203,81 @@ class AnalyticsController extends Controller
         });
 
         return response()->json($clientCosts);
+    }
+
+    public function getWorkerAnalytics(Request $request)
+    {
+        $date = $request->query('date');
+
+        if ($date) {
+            $dateFormat = strlen($date);
+
+            switch ($dateFormat) {
+                case 4: // Year only
+                    $startDate = Carbon::createFromFormat('Y', $date)->startOfYear();
+                    $endDate = Carbon::createFromFormat('Y', $date)->endOfYear();
+                    break;
+
+                case 7: // Year and Month
+                    $startDate = Carbon::createFromFormat('Y-m', $date)->startOfMonth();
+                    $endDate = Carbon::createFromFormat('Y-m', $date)->endOfMonth();
+                    break;
+
+                case 10: // Full Date (Year, Month, Day)
+                    $startDate = Carbon::createFromFormat('Y-m-d', $date)->startOfDay();
+                    $endDate = Carbon::createFromFormat('Y-m-d', $date)->endOfDay();
+                    break;
+
+                default:
+                    return response()->json(['error' => 'Invalid date format'], 400);
+            }
+
+            // Fetch worker analytics within the selected date range
+            $workerAnalytics = WorkerAnalytics::whereBetween('created_at', [$startDate, $endDate])->with(['user'])->get();
+        } else {
+            // Fetch all worker analytics
+            $workerAnalytics = WorkerAnalytics::with(['user'])->get();
+        }
+
+        // Compute total time spent and invoice count for each worker
+        $workerData = $workerAnalytics->groupBy('user_id')->map(function ($group) {
+            $userId = $group->first()->user->name;
+            $totalTimeSpent = $group->sum(function ($item) {
+                return $this->parseTimeSpent($item->time_spent);
+            });
+            $invoiceCount = $group->pluck('invoice_id')->unique()->count();
+
+            return [
+                'user_id' => $userId,
+                'total_time_spent' => $totalTimeSpent,
+                'formatted_time_spent' => $this->formatTimeSpent($totalTimeSpent),
+                'invoice_count' => $invoiceCount
+            ];
+        });
+
+        return response()->json($workerData);
+    }
+
+    function parseTimeSpent($timeString) {
+        // Initialize total seconds
+        $totalSeconds = 0;
+
+        // Match minutes and seconds
+        if (preg_match('/(\d+)min/', $timeString, $minutes)) {
+            $totalSeconds += (int)$minutes[1] * 60; // Convert minutes to seconds
+        }
+        if (preg_match('/(\d+)sec/', $timeString, $seconds)) {
+            $totalSeconds += (int)$seconds[1];
+        }
+
+        return $totalSeconds;
+    }
+
+    function formatTimeSpent($seconds) {
+        $hours = floor($seconds / 3600);
+        $minutes = floor(($seconds % 3600) / 60);
+        $remainingSeconds = $seconds % 60;
+
+        return sprintf('%02dh %02dmin %02dsec', $hours, $minutes, $remainingSeconds);
     }
 }

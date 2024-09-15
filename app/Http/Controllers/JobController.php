@@ -665,34 +665,33 @@ class JobController extends Controller
         }
     }
 
-        public function fireEndJobEvent(Request $request) {
-            $jobData = $request->input('job');
-            $invoiceData = $request->input('invoice');
-            $actionId = $request->input('action');
-            $time_spent = $request->input('time_spent');
+    public function fireEndJobEvent(Request $request) {
+        $jobData = $request->input('job');
+        $invoiceData = $request->input('invoice');
+        $actionId = $request->input('action');
+        $time_spent = $request->input('time_spent');
 
-            // Find the matching record in the workers_analytics table
-            $workerAnalytics = DB::table('workers_analytics')->where('job_id', $jobData['id'])
-                ->where('invoice_id', $invoiceData['id'])
-                ->where('action_id', $actionId)
-                ->where('user_id', auth()->id())
-                ->first();
+        // Find the matching record in the workers_analytics table
+        $workerAnalytics = DB::table('workers_analytics')->where('job_id', $jobData['id'])
+            ->where('invoice_id', $invoiceData['id'])
+            ->where('action_id', $actionId)
+            ->where('user_id', auth()->id())
+            ->first();
 
-            dd($jobData['id'], $invoiceData['id'], $actionId, $time_spent, $workerAnalytics);
-
-            // If the record exists, update the time_spent
-            if ($workerAnalytics) {
-                $workerAnalytics->time_spent = $time_spent;
-                $workerAnalytics->save();
-            }
-
-            // Create job and invoice instances
-            $job = new Job($jobData);
-            $invoice = new Invoice($invoiceData);
-
-            // Dispatch the JobEnded event with both job and invoice
-            event(new JobEnded($job, $invoice));
+        // If the record exists, update the time_spent
+        if ($workerAnalytics) {
+            $workerAnalytics->time_spent = $time_spent;
+            $workerAnalytics->save();
         }
+
+        // Create job and invoice instances
+        $job = new Job($jobData);
+        $invoice = new Invoice($invoiceData);
+
+        // Dispatch the JobEnded event with both job and invoice
+        event(new JobEnded($job, $invoice));
+    }
+
     public function insertAnalytics(Request $request) {
         $jobData = $request->input('job');
         $invoiceData = $request->input('invoice');
@@ -712,6 +711,4 @@ class JobController extends Controller
             $workerAnalytics->save();
         }
     }
-
-
 }

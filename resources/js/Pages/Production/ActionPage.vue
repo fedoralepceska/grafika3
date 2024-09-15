@@ -297,7 +297,6 @@ export default {
                         status: 'Completed',
                     });
                 }
-                console.log(this.elapsedTimes[action.id]);
                 await axios.post('/insert-analytics', {
                     job,
                     invoice: invoiceWithJob,
