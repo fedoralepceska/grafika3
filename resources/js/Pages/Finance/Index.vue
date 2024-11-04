@@ -32,7 +32,7 @@
                             <button @click="applyFilter" class="btn create-order1">Filter</button>
                         </div>
                         <div class="button flex gap-4">
-                            <button @click="generateInvoice" class="btn create-order">
+                            <button @click="generateInvoices" class="btn create-order" >
                                 Generate Invoice <i class="fa-solid fa-file-invoice-dollar"></i>
                             </button>
                         </div>
@@ -121,6 +121,7 @@ import {reactive} from "vue";
 import OrderJobDetails from "@/Pages/Invoice/OrderJobDetails.vue";
 import ViewLockDialog from "@/Components/ViewLockDialog.vue";
 import RedirectTabs from "@/Components/RedirectTabs.vue";
+import {useToast} from "vue-toastification";
 
 export default {
     components: {Header, MainLayout,Pagination,OrderJobDetails, ViewLockDialog, RedirectTabs },
@@ -147,6 +148,11 @@ export default {
             this.iconStates[invoice.id] = false;
         });
         this.filteredInvoices = this.invoices.data.filter(invoice => !invoice.faktura_id);
+    },
+    computed:{
+        hasSelectedInvoices() {
+            return Object.values(this.selectedInvoices).some(value => value);
+        },
     },
     methods: {
         getImageUrl(id) {
@@ -225,11 +231,28 @@ export default {
         viewInvoice(id) {
             this.$inertia.visit(`/orders/${id}`);
         },
-        generateInvoice() {
-            const selectedInvoiceIds = Object.keys(this.selectedInvoices).filter(id => this.selectedInvoices[id]);
-            if (selectedInvoiceIds.length) {
-                window.open(`/invoice-generation?invoices=${selectedInvoiceIds.join(',')}`, '_blank');
-                // this.$inertia.visit(`/invoiceGeneration?invoices=${selectedInvoiceIds.join(',')}`);
+        async generateInvoices() {
+            const toast = useToast();
+            const selectedIds = Object.entries(this.selectedInvoices)
+                .filter(([, isSelected]) => isSelected)
+                .map(([id]) => id);
+
+            if (selectedIds.length === 0) {
+                toast.error('Please select at least one invoice to generate.');
+                return;
+            }
+
+            try {
+                const response = await axios.post('/outgoing/invoice', { invoiceIds: selectedIds }, {
+                    responseType: 'blob',
+                });
+
+                const blob = new Blob([response.data], { type: 'application/pdf' });
+                const url = window.URL.createObjectURL(blob);
+                window.open(url, '_blank');
+            } catch (error) {
+                console.error('Error generating invoices:', error);
+                toast.error('An error occurred while generating the invoices. Please try again.');
             }
         },
     },

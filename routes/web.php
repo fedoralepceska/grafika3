@@ -80,6 +80,7 @@ Route::middleware(['auth', 'verified'])->group(function() {
     Route::get('/incomingInvoice', [\App\Http\Controllers\IncomingFakturaController::class, 'index'])->name('incomingInvoice.index');
     Route::post('/incomingInvoice', [\App\Http\Controllers\IncomingFakturaController::class, 'store'])->name('incomingInvoice.store');
     Route::get('/invoice-generation', [InvoiceController::class, 'generateAllInvoicesPdf'])->name('invoices.generateAllInvoicesPdf');
+    Route::post('/outgoing/invoice', [InvoiceController::class, 'outgoingInvoicePdf'])->name('invoices.outgoingInvoicePdf');
 
 
 

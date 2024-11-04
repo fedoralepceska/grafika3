@@ -17,6 +17,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
+use Milon\Barcode\DNS1D;
 use ZipArchive;
 
 class InvoiceController extends Controller
@@ -414,6 +415,34 @@ class InvoiceController extends Controller
             return response()->json(['error' => 'Internal Server Error'], 500);
         }
     }
+    public function outgoingInvoicePdf(Request $request)
+    {
+        $invoiceIds = $request->input('invoiceIds', []);
+
+        if (empty($invoiceIds)) {
+            return response()->json(['error' => 'No invoices selected'], 400);
+        }
+
+        $invoices = Invoice::with(['article','client','client.clientCardStatement'])->findOrFail($invoiceIds);
+
+        $dns1d = new DNS1D();
+        foreach ($invoices as $invoice) {
+            $barcodeString = $invoice->id . '-' . date('m-Y', strtotime($invoice->end_date));
+            $invoice->barcodeImage = base64_encode($dns1d->getBarcodePNG($barcodeString, 'C128'));
+        }
+
+        $pdf = PDF::loadView('invoices.outgoing_invoice', [
+            'invoices' => $invoices,
+            'isHtml5ParserEnabled' => true,
+            'isRemoteEnabled' => true,
+            'isFontSubsettingEnabled' => true,
+            'chroot' => storage_path('fonts'),
+            'dpi' => 150,
+        ]);
+
+        return $pdf->stream('OutgoingInvoice.pdf');
+    }
+
     public function showGenerateInvoice(Request $request)
     {
         try {

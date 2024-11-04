@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\InvoiceStatus;
+use App\Http\Controllers\ArticleController;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -28,7 +29,8 @@ class Invoice extends Model
         'revisedArtComplete',
         'rush',
         'additionalArt',
-        'LockedNote'
+        'LockedNote',
+        'article_id'
     ];
 
 
@@ -63,6 +65,9 @@ class Invoice extends Model
 
     public function client() {
         return $this->belongsTo(Client::class, 'client_id');
+    }
+    public function article() {
+        return $this->belongsTo(Article::class, 'article_id');
     }
     public function contact()
     {
