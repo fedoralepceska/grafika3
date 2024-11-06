@@ -425,6 +425,16 @@ class InvoiceController extends Controller
 
         $invoices = Invoice::with(['article','client','client.clientCardStatement'])->findOrFail($invoiceIds);
 
+        // Create a new Faktura instance
+        $faktura = Faktura::create([
+            'isInvoiced' => true,
+            'comment' => '',
+            'created_by' => auth()->id()
+        ]);
+
+        // Associate the retrieved Invoice instances with the new Faktura
+        $faktura->invoices()->saveMany($invoices);
+
         $dns1d = new DNS1D();
         foreach ($invoices as $invoice) {
             $barcodeString = $invoice->id . '-' . date('m-Y', strtotime($invoice->end_date));
