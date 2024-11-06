@@ -189,7 +189,7 @@
     </div>
     @if ($job->file)
         <div style="text-align: center;" >
-            <img src="{{ storage_path('app/public/uploads/' . $job->file) }}" alt="Job Image" style="max-height: 385px; min-height: 385px">
+            <img src="{{ storage_path('app/public/uploads/' . $job->file) }}" alt="Job Image" style="max-height: 375px; min-height: 375px">
         </div>
     @endif
 
@@ -200,9 +200,9 @@
             <td style="padding: 15px; width: 30%">Монтажа и контрола</td>
         </tr>
         <tr>
-            <td style="padding: 15px; border-bottom: 1px solid #cccccc;"></td>
-            <td style="padding: 15px; border-bottom: 1px solid #cccccc;"></td>
-            <td style="padding: 15px; border-bottom: 1px solid #cccccc;"></td>
+            <td style="padding: 15px 15px 0 15px; border-bottom: 1px solid #cccccc;"></td>
+            <td style="padding: 15px 15px 0 15px; border-bottom: 1px solid #cccccc;"></td>
+            <td style="padding: 15px 15px 0 15px; border-bottom: 1px solid #cccccc;"></td>
         </tr>
     </table>
     @if (!$loop->last)
