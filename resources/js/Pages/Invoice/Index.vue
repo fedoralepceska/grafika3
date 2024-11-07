@@ -245,7 +245,7 @@ export default {
     justify-content: space-between;
 }
 .jobInfo{
-    justify-items: center;
+
     align-items: center;
 }
 .locked{

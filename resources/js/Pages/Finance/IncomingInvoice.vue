@@ -133,7 +133,6 @@ export default {
     justify-content: center;
 }
 .jobInfo{
-    justify-items: center;
     align-items: center;
 }
 .locked{
