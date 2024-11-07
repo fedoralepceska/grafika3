@@ -116,6 +116,7 @@ export default {
 }
 .height {
     height: calc(100vh - 450px);
+    min-height: 250px;
 }
 .form-group {
     display: flex;

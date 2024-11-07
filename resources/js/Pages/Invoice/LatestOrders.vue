@@ -142,6 +142,7 @@ export default {
     margin-left: 40px;
     background-color: $light-gray;
     overflow: auto;
+    min-width: 200px;
     white-space: nowrap;
     padding: 10px;
 }
