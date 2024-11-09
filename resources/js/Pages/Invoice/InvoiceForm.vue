@@ -13,9 +13,7 @@
                                     <h2 class="sub-title uppercase">{{ $t('clientDetails') }}</h2>
                                     <div class="form-group gap-4">
                                         <label for="invoice_title">{{ $t('invoiceTitle') }}:</label>
-                                        <VueMultiselect v-model="invoice.selected_article" :options="articles.data" placeholder="Select one" label="name"
-                                                     track-by="name" deselectLabel="" selectLabel="">
-                                        </VueMultiselect>
+                                        <input type="text" v-model="invoice.invoice_title" id="invoice_title" class="text-gray-700" required>
                                     </div>
                                     <div class="form-group gap-4">
                                         <label for="client">{{ $t('client') }}:</label>
@@ -107,7 +105,6 @@ import TabV2 from "@/Components/tabs/TabV2.vue";
 import TabsWrapperV2 from "@/Components/tabs/TabsWrapperV2.vue";
 import Header from "@/Components/Header.vue";
 import OrderLines from "@/Pages/Invoice/OrderLines.vue";
-import VueMultiselect from "vue-multiselect";
 
 
 export default {
@@ -123,7 +120,6 @@ export default {
         DragAndDrop,
         MainLayout,
         PrimaryButton,
-        VueMultiselect
     },
     data() {
         return {
@@ -134,11 +130,9 @@ export default {
                 invoice_title: this.invoiceData?.invoice_title || '',
                 comment: '',
                 contact_id: this.invoiceData?.contact_id || 0,
-                selected_article: null,
             },
             clients: [],
             invoices: [],
-            articles: [],
             selectedClientPhone: this.invoiceData?.client?.phone || '',
             selectedClientCompany: this.invoiceData?.client?.company || '',
             updatedJobs: [],
@@ -163,7 +157,6 @@ export default {
         if (!this.contacts.length) {
             await this.fetchContacts();
         }
-        await this.fetchArticles();
         await this.fetchJobs();
     },
     computed: {
@@ -196,14 +189,6 @@ export default {
                 this.invoices = response.data;
             } catch (error) {
                 console.error("Failed to fetch invoices:", error);
-            }
-        },
-        async fetchArticles() {
-            try {
-                let response = await axios.get('/articles'); // Adjust this endpoint to your API route
-                this.articles = response.data;
-            } catch (error) {
-                console.error("Failed to fetch articles:", error);
             }
         },
         async fetchClients() {
@@ -290,19 +275,6 @@ export default {
     },
 };
 </script>
-<style>
-.multiselect__input {
-    color: white !important;
-    border-color: white !important;
-}
-.multiselect {
-    width: 60%;
-}
-.multiselect__tags {
-    border-radius: 3px;
-}
-</style>
-
 <style scoped lang="scss">
 input, select{
     width: 60%;

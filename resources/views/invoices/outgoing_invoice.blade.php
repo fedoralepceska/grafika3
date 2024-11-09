@@ -149,7 +149,7 @@
                 <tr>
                     <td>Бр.</td>
                     <td>Шифра</td>
-                    <td>Име на артикал</td>
+                    <td>Име</td>
                     <td>Е.М.</td>
                     <td>Кол</td>
                     <td>Цена без П</td>
@@ -166,18 +166,18 @@
             @foreach($invoice->jobs as $job)
                 <tr >
                     <td>{{ $loop->iteration }}.</td>
-                    <td>{{$invoice->article->code}}</td>
-                    <td>{{$invoice->article->name}}</td>
+                    <td>000</td>
+                    <td>{{$invoice->invoice_title}}</td>
                     <td>{{getUnit($job)}}</td>
-                    <td>{{$job->copies}}</td>
-                    <td>{{priceWithVAT($invoice->article)}} </td>
+                    <td>{{ $invoice->copies }}</td>
+                    <td>{{ $invoice->priceWithTax }} </td>
                     <td>0%</td>
-                    <td>{{$invoice->article->price_1}}</td>
-                    <td>{{getVat($invoice->article)}}%</td>
-                    <td>{{priceWithVAT($invoice->article)}}</td>
-                    <td>{{$job->copies * $invoice->article->price_1}}</td>
-                    <td>{{($job->copies * $invoice->article->price_1) * getVat($invoice->article) / 100 }}</td>
-                    <td>{{($job->copies * $invoice->article->price_1)+($job->copies * $invoice->article->price_1) * getVat($invoice->article) / 100 }}</td>
+                    <td>{{ $invoice->totalSalePrice }}</td>
+                    <td>{{ $invoice->taxRate }}%</td>
+                    <td>{{ $invoice->priceWithTax }}</td>
+                    <td>{{ $invoice->totalSalePrice }}</td>
+                    <td>{{ $invoice->taxAmount }}</td>
+                    <td>{{ $invoice->priceWithTax }}</td>
                 </tr>
             @endforeach
             </tbody>
@@ -185,65 +185,6 @@
         </table>
 
     </div>
-    {{--    <div class="invoice-details">--}}
-    {{--        <div>--}}
-    {{--            <p><strong>Фактура Бр. {{ $invoice->invoice_number }}</strong></p>--}}
-    {{--            <p>Датум: {{ $invoice->invoice_date->format('d.m.Y') }}</p>--}}
-    {{--            <p>Валута: {{ $invoice->due_date->format('d.m.Y') }}</p>--}}
-    {{--        </div>--}}
-    {{--        <div>--}}
-    {{--            <p><strong>{{ $invoice->client->name }}</strong></p>--}}
-    {{--            <p>{{ $invoice->client->address }}</p>--}}
-    {{--            <p>{{ $invoice->client->phone }}</p>--}}
-    {{--            <p>ЕДБ : {{ $invoice->client->tax_number }}</p>--}}
-    {{--        </div>--}}
-    {{--    </div>--}}
-
-    {{--    <table>--}}
-    {{--        <thead>--}}
-    {{--        <tr>--}}
-    {{--            <th>Бр.</th>--}}
-    {{--            <th>Шифра</th>--}}
-    {{--            <th>Име на артикал</th>--}}
-    {{--            <th>Кол</th>--}}
-    {{--            <th>Цена</th>--}}
-    {{--            <th>ДДВ %</th>--}}
-    {{--            <th>Данок</th>--}}
-    {{--            <th>Вкупно</th>--}}
-    {{--        </tr>--}}
-    {{--        </thead>--}}
-    {{--        <tbody>--}}
-    {{--        @foreach($invoice->items as $item)--}}
-    {{--            <tr>--}}
-    {{--                <td>{{ $loop->iteration }}</td>--}}
-    {{--                <td>{{ $item->code }}</td>--}}
-    {{--                <td>{{ $item->name }}</td>--}}
-    {{--                <td>{{ number_format($item->quantity, 2) }}</td>--}}
-    {{--                <td>{{ number_format($item->price, 3) }}</td>--}}
-    {{--                <td>{{ number_format($item->vat_rate, 2) }}</td>--}}
-    {{--                <td>{{ number_format($item->vat_amount, 2) }}</td>--}}
-    {{--                <td>{{ number_format($item->total, 2) }}</td>--}}
-    {{--            </tr>--}}
-    {{--        @endforeach--}}
-    {{--        </tbody>--}}
-    {{--    </table>--}}
-
-    {{--    <div class="totals">--}}
-    {{--        <p>Вкупно без ДДВ: {{ number_format($invoice->subtotal, 2) }} ден.</p>--}}
-    {{--        <p>ДДВ: {{ number_format($invoice->vat_amount, 2) }} ден.</p>--}}
-    {{--        <p><strong>Вкупно за плаќање: {{ number_format($invoice->total, 2) }} ден.</strong></p>--}}
-    {{--        <p>Со зборови: {{ $invoice->total_in_words }}</p>--}}
-    {{--    </div>--}}
-
-    {{--    <p>За ненавремено плаќање пресметуваме еднократен надомест, согласно Законот за финансиска дисциплина, од 3000.00 Ден.</p>--}}
-    {{--    <p>Рок на плаќање: {{ $invoice->payment_terms }} Дена од прием на фактурата</p>--}}
-
-    {{--    <div style="margin-top: 40px;">--}}
-    {{--        <p>Овластено Лице за потпишување на фактури: {{ $invoice->authorized_person }}</p>--}}
-    {{--        <p>Составил: {{ $invoice->prepared_by }}</p>--}}
-    {{--        <p>Печател: {{ $invoice->printed_by }}   {{ $invoice->printed_at->format('d.m.Y H:i') }}</p>--}}
-    {{--    </div>--}}
-
     <footer style="text-align: center; margin-top: 40px;">
         <p>Copyright © 2002-{{ date('Y') }} , ONYX Software</p>
     </footer>

@@ -4,9 +4,12 @@ namespace App\Http\Controllers;
 
 use App\Enums\JobAction;
 use App\Events\InvoiceCreated;
+use App\Models\Article;
 use App\Models\Faktura;
 use App\Models\Invoice;
 use App\Models\Job;
+use App\Models\LargeFormatMaterial;
+use App\Models\SmallMaterial;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Exception;
 use Illuminate\Http\Request;
@@ -101,26 +104,19 @@ class InvoiceController extends Controller
     public function store(Request $request)
     {
         $request->validate([
+            'invoice_title' => 'required',
             'client_id' => 'required',
             'contact_id' => 'required',
             'start_date' => 'required|date',
             'end_date' => 'required|date',
             'comment' => 'string|nullable',
             'jobs' => 'array',
-            'selected_article' => 'required'
         ]);
 
         $invoiceData = $request->all();
 
         // Create the invoice
-        $invoice = new Invoice();
-        $invoice->client_id = $invoiceData['client_id'];
-        $invoice->contact_id = $invoiceData['contact_id'];
-        $invoice->start_date = $invoiceData['start_date'];
-        $invoice->end_date = $invoiceData['end_date'];
-        $invoice->comment = $invoiceData['comment'];
-        $invoice->article_id = $invoiceData['selected_article']['id'];
-        $invoice->invoice_title = $invoiceData['selected_article']['name'];
+        $invoice = new Invoice($invoiceData);
         $invoice->status = 'Not started yet';
         $invoice->created_by = Auth::id();
 
@@ -433,12 +429,38 @@ class InvoiceController extends Controller
         ]);
 
         // Associate the retrieved Invoice instances with the new Faktura
+        $invoices = is_array($invoices) ? $invoices : [$invoices];
         $faktura->invoices()->saveMany($invoices);
 
         $dns1d = new DNS1D();
         foreach ($invoices as $invoice) {
             $barcodeString = $invoice->id . '-' . date('m-Y', strtotime($invoice->end_date));
             $invoice->barcodeImage = base64_encode($dns1d->getBarcodePNG($barcodeString, 'C128'));
+
+            $totalSalePrice = 0;
+            $totalCopies = 0;
+
+            // Sum the salePrice for all jobs in this invoice
+            foreach ($invoice->jobs as $job) {
+                $totalSalePrice += $job->salePrice;
+                $totalCopies += $job->copies;
+            }
+
+            // Define the tax rate
+            $taxRate = 0.18;
+
+            // Calculate total price with tax
+            $priceWithTax = $totalSalePrice * (1 + $taxRate);
+
+            // Calculate the tax amount
+            $taxAmount = $totalSalePrice * $taxRate;
+
+            // Now, append the calculated values to the invoice or process as needed
+            $invoice->totalSalePrice = $totalSalePrice;
+            $invoice->taxRate = $taxRate * 100; // Convert to percentage (e.g., 18%)
+            $invoice->priceWithTax = $priceWithTax;
+            $invoice->taxAmount = $taxAmount;
+            $invoice->copies = $totalCopies;
         }
 
         $pdf = PDF::loadView('invoices.outgoing_invoice', [
@@ -522,7 +544,6 @@ class InvoiceController extends Controller
         } catch (\Exception $e) {
             // Rollback the transaction in case of error
             DB::rollback();
-            dd($e);
 
             // Return error response
             return response()->json(['error' => 'Failed to create Faktura'], 500);

@@ -231,7 +231,7 @@ export default {
                     actions: actions
                 };
             });
-            console.log(this.selectedMachineCut, this.selectedMachinePrint);
+            console.log(this.selectedMaterialSmall, this.selectedMaterial);
             axios.post('/sync-all-jobs', {
                 selectedMaterial: this.selectedMaterial.id,
                 selectedMachinePrint: this.selectedMachinePrint,
@@ -245,7 +245,7 @@ export default {
             })
                 .then(response => {
                     toast.success(`Successfully synced ${jobIds.length} jobs!`);
-                    jobIds = this.jobs.map(job => job.id)
+                    jobIds = this.jobs.map(job => job.id);
                     axios.post('/get-jobs-by-ids', {
                         jobs: jobIds,
                     })
@@ -257,7 +257,13 @@ export default {
                         });
                 })
                 .catch(error => {
-                    toast.error("Couldn't sync jobs");
+                    if (error.response && error.response.data.message) {
+                        // Specific error message from the backend
+                        toast.error(error.response.data.message);
+                    } else {
+                        // Generic error message
+                        toast.error("Couldn't sync jobs");
+                    }
                 });
         },
         syncAllWithShipping() {

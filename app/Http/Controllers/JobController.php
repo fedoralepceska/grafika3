@@ -106,6 +106,9 @@ class JobController extends Controller
     }
 
 
+    /**
+     * @throws \Exception
+     */
     public function syncAllJobs(Request $request): \Illuminate\Http\JsonResponse
     {
         // Validate the request and ensure the selected material is provided
@@ -152,23 +155,27 @@ class JobController extends Controller
                 $actions[] = new JobAction([
                     'name' => $actionData['action_id']['name'],
                     'status' => $actionData['status'],
-                    'quantity' => $actionData['quantity']
+                    'quantity' => $actionData['quantity'] ?? 0
                 ]);
                 $small_material = null;
                 $large_material = null;
-                if (array_key_exists('large_material_id', $actionData['action_id']) && !empty($actionData['action_id']['large_material_id'])) {
-                    $large_material = LargeFormatMaterial::find($actionData['action_id']['large_material_id']);
-                    if (array_key_exists('quantity', $actionData)) {
-                        $large_material->quantity -= $actionData['quantity'];
-                        $large_material->save();
+                // Update Large Material
+                if ($selectedMaterial) {
+                    $large_material = LargeFormatMaterial::find($selectedMaterial);
+                    if ($large_material->quantity - $copies < 0) {
+                        throw new \Exception("Insufficient large material quantity.");
                     }
+                    $large_material->quantity -= $copies;
+                    $large_material->save();
                 }
-                if (array_key_exists('small_material_id', $actionData['action_id']) && !empty($actionData['action_id']['small_material_id'])) {
-                    $small_material = SmallMaterial::find($actionData['action_id']['small_material_id']);
-                    if (array_key_exists('quantity', $actionData)) {
-                        $small_material->quantity -= $actionData['quantity'];
-                        $small_material->save();
+                // Update Small Material
+                if ($selectedMaterialSmall) {
+                    $small_material = SmallMaterial::find($selectedMaterialSmall);
+                    if ($small_material->quantity - $copies < 0) {
+                        throw new \Exception("Insufficient small material quantity.");
                     }
+                    $small_material->quantity -= $copies;
+                    $small_material->save();
                 }
             }
 
