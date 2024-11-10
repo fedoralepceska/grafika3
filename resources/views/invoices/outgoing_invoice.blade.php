@@ -181,11 +181,94 @@
                 </tr>
             @endforeach
             </tbody>
-
         </table>
-
     </div>
-    <footer style="text-align: center; margin-top: 40px;">
+        <table style="width: 100%; border-collapse: collapse;">
+            <tr>
+                <!-- First Table Wrapper in the First Column -->
+                <td style="vertical-align: top; padding-top: 2px">
+                    <table style="border-collapse: collapse; width: fit-content; text-align: center; font-size: 9px;">
+                        <thead>
+                        <tr>
+                            <th style="border: 1px solid black; padding: 3px;">Данок</th>
+                            <th style="border: 1px solid black; padding: 3px;">ДДВ %</th>
+                            <th style="border: 1px solid black; padding: 3px;">ДДВ Основа</th>
+                            <th style="border: 1px solid black; padding: 3px;">Данок</th>
+                            <th style="border: 1px solid black; padding: 3px;">Вкупно</th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        @php
+                            // Example data
+                            $ddvData = [
+                                ['danok' => 'ДДВ А', 'ddv_percent' => 18.00],
+                                ['danok' => 'ДДВ Б', 'ddv_percent' => 0.00],
+                                ['danok' => 'ДДВ В', 'ddv_percent' => 0.00],
+                                ['danok' => 'ДДВ Г', 'ddv_percent' => 0.00],
+                            ];
+                        @endphp
+                        @foreach ($ddvData as $data)
+                            <tr>
+                                <td style="border: 1px solid black; padding: 1px;">{{ $data['danok'] }}</td>
+                                <td style="border: 1px solid black; padding: 1px;">00</td>
+                                <td style="border: 1px solid black; padding: 1px;">00</td>
+                                <td style="border: 1px solid black; padding: 1px;">00</td>
+                                <td style="border: 1px solid black; padding: 1px;">00</td>
+                            </tr>
+                        @endforeach
+                        </tbody>
+                        <tfoot>
+                        <tr>
+                            <td colspan="2" style="border:none"></td>
+                            <td style="border: 1px solid black; padding: 3px;"><strong>00</strong></td>
+                            <td style="border: 1px solid black; padding: 3px;"><strong>00</strong></td>
+                            <td style="border: 1px solid black; padding: 3px;"><strong>00</strong></td>
+                        </tr>
+                        </tfoot>
+                    </table>
+                </td>
+
+                <!-- Second Table Wrapper in the Second Column -->
+                <td style="vertical-align: top; padding-top: 2px;">
+                    <table style="font-size: 9px; text-align: center; border: 1px solid black; width: 100%;">
+                        <tbody>
+                        <tr>
+                            <td style="border: 1px solid black; padding: 1px; text-align: right;"><strong>Основа :</strong></td>
+                            <td style="border: 1px solid black; padding: 1px; text-align: right;">00</td>
+                        </tr>
+                        <tr>
+                            <td style="border: 1px solid black; padding: 1px; text-align: right;"><strong>Попуст :</strong></td>
+                            <td style="border: 1px solid black; padding: 1px;">
+                                <table style="width: 100%; border-collapse: collapse;">
+                                    <tr>
+                                        <td style="text-align: left; white-space: nowrap;">
+                                            00 <span style="border: 1px solid black; padding: 2px;">%</span>
+                                        </td>
+                                        <td style="text-align: right; white-space: nowrap;">
+                                            00
+                                        </td>
+                                    </tr>
+                                </table>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td style="border: 1px solid black; padding: 1px; text-align: right;"><strong>Износ :</strong></td>
+                            <td style="border: 1px solid black; padding: 1px; text-align: right;">00</td>
+                        </tr>
+                        <tr>
+                            <td style="border: 1px solid black; padding: 1px; text-align: right;"><strong>Данок :</strong></td>
+                            <td style="border: 1px solid black; padding: 1px; text-align: right;">00</td>
+                        </tr>
+                        <tr>
+                            <td style="border: 1px solid black; padding: 1px; text-align: right;"><strong>Вкупно :</strong></td>
+                            <td style="border: 1px solid black; padding: 1px; text-align: right;"><strong>00</strong></td>
+                        </tr>
+                        </tbody>
+                    </table>
+                </td>
+            </tr>
+        </table>
+    <footer style="text-align: center; margin-top: 40px; font-size: 8px">
         <p>Copyright © 2002-{{ date('Y') }} , ONYX Software</p>
     </footer>
 

@@ -388,6 +388,7 @@ export default {
 </script>
 <style scoped lang="scss">
 .main {
+    margin-bottom: 10px;
     display: flex;
     flex-direction: column;
     flex-grow: 1;
