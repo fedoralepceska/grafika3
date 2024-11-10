@@ -1,7 +1,7 @@
 <template>
     <MainLayout>
         <div class="pl-7 pr-7">
-            <Header title="article" subtitle="addNewArticle" icon="Materials.png"/>
+            <Header title="article" subtitle="addNewArticle" icon="Materials.png" link="articles"/>
             <div class="dark-gray p-5">
                 <div class="form-container p-2 light-gray">
                     <h2 class="sub-title">
@@ -180,6 +180,7 @@ export default {
                     pprice: '',
                     price: ''
                 };
+                this.$inertia.visit(`/articles`);
             } catch (error) {
                 console.error(error);
                 this.toast.error('Failed to add article');
