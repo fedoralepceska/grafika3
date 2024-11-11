@@ -17,8 +17,28 @@
             font-weight: bold;
             font-style: normal;
         }
-        body {
+        html, body {
             font-family: 'Tahoma', sans-serif;
+            height: 100%;
+            margin: 0;
+        }
+
+        .flex-container {
+            position: relative;
+            min-height: 100vh; /* Full height for each page */
+            padding: 20px 20px 100px 20px ;
+            box-sizing: border-box;
+        }
+
+        .footer {
+            position: absolute;
+            bottom: 0;
+            width: 95%;
+            margin-bottom: 40px;
+            justify-content: center;
+        }
+        .content {
+            flex-grow: 1; /* Expands to fill the remaining space, pushing footer to the bottom */
         }
         .header {
             text-align: left;
@@ -94,11 +114,55 @@
 
         .invoice-details { display: flex; justify-content: space-between; margin-bottom: 20px; }
 
+        .invoice-note {
+            font-size: 8px;
+            margin-top: 20px;
+        }
+        .invoice-note p {
+            margin: 0;
+        }
+        .invoice-note .line {
+            border-top: 1px solid black;
+        }
+        .payment-due {
+            display: flex;
+            align-items: center;
+            margin-top: 10px;
+        }
+        .payment-due .days-input {
+            width: 50px;
+            border: none;
+            border-bottom: 1px solid black;
+            margin: 0 5px;
+            text-align: center;
+        }
+
+        .footer-table {
+            width: 100%;
+            font-size: 9px;
+            text-align: center;
+            margin-top: 20px;
+            table-layout: fixed;
+        }
+        .footer-table td {
+            vertical-align: top;
+            padding: 5px;
+            width: 33.33%;
+        }
+        .footer-table .line {
+            margin-top: 20px;
+            border-top: 1px solid black;
+            width: 80%;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
         .page-break { page-break-after: always; }
     </style>
 </head>
 <body>
-
+<div class="flex-container">
+    <div class="content">
     <div class="header">
         <div class="title">Графика Плус доо</div>
         <div class="header-content">
@@ -199,30 +263,34 @@
                         </thead>
                         <tbody>
                         @php
-                            // Example data
+
                             $ddvData = [
-                                ['danok' => 'ДДВ А', 'ddv_percent' => 18.00],
-                                ['danok' => 'ДДВ Б', 'ddv_percent' => 0.00],
-                                ['danok' => 'ДДВ В', 'ddv_percent' => 0.00],
-                                ['danok' => 'ДДВ Г', 'ddv_percent' => 0.00],
+                                ['danok' => 'ДДВ А', 'ddv_percent' => '18.00'],
+                                ['danok' => 'ДДВ Б', 'ddv_percent' => '5.00'],
+                                ['danok' => 'ДДВ В', 'ddv_percent' => '10.00'],
+                                ['danok' => 'ДДВ Г', 'ddv_percent' => '0.00'],
                             ];
                         @endphp
                         @foreach ($ddvData as $data)
+                            @php
+                                $totals = calculateTotalsByTaxRate($invoices, (float) $data['ddv_percent']);
+                                $verticalSums = calculateVerticalSums($invoices);
+                            @endphp
                             <tr>
                                 <td style="border: 1px solid black; padding: 1px;">{{ $data['danok'] }}</td>
-                                <td style="border: 1px solid black; padding: 1px;">00</td>
-                                <td style="border: 1px solid black; padding: 1px;">00</td>
-                                <td style="border: 1px solid black; padding: 1px;">00</td>
-                                <td style="border: 1px solid black; padding: 1px;">00</td>
+                                <td style="border: 1px solid black; padding: 1px;">{{ $data['ddv_percent'] }}</td>
+                                <td style="border: 1px solid black; padding: 1px;" class="totaldyanmicprice">{{ number_format($totals['totalPriceWithTax'], 2) }}</td>
+                                <td style="border: 1px solid black; padding: 1px;" class="totaldyanmicdanok">{{ number_format($totals['totalTaxAmount'], 2) }}</td>
+                                <td style="border: 1px solid black; padding: 1px;" class="totaldynamicoverall">{{ number_format($totals['totalOverall'], 2) }}</td>
                             </tr>
                         @endforeach
                         </tbody>
                         <tfoot>
                         <tr>
                             <td colspan="2" style="border:none"></td>
-                            <td style="border: 1px solid black; padding: 3px;"><strong>00</strong></td>
-                            <td style="border: 1px solid black; padding: 3px;"><strong>00</strong></td>
-                            <td style="border: 1px solid black; padding: 3px;"><strong>00</strong></td>
+                            <td style="border: 1px solid black; padding: 3px;"><strong>{{ number_format($verticalSums['totalPriceWithTaxSum'], 2) }}</strong></td>
+                            <td style="border: 1px solid black; padding: 3px;"><strong>{{ number_format($verticalSums['totalTaxSum'], 2) }}</strong></td>
+                            <td style="border: 1px solid black; padding: 3px;"><strong>{{ number_format($verticalSums['totalOverallSum'], 2) }}</strong></td>
                         </tr>
                         </tfoot>
                     </table>
@@ -234,7 +302,7 @@
                         <tbody>
                         <tr>
                             <td style="border: 1px solid black; padding: 1px; text-align: right;"><strong>Основа :</strong></td>
-                            <td style="border: 1px solid black; padding: 1px; text-align: right;">00</td>
+                            <td style="border: 1px solid black; padding: 1px; text-align: right;">{{ number_format($verticalSums['totalPriceWithTaxSum'], 2) }}</td>
                         </tr>
                         <tr>
                             <td style="border: 1px solid black; padding: 1px; text-align: right;"><strong>Попуст :</strong></td>
@@ -253,24 +321,53 @@
                         </tr>
                         <tr>
                             <td style="border: 1px solid black; padding: 1px; text-align: right;"><strong>Износ :</strong></td>
-                            <td style="border: 1px solid black; padding: 1px; text-align: right;">00</td>
+                            <td style="border: 1px solid black; padding: 1px; text-align: right;">{{ number_format($verticalSums['totalPriceWithTaxSum'], 2) }}</td>
                         </tr>
                         <tr>
                             <td style="border: 1px solid black; padding: 1px; text-align: right;"><strong>Данок :</strong></td>
-                            <td style="border: 1px solid black; padding: 1px; text-align: right;">00</td>
+                            <td style="border: 1px solid black; padding: 1px; text-align: right;">{{ number_format($verticalSums['totalTaxSum'], 2) }}</td>
                         </tr>
                         <tr>
                             <td style="border: 1px solid black; padding: 1px; text-align: right;"><strong>Вкупно :</strong></td>
-                            <td style="border: 1px solid black; padding: 1px; text-align: right;"><strong>00</strong></td>
+                            <td style="border: 1px solid black; padding: 1px; text-align: right;"><strong>{{ number_format($verticalSums['totalOverallSum'], 2) }}</strong></td>
                         </tr>
                         </tbody>
                     </table>
                 </td>
             </tr>
         </table>
-    <footer style="text-align: center; margin-top: 40px; font-size: 8px">
-        <p>Copyright © 2002-{{ date('Y') }} , ONYX Software</p>
-    </footer>
+        </div>
+        <footer class="footer">
+            <div class="invoice-note">
+                <div class="line"></div>
+                <p>За ненавремено плаќање пресметуваме еднократен надомест, согласно Законот за финансиска дисциплина, од 3000.00 Ден.</p>
+                <div class="payment-due" style="padding-bottom: 30px">
+                    <span>Рок на плаќање:</span>
+                    <input type="text" class="days-input" readonly value=""> Дена од прием на фактурата
+                </div>
+                <div class="line"></div>
+            </div>
+            <table class="footer-table">
+                <tr>
+                    <td>
+                        <strong>Примил</strong><br>
+                        {{$invoice['client']['name']}}
+                        <div class="line"></div>
+                    </td>
+                    <td>
+                        <div><strong>Составил :</strong> Петранка Димоска  &nbsp;  {{$invoice['end_date']}}</div>
+                        <div><strong>Печатил :</strong> Петранка Димоска &nbsp; {{$invoice['end_date']}}</div>
+                        <div style="font-size: 8px">Copyright © 2024, ERP </div>
+                    </td>
+                    <td>
+                        <strong>Овластено Лице за потпишување на фактури</strong><br>
+                        Петранка Димоска
+                        <div class="line"></div>
+                    </td>
+                </tr>
+            </table>
+        </footer>
+    </div>
 
     @if(!$loop->last)
         <div class="page-break"></div>

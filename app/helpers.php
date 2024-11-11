@@ -57,3 +57,48 @@ if (!function_exists('priceWithVAT')) {
         return formatNumber($totalPrice);
     }
 }
+
+if (!function_exists('calculateTotalsByTaxRate')) {
+    function calculateTotalsByTaxRate($invoices, $taxRate) {
+        $totalPriceWithTax = 0;
+        $totalTaxAmount = 0;
+
+        foreach ($invoices as $invoice) {
+            if ($invoice['taxRate'] == $taxRate) {
+                $totalPriceWithTax += $invoice['priceWithTax'];
+                $totalTaxAmount += $invoice['taxAmount'];
+            }
+        }
+
+        // Calculate the total overall as the sum of price with tax and tax amount
+        $totalOverall = $totalPriceWithTax + $totalTaxAmount;
+
+        return [
+            'totalPriceWithTax' => $totalPriceWithTax,
+            'totalTaxAmount' => $totalTaxAmount,
+            'totalOverall' => $totalOverall
+        ];
+    }
+}
+// app/helpers.php
+
+if (!function_exists('calculateVerticalSums')) {
+    function calculateVerticalSums($invoices) {
+        $totalOverallSum = 0;
+        $totalTaxSum = 0;
+        $totalPriceWithTaxSum = 0;
+
+        foreach ($invoices as $invoice) {
+            $totalPriceWithTaxSum += $invoice['priceWithTax'];
+            $totalTaxSum += $invoice['taxAmount'];
+            $totalOverallSum += $invoice['priceWithTax'] + $invoice['taxAmount'];
+        }
+
+        return [
+            'totalPriceWithTaxSum' => $totalPriceWithTaxSum,
+            'totalTaxSum' => $totalTaxSum,
+            'totalOverallSum' => $totalOverallSum
+        ];
+    }
+}
+
