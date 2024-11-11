@@ -189,17 +189,10 @@ export default {
         },
         async printInvoice() {
             const toast = useToast();
-            const selectedIds = this.invoice[0].id;
-
-            if (selectedIds.length === 0 || !selectedIds) {
-                toast.error('Please select at least one invoice to generate.');
-                return;
-            }
-
-            console.log(selectedIds, this.invoice);
+            const selectedId = this.invoice[0].id;
 
             try {
-                const response = await axios.post('/outgoing/invoice', { invoiceIds: selectedIds }, {
+                const response = await axios.post('/outgoing/invoice', { invoiceIds: [selectedId], generated: true }, {
                     responseType: 'blob',
                 });
 
@@ -208,7 +201,7 @@ export default {
                 window.open(url, '_blank');
             } catch (error) {
                 console.error('Error generating invoices:', error);
-                toast.error('An error occurred while generating the invoices. Please try again.');
+                toast.error('An error occurred while generating the invoice. Please try again.');
             }
         },
     },

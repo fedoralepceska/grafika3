@@ -424,9 +424,11 @@ class InvoiceController extends Controller
             return response()->json(['error' => 'Internal Server Error'], 500);
         }
     }
+
     public function outgoingInvoicePdf(Request $request)
     {
         $invoiceIds = $request->input('invoiceIds', []);
+        $isAlreadyGenerated = $request->input('generated', false);
 
         if (empty($invoiceIds)) {
             return response()->json(['error' => 'No invoices selected'], 400);
@@ -435,40 +437,36 @@ class InvoiceController extends Controller
         $invoices = Invoice::with(['article','client','client.clientCardStatement'])->findOrFail($invoiceIds);
 
         $dns1d = new DNS1D();
-        foreach ($invoices as $invoice) {
+        // Create a transformed array for PDF generation without modifying the original invoices
+        $transformedInvoices = $invoices->map(function ($invoice) use ($dns1d) {
             $barcodeString = $invoice->id . '-' . date('m-Y', strtotime($invoice->end_date));
-            $invoice->barcodeImage = base64_encode($dns1d->getBarcodePNG($barcodeString, 'C128'));
+            $barcodeImage = base64_encode($dns1d->getBarcodePNG($barcodeString, 'C128'));
 
-            $totalSalePrice = 0;
-            $totalCopies = 0;
+            $totalSalePrice = $invoice->jobs->sum('salePrice');
+            $totalCopies = $invoice->jobs->sum('copies');
 
-            // Sum the salePrice for all jobs in this invoice
-            foreach ($invoice->jobs as $job) {
-                $totalSalePrice += $job->salePrice;
-                $totalCopies += $job->copies;
-            }
-
-            // Define the tax rate
             $taxRate = 0.18;
-
-            // Calculate total price with tax
             $priceWithTax = $totalSalePrice * (1 + $taxRate);
-
-            // Calculate the tax amount
             $taxAmount = $totalSalePrice * $taxRate;
 
-            // Now, append the calculated values to the invoice or process as needed
-            $invoice->totalSalePrice = $totalSalePrice;
-            $invoice->taxRate = $taxRate * 100; // Convert to percentage (e.g., 18%)
-            $invoice->priceWithTax = $priceWithTax;
-            $invoice->taxAmount = $taxAmount;
-            $invoice->copies = $totalCopies;
-        }
+            // Return a new array for this invoice with the required fields
+            return array_merge(
+                $invoice->toArray(),
+                [
+                    'barcodeImage' => $barcodeImage,
+                    'totalSalePrice' => $totalSalePrice,
+                    'taxRate' => $taxRate * 100,
+                    'priceWithTax' => $priceWithTax,
+                    'taxAmount' => $taxAmount,
+                    'copies' => $totalCopies,
+                ]
+            );
+        })->toArray(); // Convert the collection to an array for the PDF
 
         // Attempt to generate the PDF before creating Faktura
         try {
             $pdf = PDF::loadView('invoices.outgoing_invoice', [
-                'invoices' => $invoices,
+                'invoices' => $transformedInvoices,
                 'isHtml5ParserEnabled' => true,
                 'isRemoteEnabled' => true,
                 'isFontSubsettingEnabled' => true,
@@ -476,23 +474,22 @@ class InvoiceController extends Controller
                 'dpi' => 150,
             ]);
 
-            // If PDF generation succeeds, create and store the Faktura
-            $faktura = Faktura::create([
-                'isInvoiced' => true,
-                'comment' => '',
-                'created_by' => auth()->id()
-            ]);
+            if (!$isAlreadyGenerated) {
+                // Create and store the Faktura
+                $faktura = Faktura::create([
+                    'isInvoiced' => true,
+                    'comment' => '',
+                    'created_by' => auth()->id()
+                ]);
 
-            // Associate the retrieved Invoice instances with the new Faktura
-            $invoices = is_array($invoices) ? $invoices : [$invoices];
-            $faktura->invoices()->saveMany($invoices);
+                // Associate the retrieved Invoice instances with the new Faktura
+                $faktura->invoices()->saveMany($invoices->all());
+            }
 
-            // Return the generated PDF
             return $pdf->stream('OutgoingInvoice.pdf');
 
         } catch (\Exception $e) {
-            // Handle PDF generation failure (e.g., log the error, return a response)
-            return response()->json(['error' => 'PDF generation failed.'], 500);
+            return response()->json(['error' => $e->getMessage()], 500);
         }
     }
 

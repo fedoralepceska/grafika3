@@ -250,6 +250,7 @@ export default {
                 const blob = new Blob([response.data], { type: 'application/pdf' });
                 const url = window.URL.createObjectURL(blob);
                 window.open(url, '_blank');
+                this.searchInvoices();
             } catch (error) {
                 console.error('Error generating invoices:', error);
                 toast.error('An error occurred while generating the invoices. Please try again.');

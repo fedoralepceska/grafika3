@@ -117,26 +117,26 @@
             {{--                    <img src="data:image/png;base64,{{ $invoice->barcodeImage }}" alt="Invoice Barcode">--}}
             {{--                </div>--}}
                             <div class="o-inf">
-                                    No.     {{ $invoice->id . '-' . date('m-Y', strtotime($invoice->end_date)) }}
+                                    No.     {{ $invoice['id'] . '-' . date('m-Y', strtotime($invoice['end_date'])) }}
                             </div>
                             <div class="ispratnica">Испратница Бр:</div>
                             <div class="invoice-number">
-                                Фактура Бр.  {{ $invoice->id . '-' . date('m-Y', strtotime($invoice->end_date)) }}
+                                Фактура Бр.  {{ $invoice['id'] . '-' . date('m-Y', strtotime($invoice['end_date'])) }}
                             </div>
                         </td>
                         <td class="client-info right">
                             <div class="client-border">
-                                <div class="client-name">{{$invoice->client->name}}</div>
+                                <div class="client-name">{{$invoice['client']['name']}}</div>
                                 <div class="contact-info">
-                                    <div>{{$invoice->client->clientCardStatement ?-> fax}}</div>
-                                    <div>{{$invoice->client->address}}</div>
+                                    <div>{{$invoice['client']['client_card_statement']['fax'] || ''}}</div>
+                                    <div>{{$invoice['client']['address']}}</div>
                                 </div>
                                 <div class="edb">
-                                   ЕДБ: {{$invoice -> client -> clientCardStatement ?-> edb}}
+                                   ЕДБ: {{$invoice['client']['client_card_statement']['edb'] || ''}}
                                 </div>
                             </div>
-                            <div style=" text-align: right "><span style="font-weight: bold">Датум :</span> {{$invoice->end_date}}</div>
-                            <div style=" text-align: right"><span style="font-weight: bold">Валута :</span> {{$invoice->end_date}}</div>
+                            <div style=" text-align: right "><span style="font-weight: bold">Датум :</span> {{$invoice['end_date']}}</div>
+                            <div style=" text-align: right"><span style="font-weight: bold">Валута :</span> {{$invoice['end_date']}}</div>
                         </td>
                     </tr>
                 </table>
@@ -163,21 +163,21 @@
                 </tr>
             </thead>
             <tbody style="background-color: white !important; color: black">
-            @foreach($invoice->jobs as $job)
+            @foreach($invoice['jobs'] as $job)
                 <tr >
                     <td>{{ $loop->iteration }}.</td>
                     <td>000</td>
-                    <td>{{$invoice->invoice_title}}</td>
+                    <td>{{$invoice['invoice_title']}}</td>
                     <td>{{getUnit($job)}}</td>
-                    <td>{{ $invoice->copies }}</td>
-                    <td>{{ $invoice->priceWithTax }} </td>
+                    <td>{{ $invoice['copies'] }}</td>
+                    <td>{{ $invoice['priceWithTax'] }} </td>
                     <td>0%</td>
-                    <td>{{ $invoice->totalSalePrice }}</td>
-                    <td>{{ $invoice->taxRate }}%</td>
-                    <td>{{ $invoice->priceWithTax }}</td>
-                    <td>{{ $invoice->totalSalePrice }}</td>
-                    <td>{{ $invoice->taxAmount }}</td>
-                    <td>{{ $invoice->priceWithTax }}</td>
+                    <td>{{ $invoice['totalSalePrice'] }}</td>
+                    <td>{{ $invoice['taxRate'] }}%</td>
+                    <td>{{ $invoice['priceWithTax'] }}</td>
+                    <td>{{ $invoice['totalSalePrice'] }}</td>
+                    <td>{{ $invoice['taxAmount'] }}</td>
+                    <td>{{ $invoice['priceWithTax'] }}</td>
                 </tr>
             @endforeach
             </tbody>
