@@ -22,6 +22,7 @@ use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 use Milon\Barcode\DNS1D;
 use ZipArchive;
+use function PHPUnit\Framework\isEmpty;
 
 class InvoiceController extends Controller
 {
@@ -152,6 +153,18 @@ class InvoiceController extends Controller
             })->get();
 
             foreach ($jobs as $job) {
+                // Update Large Material
+                if ($job->large_material_id !== null) {
+                    $large_material = LargeFormatMaterial::find($job->large_material_id);
+                    $large_material->quantity -= $job->copies;
+                    $large_material->save();
+                }
+                // Update Small Material
+                if ($job->small_material_id !== null) {
+                    $small_material = SmallMaterial::find($job->small_material_id);
+                    $small_material->quantity -= $job->copies;
+                    $small_material->save();
+                }
                 if ($job->originalFile) {
                     // Define the new path for the original file
                     $newPath = $clientName . '/' . $invoice->id . '/' . basename($job->originalFile);
@@ -421,17 +434,6 @@ class InvoiceController extends Controller
 
         $invoices = Invoice::with(['article','client','client.clientCardStatement'])->findOrFail($invoiceIds);
 
-        // Create a new Faktura instance
-        $faktura = Faktura::create([
-            'isInvoiced' => true,
-            'comment' => '',
-            'created_by' => auth()->id()
-        ]);
-
-        // Associate the retrieved Invoice instances with the new Faktura
-        $invoices = is_array($invoices) ? $invoices : [$invoices];
-        $faktura->invoices()->saveMany($invoices);
-
         $dns1d = new DNS1D();
         foreach ($invoices as $invoice) {
             $barcodeString = $invoice->id . '-' . date('m-Y', strtotime($invoice->end_date));
@@ -463,16 +465,35 @@ class InvoiceController extends Controller
             $invoice->copies = $totalCopies;
         }
 
-        $pdf = PDF::loadView('invoices.outgoing_invoice', [
-            'invoices' => $invoices,
-            'isHtml5ParserEnabled' => true,
-            'isRemoteEnabled' => true,
-            'isFontSubsettingEnabled' => true,
-            'chroot' => storage_path('fonts'),
-            'dpi' => 150,
-        ]);
+        // Attempt to generate the PDF before creating Faktura
+        try {
+            $pdf = PDF::loadView('invoices.outgoing_invoice', [
+                'invoices' => $invoices,
+                'isHtml5ParserEnabled' => true,
+                'isRemoteEnabled' => true,
+                'isFontSubsettingEnabled' => true,
+                'chroot' => storage_path('fonts'),
+                'dpi' => 150,
+            ]);
 
-        return $pdf->stream('OutgoingInvoice.pdf');
+            // If PDF generation succeeds, create and store the Faktura
+            $faktura = Faktura::create([
+                'isInvoiced' => true,
+                'comment' => '',
+                'created_by' => auth()->id()
+            ]);
+
+            // Associate the retrieved Invoice instances with the new Faktura
+            $invoices = is_array($invoices) ? $invoices : [$invoices];
+            $faktura->invoices()->saveMany($invoices);
+
+            // Return the generated PDF
+            return $pdf->stream('OutgoingInvoice.pdf');
+
+        } catch (\Exception $e) {
+            // Handle PDF generation failure (e.g., log the error, return a response)
+            return response()->json(['error' => 'PDF generation failed.'], 500);
+        }
     }
 
     public function showGenerateInvoice(Request $request)

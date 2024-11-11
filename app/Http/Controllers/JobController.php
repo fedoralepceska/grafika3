@@ -165,8 +165,6 @@ class JobController extends Controller
                     if ($large_material->quantity - $copies < 0) {
                         throw new \Exception("Insufficient large material quantity.");
                     }
-                    $large_material->quantity -= $copies;
-                    $large_material->save();
                 }
                 // Update Small Material
                 if ($selectedMaterialSmall) {
@@ -174,8 +172,6 @@ class JobController extends Controller
                     if ($small_material->quantity - $copies < 0) {
                         throw new \Exception("Insufficient small material quantity.");
                     }
-                    $small_material->quantity -= $copies;
-                    $small_material->save();
                 }
             }
 
