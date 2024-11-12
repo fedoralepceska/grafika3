@@ -187,30 +187,23 @@ export default {
         generatePdf(invoiceId) {
             window.open(`/orders/${invoiceId}/pdf`, '_blank');
         },
-        async generateInvoice() {
+        async printInvoice() {
             const toast = useToast();
-            try {
-                // Your array of order ids
-                // These are the main orders, naming is strange
-                const orderIds = Object.values(this.invoiceData).map(order => order.id);
+            const selectedId = this.invoice[0].id;
 
-                // Send a POST request to your Laravel backend
-                const response = await axios.post('/generate-invoice', {
-                    orders: orderIds
+            try {
+                const response = await axios.post('/outgoing/invoice', { invoiceIds: [selectedId], generated: true }, {
+                    responseType: 'blob',
                 });
 
-                if (response.data.invoice_id) {
-                    this.$inertia.visit(`/invoice/${response.data.invoice_id}`);
-                }
-
-                // Handle successful response here (if needed)
-                toast.success('Invoice generated successfully');
+                const blob = new Blob([response.data], { type: 'application/pdf' });
+                const url = window.URL.createObjectURL(blob);
+                window.open(url, '_blank');
             } catch (error) {
-                // Handle errors here (if needed)
-                console.log(error);
-                toast.error('Error generating invoice!');
+                console.error('Error generating invoices:', error);
+                toast.error('An error occurred while generating the invoice. Please try again.');
             }
-        }
+        },
     },
 };
 </script>

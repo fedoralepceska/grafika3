@@ -2,28 +2,32 @@
     <MainLayout>
         <div class="pl-7 pr-7">
             <Header title="action" subtitle="actionInfo" icon="task.png" link="production"/>
-            <div v-for="(invoice,index) in invoices" class="main">
-                <div :class="['container', 'flex', 'gap-20', 'relative', 'p-2', { 'red': invoice.onHold }]">
-                <div class="order bg-white text-black bold p-3" style="min-width: 20vh" @click="navigateToOrder(invoice.id)" ><strong>{{invoice.invoice_title}}</strong></div>
-                    <div class="info">
-                        <div>Order</div>
-                        <div class="bold">#{{ invoice.id }}</div>
-                    </div>
-                    <div class="info">
-                        <div>Customer</div>
-                        <div class="bold">{{invoice.client_name}}</div>
-                    </div>
-                    <div class="info">
-                        <div>{{ $t('endDate') }}</div>
-                        <div class="bold">{{ invoice?.end_date }}</div>
-                    </div>
-                    <div class="info">
-                        <div>Created By</div>
-                        <div class="bold">{{ invoice.user_name }}</div>
-                    </div>
-                    <div class="info">
-                        <div>Current Step</div>
-                        <div class="bold">{{actionId.startsWith('Machine') ? $t(`machinePrint.${actionId}`) : actionId}}</div>
+            <div v-for="(invoice,index) in invoices" class="main" >
+                <div class="container" :class="['container', 'flex', 'p-2', { 'red': invoice.onHold }]">
+                    <div class="content">
+                        <div class="order bg-white text-black bold p-3" style="min-width: 20vh" @click="navigateToOrder(invoice.id)">
+                            <strong>{{ invoice.invoice_title }}</strong>
+                        </div>
+                        <div class="info">
+                            <div>Order</div>
+                            <div class="bold">#{{ invoice.id }}</div>
+                        </div>
+                        <div class="info">
+                            <div>Customer</div>
+                            <div class="bold">{{ invoice.client_name }}</div>
+                        </div>
+                        <div class="info">
+                            <div>{{ $t('endDate') }}</div>
+                            <div class="bold">{{ invoice?.end_date }}</div>
+                        </div>
+                        <div class="info">
+                            <div>Created By</div>
+                            <div class="bold">{{ invoice.user_name }}</div>
+                        </div>
+                        <div class="info">
+                            <div>Current Step</div>
+                            <div class="bold">{{ actionId.startsWith('Machine') ? $t(`machinePrint.${actionId}`) : actionId }}</div>
+                        </div>
                     </div>
                     <div class="btns">
                         <div class="bt" @click="viewJobs(index)"><i class="fa-solid fa-bars"></i></div>
@@ -383,6 +387,17 @@ export default {
 }
 </script>
 <style scoped lang="scss">
+.main {
+    margin-bottom: 10px;
+    display: flex;
+    flex-direction: column;
+    flex-grow: 1;
+    height: auto;
+    width: 100%;
+    overflow: hidden;
+}
+
+
 .order{
     cursor: pointer;
 }
@@ -405,16 +420,34 @@ export default {
     background-color: orange;
 }
 .orange2 {
-    background-color: rgba(255, 167, 38, 0.6); /* Adjust the alpha value as needed */
+    background-color: rgba(255, 167, 38, 0.6);
 }
-.container{
-    margin-bottom:10px
+
+.container {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    min-width: 100%;
+    flex-grow: 1;
+    padding: 10px;
 }
-.btns{
-    position: absolute;
-    padding-right: 10px;
-    right: 0;
+
+
+.content {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 60px;
+    flex: 1;
 }
+
+.btns {
+    display: flex;
+    align-items: center;
+    margin-left: auto;
+    flex-shrink: 0;
+}
+
+
 .bold{
     font-weight: bolder;
 }

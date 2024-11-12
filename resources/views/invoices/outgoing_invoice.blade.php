@@ -17,8 +17,28 @@
             font-weight: bold;
             font-style: normal;
         }
-        body {
+        html, body {
             font-family: 'Tahoma', sans-serif;
+            height: 100%;
+            margin: 0;
+        }
+
+        .flex-container {
+            position: relative;
+            min-height: 100vh; /* Full height for each page */
+            padding: 20px 20px 100px 20px ;
+            box-sizing: border-box;
+        }
+
+        .footer {
+            position: absolute;
+            bottom: 0;
+            width: 95%;
+            margin-bottom: 40px;
+            justify-content: center;
+        }
+        .content {
+            flex-grow: 1; /* Expands to fill the remaining space, pushing footer to the bottom */
         }
         .header {
             text-align: left;
@@ -94,11 +114,55 @@
 
         .invoice-details { display: flex; justify-content: space-between; margin-bottom: 20px; }
 
+        .invoice-note {
+            font-size: 8px;
+            margin-top: 20px;
+        }
+        .invoice-note p {
+            margin: 0;
+        }
+        .invoice-note .line {
+            border-top: 1px solid black;
+        }
+        .payment-due {
+            display: flex;
+            align-items: center;
+            margin-top: 10px;
+        }
+        .payment-due .days-input {
+            width: 50px;
+            border: none;
+            border-bottom: 1px solid black;
+            margin: 0 5px;
+            text-align: center;
+        }
+
+        .footer-table {
+            width: 100%;
+            font-size: 9px;
+            text-align: center;
+            margin-top: 20px;
+            table-layout: fixed;
+        }
+        .footer-table td {
+            vertical-align: top;
+            padding: 5px;
+            width: 33.33%;
+        }
+        .footer-table .line {
+            margin-top: 20px;
+            border-top: 1px solid black;
+            width: 80%;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
         .page-break { page-break-after: always; }
     </style>
 </head>
 <body>
-
+<div class="flex-container">
+    <div class="content">
     <div class="header">
         <div class="title">Графика Плус доо</div>
         <div class="header-content">
@@ -117,26 +181,26 @@
             {{--                    <img src="data:image/png;base64,{{ $invoice->barcodeImage }}" alt="Invoice Barcode">--}}
             {{--                </div>--}}
                             <div class="o-inf">
-                                    No.     {{ $invoice->id . '-' . date('m-Y', strtotime($invoice->end_date)) }}
+                                    No.     {{ $invoice['id'] . '-' . date('m-Y', strtotime($invoice['end_date'])) }}
                             </div>
                             <div class="ispratnica">Испратница Бр:</div>
                             <div class="invoice-number">
-                                Фактура Бр.  {{ $invoice->id . '-' . date('m-Y', strtotime($invoice->end_date)) }}
+                                Фактура Бр.  {{ $invoice['id'] . '-' . date('m-Y', strtotime($invoice['end_date'])) }}
                             </div>
                         </td>
                         <td class="client-info right">
                             <div class="client-border">
-                                <div class="client-name">{{$invoice->client->name}}</div>
+                                <div class="client-name">{{$invoice['client']['name']}}</div>
                                 <div class="contact-info">
-                                    <div>{{$invoice->client->clientCardStatement ?-> fax}}</div>
-                                    <div>{{$invoice->client->address}}</div>
+                                    <div>{{$invoice['client']['client_card_statement']['fax'] || ''}}</div>
+                                    <div>{{$invoice['client']['address']}}</div>
                                 </div>
                                 <div class="edb">
-                                   ЕДБ: {{$invoice -> client -> clientCardStatement ?-> edb}}
+                                   ЕДБ: {{$invoice['client']['client_card_statement']['edb'] || ''}}
                                 </div>
                             </div>
-                            <div style=" text-align: right "><span style="font-weight: bold">Датум :</span> {{$invoice->end_date}}</div>
-                            <div style=" text-align: right"><span style="font-weight: bold">Валута :</span> {{$invoice->end_date}}</div>
+                            <div style=" text-align: right "><span style="font-weight: bold">Датум :</span> {{$invoice['end_date']}}</div>
+                            <div style=" text-align: right"><span style="font-weight: bold">Валута :</span> {{$invoice['end_date']}}</div>
                         </td>
                     </tr>
                 </table>
@@ -149,7 +213,7 @@
                 <tr>
                     <td>Бр.</td>
                     <td>Шифра</td>
-                    <td>Име на артикал</td>
+                    <td>Име</td>
                     <td>Е.М.</td>
                     <td>Кол</td>
                     <td>Цена без П</td>
@@ -163,90 +227,147 @@
                 </tr>
             </thead>
             <tbody style="background-color: white !important; color: black">
-            @foreach($invoice->jobs as $job)
+            @foreach($invoice['jobs'] as $job)
                 <tr >
                     <td>{{ $loop->iteration }}.</td>
-                    <td>{{$invoice->article->code}}</td>
-                    <td>{{$invoice->article->name}}</td>
+                    <td>000</td>
+                    <td>{{$invoice['invoice_title']}}</td>
                     <td>{{getUnit($job)}}</td>
-                    <td>{{$job->copies}}</td>
-                    <td>{{priceWithVAT($invoice->article)}} </td>
+                    <td>{{ $invoice['copies'] }}</td>
+                    <td>{{ $invoice['priceWithTax'] }} </td>
                     <td>0%</td>
-                    <td>{{$invoice->article->price_1}}</td>
-                    <td>{{getVat($invoice->article)}}%</td>
-                    <td>{{priceWithVAT($invoice->article)}}</td>
-                    <td>{{$job->copies * $invoice->article->price_1}}</td>
-                    <td>{{($job->copies * $invoice->article->price_1) * getVat($invoice->article) / 100 }}</td>
-                    <td>{{($job->copies * $invoice->article->price_1)+($job->copies * $invoice->article->price_1) * getVat($invoice->article) / 100 }}</td>
+                    <td>{{ $invoice['totalSalePrice'] }}</td>
+                    <td>{{ $invoice['taxRate'] }}%</td>
+                    <td>{{ $invoice['priceWithTax'] }}</td>
+                    <td>{{ $invoice['totalSalePrice'] }}</td>
+                    <td>{{ $invoice['taxAmount'] }}</td>
+                    <td>{{ $invoice['priceWithTax'] }}</td>
                 </tr>
             @endforeach
             </tbody>
-
         </table>
-
     </div>
-    {{--    <div class="invoice-details">--}}
-    {{--        <div>--}}
-    {{--            <p><strong>Фактура Бр. {{ $invoice->invoice_number }}</strong></p>--}}
-    {{--            <p>Датум: {{ $invoice->invoice_date->format('d.m.Y') }}</p>--}}
-    {{--            <p>Валута: {{ $invoice->due_date->format('d.m.Y') }}</p>--}}
-    {{--        </div>--}}
-    {{--        <div>--}}
-    {{--            <p><strong>{{ $invoice->client->name }}</strong></p>--}}
-    {{--            <p>{{ $invoice->client->address }}</p>--}}
-    {{--            <p>{{ $invoice->client->phone }}</p>--}}
-    {{--            <p>ЕДБ : {{ $invoice->client->tax_number }}</p>--}}
-    {{--        </div>--}}
-    {{--    </div>--}}
+        <table style="width: 100%; border-collapse: collapse;">
+            <tr>
+                <!-- First Table Wrapper in the First Column -->
+                <td style="vertical-align: top; padding-top: 2px">
+                    <table style="border-collapse: collapse; width: fit-content; text-align: center; font-size: 9px;">
+                        <thead>
+                        <tr>
+                            <th style="border: 1px solid black; padding: 3px;">Данок</th>
+                            <th style="border: 1px solid black; padding: 3px;">ДДВ %</th>
+                            <th style="border: 1px solid black; padding: 3px;">ДДВ Основа</th>
+                            <th style="border: 1px solid black; padding: 3px;">Данок</th>
+                            <th style="border: 1px solid black; padding: 3px;">Вкупно</th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        @php
 
-    {{--    <table>--}}
-    {{--        <thead>--}}
-    {{--        <tr>--}}
-    {{--            <th>Бр.</th>--}}
-    {{--            <th>Шифра</th>--}}
-    {{--            <th>Име на артикал</th>--}}
-    {{--            <th>Кол</th>--}}
-    {{--            <th>Цена</th>--}}
-    {{--            <th>ДДВ %</th>--}}
-    {{--            <th>Данок</th>--}}
-    {{--            <th>Вкупно</th>--}}
-    {{--        </tr>--}}
-    {{--        </thead>--}}
-    {{--        <tbody>--}}
-    {{--        @foreach($invoice->items as $item)--}}
-    {{--            <tr>--}}
-    {{--                <td>{{ $loop->iteration }}</td>--}}
-    {{--                <td>{{ $item->code }}</td>--}}
-    {{--                <td>{{ $item->name }}</td>--}}
-    {{--                <td>{{ number_format($item->quantity, 2) }}</td>--}}
-    {{--                <td>{{ number_format($item->price, 3) }}</td>--}}
-    {{--                <td>{{ number_format($item->vat_rate, 2) }}</td>--}}
-    {{--                <td>{{ number_format($item->vat_amount, 2) }}</td>--}}
-    {{--                <td>{{ number_format($item->total, 2) }}</td>--}}
-    {{--            </tr>--}}
-    {{--        @endforeach--}}
-    {{--        </tbody>--}}
-    {{--    </table>--}}
+                            $ddvData = [
+                                ['danok' => 'ДДВ А', 'ddv_percent' => '18.00'],
+                                ['danok' => 'ДДВ Б', 'ddv_percent' => '5.00'],
+                                ['danok' => 'ДДВ В', 'ddv_percent' => '10.00'],
+                                ['danok' => 'ДДВ Г', 'ddv_percent' => '0.00'],
+                            ];
+                        @endphp
+                        @foreach ($ddvData as $data)
+                            @php
+                                $totals = calculateTotalsByTaxRate($invoices, (float) $data['ddv_percent']);
+                                $verticalSums = calculateVerticalSums($invoices);
+                            @endphp
+                            <tr>
+                                <td style="border: 1px solid black; padding: 1px;">{{ $data['danok'] }}</td>
+                                <td style="border: 1px solid black; padding: 1px;">{{ $data['ddv_percent'] }}</td>
+                                <td style="border: 1px solid black; padding: 1px;" class="totaldyanmicprice">{{ number_format($totals['totalPriceWithTax'], 2) }}</td>
+                                <td style="border: 1px solid black; padding: 1px;" class="totaldyanmicdanok">{{ number_format($totals['totalTaxAmount'], 2) }}</td>
+                                <td style="border: 1px solid black; padding: 1px;" class="totaldynamicoverall">{{ number_format($totals['totalOverall'], 2) }}</td>
+                            </tr>
+                        @endforeach
+                        </tbody>
+                        <tfoot>
+                        <tr>
+                            <td colspan="2" style="border:none"></td>
+                            <td style="border: 1px solid black; padding: 3px;"><strong>{{ number_format($verticalSums['totalPriceWithTaxSum'], 2) }}</strong></td>
+                            <td style="border: 1px solid black; padding: 3px;"><strong>{{ number_format($verticalSums['totalTaxSum'], 2) }}</strong></td>
+                            <td style="border: 1px solid black; padding: 3px;"><strong>{{ number_format($verticalSums['totalOverallSum'], 2) }}</strong></td>
+                        </tr>
+                        </tfoot>
+                    </table>
+                </td>
 
-    {{--    <div class="totals">--}}
-    {{--        <p>Вкупно без ДДВ: {{ number_format($invoice->subtotal, 2) }} ден.</p>--}}
-    {{--        <p>ДДВ: {{ number_format($invoice->vat_amount, 2) }} ден.</p>--}}
-    {{--        <p><strong>Вкупно за плаќање: {{ number_format($invoice->total, 2) }} ден.</strong></p>--}}
-    {{--        <p>Со зборови: {{ $invoice->total_in_words }}</p>--}}
-    {{--    </div>--}}
-
-    {{--    <p>За ненавремено плаќање пресметуваме еднократен надомест, согласно Законот за финансиска дисциплина, од 3000.00 Ден.</p>--}}
-    {{--    <p>Рок на плаќање: {{ $invoice->payment_terms }} Дена од прием на фактурата</p>--}}
-
-    {{--    <div style="margin-top: 40px;">--}}
-    {{--        <p>Овластено Лице за потпишување на фактури: {{ $invoice->authorized_person }}</p>--}}
-    {{--        <p>Составил: {{ $invoice->prepared_by }}</p>--}}
-    {{--        <p>Печател: {{ $invoice->printed_by }}   {{ $invoice->printed_at->format('d.m.Y H:i') }}</p>--}}
-    {{--    </div>--}}
-
-    <footer style="text-align: center; margin-top: 40px;">
-        <p>Copyright © 2002-{{ date('Y') }} , ONYX Software</p>
-    </footer>
+                <!-- Second Table Wrapper in the Second Column -->
+                <td style="vertical-align: top; padding-top: 2px;">
+                    <table style="font-size: 9px; text-align: center; border: 1px solid black; width: 100%;">
+                        <tbody>
+                        <tr>
+                            <td style="border: 1px solid black; padding: 1px; text-align: right;"><strong>Основа :</strong></td>
+                            <td style="border: 1px solid black; padding: 1px; text-align: right;">{{ number_format($verticalSums['totalPriceWithTaxSum'], 2) }}</td>
+                        </tr>
+                        <tr>
+                            <td style="border: 1px solid black; padding: 1px; text-align: right;"><strong>Попуст :</strong></td>
+                            <td style="border: 1px solid black; padding: 1px;">
+                                <table style="width: 100%; border-collapse: collapse;">
+                                    <tr>
+                                        <td style="text-align: left; white-space: nowrap;">
+                                            00 <span style="border: 1px solid black; padding: 2px;">%</span>
+                                        </td>
+                                        <td style="text-align: right; white-space: nowrap;">
+                                            00
+                                        </td>
+                                    </tr>
+                                </table>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td style="border: 1px solid black; padding: 1px; text-align: right;"><strong>Износ :</strong></td>
+                            <td style="border: 1px solid black; padding: 1px; text-align: right;">{{ number_format($verticalSums['totalPriceWithTaxSum'], 2) }}</td>
+                        </tr>
+                        <tr>
+                            <td style="border: 1px solid black; padding: 1px; text-align: right;"><strong>Данок :</strong></td>
+                            <td style="border: 1px solid black; padding: 1px; text-align: right;">{{ number_format($verticalSums['totalTaxSum'], 2) }}</td>
+                        </tr>
+                        <tr>
+                            <td style="border: 1px solid black; padding: 1px; text-align: right;"><strong>Вкупно :</strong></td>
+                            <td style="border: 1px solid black; padding: 1px; text-align: right;"><strong>{{ number_format($verticalSums['totalOverallSum'], 2) }}</strong></td>
+                        </tr>
+                        </tbody>
+                    </table>
+                </td>
+            </tr>
+        </table>
+        </div>
+        <footer class="footer">
+            <div class="invoice-note">
+                <div class="line"></div>
+                <p>За ненавремено плаќање пресметуваме еднократен надомест, согласно Законот за финансиска дисциплина, од 3000.00 Ден.</p>
+                <div class="payment-due" style="padding-bottom: 30px">
+                    <span>Рок на плаќање:</span>
+                    <input type="text" class="days-input" readonly value=""> Дена од прием на фактурата
+                </div>
+                <div class="line"></div>
+            </div>
+            <table class="footer-table">
+                <tr>
+                    <td>
+                        <strong>Примил</strong><br>
+                        {{$invoice['client']['name']}}
+                        <div class="line"></div>
+                    </td>
+                    <td>
+                        <div><strong>Составил :</strong> Петранка Димоска  &nbsp;  {{$invoice['end_date']}}</div>
+                        <div><strong>Печатил :</strong> Петранка Димоска &nbsp; {{$invoice['end_date']}}</div>
+                        <div style="font-size: 8px">Copyright © 2024, ERP </div>
+                    </td>
+                    <td>
+                        <strong>Овластено Лице за потпишување на фактури</strong><br>
+                        Петранка Димоска
+                        <div class="line"></div>
+                    </td>
+                </tr>
+            </table>
+        </footer>
+    </div>
 
     @if(!$loop->last)
         <div class="page-break"></div>
