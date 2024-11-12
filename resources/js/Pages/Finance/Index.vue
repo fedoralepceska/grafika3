@@ -52,7 +52,7 @@
                                         <i class="fa fa-eye bg-gray-300 p-2 rounded" aria-hidden="true"></i>
                                     </button>
                                     <div class="flex items-center p-1">
-                                        <input type="checkbox" :id="`invoice-${invoice.id}`" v-model="selectedInvoices[invoice.id]" class="bg-gray-200 p-2 rounded px-3 py-3 border-gray-500">
+                                        <input type="checkbox" :id="`invoice-${invoice.id}`" :checked="selectedInvoices[invoice.id]" @change="toggleInvoiceSelection(invoice, $event)" class="bg-gray-200 p-2 rounded px-3 py-3 border-gray-500">
                                     </div>
                                 </div>
                             </div>
@@ -155,6 +155,44 @@ export default {
         },
     },
     methods: {
+        toggleInvoiceSelection(invoice, event) {
+            const toast = useToast(); // Initialize toast here to use directly
+
+            // Check if invoice.client exists
+            if (!invoice.client) {
+                toast.error('This invoice does not have an associated client.');
+                event.target.checked = false; // Revert checkbox state
+                return;
+            }
+
+            // Get IDs of currently selected invoices
+            const selectedInvoiceIds = Object.keys(this.selectedInvoices).filter(id => this.selectedInvoices[id]);
+
+            if (selectedInvoiceIds.length > 0) {
+                // Get the client ID of the first selected invoice
+                const firstSelectedInvoice = this.invoices.data.find(inv => inv.id == selectedInvoiceIds[0]);
+
+                // Check if first selected invoice has a client
+                if (!firstSelectedInvoice || !firstSelectedInvoice.client) {
+                    toast.error('Selected invoice(s) do not have associated clients.');
+                    event.target.checked = false; // Revert checkbox state
+                    return;
+                }
+
+                const firstSelectedClientId = firstSelectedInvoice.client.name;
+
+                // Check if the new invoice's client ID matches the first selected invoice's client ID
+                if (invoice.client.name !== firstSelectedClientId) {
+                    toast.error('You can only select invoices from the same client.');
+                    event.target.checked = false; // Revert checkbox state
+                    return;
+                }
+            }
+
+            // Toggle the selected status of the invoice if validation passes
+            this.selectedInvoices[invoice.id] = !this.selectedInvoices[invoice.id];
+        },
+
         getImageUrl(id) {
             const currentInvoice = this.invoices.data.find(invoice => invoice.id === this.currentInvoiceId);
             if (currentInvoice && currentInvoice.jobs) {
