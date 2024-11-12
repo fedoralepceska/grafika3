@@ -117,8 +117,6 @@ class JobController extends Controller
             'selectedMaterialsSmall',
             'quantity' => 'required',
             'copies' => 'required',
-            'selectedMachineCut' => 'required|string',
-            'selectedMachinePrint' => 'required|string',
         ]);
 
         $selectedMaterial = $request->input('selectedMaterial');
