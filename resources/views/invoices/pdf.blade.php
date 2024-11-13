@@ -125,11 +125,11 @@
             </tr>
             <tr>
                 <td style="background-color: #F0EFEF; padding-left: 5px; border-bottom: 1px solid #cccccc;;">Ширина:</td>
-                <td colspan="3">{{ $job->width }} mm</td>
+                <td colspan="3">{{ number_format($job->width, 2) }} mm</td>
             </tr>
             <tr>
                 <td style="background-color: #F0EFEF; padding-left: 5px; border-bottom: 1px solid #cccccc;;">Висина:</td>
-                <td colspan="3">{{ $job->height }} mm</td>
+                <td colspan="3">{{ number_format( $job->height, 2) }} mm</td>
             </tr>
             <tr>
                 <td style="background-color: #F0EFEF; padding-left: 5px; border-bottom: 1px solid #cccccc;">Површина: </td>
