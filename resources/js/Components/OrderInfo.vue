@@ -70,10 +70,14 @@
                     <button v-if="index > 0" class="removeBtn" @click="removeAction(index)"><span class="mdi mdi-minus-circle"></span></button>
                 </div>
                 <div v-if="action.selectedAction?.isMaterialized" class="form-group mt-2 p-2 text-black sameRow">
-                    <label class="label-fixed-width">{{ $t('Quantity') }}</label>
+                    <label class="label-fixed-width">{{ $t('actionQuantity') }}</label>
                     <input type="number" min="0" v-model="action.quantity">
                     <span class="text-white ml-2">{{ getUnit(action.selectedAction) }}</span>
                 </div>
+            </div>
+            <div class="form-group mt-2 p-2 text-black sameRow">
+                <label class="label-fixed-width">{{ $t('Quantity') }}</label>
+                <input type="number" v-model="quantity">
             </div>
             <div class="form-group mt-2 p-2 text-black sameRow">
                 <label class="label-fixed-width">{{ $t('Copies') }}</label>
