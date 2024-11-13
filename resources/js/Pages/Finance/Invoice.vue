@@ -85,8 +85,8 @@
                                         </div>
                                         <img :src="`/storage/uploads/${job.file}`" alt="Job Image" class="jobImg thumbnail"/>
                                         <div>{{job.file}}</div>
-                                        <div>{{$t('height')}}: <span class="bold">{{job.height.toFixed(2)}}</span> </div>
-                                        <div>{{$t('width')}}: <span class="bold">{{job.width.toFixed(2)}}</span> </div>
+                                        <div>{{$t('height')}}: <span class="bold">{{job.height.toFixed(2)}} mm</span> </div>
+                                        <div>{{$t('width')}}: <span class="bold">{{job.width.toFixed(2)}} mm</span> </div>
                                         <div>{{$t('quantity')}}: <span class="bold">{{job.quantity}}</span> </div>
                                         <div>{{$t('copies')}}: <span class="bold">{{job.copies}}</span> </div>
                                         <div>
@@ -96,7 +96,7 @@
                                             <span v-else>{{ job?.small_material?.name }}</span>
                                          </span>
                                         </div>
-                                        <div>{{$t('totalm')}}<sup>2</sup>: <span class="bold">{{(job.height * job.width / 1000).toFixed(2)}}</span></div>
+                                        <div>{{$t('totalm')}}<sup>2</sup>: <span class="bold">{{((job.height * job.width) / 1000000).toFixed(4)}}</span></div>
                                     </div>
                                     <OrderJobDetails :job="job"/>
                                     <div class="jobInfo relative pt-3">

@@ -116,8 +116,8 @@
                                             </div>
                                         </div>
                                         <div>{{job.file}}</div>
-                                        <div>{{$t('Height')}}: <span class="bold">{{job.height.toFixed(2)}}</span> </div>
-                                        <div>{{$t('Width')}}: <span class="bold">{{job.width.toFixed(2)}}</span> </div>
+                                        <div>{{$t('Height')}}: <span class="bold">{{job.height.toFixed(2)}} mm</span> </div>
+                                        <div>{{$t('Width')}}: <span class="bold">{{job.width.toFixed(2)}} mm</span> </div>
                                         <div>{{$t('Quantity')}}: <span class="bold">{{job.quantity}}</span> </div>
                                         <div>{{$t('Copies')}}: <span class="bold">{{job.copies}}</span> </div>
                                     </div>
@@ -129,7 +129,7 @@
                                             <span v-else>{{ job?.small_material?.name }}</span>
                                          </span>
                                         </div>
-                                        <div>{{$t('totalm')}}<sup>2</sup>: <span class="bold">{{(job.height * job.width / 1000).toFixed(2)}}</span></div>
+                                        <div>{{$t('totalm')}}<sup>2</sup>: <span class="bold">{{((job.height * job.width) / 1000000).toFixed(4)}}</span></div>
                                     </div>
                                     <div v-if="jobProcessMode">
                                         <OrderJobDetails :job="job"/>
