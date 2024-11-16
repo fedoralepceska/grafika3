@@ -23,6 +23,7 @@ class Article extends Model
         'factory_price',
         'price_1',
         'in_meters',
+        'in_square_meters',
         'in_kilograms',
         'in_pieces'
     ];

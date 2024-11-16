@@ -143,6 +143,8 @@ export default {
             if (material) {
                 if (material.article.in_meters) {
                     return 'meters';
+                } else if (material.article.in_square_meters) {
+                    return 'square meters';
                 } else if (material.article.in_kilograms) {
                     return 'kilograms';
                 } else if (material.article.in_pieces) {

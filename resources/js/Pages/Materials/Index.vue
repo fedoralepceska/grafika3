@@ -155,10 +155,12 @@ export default {
                 });
         },
         getUnit(material) {
-            console.log(material);
             if (material !== null) {
                 if (material?.article?.in_meters === 1) {
                     return 'meters'
+                }
+                else if (material?.article?.in_square_meters === 1) {
+                    return 'square meters'
                 }
                 else if (material?.article?.in_kilograms === 1) {
                     return 'kilograms'

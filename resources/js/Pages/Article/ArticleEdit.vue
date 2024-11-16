@@ -150,6 +150,7 @@ export default {
                 in_kilograms: false,
                 in_meters: false,
                 in_pieces: false,
+                in_square_meters: false,
             },
         }
     },
@@ -177,6 +178,7 @@ export default {
             this.articleUnits.in_kilograms = this.article.in_kilograms===1;
             this.articleUnits.in_meters = this.article.in_meters===1;
             this.articleUnits.in_pieces = this.article.in_pieces===1;
+            this.articleUnits.in_square_meters = this.article.in_square_meters===1;
             }
         },
         openDialog() {

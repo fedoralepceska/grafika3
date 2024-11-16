@@ -75,9 +75,12 @@
                             </div>
                             <div class="form-group gap-4">
                                 <label for="unit" class="mr-12">{{ $t('Unit') }}:</label>
-                                <label><input type="checkbox" v-model="form.in_kilograms" value="kilogram" class="rounded"> {{ $t('Kg') }}</label>
-                                <label><input type="checkbox" v-model="form.in_meters" value="meters" class="rounded"> {{ $t('M') }}</label>
-                                <label><input type="checkbox" v-model="form.in_pieces" value="pieces" class="rounded"> {{ $t('Pcs') }}</label>
+                                <select v-model="form.unit" class="text-gray-700 rounded" >
+                                    <option value="kilogram">{{ $t('Kg') }}</option>
+                                    <option value="pieces">{{ $t('Pcs') }}</option>
+                                    <option value="meters">{{ $t('M') }}</option>
+                                    <option value="square_meters">{{ $t('square_meters') }}</option>
+                                </select>
                             </div>
                         </fieldset>
                         <fieldset>
@@ -131,8 +134,10 @@ export default {
                 color: '',
                 format_type:'small',
                 in_meters:'',
+                in_square_meters: '',
                 in_kilograms:'',
                 in_pieces:'',
+                unit: 'm',
                 fprice: '',
                 pprice: '',
                 price: ''
@@ -156,6 +161,27 @@ export default {
     methods: {
         async createArticle() {
             try {
+                switch (this.form.unit) {
+                    case "meters": {
+                        this.form.in_meters = true;
+                        break;
+                    }
+                    case "square_meters": {
+                        this.form.in_square_meters = true;
+                        break;
+                    }
+                    case "pieces": {
+                        this.form.in_pieces = true;
+                        break;
+                    }
+                    case "kilogram": {
+                        this.form.in_kilogram = true;
+                        break;
+                    }
+                    default: {
+                        return;
+                    }
+                }
                 const response = await axios.post('/articles/create', this.form);
                 const toast = useToast();
                 // Clear form after successful submission
@@ -175,6 +201,7 @@ export default {
                     in_meters:'',
                     in_kilograms:'',
                     in_pieces:'',
+                    in_square_meters: '',
                     format_type:'small',
                     fprice: '',
                     pprice: '',

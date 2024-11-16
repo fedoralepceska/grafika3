@@ -8,6 +8,8 @@ if (!function_exists('getUnit')) {
         if ($small || $large) {
             if (($small && $small['article']['in_meters']) || ($large && $large['article']['in_meters'])) {
                 return 'м';
+            } elseif (($small && $small['article']['in_square_meters']) || ($large && $large['article']['in_square_meters'])) {
+                return 'м²';
             } elseif (($small && $small['article']['in_kilograms']) || ($large && $large['article']['in_kilograms'])) {
                 return 'кг';
             } elseif (($small && $small['article']['in_pieces']) || ($large && $large['article']['in_pieces'])) {

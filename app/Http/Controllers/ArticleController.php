@@ -65,6 +65,7 @@ class ArticleController extends Controller
             'in_meters'=>'nullable',
             'in_kilograms'=>'nullable',
             'in_pieces'=>'nullable',
+            'in_square_meters' => 'nullable',
             'format_type' => 'required|string|max:255',
             'fprice' => 'nullable|numeric',
             'pprice' => 'nullable|numeric',
@@ -102,6 +103,7 @@ class ArticleController extends Controller
         $article->in_meters =  $validatedData['in_meters'] ?? null;
         $article->in_kilograms = $validatedData['in_kilograms'] ?? null;
         $article->in_pieces = $validatedData['in_pieces'] ?? null;
+        $article->in_square_meters = $validatedData['in_square_meters'] ?? null;
 
         // Save the article to the database
         $article->save();

@@ -137,6 +137,9 @@ export default {
                 if (small?.article?.in_meters === 1 || large?.article?.in_meters === 1) {
                     return 'meters'
                 }
+                else if (small?.article?.in_square_meters === 1 || large?.article?.in_square_meters === 1) {
+                    return 'square meters'
+                }
                 else if (small?.article?.in_kilograms === 1 || large?.article?.in_kilograms === 1) {
                     return 'kilograms'
                 }
