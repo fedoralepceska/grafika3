@@ -155,14 +155,22 @@ class InvoiceController extends Controller
             foreach ($jobs as $job) {
                 // Update Large Material
                 if ($job->large_material_id !== null) {
-                    $large_material = LargeFormatMaterial::find($job->large_material_id);
-                    $large_material->quantity -= $job->copies;
+                    $large_material = LargeFormatMaterial::with('article')->find($job->large_material_id);
+                    if ($large_material?->article?->in_square_meters === 1) {
+                        $large_material->quantity -= ($job->copies * ($job->width * $job->height / 1000000));
+                    } else {
+                        $large_material->quantity -= $job->copies;
+                    }
                     $large_material->save();
                 }
                 // Update Small Material
                 if ($job->small_material_id !== null) {
-                    $small_material = SmallMaterial::find($job->small_material_id);
-                    $small_material->quantity -= $job->copies;
+                    $small_material = SmallMaterial::with('article')->find($job->small_material_id);
+                    if ($small_material?->article?->in_square_meters === 1) {
+                        $large_material->quantity -= ($job->copies * ($job->width * $job->height / 1000000));
+                    } else {
+                        $small_material->quantity -= $job->copies;
+                    }
                     $small_material->save();
                 }
                 if ($job->originalFile) {

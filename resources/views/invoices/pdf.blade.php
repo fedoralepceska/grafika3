@@ -133,7 +133,7 @@
             </tr>
             <tr>
                 <td style="background-color: #F0EFEF; padding-left: 5px; border-bottom: 1px solid #cccccc;">Површина: </td>
-                <td colspan="3">{{ number_format(($job->height/1000) * ($job->width/1000),5)}} m²</td>
+                <td colspan="3">{{ number_format(($job->height/1000) * ($job->width/1000),5) * $job->copies}} m²</td>
             </tr>
             @if($job->small_material)
                 <tr>
