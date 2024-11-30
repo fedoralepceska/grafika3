@@ -65,9 +65,9 @@
                                     <div>Order</div>
                                     <div class="bold">#{{invoice.id}}</div>
                                 </div>
-                                <div class="info">
+                                <div class="info min-w-80 no-wrap">
                                     <div>Customer</div>
-                                    <div class="bold">{{ invoice.client.name }}</div>
+                                    <div class="bold ellipsis">{{ invoice.client.name }}</div>
                                 </div>
                                 <div class="info">
                                     <div>End Date</div>
@@ -90,17 +90,17 @@
                                         Jobs for Order #{{invoice.id}} {{invoice.invoice_title}}
                                     </div>
                                     <div v-if="currentInvoiceId===invoice.id" class="jobInfo border-b" v-for="(job,index) in invoice.jobs">
-                                            <div class=" jobInfo flex justify-between gap-3">
-                                            <div class="text-white bold p-1">
+                                            <div class=" jobInfo flex justify-between gap-1">
+                                            <div class="text-white bold p-1 ellipsis-file">
                                                 #{{index+1}} {{job.file}}
                                             </div>
                                             <div class="p-1 img">
                                                 <img :src="getImageUrl(job.id)" alt="Job Image" class="jobImg thumbnail"/>
                                             </div>
-                                            <div class="p-1">{{$t('Height')}}: <span class="bold">{{job.height.toFixed(2)}}</span> </div>
-                                            <div class="p-1">{{$t('Width')}}: <span class="bold">{{job.width.toFixed(2)}}</span> </div>
-                                            <div class="p-1">{{$t('Quantity')}}: <span class="bold">{{job.quantity}}</span> </div>
-                                            <div class="p-1">{{$t('Copies')}}: <span class="bold">{{job.copies}}</span> </div>
+                                            <div class="p-1 w-150">{{$t('Height')}}: <span class="bold">{{job.height.toFixed(2)}}</span> </div>
+                                            <div class="p-1 w-150">{{$t('Width')}}: <span class="bold">{{job.width.toFixed(2)}}</span> </div>
+                                            <div class="p-1 w-150">{{$t('Quantity')}}: <span class="bold">{{job.quantity}}</span> </div>
+                                            <div class="p-1 w-150">{{$t('Copies')}}: <span class="bold">{{job.copies}}</span> </div>
                                             </div>
                                         <div class="ultra-light-gray pt-4">
                                         <OrderJobDetails :job="job"/>
@@ -335,8 +335,31 @@ select{
 }
 
 .job-details-container.active {
-    max-height: 400px;
+    max-height: 550px;
     opacity: 1;
+}
+.min-w-80 {
+    min-width: 320px;
+    flex-shrink: 0;
+    display: block;
+}
+.ellipsis {
+    width: 100%;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    overflow: hidden;
+    display: inline-block;
+    max-width: 100%;
+}
+.ellipsis-file {
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    overflow: hidden;
+    display: inline-block;
+    width: 150px;
+}
+.w-150 {
+    width: 150px;
 }
 </style>
 
