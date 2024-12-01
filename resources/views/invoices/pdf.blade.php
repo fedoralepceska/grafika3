@@ -21,7 +21,6 @@
             background-color: white;
         }
         .order {
-            font-size: 30px;
             font-weight: bolder;
             padding-left: 5px;
         }
@@ -83,7 +82,7 @@
             <tr>
                 <td style="width: 360px">
                     <div>
-                        <span style="color: #333333; font-size: 18px">Работен налог:</span> <span class="order">бр.{{ $invoice->id }}/{{ date('Y', strtotime($invoice->start_date)) }}</span>
+                        <span style="color: #333333; font-size: 15px">Работен налог:</span> <span class="order" style="font-size: 27px">бр.{{ $invoice->id }}/{{ date('Y', strtotime($invoice->start_date)) }}</span>
                     </div>
                 </td>
                 <td>
@@ -101,9 +100,9 @@
                         <div >Одговорно лице: <span class="bolder">{{$invoice->user->name}}</span></div>
                     </td>
                     <td class="right">
-                        <div >Клиент: <span class="bolder">{{ $invoice->client->name }}</span></div>
-                        <div >Контакт: <span class="bolder">{{$invoice->contact->name }}</span></div>
-                        <div >Контакт број: <span class="bolder">{{$invoice->contact->phone }}</span> </div>
+                        <div class="bolder" style="text-transform: uppercase; font-size: 13px;">Нарачател: <span class="bolder">{{ $invoice->client->name }}</span></div>
+                        <div style="font-size: 11px;">Контакт: <span>{{$invoice->contact->name }}</span></div>
+                        <div style="font-size: 11px">Контакт број: <span>{{$invoice->contact->phone }}</span> </div>
                     </td>
                 </tr>
             </table>
@@ -111,10 +110,10 @@
         <div class="divider"></div>
     </div>
     <div  class="bolder" style="margin-left: 25px; margin-top: 8px; font-size: 14px; color: #333333">
-        РАБОТЕН НАЛОГ БР. 01
+        РАБОТНА СТАВКА БР. 01
     </div>
     <div class="job-info" style="margin-left: 15px; margin-top: 20px">
-        <table class="job-table" style="width: 100%; border-collapse: collapse; font-size: 15px" >
+        <table class="job-table" style="width: 100%; border-collapse: collapse; font-size: 10px" >
             <tr>
                 <td style="background-color: #F0EFEF; padding-left: 5px; border-bottom: 1px solid #cccccc; margin: 0">Производ</td>
                 <td colspan="3"> {{ $invoice->invoice_title }}</td>
@@ -166,18 +165,18 @@
             </tr>
         </table>
     </div>
-    <div  class="bolder" style="margin-left: 15px; margin-top: 8px; font-size: 14px; color: #333333">
+    <div  class="bolder" style="margin-left: 15px; margin-top: 8px; font-size: 10px; color: #333333">
          ДОРАБОТКА БР. 01
         <div class="divider"></div>
     </div>
         <div style="margin-left: 15px; margin-top: 5px">
-        <table style="border-collapse: collapse; font-size: 15px">
+        <table style="border-collapse: collapse">
             <tr style="padding-bottom: 20px">
-                <td style="background-color: #F0EFEF; padding: 0 5px 0 160px;  border-bottom: 1px solid #cccccc;">Доработка</td>
+                <td style="background-color: #F0EFEF; font-size: 8px; padding: 0 5px 0 160px;  border-bottom: 1px solid #cccccc;">Доработка</td>
                 <td colspan="3" style="border-bottom: 1px solid #f7f4f4"></td>
             </tr>
             <tr>
-                <td style="background-color: #F0EFEF; padding: 0 5px 0 160px; text-align: right; border-bottom: 1px solid #cccccc;">Достава</td>
+                <td style="background-color: #F0EFEF; font-size: 8px; padding: 0 5px 0 160px; text-align: right; border-bottom: 1px solid #cccccc;">Достава</td>
                 <td colspan="3" style="border-bottom: 1px solid #f7f4f4">{{$job->shippingInfo}}</td>
             </tr>
 
@@ -194,7 +193,7 @@
     @endif
 
     <table style="width: 100%; text-align: center;">
-        <tr>
+        <tr style="font-size: 11.5px; text-transform: uppercase">
             <td style="padding: 15px; width: 30%">Печатење и контрола</td>
             <td style="padding: 15px; width: 30%">Доработка и контрола</td>
             <td style="padding: 15px; width: 30%">Монтажа и контрола</td>
