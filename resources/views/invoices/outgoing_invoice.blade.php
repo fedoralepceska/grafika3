@@ -43,38 +43,38 @@
         .header {
             text-align: left;
         }
-        .title{
+        .title {
             border-bottom: 1px solid black;
-            font-size: 17px;
+            font-size: 16px;
             padding-left: 5px;
             padding-bottom: 5px;
             font-weight: bold;
         }
 
-        .header-content{
+        .header-content {
             text-align: center;
-            font-size: 10px;
+            font-size: 7px;
             margin: 0;
         }
-        .order{
+        .order {
             display: flex;
             justify-content: space-between;
             align-items: center;
             padding-top: 20px;
         }
 
-        .o-inf{
+        .o-inf {
             display: flex;
             justify-content: space-between;
             font-size: 6.5px;
             padding-top: 20px;
         }
-        .ispratnica{
-            font-size: 8px;
+        .ispratnica {
+            font-size: 7px;
             font-weight: bold;
         }
-        .invoice-number{
-            font-size: 15px;
+        .invoice-number {
+            font-size: 13px;
             font-weight: bold;
             padding-top: 50px;
         }
@@ -83,18 +83,18 @@
             padding: 5px;
         }
         .client-name{
-            font-size: 12px;
-            padding-left: 5px;
+            font-size: 9px;
             padding-bottom: 25px;
             font-weight: bold;
         }
         .client-info{
-            font-size: 9px;
+            font-size: 7px;
             padding-left: 5px;
             width: 300vh;
             display: flex;
         }
-        .edb{
+        .edb {
+            font-size: 7px;
             display: flex;
             justify-content: right;
             align-items: center;
@@ -105,7 +105,7 @@
         }
         .right{
             width: 355px;
-            padding-left: 40px;
+            padding-left: 95px;
         }
         table{
             border-collapse: collapse;
@@ -156,6 +156,13 @@
             margin-left: auto;
             margin-right: auto;
         }
+        td {
+            font-size: 6px;
+        }
+        .table-columns {
+            font-size: 6px;
+            font-weight: bold;
+        }
 
         .page-break { page-break-after: always; }
     </style>
@@ -199,8 +206,8 @@
                                    ЕДБ: {{$invoice['client']['client_card_statement']['edb'] || ''}}
                                 </div>
                             </div>
-                            <div style=" text-align: right "><span style="font-weight: bold">Датум :</span> {{$invoice['end_date']}}</div>
-                            <div style=" text-align: right"><span style="font-weight: bold">Валута :</span> {{$invoice['end_date']}}</div>
+                            <div style=" text-align: right "><span style="font-weight: bold; font-size: 7px">Датум :</span> {{$invoice['end_date']}}</div>
+                            <div style=" text-align: right"><span style="font-weight: bold; font-size: 7px">Валута :</span> {{$invoice['end_date']}}</div>
                         </td>
                     </tr>
                 </table>
@@ -211,24 +218,24 @@
 
             <thead style="background-color: black">
                 <tr>
-                    <td>Бр.</td>
-                    <td>Шифра</td>
-                    <td>Име</td>
-                    <td>Е.М.</td>
-                    <td>Кол</td>
-                    <td>Цена без П</td>
-                    <td>П %</td>
-                    <td>Цена</td>
-                    <td>Д %</td>
-                    <td>Цена ДДВ</td>
-                    <td>Износ</td>
-                    <td>Данок</td>
-                    <td>Вкупно</td>
+                    <td class="table-columns">Бр.</td>
+                    <td class="table-columns">Шифра</td>
+                    <td class="table-columns">Име</td>
+                    <td class="table-columns">Е.М.</td>
+                    <td class="table-columns">Кол</td>
+                    <td class="table-columns">Цена без П</td>
+                    <td class="table-columns">П %</td>
+                    <td class="table-columns">Цена</td>
+                    <td class="table-columns">Д %</td>
+                    <td class="table-columns">Цена ДДВ</td>
+                    <td class="table-columns">Износ</td>
+                    <td class="table-columns">Данок</td>
+                    <td class="table-columns">Вкупно</td>
                 </tr>
             </thead>
             <tbody style="background-color: white !important; color: black">
             @foreach($invoice['jobs'] as $job)
-                <tr >
+                <tr>
                     <td>{{ $loop->iteration }}.</td>
                     <td>000</td>
                     <td>{{$invoice['invoice_title']}}</td>
@@ -251,14 +258,14 @@
             <tr>
                 <!-- First Table Wrapper in the First Column -->
                 <td style="vertical-align: top; padding-top: 2px">
-                    <table style="border-collapse: collapse; width: fit-content; text-align: center; font-size: 9px;">
+                    <table style="border-collapse: collapse; width: fit-content; text-align: center;">
                         <thead>
                         <tr>
-                            <th style="border: 1px solid black; padding: 3px;">Данок</th>
-                            <th style="border: 1px solid black; padding: 3px;">ДДВ %</th>
-                            <th style="border: 1px solid black; padding: 3px;">ДДВ Основа</th>
-                            <th style="border: 1px solid black; padding: 3px;">Данок</th>
-                            <th style="border: 1px solid black; padding: 3px;">Вкупно</th>
+                            <th style="border: 1px solid black; padding: 3px; font-size: 7px">Данок</th>
+                            <th style="border: 1px solid black; padding: 3px; font-size: 7px">ДДВ %</th>
+                            <th style="border: 1px solid black; padding: 3px; font-size: 7px">ДДВ Основа</th>
+                            <th style="border: 1px solid black; padding: 3px; font-size: 7px">Данок</th>
+                            <th style="border: 1px solid black; padding: 3px; font-size: 7px">Вкупно</th>
                         </tr>
                         </thead>
                         <tbody>
@@ -277,20 +284,20 @@
                                 $verticalSums = calculateVerticalSums($invoices);
                             @endphp
                             <tr>
-                                <td style="border: 1px solid black; padding: 1px;">{{ $data['danok'] }}</td>
-                                <td style="border: 1px solid black; padding: 1px;">{{ $data['ddv_percent'] }}</td>
-                                <td style="border: 1px solid black; padding: 1px;" class="totaldyanmicprice">{{ number_format($totals['totalPriceWithTax'], 2) }}</td>
-                                <td style="border: 1px solid black; padding: 1px;" class="totaldyanmicdanok">{{ number_format($totals['totalTaxAmount'], 2) }}</td>
-                                <td style="border: 1px solid black; padding: 1px;" class="totaldynamicoverall">{{ number_format($totals['totalOverall'], 2) }}</td>
+                                <td style="border: 1px solid black; padding: 1px; font-size: 7px; text-align: left">{{ $data['danok'] }}</td>
+                                <td style="border: 1px solid black; padding: 1px; font-size: 7px">{{ $data['ddv_percent'] }}</td>
+                                <td style="border: 1px solid black; padding: 1px; font-size: 7px; text-align: right" class="totaldyanmicprice">{{ number_format($totals['totalPriceWithTax'], 2) }}</td>
+                                <td style="border: 1px solid black; padding: 1px; font-size: 7px; text-align: right" class="totaldyanmicdanok">{{ number_format($totals['totalTaxAmount'], 2) }}</td>
+                                <td style="border: 1px solid black; padding: 1px; font-size: 7px; text-align: right" class="totaldynamicoverall">{{ number_format($totals['totalOverall'], 2) }}</td>
                             </tr>
                         @endforeach
                         </tbody>
                         <tfoot>
                         <tr>
                             <td colspan="2" style="border:none"></td>
-                            <td style="border: 1px solid black; padding: 3px;"><strong>{{ number_format($verticalSums['totalPriceWithTaxSum'], 2) }}</strong></td>
-                            <td style="border: 1px solid black; padding: 3px;"><strong>{{ number_format($verticalSums['totalTaxSum'], 2) }}</strong></td>
-                            <td style="border: 1px solid black; padding: 3px;"><strong>{{ number_format($verticalSums['totalOverallSum'], 2) }}</strong></td>
+                            <td style="border: 1px solid black; font-weight: normal; text-align: right"><span>{{ number_format($verticalSums['totalPriceWithTaxSum'], 2) }}</span></td>
+                            <td style="border: 1px solid black; font-weight: normal; text-align: right"><span>{{ number_format($verticalSums['totalTaxSum'], 2) }}</span></td>
+                            <td style="border: 1px solid black; font-weight: normal; text-align: right"><span>{{ number_format($verticalSums['totalOverallSum'], 2) }}</span></td>
                         </tr>
                         </tfoot>
                     </table>
@@ -301,16 +308,17 @@
                     <table style="font-size: 9px; text-align: center; border: 1px solid black; width: 100%;">
                         <tbody>
                         <tr>
-                            <td style="border: 1px solid black; padding: 1px; text-align: right;"><strong>Основа :</strong></td>
+                            <td style="border: 1px solid black; padding: 1px; text-align: right; font-size: 7px;"><strong>Основа :</strong></td>
                             <td style="border: 1px solid black; padding: 1px; text-align: right;">{{ number_format($verticalSums['totalPriceWithTaxSum'], 2) }}</td>
                         </tr>
                         <tr>
-                            <td style="border: 1px solid black; padding: 1px; text-align: right;"><strong>Попуст :</strong></td>
+                            <td style="border: 1px solid black; padding: 1px; text-align: right; font-size: 7px;"><strong>Попуст :</strong></td>
                             <td style="border: 1px solid black; padding: 1px;">
                                 <table style="width: 100%; border-collapse: collapse;">
                                     <tr>
+                                        <td style="width: 5px"></td>
                                         <td style="text-align: left; white-space: nowrap;">
-                                            00 <span style="border: 1px solid black; padding: 2px;">%</span>
+                                            00 <span style="border: 1px solid black; padding: 3px 3px 2px 3px;">%</span>
                                         </td>
                                         <td style="text-align: right; white-space: nowrap;">
                                             00
@@ -320,15 +328,15 @@
                             </td>
                         </tr>
                         <tr>
-                            <td style="border: 1px solid black; padding: 1px; text-align: right;"><strong>Износ :</strong></td>
+                            <td style="border: 1px solid black; padding: 1px; text-align: right; font-size: 7px;"><strong>Износ :</strong></td>
                             <td style="border: 1px solid black; padding: 1px; text-align: right;">{{ number_format($verticalSums['totalPriceWithTaxSum'], 2) }}</td>
                         </tr>
                         <tr>
-                            <td style="border: 1px solid black; padding: 1px; text-align: right;"><strong>Данок :</strong></td>
+                            <td style="border: 1px solid black; padding: 1px; text-align: right; font-size: 7px;"><strong>Данок :</strong></td>
                             <td style="border: 1px solid black; padding: 1px; text-align: right;">{{ number_format($verticalSums['totalTaxSum'], 2) }}</td>
                         </tr>
                         <tr>
-                            <td style="border: 1px solid black; padding: 1px; text-align: right;"><strong>Вкупно :</strong></td>
+                            <td style="border: 1px solid black; padding: 1px; text-align: right; font-size: 8.5px;"><strong>Вкупно :</strong></td>
                             <td style="border: 1px solid black; padding: 1px; text-align: right;"><strong>{{ number_format($verticalSums['totalOverallSum'], 2) }}</strong></td>
                         </tr>
                         </tbody>
