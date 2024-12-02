@@ -13,6 +13,7 @@ use App\Http\Controllers\SmallFormatMaterialController;
 use App\Http\Controllers\SmallMaterialController;
 use App\Http\Controllers\ArticleController;
 use App\Http\Controllers\AnalyticsController;
+use App\Http\Controllers\CatalogItemController;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
@@ -263,5 +264,13 @@ Route::middleware(['auth', 'verified'])->group(function () {
     });
 });
 
-
+Route::get('/catalog-items', [JobController::class, 'getCatalogItems']);
+Route::middleware(['auth', 'verified'])->group(function () {
+    Route::get('/catalog', [CatalogItemController::class, 'index'])->name('catalog.index');
+    Route::get('/catalog/create', [CatalogItemController::class, 'create'])->name('catalog.create');
+    Route::post('/catalog', [CatalogItemController::class, 'store'])->name('catalog.store');
+    Route::get('/catalog/{catalogItem}/edit', [CatalogItemController::class, 'edit'])->name('catalog.edit');
+    Route::put('/catalog/{catalogItem}', [CatalogItemController::class, 'update'])->name('catalog.update');
+    Route::delete('/catalog/{catalogItem}', [CatalogItemController::class, 'destroy'])->name('catalog.destroy');
+});
 require __DIR__.'/auth.php';

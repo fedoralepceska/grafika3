@@ -3,44 +3,59 @@
         <TabsWrapper>
             <Tab title="Art" icon="mdi-file-image">
                 <div class="flex pb-1 justify-center gap-4">
-                    <div
-                        v-if="!uploading"
-                        class="drop-zone text-white"
-                        @dragover.prevent
-                        @drop="handleFileDrop"
-                    >
-                        <p>{{ $t('dragAndDrop') }}</p>
-                        <input
-                            type="file"
-                            accept=".pdf, .tiff, .tif"
-                            @change="handleFileBrowse"
-                            style="display: none;"
-                            ref="fileInput"
-                            multiple
-                        />
+                    <!-- Drop Area -->
+                    <div class="drop-zone-container">
+                        <div
+                            class="drop-zone text-white"
+                            v-if="!uploading"
+                            @dragover.prevent
+                            @drop="handleFileDrop"
+                        >
+                            <p>{{ $t('dragAndDrop') }}</p>
+                            <input
+                                type="file"
+                                accept=".pdf, .tiff, .tif"
+                                @change="handleFileBrowse"
+                                style="display: none;"
+                                ref="fileInput"
+                                multiple
+                            />
+                        </div>
+                        <div
+                            v-else
+                            class="uploading-animation flex flex-col items-center justify-center"
+                        >
+                            <p class="uploading-text text-white">Uploading...</p>
+                            <img src="/images/Loading.gif" alt="Loading" class="loading-gif" style="width: 35px; height: 35px"/>
+                        </div>
                     </div>
-                    <div
-                        v-else
-                        class="uploading-animation flex flex-col items-center justify-center"
-                    >
-                        <p class="uploading-text text-white">Uploading</p>
-                        <img src="/images/Loading.gif" alt="Loading" class="loading-gif" style="width: 35px; height: 35px"/>
-                    </div>
+
+                    <!-- Job Count and Browse Button -->
                     <div class="ultra-light-gray p-1 rounded d-flex">
-                        <div class="text-white pb-10">{{ jobs.length ? `${jobs.length} jobs selected` : 'No files selected..' }}</div>
-                        <button @click="browseForFiles" class="bg-white rounded text-black py-2 px-5">{{ $t('browse') }}</button>
+                        <div class="text-white pb-10">
+                            {{ fileJobs.length ? `${fileJobs.length} jobs selected` : 'No files selected..' }}
+                        </div>
+                        <button @click="browseForFiles" class="bg-white rounded text-black py-2 px-5">
+                            {{ $t('browse') }}
+                        </button>
                     </div>
                 </div>
-                <div class="fbox ultra-light-gray rounded flex  justify-between text-center m-6">
-                    <div class="text-white flex-wrap align-center d-flex p-2">Files: {{ jobs.length }}
-                        Uploaded: {{ calculateTotalFileSize() }}MB<br>
+
+                <!-- File Size and Details -->
+                <div class="fbox ultra-light-gray rounded flex justify-between text-center m-6">
+                    <div class="text-white flex-wrap align-center d-flex p-2">
+                        Files: {{ fileJobs.length }} Uploaded: {{ calculateTotalFileSize() }}MB<br>
                     </div>
                     <div class="position-relative p-2">
-                        <button @mouseover="showPopover = true"
-                                @mouseout="showPopover = false"
-                                class="bg-white rounded text-black py-2 px-5">Details</button>
+                        <button
+                            @mouseover="showPopover = true"
+                            @mouseout="showPopover = false"
+                            class="bg-white rounded text-black py-2 px-5"
+                        >
+                            Details
+                        </button>
                         <div v-if="showPopover" class="popover">
-                            <div v-for="job in jobs" :key="job.file.name">
+                            <div v-for="job in fileJobs" :key="job.file.name">
                                 {{ job.file.name }} ({{ jobSize(job.fileSize) }}MB)
                             </div>
                         </div>
@@ -55,41 +70,61 @@
     </div>
 </template>
 
+---
+
+### Script Adjustments
+
+```javascript
 <script>
 import { useToast } from 'vue-toastification';
 import Tab from "@/Components/tabs/Tab.vue";
 import TabsWrapper from "@/Components/tabs/TabsWrapper.vue";
-import pdfjsLib from 'pdfjs-dist';
 
 export default {
     name: "DragAndDrop",
-    components: {TabsWrapper,Tab},
+    components: { TabsWrapper, Tab },
 
     props: {
-        invoiceComment: String
+        invoiceComment: String,
+        initialJobs: Array,
     },
 
     data() {
         return {
-            jobs: [],
+            jobs: Array.isArray(this.initialJobs) ? [...this.initialJobs] : [],
             showPopover: false,
             localComment: this.invoiceComment,
-            uploading: false, // Add boolean property to track uploading status
+            uploading: false, // Track uploading state
         };
     },
-    watch: {
-        invoiceComment: function(newVal) {
-            this.localComment = newVal;
-        }
+
+    computed: {
+        // Filter jobs that have a file
+        fileJobs() {
+            return this.jobs.filter(job => job.file && job.file !== 'placeholder.jpeg');
+        },
     },
+
+    watch: {
+        invoiceComment(newVal) {
+            this.localComment = newVal;
+        },
+        jobs: {
+            handler(newJobs) {
+                this.$emit('update:jobs', newJobs);
+            },
+            deep: true,
+        },
+    },
+
+    emits: ['update:jobs'],
+
     methods: {
         async createJob(imageFile) {
-            // Set uploading to true when starting the upload
-            this.uploading = true;
-
+            this.uploading = true; // Start uploading
             try {
                 const formData = new FormData();
-                formData.append('file', imageFile); // Append the image file
+                formData.append('file', imageFile);
 
                 const response = await axios.post('/jobs', formData, {
                     headers: {
@@ -97,17 +132,14 @@ export default {
                     },
                 });
 
-                // Set uploading to false when upload is finished
-                this.uploading = false;
-
+                this.uploading = false; // Finish uploading
                 return response.data.job;
             } catch (error) {
-                console.log('test', error);
-                // Set uploading to false when upload fails
-                this.uploading = false;
-                return error;
+                this.uploading = false; // Handle failure
+                throw error;
             }
         },
+
         handleFileDrop(event) {
             const toast = useToast();
 
@@ -116,11 +148,9 @@ export default {
 
             for (let i = 0; i < files.length; i++) {
                 const file = files[i];
-                // Check if the file is a PDF
                 if (file.type === 'application/pdf') {
                     this.convertPDFToImage(file);
                 } else {
-                    // Handle file type not supported (not a PDF)
                     toast.error('Only PDF files are supported.');
                 }
             }
@@ -132,11 +162,9 @@ export default {
 
             for (let i = 0; i < files.length; i++) {
                 const file = files[i];
-                // Check if the file is a PDF or tiff
                 if (file.type === 'application/pdf') {
                     this.convertPDFToImage(file);
                 } else {
-                    // Handle file type not supported (not a PDF)
                     toast.error('Only PDF files are supported.');
                 }
             }
@@ -144,66 +172,79 @@ export default {
 
         browseForFiles() {
             this.$refs.fileInput.click();
-
         },
 
         calculateTotalFileSize() {
-            let size = 0;
-            this.jobs.forEach(j => size += j.fileSize);
-            return this.jobSize(size);
+            return this.fileJobs.reduce((size, job) => size + job.fileSize, 0).toFixed(2);
         },
 
         jobSize(size) {
             const megabyteToByte = 1048576;
-            size/=megabyteToByte;
-            return size.toFixed(2);
+            return (size / megabyteToByte).toFixed(2);
         },
 
         async convertPDFToImage(file) {
-            const reader = new FileReader();
-
-            reader.onload = async (event) => {
-                const fileData = event.target.result;
-
-                // Use createJob to convert the PDF to an image
+            try {
                 const tempJob = await this.createJob(file);
 
-                // Calculate PDF dimensions
                 const response = await axios.get(`/jobs/${tempJob.id}/image-dimensions`);
-
                 await axios.put(`/jobs/${tempJob.id}`, {
                     width: response.data.width,
-                    height: response.data.height
+                    height: response.data.height,
                 });
 
-
-                const job = {
-                    imageData: fileData, // Save the file data for the image
-                    file: tempJob.file, // Save the PDF file
+                this.jobs.push({
+                    file: tempJob.file,
                     width: response.data.width,
                     height: response.data.height,
-                    id: tempJob?.id, // Add other job details as needed
-                    materials: tempJob?.large_material_id,
-                    materialsSmall: tempJob?.small_material_id,
-                    machinePrint: tempJob?.machinePrint,
-                    machinesCut: tempJob?.machineCut,
-                    quantity: tempJob?.quantity,
-                    copies: tempJob?.copies,
-                    fileSize: file.size
-                };
-
-                this.jobs.push(job);
-            };
-
-            reader.readAsDataURL(file);
+                    id: tempJob.id,
+                    fileSize: file.size,
+                });
+            } catch (error) {
+                console.error('Error creating job:', error);
+            }
         },
+
         updateComment() {
             this.$emit('commentUpdated', this.localComment);
+        },
+
+        handleCatalogJobs(catalogJobs) {
+            catalogJobs.forEach(job => {
+                this.jobs.push({
+                    ...job,
+                    isPlaceholder: true, // Mark jobs created from catalog
+                });
+            });
+        },
+
+        async handlePlaceholderFileDrop(event, job) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            try {
+                const tempJob = await this.createJob(file);
+
+                const index = this.jobs.findIndex(j => j.id === job.id);
+                if (index !== -1) {
+                    this.jobs[index] = {
+                        ...job,
+                        file: tempJob.file,
+                        isPlaceholder: false,
+                        needsFile: false,
+                    };
+                }
+
+                const toast = useToast();
+                toast.success('File uploaded successfully');
+            } catch (error) {
+                const toast = useToast();
+                toast.error('Failed to upload file');
+            }
         },
     },
 };
 </script>
-
 <style scoped lang="scss">
 .dark-gray{
     background-color: $dark-gray;
@@ -264,5 +305,47 @@ export default {
     position: absolute;
     background-color: white;
     box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+}
+
+.placeholder-container {
+    position: relative;
+    width: 150px;
+    height: 150px;
+    margin: 10px;
+}
+
+.placeholder-image {
+    width: 100%;
+    height: 100%;
+    border: 2px dashed $gray;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: $ultra-light-gray;
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+
+    span {
+        color: $white;
+        text-align: center;
+    }
+}
+
+.placeholder-input {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    opacity: 0;
+    cursor: pointer;
+}
+
+.placeholder-info {
+    text-align: center;
+    color: $white;
+    margin-top: 5px;
 }
 </style>

@@ -11,6 +11,7 @@ use App\Models\Job;
 use App\Models\LargeFormatMaterial;
 use App\Models\SmallMaterial;
 use App\Models\WorkerAnalytics;
+use App\Models\CatalogItem;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -46,6 +47,68 @@ class JobController extends Controller
 
     public function store(Request $request)
     {
+        if ($request->has('fromCatalog')) {
+            try {
+                // Step 1: Create the Job
+                $job = new Job();
+                $job->machinePrint = $request->input('machinePrint');
+                $job->machineCut = $request->input('machineCut');
+                $job->large_material_id = $request->input('large_material_id');
+                $job->small_material_id = $request->input('small_material_id');
+                $job->quantity = $request->input('quantity');
+                $job->copies = $request->input('copies');
+                $job->file = 'placeholder.jpeg';
+                $job->width = 0;
+                $job->height = 0;
+                $job->save();
+
+                // Step 2: Retrieve Catalog Item Actions
+                if ($request->has('actions')) {
+                    $catalogActions = $request->input('actions');
+
+                    // Step 3: Duplicate Actions into `job_actions`
+                    $newActions = [];
+                    foreach ($catalogActions as $catalogAction) {
+                        $newAction = DB::table('job_actions')->insertGetId([
+                            'name' => $catalogAction['name'], // Copy action name
+                            'status' => 'Not started yet',    // Default status
+                            'quantity' => $catalogAction['quantity'] ?? 0, // Copy quantity or default to 0
+                            'created_at' => now(),
+                            'updated_at' => now(),
+                        ]);
+
+                        $newActions[] = [
+                            'job_action_id' => $newAction,
+                            'quantity' => $catalogAction['quantity'] ?? 0,
+                            'status' => 'Not started yet', // Default status
+                        ];
+                    }
+
+                    // Step 4: Link New Actions to the Job in `job_job_action`
+                    foreach ($newActions as $action) {
+                        DB::table('job_job_action')->insert([
+                            'job_id' => $job->id,
+                            'job_action_id' => $action['job_action_id'],
+                            'quantity' => $action['quantity'],
+                            'status' => $action['status'],
+                            'created_at' => now(),
+                            'updated_at' => now(),
+                        ]);
+                    }
+                }
+
+                // Reload the job with its actions for response
+                $job->load('actions');
+
+                return response()->json([
+                    'message' => 'Job created successfully',
+                    'job' => $job,
+                ]);
+            } catch (\Exception $e) {
+                return response()->json(['error' => $e->getMessage()], 500);
+            }
+        }
+        // Original file upload logic
         try {
             // Validate the request data
             $this->validate($request, [
@@ -111,75 +174,94 @@ class JobController extends Controller
      */
     public function syncAllJobs(Request $request): \Illuminate\Http\JsonResponse
     {
-        // Validate the request and ensure the selected material is provided
-        $request->validate([
-            'selectedMaterial',
-            'selectedMaterialsSmall',
-            'quantity' => 'required',
-            'copies' => 'required',
-        ]);
-
-        $selectedMaterial = $request->input('selectedMaterial');
-        $selectedMaterialSmall = $request->input('selectedMaterialsSmall');
-        $selectedMachineCut = $request->input('selectedMachineCut');
-        $selectedMachinePrint = $request->input('selectedMachinePrint');
-        $quantity = $request->input('quantity');
-        $copies = $request->input('copies');
-        $jobIds = $request->input('jobs');
-        $jobsWithActions = $request->input('jobsWithActions');
-
-        // Update all jobs with the selected material
-        Job::whereIn('id', $jobIds)->update([
-            'large_material_id' => $selectedMaterial,
-            'small_material_id' => $selectedMaterialSmall,
-            'machineCut' => $selectedMachineCut,
-            'machinePrint' => $selectedMachinePrint,
-            'quantity' => $quantity,
-            'copies' => $copies,
-        ]);
-        foreach ($jobsWithActions as $jobWithActions) {
-            $job = Job::findOrFail($jobWithActions['job_id']);
-
-            $printAction = new JobAction([
-                'name' => $selectedMachinePrint,
-                'status' => 'Not started yet',
+        try {
+            // Validate the request
+            $validatedData = $request->validate([
+                'selectedMaterial' => 'nullable|exists:large_format_materials,id',
+                'selectedMaterialsSmall' => 'nullable|exists:small_material,id',
+                'quantity' => 'required|integer|min:1',
+                'copies' => 'required|integer|min:1',
+                'jobs' => 'required|array',
+                'jobs.*' => 'exists:jobs,id',
+                'jobsWithActions' => 'required|array',
+                'jobsWithActions.*.job_id' => 'required|exists:jobs,id',
+                'jobsWithActions.*.actions' => 'required|array',
+                'jobsWithActions.*.actions.*.action_id' => 'required|array',
+                'jobsWithActions.*.actions.*.action_id.name' => 'required|string',
+                'jobsWithActions.*.actions.*.quantity' => 'nullable|integer|min:0',
+                'jobsWithActions.*.actions.*.status' => 'required|string',
             ]);
 
-            $job->actions()->sync([]);
+            // Extract inputs
+            $selectedMaterial = $request->input('selectedMaterial');
+            $selectedMaterialSmall = $request->input('selectedMaterialsSmall');
+            $quantity = $request->input('quantity');
+            $copies = $request->input('copies');
+            $jobIds = $request->input('jobs');
+            $jobsWithActions = $request->input('jobsWithActions');
 
-            $actions = [$printAction];
+            // Update jobs with materials and machines
+            Job::whereIn('id', $jobIds)->update([
+                'large_material_id' => $selectedMaterial,
+                'small_material_id' => $selectedMaterialSmall,
+                'quantity' => $quantity,
+                'copies' => $copies,
+            ]);
 
-            foreach ($jobWithActions['actions'] as $actionData) {
-                $actions[] = new JobAction([
-                    'name' => $actionData['action_id']['name'],
-                    'status' => $actionData['status'],
-                    'quantity' => $actionData['quantity'] ?? 0
-                ]);
-                $small_material = null;
-                $large_material = null;
-                // Update Large Material
-                if ($selectedMaterial) {
-                    $large_material = LargeFormatMaterial::find($selectedMaterial);
-                    if ($large_material->quantity - $copies < 0) {
-                        throw new \Exception("Insufficient large material quantity.");
+            foreach ($jobsWithActions as $jobWithActions) {
+                $jobId = $jobWithActions['job_id'];
+                $actionsData = $jobWithActions['actions'];
+
+                // Sync actions
+                $actionSyncData = [];
+                foreach ($actionsData as $action) {
+                    $actionName = $action['action_id']['name'];
+                    $actionQuantity = $action['quantity'] ?? 0;
+                    $actionStatus = $action['status'];
+
+                    // Check if the action already exists in job_actions
+                    $actionId = DB::table('job_actions')->where('name', $actionName)->value('id');
+                    if (!$actionId) {
+                        // Create the action if it doesn't exist
+                        $actionId = DB::table('job_actions')->insertGetId([
+                            'name' => $actionName,
+                            'status' => 'Not started yet',
+                            'quantity' => $actionQuantity,
+                            'created_at' => now(),
+                            'updated_at' => now(),
+                        ]);
                     }
+
+                    // Prepare data for syncing
+                    $actionSyncData[$actionId] = [
+                        'status' => $actionStatus,
+                        'quantity' => $actionQuantity,
+                    ];
                 }
-                // Update Small Material
-                if ($selectedMaterialSmall) {
-                    $small_material = SmallMaterial::find($selectedMaterialSmall);
-                    if ($small_material->quantity - $copies < 0) {
-                        throw new \Exception("Insufficient small material quantity.");
-                    }
+
+                // Sync actions with the job
+                DB::table('job_job_action')->where('job_id', $jobId)->delete();
+                foreach ($actionSyncData as $actionId => $data) {
+                    DB::table('job_job_action')->insert(array_merge([
+                        'job_id' => $jobId,
+                        'job_action_id' => $actionId,
+                        'created_at' => now(),
+                        'updated_at' => now(),
+                    ], $data));
                 }
             }
 
-            $job->actions()->saveMany($actions);
+            return response()->json(['message' => 'Jobs synced successfully']);
+        } catch (\Exception $e) {
+            \Log::error('Error syncing jobs:', ['error' => $e->getMessage()]);
+            return response()->json([
+                'error' => 'Failed to sync jobs',
+                'details' => $e->getMessage(),
+            ], 500);
         }
-
-        return response()->json([
-            'message' => "Synced jobs with material: $selectedMaterial",
-        ]);
     }
+
+
 
     public function syncJobsWithShipping(Request $request): \Illuminate\Http\JsonResponse
     {
@@ -711,5 +793,53 @@ class JobController extends Controller
             $workerAnalytics->time_spent = $time_spent;
             $workerAnalytics->save();
         }
+    }
+
+    public function getCatalogItems()
+    {
+      try {
+            $catalogItems = CatalogItem::with([
+                'largeMaterial.article',
+                'smallMaterial.article'
+            ])->get()->map(function($item) {
+              \Log::info('Processing catalog item:', [     'id' => $item->id,
+                  'actions' => $item->actions
+              ]);
+
+                return [
+                    'id' => $item->id,
+                    'name' => $item->name,
+                    'machinePrint' => $item->machinePrint,
+                    'machineCut' => $item->machineCut,
+                    'largeMaterial' => $item->large_material_id,
+                    'smallMaterial' => $item->small_material_id,
+                    'quantity' => $item->quantity,
+                    'copies' => $item->copies,
+                    'actions' => collect($item->actions ?? [])->map(function($action) {
+                       \Log::info('Processing action:', ['action' => $action]);
+                        return [
+                            'action_id' => [
+                                'id' => $action['action_id']['id'] ?? $action['id'],
+                                'name' => $action['action_id']['name'] ?? $action['name']
+                            ],
+                            'status' => $action['status'] ?? 'Not started yet',
+                            'quantity' => $action['quantity']
+                        ];
+                    })->toArray()
+                ];
+            });
+
+            \Log::info('Catalog items:', ['items' => $catalogItems->toArray()]);
+            return response()->json($catalogItems);
+       } catch (\Exception $e) {
+           \Log::error('Error in getCatalogItems:', [
+               'message' => $e->getMessage(),
+               'trace' => $e->getTraceAsString()
+           ]);
+           return response()->json([
+               'error' => 'Failed to fetch catalog items',
+               'details' => $e->getMessage()
+           ], 500);
+       }
     }
 }

@@ -135,9 +135,11 @@ import store from '../orderStore.js';
 import VueMultiselect from 'vue-multiselect'
 import axios from "axios";
 import Checkbox from "@/Components/inputs/Checkbox.vue";
+import CatalogSelector from './CatalogSelector.vue';
+
 export default {
     name: "OrderInfo",
-    components: {Checkbox, VueMultiselect, SecondaryButton, PrimaryButton },
+    components: {Checkbox, VueMultiselect, SecondaryButton, PrimaryButton, CatalogSelector },
     props: {
         jobs: Array,
         shippingDetails: String,
@@ -320,6 +322,9 @@ export default {
             else {
                 return '';
             }
+        },
+        handleCatalogJobs(jobs) {
+            this.$emit('catalog-jobs-created', jobs);
         }
     }
 };
