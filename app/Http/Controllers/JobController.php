@@ -67,7 +67,23 @@ class JobController extends Controller
                     $catalogActions = $request->input('actions');
 
                     // Step 3: Duplicate Actions into `job_actions`
-                    $newActions = [];
+                    $printAction = new JobAction([
+                        'name' => $request->input('machinePrint'),
+                        'status' => 'Not started yet',
+                    ]);
+                    $action = DB::table('job_actions')->insertGetId([
+                        'name' => $request->input('machinePrint'), // Insert machine print
+                        'status' => 'Not started yet',    // Default status
+                        'quantity' => 0, // Copy quantity or default to 0
+                        'created_at' => now(),
+                        'updated_at' => now(),
+                    ]);
+                    $job->actions()->sync([]);
+                    $newActions[] = [
+                        'job_action_id' => $action,
+                        'quantity' => 0,
+                        'status' => 'Not started yet', // Default status
+                    ];
                     foreach ($catalogActions as $catalogAction) {
                         $newAction = DB::table('job_actions')->insertGetId([
                             'name' => $catalogAction['name'], // Copy action name
@@ -199,56 +215,54 @@ class JobController extends Controller
             $copies = $request->input('copies');
             $jobIds = $request->input('jobs');
             $jobsWithActions = $request->input('jobsWithActions');
+            $selectedMachineCut = $request->input('selectedMachineCut');
+            $selectedMachinePrint = $request->input('selectedMachinePrint');
+
+            $small_material = null;
+            $large_material = null;
+            // Update Large Material
+            if ($selectedMaterial) {
+                $large_material = LargeFormatMaterial::find($selectedMaterial);
+                if ($large_material->quantity - $copies < 0) {
+                    throw new \Exception("Insufficient large material quantity.");
+                }
+            }
+            // Update Small Material
+            if ($selectedMaterialSmall) {
+                $small_material = SmallMaterial::find($selectedMaterialSmall);
+                if ($small_material->quantity - $copies < 0) {
+                    throw new \Exception("Insufficient small material quantity.");
+                }
+            }
 
             // Update jobs with materials and machines
             Job::whereIn('id', $jobIds)->update([
                 'large_material_id' => $selectedMaterial,
                 'small_material_id' => $selectedMaterialSmall,
+                'machineCut' => $selectedMachineCut,
+                'machinePrint' => $selectedMachinePrint,
                 'quantity' => $quantity,
                 'copies' => $copies,
             ]);
 
             foreach ($jobsWithActions as $jobWithActions) {
-                $jobId = $jobWithActions['job_id'];
-                $actionsData = $jobWithActions['actions'];
+                $job = Job::findOrFail($jobWithActions['job_id']);
+                $printAction = new JobAction([
+                    'name' => $selectedMachinePrint,
+                    'status' => 'Not started yet',
+                ]);
 
-                // Sync actions
-                $actionSyncData = [];
-                foreach ($actionsData as $action) {
-                    $actionName = $action['action_id']['name'];
-                    $actionQuantity = $action['quantity'] ?? 0;
-                    $actionStatus = $action['status'];
+                $job->actions()->sync([]);
+                $actions = [$printAction];
 
-                    // Check if the action already exists in job_actions
-                    $actionId = DB::table('job_actions')->where('name', $actionName)->value('id');
-                    if (!$actionId) {
-                        // Create the action if it doesn't exist
-                        $actionId = DB::table('job_actions')->insertGetId([
-                            'name' => $actionName,
-                            'status' => 'Not started yet',
-                            'quantity' => $actionQuantity,
-                            'created_at' => now(),
-                            'updated_at' => now(),
-                        ]);
-                    }
-
-                    // Prepare data for syncing
-                    $actionSyncData[$actionId] = [
-                        'status' => $actionStatus,
-                        'quantity' => $actionQuantity,
-                    ];
+                foreach ($jobWithActions['actions'] as $actionData) {
+                    $actions[] = new JobAction([
+                        'name' => $actionData['action_id']['name'],
+                        'status' => $actionData['status'],
+                        'quantity' => $actionData['quantity'] ?? 0
+                    ]);
                 }
-
-                // Sync actions with the job
-                DB::table('job_job_action')->where('job_id', $jobId)->delete();
-                foreach ($actionSyncData as $actionId => $data) {
-                    DB::table('job_job_action')->insert(array_merge([
-                        'job_id' => $jobId,
-                        'job_action_id' => $actionId,
-                        'created_at' => now(),
-                        'updated_at' => now(),
-                    ], $data));
-                }
+                $job->actions()->saveMany($actions);
             }
 
             return response()->json(['message' => 'Jobs synced successfully']);
@@ -483,7 +497,48 @@ class JobController extends Controller
         ]);
     }
 
+    public function updateFile(Request $request, $id) {
+        try {
+            // Validate the request data
+            $this->validate($request, [
+                'file' => 'mimetypes:image/tiff,application/pdf', // Ensure the file is an image
+            ]);
 
+            // Handle file upload and storage
+            if ($request->hasFile('file')) {
+                $file = $request->file('file');
+                $fileExtension = $file->getClientOriginalExtension();
+                $pdfPath = $file->store('public/uploads', ['disk' => 'local']); // Store the PDF file
+
+                if ($fileExtension === 'pdf') {
+                    $imagick = new Imagick();
+                    $imagick->setOption('gs', "C:\Program Files\gs\gs10.02.0");
+                    $imagick->readImage($file->getPathname() . '[0]'); // Read the first page of the PDF
+                    $imagick->setImageFormat('jpg'); // Convert PDF to JPG (you can use other formats too)
+                    $imageFilename = pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME) . '.jpg'; // Unique image file name
+                    $imagick->writeImage(storage_path('app/public/uploads/' . $imageFilename)); // Save the image
+                    $imagick->clear();
+
+                    // Create a new job
+                    $job = Job::find($id);
+                    $job->file = $imageFilename; // Store the image file name
+                    $job->originalFile = $pdfPath;
+
+                    // Set other job properties if needed
+
+                    $job->save(); // Save the job to the database
+
+                    // Attach the job to the user or invoice as needed
+
+                    return response()->json(['message' => 'Job created successfully', 'job' => $job]);
+                }
+            } else {
+                return response()->json(['message' => 'File not provided'], 400);
+            }
+        } catch (\Exception $e) {
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
+    }
 
     public function update(Request $request, $id)
     {

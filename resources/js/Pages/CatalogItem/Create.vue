@@ -11,9 +11,9 @@
                     <div class="space-y-4">
                         <div>
                             <label class="text-white">Name</label>
-                            <input 
-                                v-model="form.name" 
-                                type="text" 
+                            <input
+                                v-model="form.name"
+                                type="text"
                                 class="w-full mt-1 rounded"
                                 required
                             />
@@ -21,13 +21,13 @@
 
                         <div>
                             <label class="text-white">Machine Print</label>
-                            <select 
-                                v-model="form.machinePrint" 
+                            <select
+                                v-model="form.machinePrint"
                                 class="w-full mt-1 rounded"
                             >
                                 <option value="">Select Machine</option>
-                                <option v-for="machine in machinesPrint" 
-                                        :key="machine.id" 
+                                <option v-for="machine in machinesPrint"
+                                        :key="machine.id"
                                         :value="machine.name">
                                     {{ machine.name }}
                                 </option>
@@ -36,13 +36,13 @@
 
                         <div>
                             <label class="text-white">Machine Cut</label>
-                            <select 
-                                v-model="form.machineCut" 
+                            <select
+                                v-model="form.machineCut"
                                 class="w-full mt-1 rounded"
                             >
                                 <option value="">Select Machine</option>
-                                <option v-for="machine in machinesCut" 
-                                        :key="machine.id" 
+                                <option v-for="machine in machinesCut"
+                                        :key="machine.id"
                                         :value="machine.name">
                                     {{ machine.name }}
                                 </option>
@@ -53,14 +53,14 @@
                     <div class="space-y-4">
                         <div>
                             <label class="text-white">Large Format Material</label>
-                            <select 
-                                v-model="form.large_material_id" 
+                            <select
+                                v-model="form.large_material_id"
                                 class="w-full mt-1 rounded"
                                 :disabled="form.small_material_id !== null"
                             >
                                 <option value="">Select Material</option>
-                                <option v-for="material in largeMaterials" 
-                                        :key="material.id" 
+                                <option v-for="material in largeMaterials"
+                                        :key="material.id"
                                         :value="material.id">
                                     {{ material.article.name }} ({{ material.article.code }})
                                 </option>
@@ -69,16 +69,16 @@
 
                         <div>
                             <label class="text-white">Small Format Material</label>
-                            <select 
-                                v-model="form.small_material_id" 
+                            <select
+                                v-model="form.small_material_id"
                                 class="w-full mt-1 rounded"
                                 :disabled="form.large_material_id !== null"
                             >
                                 <option value="">Select Material</option>
-                                <option v-for="material in smallMaterials" 
-                                        :key="material.id" 
+                                <option v-for="material in smallMaterials"
+                                        :key="material.id"
                                         :value="material.id">
-                                    {{ material.article.name }} ({{ material.article.code }})
+                                    {{ material.article?.name }} ({{ material.article?.code }})
                                 </option>
                             </select>
                         </div>
@@ -86,9 +86,9 @@
                         <div class="grid grid-cols-2 gap-4">
                             <div>
                                 <label class="text-white">Quantity</label>
-                                <input 
-                                    v-model="form.quantity" 
-                                    type="number" 
+                                <input
+                                    v-model="form.quantity"
+                                    type="number"
                                     min="1"
                                     class="w-full mt-1 rounded"
                                     required
@@ -96,9 +96,9 @@
                             </div>
                             <div>
                                 <label class="text-white">Copies</label>
-                                <input 
-                                    v-model="form.copies" 
-                                    type="number" 
+                                <input
+                                    v-model="form.copies"
+                                    type="number"
                                     min="1"
                                     class="w-full mt-1 rounded"
                                     required
@@ -112,18 +112,18 @@
                 <div class="mt-6">
                     <h3 class="text-white text-lg font-semibold mb-4">Actions</h3>
                     <div class="space-y-4">
-                        <div v-for="(action, index) in form.actions" :key="index" 
+                        <div v-for="(action, index) in form.actions" :key="index"
                              class="flex items-center space-x-4 bg-gray-700 p-4 rounded">
                             <div class="flex-1">
-                                <select 
+                                <select
                                     :value="action.selectedAction"
                                     @input="(e) => handleActionSelect(e, action)"
                                     class="w-full rounded"
                                     required
                                 >
                                     <option value="">Select Action</option>
-                                    <option v-for="availableAction in availableActions" 
-                                            :key="availableAction.id" 
+                                    <option v-for="availableAction in availableActions"
+                                            :key="availableAction.id"
                                             :value="availableAction.id"
                                             :selected="action.selectedAction === availableAction.id"
                                     >
@@ -132,26 +132,26 @@
                                 </select>
                             </div>
                             <div v-if="action.showQuantity" class="w-32">
-                                <input 
-                                    v-model="action.quantity" 
-                                    type="number" 
+                                <input
+                                    v-model="action.quantity"
+                                    type="number"
                                     min="0"
                                     class="w-full rounded"
                                     placeholder="Quantity"
                                     required
                                 />
                             </div>
-                            <button 
-                                type="button" 
+                            <button
+                                type="button"
                                 @click="removeAction(index)"
                                 class="text-red-500 hover:text-red-700"
                             >
                                 <span class="mdi mdi-delete"></span>
                             </button>
                         </div>
-                        
-                        <button 
-                            type="button" 
+
+                        <button
+                            type="button"
                             @click="addAction"
                             class="text-green-500 hover:text-green-700"
                         >
@@ -212,7 +212,7 @@ export default {
     computed: {
         availableActions() {
             return this.actions.filter(action => {
-                return !this.form.actions.some(selectedAction => 
+                return !this.form.actions.some(selectedAction =>
                     selectedAction.selectedAction === action.id
                 )
             })
@@ -239,7 +239,7 @@ export default {
                 action.showQuantity = false;
                 return;
             }
-            
+
             console.log('Selected action:', action.selectedAction);
             const selectedAction = this.actions.find(a => a.id === parseInt(action.selectedAction));
             console.log('Found action:', selectedAction);
@@ -255,7 +255,7 @@ export default {
             };
             action.status = 'Not started yet';
             action.showQuantity = selectedAction?.isMaterialized ?? false;
-            
+
             if (!action.showQuantity) {
                 action.quantity = 0;
             }
@@ -268,8 +268,9 @@ export default {
 
         async submit() {
             const toast = useToast();
-            
+
             try {
+                console.log('form', this.form);
                 const formData = {
                     ...this.form,
                     actions: this.form.actions.map(action => ({
@@ -277,7 +278,7 @@ export default {
                         quantity: action.quantity
                     }))
                 };
-                
+
                 const response = await axios.post(route('catalog.store'), formData);
                 toast.success('Catalog item created successfully');
                 this.$inertia.visit(route('catalog.index'));
@@ -311,4 +312,4 @@ export default {
 .btn-secondary {
     @apply bg-gray-600 text-white hover:bg-gray-700;
 }
-</style> 
+</style>

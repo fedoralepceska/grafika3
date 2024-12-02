@@ -81,6 +81,7 @@
 
 <script>
 import { useToast } from "vue-toastification";
+import axios from "axios";
 
 export default {
     name: "OrderLines",
@@ -98,7 +99,11 @@ export default {
 
     computed: {
         jobsToDisplay() {
-            return this.updatedJobs.length < 1 ? this.jobs : this.updatedJobs;
+            const mergedJobs = [...this.updatedJobs, ...this.jobs];
+            const uniqueJobs = mergedJobs.filter((job, index, self) =>
+                index === self.findIndex(j => j.id === job.id)
+            );
+            return uniqueJobs;
         },
 
         fileJobs() {
@@ -128,11 +133,12 @@ export default {
                 const formData = new FormData();
                 formData.append('file', file);
 
-                const response = await axios.post('/jobs', formData, {
-                    headers: {
-                        'Content-Type': 'multipart/form-data',
-                    },
-                });
+                const response = await axios.post(
+                    `/jobs/${job.id}/update-file`, formData, {
+                        headers: {
+                            'Content-Type': 'multipart/form-data',
+                        },
+                    });
 
                 const dimensions = await axios.get(`/jobs/${response.data.job.id}/image-dimensions`);
 
@@ -150,7 +156,18 @@ export default {
                     height: dimensions.data.height,
                 });
 
+                axios.post('/get-jobs-by-ids', {
+                    jobs: [job.id],
+                })
+                    .then(response => {
+                        this.$emit('jobs-updated', response.data.jobs);
+                    })
+                    .catch(error => {
+                        toast.error("Couldn't fetch updated jobs");
+                    });
+
                 this.$emit('job-updated', updatedJob);
+                this.updatedJobs.push(updatedJob);
                 toast.success('File uploaded successfully');
             } catch (error) {
                 toast.error('Failed to upload file');

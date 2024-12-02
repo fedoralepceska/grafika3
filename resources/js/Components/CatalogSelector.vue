@@ -163,6 +163,7 @@ export default {
 
             try {
                 const jobs = await Promise.all(selectedCatalogItems.map(async (item) => {
+                    console.log('item', item, selectedCatalogItems);
                     const formattedActions = item.actions.map(action => ({
                         id: action.action_id.id,
                         name: action.action_id.name,

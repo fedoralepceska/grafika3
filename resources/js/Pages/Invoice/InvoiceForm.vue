@@ -84,8 +84,8 @@
                 <div class="right2">
                     <div class="Order light-gray">
                         <h2 class="sub-title uppercase">{{ $t('orderLines') }}</h2>
-                        <OrderLines 
-                            :jobs="$refs.dragAndDrop?.jobs" 
+                        <OrderLines
+                            :jobs="$refs.dragAndDrop?.jobs"
                             :updatedJobs="updatedJobs"
                             @job-updated="handleJobUpdate"
                         />
@@ -280,16 +280,16 @@ export default {
         },
         handleCatalogJobs(catalogJobs) {
             if (this.$refs.dragAndDrop) {
-                console.log('Catalog jobs received:', catalogJobs);
                 this.$refs.dragAndDrop.handleCatalogJobs(catalogJobs);
-                console.log('DragAndDrop jobs after update:', this.$refs.dragAndDrop.jobs);
             }
         },
         handleJobUpdate(updatedJob) {
-            if (this.$refs.dragAndDrop) {
-                const index = this.$refs.dragAndDrop.jobs.findIndex(j => j.id === updatedJob.id);
+            if (this.updatedJobs) {
+                const index = this.updatedJobs.findIndex(j => j.id === updatedJob.id);
+                const index2 = this.$refs.dragAndDrop.jobs.findIndex(j => j.id === updatedJob.id);
                 if (index !== -1) {
-                    this.$refs.dragAndDrop.jobs[index] = updatedJob;
+                    this.$refs.dragAndDrop.jobs[index2] = updatedJob;
+                    this.updatedJobs[index] = updatedJob;
                 }
             }
         }

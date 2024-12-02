@@ -117,19 +117,10 @@ class CatalogItemController extends Controller
             // Use a default value for `isMaterialized` if not provided
             $isMaterialized = $action['isMaterialized'] ?? false;
 
-            // Insert directly into `job_actions`
-            $jobActionId = DB::table('job_actions')->insertGetId([
-                'name' => $actionData->name,
-                'status' => 'Not started yet', // Default status
-                'quantity' => $isMaterialized ? ($action['quantity'] ?? 0) : null, // Set quantity if materialized
-                'created_at' => now(),
-                'updated_at' => now(),
-            ]);
-
             // Return action data for the catalog item
             return [
                 'action_id' => [
-                    'id' => $jobActionId, // Use the ID from job_actions
+                    'id' => $action['id'],
                     'name' => $actionData->name,
                 ],
                 'status' => 'Not started yet',
