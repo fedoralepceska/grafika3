@@ -165,6 +165,21 @@ export default {
                     ],
                 },
                 {
+                    href: '',
+                    title: 'Catalog',
+                    icon: 'fa-solid fa-book-open',
+                    child: [
+                        {
+                            href: '/catalog',
+                            title: 'View all catalog items',
+                        },
+                        {
+                            href: '/catalog/create',
+                            title: 'Add new catalog item',
+                        },
+                    ],
+                },
+                {
                     href: '/analytics',
                     title: 'Analytics',
                     icon: 'fa-solid fa-chart-pie',
