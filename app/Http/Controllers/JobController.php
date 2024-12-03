@@ -850,17 +850,30 @@ class JobController extends Controller
         }
     }
 
-    public function getCatalogItems()
+    public function getCatalogItems(Request $request)
     {
-      try {
-            $catalogItems = CatalogItem::with([
+        try {
+            // Get pagination parameters with defaults
+            $page = $request->input('page', 1);
+            $perPage = $request->input('per_page', 10);
+            $searchTerm = $request->input('search', '');
+
+            // Start with base query
+            $query = CatalogItem::with([
                 'largeMaterial.article',
                 'smallMaterial.article'
-            ])->get()->map(function($item) {
-              \Log::info('Processing catalog item:', [     'id' => $item->id,
-                  'actions' => $item->actions
-              ]);
+            ]);
 
+            // Add optional search functionality
+            if (!empty($searchTerm)) {
+                $query->where('name', 'like', "%{$searchTerm}%");
+            }
+
+            // Paginate the results
+            $catalogItems = $query->paginate($perPage, ['*'], 'page', $page);
+
+            // Transform paginated items
+            $transformedItems = $catalogItems->getCollection()->map(function($item) {
                 return [
                     'id' => $item->id,
                     'name' => $item->name,
@@ -871,7 +884,6 @@ class JobController extends Controller
                     'quantity' => $item->quantity,
                     'copies' => $item->copies,
                     'actions' => collect($item->actions ?? [])->map(function($action) {
-                       \Log::info('Processing action:', ['action' => $action]);
                         return [
                             'action_id' => [
                                 'id' => $action['action_id']['id'] ?? $action['id'],
@@ -884,17 +896,26 @@ class JobController extends Controller
                 ];
             });
 
-            \Log::info('Catalog items:', ['items' => $catalogItems->toArray()]);
-            return response()->json($catalogItems);
-       } catch (\Exception $e) {
-           \Log::error('Error in getCatalogItems:', [
-               'message' => $e->getMessage(),
-               'trace' => $e->getTraceAsString()
-           ]);
-           return response()->json([
-               'error' => 'Failed to fetch catalog items',
-               'details' => $e->getMessage()
-           ], 500);
-       }
+            // Return paginated response
+            return response()->json([
+                'data' => $transformedItems,
+                'pagination' => [
+                    'current_page' => $catalogItems->currentPage(),
+                    'total_pages' => $catalogItems->lastPage(),
+                    'total_items' => $catalogItems->total(),
+                    'per_page' => $catalogItems->perPage()
+                ]
+            ]);
+        } catch (\Exception $e) {
+            \Log::error('Error in getCatalogItems:', [
+                'message' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            return response()->json([
+                'error' => 'Failed to fetch catalog items',
+                'details' => config('app.debug') ? $e->getMessage() : 'An unexpected error occurred'
+            ], 500);
+        }
     }
 }

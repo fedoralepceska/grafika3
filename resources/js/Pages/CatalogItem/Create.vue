@@ -2,10 +2,14 @@
     <MainLayout>
         <div class="pl-7 pr-7">
             <Header title="Catalog" subtitle="createNewCatalogItem" icon="List.png" link="catalog"/>
-        </div>
 
-        <div class="p-4">
-            <form @submit.prevent="submit" class="space-y-6 bg-gray-800 p-6 rounded-lg">
+
+        <div class="dark-gray p-2 text-white">
+            <div class="form-container p-2 ">
+
+                    <h2 class="sub-title">Catalog item Creation</h2>
+
+            <form @submit.prevent="submit" class="space-y-6 w-full rounded-lg">
                 <!-- Basic Information -->
                 <div class="grid grid-cols-2 gap-6">
                     <div class="space-y-4">
@@ -113,7 +117,7 @@
                     <h3 class="text-white text-lg font-semibold mb-4">Actions</h3>
                     <div class="space-y-4">
                         <div v-for="(action, index) in form.actions" :key="index"
-                             class="flex items-center space-x-4 bg-gray-700 p-4 rounded">
+                             class="flex items-center space-x-4 light-gray p-4 rounded">
                             <div class="flex-1">
                                 <select
                                     :value="action.selectedAction"
@@ -161,14 +165,13 @@
                 </div>
 
                 <div class="flex justify-end space-x-4">
-                    <Link :href="route('catalog.index')" class="btn btn-secondary">
-                        Cancel
-                    </Link>
                     <button type="submit" class="btn btn-primary">
                         Create Catalog Item
                     </button>
                 </div>
             </form>
+            </div>
+        </div>
         </div>
     </MainLayout>
 </template>
@@ -300,16 +303,38 @@ export default {
 }
 </script>
 
-<style scoped>
+<style scoped lang="scss">
+.form-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 20px;
+    justify-content: space-between;
+}
+.dark-gray {
+    background-color: $dark-gray;
+    justify-content: left;
+    align-items: center;
+    min-height: 20vh;
+    min-width: 80vh;
+}
+.light-gray{
+    background-color: $light-gray;
+}
+.sub-title{
+    font-size: 20px;
+    font-weight: bold;
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    color: $white;
+}
 .btn {
-    @apply px-4 py-2 rounded-lg font-semibold;
+    padding: 9px 12px;
+    border: none;
+    cursor: pointer;
+    font-weight: bold;
+    border-radius: 2px;
+    background-color: $green;
 }
 
-.btn-primary {
-    @apply bg-green-600 text-white hover:bg-green-700;
-}
-
-.btn-secondary {
-    @apply bg-gray-600 text-white hover:bg-gray-700;
-}
 </style>

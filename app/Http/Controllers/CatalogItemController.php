@@ -29,24 +29,80 @@ class CatalogItemController extends Controller
 
     public function index(Request $request)
     {
-        // Fetch paginated catalog items with related data
-        $query = CatalogItem::with(['largeMaterial.article', 'smallMaterial.article']);
+        try {
+            // Get pagination parameters with defaults
+            $page = $request->input('page', 1);
+            $perPage = $request->input('per_page', 10);
+            $searchTerm = $request->input('search', '');
 
-        // Optional: Apply search filter
-        if ($request->has('search')) {
-            $search = $request->input('search');
-            $query->where('name', 'like', "%{$search}%");
+            // Start with base query
+            $query = CatalogItem::with([
+                'largeMaterial', // Relation to large_material
+                'smallMaterial' // Relation to small_material
+            ]);
+
+            // Add optional search functionality
+            if (!empty($searchTerm)) {
+                $query->where('name', 'like', "%{$searchTerm}%");
+            }
+
+            // Paginate the results
+            $catalogItems = $query->paginate($perPage, ['*'], 'page', $page);
+
+            // Transform the paginated items
+            $transformedItems = $catalogItems->getCollection()->map(function($item) {
+                $largeMaterialName = $item->largeMaterial ? $item->largeMaterial->name : null;
+                $smallMaterialName = $item->smallMaterial ? $item->smallMaterial->name : null;
+
+                // Determine which material to show
+                $materialDisplay = $largeMaterialName
+                    ? "{$largeMaterialName} (Large)"
+                    : ($smallMaterialName ? "{$smallMaterialName} (Small)" : 'N/A');
+
+                return [
+                    'id' => $item->id,
+                    'name' => $item->name,
+                    'machinePrint' => $item->machinePrint,
+                    'machineCut' => $item->machineCut,
+                    'material' => $materialDisplay, // Use material display
+                    'quantity' => $item->quantity,
+                    'copies' => $item->copies,
+                    'actions' => collect($item->actions ?? [])->map(function($action) {
+                        return [
+                            'action_id' => [
+                                'id' => $action['action_id']['id'] ?? $action['id'],
+                                'name' => $action['action_id']['name'] ?? $action['name']
+                            ],
+                            'status' => $action['status'] ?? 'Not started yet',
+                            'quantity' => $action['quantity']
+                        ];
+                    })->toArray()
+                ];
+            });
+
+            // Return Inertia view with the transformed data
+            return Inertia::render('CatalogItem/CatalogList', [
+                'catalogItems' => $transformedItems,
+                'pagination' => [
+                    'current_page' => $catalogItems->currentPage(),
+                    'total_pages' => $catalogItems->lastPage(),
+                    'total_items' => $catalogItems->total(),
+                    'per_page' => $catalogItems->perPage()
+                ]
+            ]);
+        } catch (\Exception $e) {
+            \Log::error('Error in getCatalogItems:', [
+                'message' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            return response()->json([
+                'error' => 'Failed to fetch catalog items',
+                'details' => config('app.debug') ? $e->getMessage() : 'An unexpected error occurred'
+            ], 500);
         }
-
-        // Paginate results (adjust perPage as needed)
-        $perPage = $request->input('per_page', 10);
-        $catalogItems = $query->paginate($perPage);
-
-        // Return paginated response with Inertia
-        return inertia('CatalogItem/CatalogList', [
-            'catalogItems' => $catalogItems,
-        ]);
     }
+
 
 
 

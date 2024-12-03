@@ -6,36 +6,65 @@
                 type="text"
                 placeholder="Search catalog items..."
                 class="search-input w-full p-2 border rounded"
+                @input="fetchCatalogItems"
             />
         </div>
 
         <div class="catalog-grid">
             <div
-                v-for="item in filteredItems"
+                v-for="item in catalogItems"
                 :key="item.id"
-                class="catalog-item"
+                class="catalog-item flex items-center"
             >
-                <div class="item-content">
-                    <div class="item-header">
-                        <span>{{ item.name }}</span>
-                        <button
-                            @click="openItemDetails(item)"
-                            class="info-button"
-                            title="View Item Details"
-                        >
-                            <i class="fas fa-info-circle"></i>
-                        </button>
+                <div class="item-content flex-grow flex items-center">
+                    <div class="item-details flex-grow">
+                        <div class="item-header flex items-center">
+                            <span class="item-name mr-4">{{ item.name }}</span>
+                            <button
+                                @click="openItemDetails(item)"
+                                class="info-button"
+                                title="View Item Details"
+                            >
+                                <i class="fas fa-info-circle"></i>
+                            </button>
+                        </div>
                     </div>
-                    <div class="item-actions">
+                    <div class="item-select">
                         <button
                             @click="selectItem(item)"
-                            :class="['select-button', { 'selected': selectedItems.includes(item.id) }]"
+                            class="select-circle-button"
+                            :class="{ 'selected': selectedItems.includes(item.id) }"
                         >
-                            {{ selectedItems.includes(item.id) ? 'Deselect' : 'Select' }}
+                            <i
+                                :class="selectedItems.includes(item.id)
+                                    ? 'fas fa-times'
+                                    : 'fas fa-arrow-right'"
+                            ></i>
                         </button>
                     </div>
                 </div>
             </div>
+        </div>
+
+        <!-- Pagination Controls -->
+        <div class="pagination-container flex justify-between items-center mt-4">
+            <button
+                @click="prevPage"
+                :disabled="currentPage === 1"
+                class="pagination-button"
+            >
+                Previous
+            </button>
+            <span class="page-info">
+                Page {{ currentPage }} of {{ totalPages }}
+            </span>
+            <button
+                @click="nextPage"
+                :disabled="currentPage === totalPages"
+                class="pagination-button"
+            >
+                Next
+            </button>
         </div>
 
         <!-- Item Details Modal -->
@@ -82,7 +111,6 @@
                             class="action-item"
                         >
                             <span>{{ action.action_id.name }}</span>
-
                         </div>
                     </div>
                 </div>
@@ -91,7 +119,7 @@
 
         <div class="button-container" v-if="selectedItems.length > 0">
             <button @click="createJobs" class="create-jobs-button">
-                Create Jobs ({{ selectedItems.length }} selected)
+                Create Jobs ({{ selectedItems.length }})
             </button>
         </div>
     </div>
@@ -108,29 +136,26 @@ export default {
             catalogItems: [],
             selectedItems: [],
             searchTerm: '',
-            selectedItemDetails: null
+            selectedItemDetails: null,
+            currentPage: 1,
+            itemsPerPage: 10,
+            totalPages: 0
         }
-    },
-
-    computed: {
-        filteredItems() {
-            if (!this.searchTerm) return this.catalogItems;
-
-            return this.catalogItems.filter(item =>
-                item.name.toLowerCase().includes(this.searchTerm.toLowerCase())
-            );
-        }
-    },
-
-    async mounted() {
-        await this.fetchCatalogItems();
     },
 
     methods: {
         async fetchCatalogItems() {
             try {
-                const response = await axios.get('/catalog-items');
-                this.catalogItems = response.data;
+                const response = await axios.get('/catalog-items', {
+                    params: {
+                        page: this.currentPage,
+                        per_page: this.itemsPerPage,
+                        search: this.searchTerm
+                    }
+                });
+
+                this.catalogItems = response.data.data;
+                this.totalPages = response.data.pagination.total_pages;
             } catch (error) {
                 console.error('Error fetching catalog items:', error.response?.data || error);
                 const toast = useToast();
@@ -163,7 +188,6 @@ export default {
 
             try {
                 const jobs = await Promise.all(selectedCatalogItems.map(async (item) => {
-                    console.log('item', item, selectedCatalogItems);
                     const formattedActions = item.actions.map(action => ({
                         id: action.action_id.id,
                         name: action.action_id.name,
@@ -192,12 +216,37 @@ export default {
                 console.error('Error creating jobs:', error.response?.data || error);
                 toast.error('Failed to create jobs from catalog');
             }
+        },
+
+        prevPage() {
+            if (this.currentPage > 1) {
+                this.currentPage--;
+                this.fetchCatalogItems();
+            }
+        },
+
+        nextPage() {
+            if (this.currentPage < this.totalPages) {
+                this.currentPage++;
+                this.fetchCatalogItems();
+            }
+        }
+    },
+
+    mounted() {
+        this.fetchCatalogItems();
+    },
+
+    watch: {
+        searchTerm() {
+            this.currentPage = 1;
+            this.fetchCatalogItems();
         }
     }
 }
 </script>
-<style scoped lang="scss">
 
+<style scoped lang="scss">
 $background-color: #1a2732;
 $gray: #3c4e59;
 $dark-gray: #2a3946;
@@ -214,7 +263,6 @@ $orange: #a36a03;
 .catalog-container {
     background-color: $light-gray;
     padding: 1rem;
-
 }
 
 .search-input {
@@ -232,27 +280,18 @@ $orange: #a36a03;
 .catalog-item {
     background-color: $dark-gray;
     border: 1px solid $gray;
-
+    padding: 1rem;
     transition: all 0.2s ease;
 
-    &:hover {
-        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-        transform: translateY(-2px);
-    }
 }
 
 .item-content {
-    padding: 1rem;
-    display: flex;
-    flex-direction: column;
-    height: 100%;
+    gap: 1rem;
 }
 
 .item-header {
     display: flex;
-    justify-content: space-between;
     align-items: center;
-    margin-bottom: 1rem;
     font-weight: bold;
     color: $white;
 }
@@ -266,69 +305,65 @@ $orange: #a36a03;
     transition: color 0.2s ease;
 
     &:hover {
-        color: $light-green;
+        color: $green;
     }
 }
 
-.item-details {
-    flex-grow: 1;
-}
-
-.detail-row {
-    display: flex;
-    justify-content: space-between;
-    margin-bottom: 0.5rem;
-    color: white;
-}
-
-.detail-label {
-    font-weight: 500;
-}
-
-.item-actions {
-    margin-top: 1rem;
-}
-
-.select-button {
-    width: 100%;
-    padding: 0.5rem;
+.select-circle-button {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
     background-color: $gray;
     color: $white;
+    display: flex;
+    justify-content: center;
+    align-items: center;
     border: none;
-    border-radius: 4px;
     cursor: pointer;
-    transition: background-color 0.2s ease;
+    transition: all 0.2s ease;
 
     &.selected {
+        background-color: $red;
+    }
+
+    &:hover {
         background-color: $green;
     }
 
-    &:hover {
-        background-color: $light-green;
+    i {
+        font-size: 1rem;
     }
 }
 
-.button-container {
-    margin-top: 1rem;
-    display: flex;
-    justify-content: flex-end;
+.pagination-container {
+    background-color: $dark-gray;
+    padding: 0.5rem;
+    border-radius: 4px;
 }
 
-.create-jobs-button {
-    background-color: $blue;
+.pagination-button {
+    background-color: $light-gray;
     color: $white;
     border: none;
-    padding: 0.75rem 1.5rem;
+    padding: 0.2rem 0.5rem;
     border-radius: 4px;
     cursor: pointer;
     transition: background-color 0.2s ease;
 
-    &:hover {
+    //&:disabled {
+    //    background-color: $gray;
+    //    cursor: not-allowed;
+    //}
+
+    &:hover:not(:disabled) {
         background-color: $light-green;
     }
 }
 
-// Modal Styles
+.page-info {
+    color: $white;
+}
+
 .modal-backdrop {
     position: fixed;
     top: 0;
@@ -389,10 +424,22 @@ $orange: #a36a03;
     padding: 0.5rem;
     background-color: $gray;
     border-radius: 4px;
-
 }
 
-.action-status {
-    color:white;
+.button-container {
+    margin-top: 1rem;
+    display: flex;
+    justify-content: flex-end;
+}
+
+.create-jobs-button {
+    background-color: #408a0b;
+    color: $white;
+    border: none;
+    padding: 0.4rem 1rem;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+
 }
 </style>
