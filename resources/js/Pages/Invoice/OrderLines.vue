@@ -47,14 +47,13 @@
                 <!-- ACTIONS SECTION -->
                 <div v-if="job.actions && job.actions.length > 0">
                     <td>
-                        <div class="green p-1 pl-1 text-white bg-gray-700" @click="toggleActions(job.id)" style="cursor: pointer">
+                        <div class="green p-1 pl-1 w-[40rem] text-white bg-gray-700" @click="toggleActions(job.id)" style="cursor: pointer">
                             {{$t('ACTIONS')}} ⏷
                         </div>
                         <transition name="slide-fade">
-                            <div v-if="showActions === job.id" class="ultra-light-green text-white pl-1 pt-1 pb-1">
-                                <div v-for="(action, actionIndex) in job.actions" :key="actionIndex">
-                                    <span>{{ action.name }} - Status: {{ action.status }}</span>
-                                    <span v-if="action.quantity"> - Quantity: {{ action.quantity }}</span>
+                            <div v-if="showActions === job.id" class="ultra-light-green text-white   pb-1">
+                                <div v-for="(action, actionIndex) in job.actions" :key="actionIndex" class="bg-gray-700 pl-1 w-full text-left">
+                                    <span>{{actionIndex +1 }}.{{ action.name }}</span>
                                 </div>
                             </div>
                         </transition>
