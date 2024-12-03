@@ -71,7 +71,7 @@ export default {
             try {
                 const printResponse = await axios.get('/job-machine-print-counts');
                 const cutResponse = await axios.get('/job-machine-cut-counts');
-                console.log(cutResponse);
+
                 this.jobMachinesPrint = printResponse.data;
                 this.jobMachinesCut = cutResponse.data;
             } catch (error) {

@@ -205,7 +205,6 @@ export default {
                 const response = await axios.get('/user-invoice-time-spent', {
                     params: { date: selectedDate },
                 });
-                console.log('Fetched data:', response.data);
                 chartData.value = Object.values(response.data).map(item => ({
                     user_id: item.user_id,
                     total_time_spent: item.total_time_spent,

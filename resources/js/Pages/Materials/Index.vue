@@ -112,7 +112,6 @@ export default {
     beforeMount() {
         this.fetchSmallMaterials();
         this.fetchLargeMaterials();
-        console.log(this.materials);
     },
     methods: {
         initResize(event, index) {

@@ -284,12 +284,10 @@ export default {
             }
         },
         handleJobUpdate(updatedJob) {
-            if (this.updatedJobs) {
-                const index = this.updatedJobs.findIndex(j => j.id === updatedJob.id);
-                const index2 = this.$refs.dragAndDrop.jobs.findIndex(j => j.id === updatedJob.id);
+            if (this.$refs.dragAndDrop) {
+                const index = this.$refs.dragAndDrop.jobs.findIndex(j => j.id === updatedJob.id);
                 if (index !== -1) {
-                    this.$refs.dragAndDrop.jobs[index2] = updatedJob;
-                    this.updatedJobs[index] = updatedJob;
+                    this.$refs.dragAndDrop.jobs[index] = updatedJob;
                 }
             }
         }

@@ -79,7 +79,6 @@ export default {
         },
         deleteBank(bank) {
             const toast = useToast();
-            console.log('Deleting bank with ID:', bank.id);
             axios.delete(`/api/banks/${bank.id}`)
                 .then((response) => {
                     this.banks = this.banks.filter((b) => b.id !== bank.id);

@@ -93,16 +93,23 @@ export default {
     data() {
         return {
             showActions: null,
+            jobsWithPrices: []
         };
     },
 
     computed: {
         jobsToDisplay() {
-            const mergedJobs = [...this.updatedJobs, ...this.jobs];
-            const uniqueJobs = mergedJobs.filter((job, index, self) =>
-                index === self.findIndex(j => j.id === job.id)
-            );
-            return uniqueJobs;
+            const mergedJobs = [...this.updatedJobs, ...this.jobs, ...this.jobsWithPrices];
+
+            // Create a Map to store jobs by ID, prioritizing those with totalPrice
+            const jobMap = new Map();
+            for (const job of mergedJobs) {
+                if (!jobMap.has(job.id) || (job.totalPrice && !jobMap.get(job.id).totalPrice)) {
+                    jobMap.set(job.id, job); // Keep the job with totalPrice if available
+                }
+            }
+
+            return Array.from(jobMap.values());
         },
 
         fileJobs() {
@@ -160,12 +167,13 @@ export default {
                 })
                     .then(response => {
                         this.$emit('jobs-updated', response.data.jobs);
+                        this.$emit('job-updated', response.data.jobs);
+                        this.jobsWithPrices = response.data.jobs;
                     })
                     .catch(error => {
                         toast.error("Couldn't fetch updated jobs");
                     });
 
-                this.$emit('job-updated', updatedJob);
                 this.updatedJobs.push(updatedJob);
                 toast.success('File uploaded successfully');
             } catch (error) {

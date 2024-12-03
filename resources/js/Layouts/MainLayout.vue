@@ -182,7 +182,6 @@ export default {
     },
     methods: {
         openNewWindow() {
-            console.log('test');
             var routeUrl = '/orders/create';
 
             // Open the new window with the specified route

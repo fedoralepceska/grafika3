@@ -238,15 +238,11 @@ export default {
         },
 
         handleActionChange(action) {
-            console.log('Action changed:', action);
             if (!action.selectedAction) {
                 action.showQuantity = false;
                 return;
             }
-
-            console.log('Selected action:', action.selectedAction);
             const selectedAction = this.actions.find(a => a.id === parseInt(action.selectedAction));
-            console.log('Found action:', selectedAction);
 
             if (!selectedAction?.name) {
                 console.error('Selected action has no name:', selectedAction);
@@ -263,7 +259,6 @@ export default {
             if (!action.showQuantity) {
                 action.quantity = 0;
             }
-            console.log('Final action state:', action);
         },
 
         removeAction(index) {

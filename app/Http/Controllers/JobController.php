@@ -328,6 +328,32 @@ class JobController extends Controller
         return $price;
     }
 
+    public function getJobsWithPrices(Request $request)
+    {
+        $jobs = $request->input('jobs');
+        foreach($jobs as $job) {
+            $smallMaterial = SmallMaterial::with('article')->find($job['small_material_id']);
+            $largeMaterial = LargeFormatMaterial::with('article')->find($job['large_material_id']);
+            $price = 0;
+            $jobWithActions = Job::with('actions')->find($job['id'])->toArray();
+
+            foreach ($jobWithActions['actions'] as $action) {
+                if ($action['quantity']) {
+                    if (isset($smallMaterial)) {
+                        $price = $price + ($action['quantity']*$smallMaterial->article->price_1);
+                    }
+                    if (isset($largeMaterial)) {
+                        $price = $price + ($action['quantity']*$largeMaterial->article->price_1);
+                    }
+                }
+            }
+            $job['totalPrice'] = $price;
+        }
+        return response()->json([
+            'jobs' => $jobs,
+        ]);
+    }
+
     public function getJobsByActionId(Request $request, $actionId)
     {
         // Find the action with the specified name
