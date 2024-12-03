@@ -66,7 +66,7 @@
                                 <option v-for="material in largeMaterials"
                                         :key="material.id"
                                         :value="material.id">
-                                    {{ material.article.name }} ({{ material.article.code }})
+                                    {{ material.article?.name }} ({{ material.article?.code }})
                                 </option>
                             </select>
                         </div>
