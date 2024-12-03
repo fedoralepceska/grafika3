@@ -122,14 +122,15 @@
                                 <select
                                     :value="action.selectedAction"
                                     @input="(e) => handleActionSelect(e, action)"
-                                    class="w-full rounded"
+                                    class="w-full rounded option"
                                     required
                                 >
-                                    <option value="">Select Action</option>
+                                    <option class="option" value="">Select Action</option>
                                     <option v-for="availableAction in availableActions"
                                             :key="availableAction.id"
                                             :value="availableAction.id"
                                             :selected="action.selectedAction === availableAction.id"
+                                            class="option"
                                     >
                                         {{ availableAction.name }}
                                     </option>
@@ -140,7 +141,7 @@
                                     v-model="action.quantity"
                                     type="number"
                                     min="0"
-                                    class="w-full rounded"
+                                    class="w-full rounded option"
                                     placeholder="Quantity"
                                     required
                                 />
@@ -273,12 +274,12 @@ export default {
             const toast = useToast();
 
             try {
-                console.log('form', this.form);
                 const formData = {
                     ...this.form,
                     actions: this.form.actions.map(action => ({
                         id: action.action_id.id,
-                        quantity: action.quantity
+                        quantity: action.quantity,
+                        isMaterialized: this.actions.find(a => a.id === action.action_id.id).isMaterialized,
                     }))
                 };
 
@@ -335,6 +336,10 @@ export default {
     font-weight: bold;
     border-radius: 2px;
     background-color: $green;
+}
+
+.option, input, option, select {
+    color: black;
 }
 
 </style>

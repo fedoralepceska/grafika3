@@ -108,7 +108,7 @@
                 <div class="modal-body">
                     <div v-if="selectedItem.actions && selectedItem.actions.length">
                         <ul>
-                            <li v-for="(action, index) in selectedItem.actions" :key="index">
+                            <li v-for="(action, index) in selectedItem.actions" :key="index" class="option">
                                 {{ action.action_id.name }}
                             </li>
                         </ul>
@@ -277,5 +277,9 @@ tbody td {
 
 .close-button:hover {
     color: #e53e3e;
+}
+
+.option {
+    color: white;
 }
 </style>

@@ -157,6 +157,7 @@ class CatalogItemController extends Controller
             'actions' => 'required|array',
             'actions.*.id' => 'required|exists:dorabotka,id',
             'actions.*.quantity' => 'integer|min:0|required_if:actions.*.isMaterialized,true|nullable',
+            'actions.*.isMaterialized' => 'boolean'
         ]);
 
         // Create the catalog item without actions for now
