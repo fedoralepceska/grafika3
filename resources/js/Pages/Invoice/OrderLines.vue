@@ -2,124 +2,200 @@
     <div v-if="$props.jobs?.length > 0">
         <table class="border">
             <tbody>
-                <tr v-for="(job, index) in jobsToDisplay" :key="index">
-                    <!--ORDER INDEX, NAME AND ADDITIONAL INFO-->
-                    <div class="text-white">
-                        <td class="text-black bg-gray-200 font-weight-black "><span class="bold">#{{ index + 1 }}</span></td>
-                        <td> Name: <span class="bold">{{ job.file }}</span></td>
-                        <td>ID: <span class="bold">{{ job.id }}</span></td>
-                        <td>{{ $t('width') }}: <span class="bold">{{ job.width.toFixed(2) }}mm</span> </td>
-                        <td>{{ $t('height') }}: <span class="bold">{{ job.height.toFixed(2) }}mm</span></td>
-                        <td>{{$t('Quantity')}}: <span class="bold">{{ job.quantity }}</span></td>
-                        <td>{{$t('Copies')}}: <span class="bold">{{ job.copies }}</span></td>
-                    </div>
+            <tr v-for="(job, index) in jobsToDisplay" :key="index">
+                <!-- ORDER INDEX, NAME, AND ADDITIONAL INFO -->
+                <div class="text-white">
+                    <td class="text-black bg-gray-200 font-weight-black">
+                        <span class="bold">#{{ index + 1 }}</span>
+                    </td>
+                    <td> Name: <span class="bold">{{ job.file }}</span></td>
+                    <td>ID: <span class="bold">{{ job.id }}</span></td>
+                    <td>{{ $t('width') }}: <span class="bold">{{ job.width ? job.width.toFixed(2) : '0.00' }}mm</span></td>
+                    <td>{{ $t('height') }}: <span class="bold">{{ job.height ? job.height.toFixed(2) : '0.00' }}mm</span></td>
+                    <td>{{ $t('Quantity') }}: <span class="bold">{{ job.quantity }}</span></td>
+                    <td>{{ $t('Copies') }}: <span class="bold">{{ job.copies }}</span></td>
+                </div>
 
-                    <!--FILE INFO-->
-                    <div class="flex text-white">
-                        <td><img :src="getImageUrl(job.id)" alt="Job Image" class="jobImg thumbnail" /></td>
-                        <td>
-                            <div v-if="job.machinePrint">
-                                {{  $t('machineP') }} : <span class="bold"> {{ job.machinePrint }}</span>
+                <!-- FILE INFO -->
+                <div class="flex text-white">
+                    <td>
+                        <div v-if="job.file === 'placeholder.jpeg'" class="placeholder-upload">
+                            <div class="placeholder-content">
+                                <span class="placeholder-text">Drop PDF here</span>
+                                <input
+                                    type="file"
+                                    accept=".pdf"
+                                    @change="(e) => handleFileDrop(e, job)"
+                                    class="file-input"
+                                />
                             </div>
-                        </td>
-                        <td>
-                            <div v-if="job.machineCut">
-                                {{  $t('machineC') }} : <span class="bold"> {{ job.machineCut }}</span>
-                            </div>
-                        </td>
-                        <td>
-                            <div v-if="job.materials">
-                                {{  $t('materialLargeFormat') }} : <span class="bold"> {{$t(`materials.${job.materials}`) }}</span>
-                            </div>
-                            <div v-if="job.materialsSmall">
-                                {{  $t('materialSmallFormat') }} : <span class="bold"> {{$t(`materialsSmall.${job.materialsSmall}`) }}</span>
-                            </div>
-                        </td>
-                    </div>
-                    <!-- ACTIONS -->
-                    <div>
-                        <div class="pl-20 pr-14" v-if="actions(job.id)">
-                            <div class="jobInfo mt-3 mb-5 bg-gray-800">
-                                <div class="green p-1 pl-1 text-white bg-gray-700" @click="toggleActions" style="cursor: pointer">
-                                    {{$t('ACTIONS')}}
-                                    <button class="toggle-button" >&#9207;</button>
+                        </div>
+                        <img v-else :src="getImageUrl(job.id)" alt="Job Image" class="jobImg thumbnail" />
+                    </td>
+                    <td>
+                        <div v-if="job.machinePrint">
+                            {{ $t('machineP') }}: <span class="bold"> {{ job.machinePrint }}</span>
+                        </div>
+                    </td>
+                    <td>
+                        <div v-if="job.machineCut">
+                            {{ $t('machineC') }}: <span class="bold"> {{ job.machineCut }}</span>
+                        </div>
+                    </td>
+                </div>
+
+                <!-- ACTIONS SECTION -->
+                <div v-if="job.actions && job.actions.length > 0">
+                    <td>
+                        <div class="green p-1 pl-1 w-[40rem] text-white bg-gray-700" @click="toggleActions(job.id)" style="cursor: pointer">
+                            {{$t('ACTIONS')}} ⏷
+                        </div>
+                        <transition name="slide-fade">
+                            <div v-if="showActions === job.id" class="ultra-light-green text-white   pb-1">
+                                <div v-for="(action, actionIndex) in job.actions" :key="actionIndex" class="bg-gray-700 pl-1 w-full text-left">
+                                    <span>{{actionIndex +1 }}.{{ action.name }}</span>
                                 </div>
-                                <transition name="slide-fade">
-                                    <div v-if="showActions" class="ultra-light-green text-white pl-1 pt-1 pb-1">
-                                        <div v-for="(action,index) in actions(job.id)" :key="action">
-                                            <span>{{index+1}}. <strong>{{ action.startsWith('Machine') ? $t(`machinePrint.${action}`) : action }}</strong></span>
-                                        </div>
-                                    </div>
-                                </transition>
                             </div>
-                        </div>
-                        <template v-else>
-                            <span></span>
-                        </template>
-                    </div>
-                    <!--SHIPPING INFO-->
-                    <div class="flex justify-between">
-                        <td class="flex items-center bg-gray-200 text-black">
-                            <img src="/images/shipping.png" class="w-10 h-10 pr-1" alt="Shipping">
-                            {{ $t('Shipping') }}:  <strong> {{ job.shippingInfo }}</strong></td>
-                        <div class="bg-white text-black bold">
-                            <div class="pt-4 pl-2 pr-2">
-                                {{$t('jobPrice')}}: <span class="bold">{{job?.totalPrice?.toFixed(2)}} ден.</span>
-                            </div>
+                        </transition>
+                    </td>
+                </div>
+
+                <!-- SHIPPING INFO -->
+                <div class="flex justify-between">
+                    <td class="flex items-center bg-gray-200 text-black">
+                        <img src="/images/shipping.png" class="w-10 h-10 pr-1" alt="Shipping">
+                        {{ $t('Shipping') }}: <strong> {{ job.shippingInfo }}</strong>
+                    </td>
+                    <div class="bg-white text-black bold">
+                        <div class="pt-4 pl-2 pr-2">
+                            {{ $t('jobPrice') }}: <span class="bold">{{ job?.totalPrice?.toFixed(2) }} ден.</span>
                         </div>
                     </div>
-                </tr>
+                </div>
+            </tr>
             </tbody>
         </table>
     </div>
 </template>
 
 <script>
+import { useToast } from "vue-toastification";
+import axios from "axios";
+
 export default {
     name: "OrderLines",
 
     props: {
         jobs: Array,
-        updatedJobs: Array
+        updatedJobs: Array,
     },
 
     data() {
         return {
-            showActions: false
-        }
+            showActions: null,
+            jobsWithPrices: []
+        };
     },
 
     computed: {
         jobsToDisplay() {
-            return this.updatedJobs.length < 1 ? this.$props.jobs : this.$props.updatedJobs;
-        }
+            const mergedJobs = [...this.updatedJobs, ...this.jobs, ...this.jobsWithPrices];
+
+            // Create a Map to store jobs by ID, prioritizing those with totalPrice
+            const jobMap = new Map();
+            for (const job of mergedJobs) {
+                if (!jobMap.has(job.id) || (job.totalPrice && !jobMap.get(job.id).totalPrice)) {
+                    jobMap.set(job.id, job); // Keep the job with totalPrice if available
+                }
+            }
+
+            return Array.from(jobMap.values());
+        },
+
+        fileJobs() {
+            return this.jobsToDisplay.filter(job => job.file && job.file !== 'placeholder.jpeg');
+        },
     },
 
     methods: {
         getImageUrl(id) {
-            return `/storage/uploads/${this.$props.jobs.find(j => j.id === id).file}`
+            const job = this.jobsToDisplay.find(j => j.id === id);
+            return job && job.file !== 'placeholder.jpeg'
+                ? `/storage/uploads/${job.file}`
+                : '/storage/uploads/placeholder.jpeg';
         },
 
-        toggleActions() {
-            this.showActions = !this.showActions;
+        toggleActions(jobId) {
+            this.showActions = this.showActions === jobId ? null : jobId;
         },
 
-        actions(id) {
-            const job = this.updatedJobs.find(job => job.id === id);
-            // Check if the job exists
-            if (job) {
-                const jobActions = job.actions;
-                if (jobActions && jobActions.length > 0) {
-                    return jobActions.map(action => action.name);
-                }
+        async handleFileDrop(event, job) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const toast = useToast();
+
+            try {
+                const formData = new FormData();
+                formData.append('file', file);
+
+                const response = await axios.post(
+                    `/jobs/${job.id}/update-file`, formData, {
+                        headers: {
+                            'Content-Type': 'multipart/form-data',
+                        },
+                    });
+
+                const dimensions = await axios.get(`/jobs/${response.data.job.id}/image-dimensions`);
+
+                const updatedJob = {
+                    ...job,
+                    file: response.data.job.file,
+                    width: dimensions.data.width,
+                    height: dimensions.data.height,
+                    fileSize: file.size, // Add file size for accurate calculations
+                };
+
+                await axios.put(`/jobs/${job.id}`, {
+                    file: response.data.job.file,
+                    width: dimensions.data.width,
+                    height: dimensions.data.height,
+                });
+
+                axios.post('/get-jobs-by-ids', {
+                    jobs: [job.id],
+                })
+                    .then(response => {
+                        this.$emit('jobs-updated', response.data.jobs);
+                        this.$emit('job-updated', response.data.jobs);
+                        this.jobsWithPrices = response.data.jobs;
+                    })
+                    .catch(error => {
+                        toast.error("Couldn't fetch updated jobs");
+                    });
+
+                this.updatedJobs.push(updatedJob);
+                toast.success('File uploaded successfully');
+            } catch (error) {
+                toast.error('Failed to upload file');
+                console.error(error);
             }
-            else return false; // Return a default value if there are no actions for the job
         },
-    }
-}
+    },
+};
 </script>
 
 <style scoped lang="scss">
+.placeholder-upload {
+    width: 60px;
+    height: 60px;
+    margin: 0 1rem;
+    border: 2px dashed #ccc;
+    border-radius: 4px;
+    position: relative;
+    background-color: #f9f9f9;
+    overflow: hidden;
+}
 input[data-v-81b90cf3], select[data-v-81b90cf3]{
     width: 25vh;
     border-radius: 3px;
@@ -188,5 +264,50 @@ input, select {
     display: flex;
     flex-direction: column;
     padding: 10px;
+}
+
+.placeholder-upload {
+    width: 60px;
+    height: 60px;
+    margin: 0 1rem;
+    border: 2px dashed $gray;
+    border-radius: 4px;
+    position: relative;
+    background-color: $ultra-light-gray;
+    overflow: hidden;
+}
+
+.placeholder-content {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+}
+
+.placeholder-text {
+    font-size: 0.8rem;
+    color: $white;
+    text-align: center;
+    padding: 0.5rem;
+}
+
+.file-input {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    opacity: 0;
+    cursor: pointer;
+}
+
+.placeholder-upload:hover {
+    border-color: $light-green;
+    background-color: rgba($light-green, 0.1);
 }
 </style>

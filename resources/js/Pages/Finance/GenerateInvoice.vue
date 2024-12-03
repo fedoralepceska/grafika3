@@ -186,7 +186,6 @@ export default {
                 toast.success('Invoice generated successfully');
             } catch (error) {
                 // Handle errors here (if needed)
-                console.log(error);
                 toast.error('Error generating invoice!');
             }
         }

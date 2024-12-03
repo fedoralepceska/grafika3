@@ -15,29 +15,25 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use App\Models\Dorabotka;
 
 class Job extends Model
 {
     use HasFactory;
 
     protected $fillable = [
-        'id',
-        'width',
-        'height',
         'file',
         'originalFile',
-        'estimatedTime',
-        'shippingInfo',
-        'materials',
-        'materialsSmall',
-        'machineCut',
-        'machinePrint',
-        'status',
+        'width',
+        'height',
         'quantity',
         'copies',
-        'started_by',
-        'price',
-        'salePrice'
+        'machinePrint',
+        'machineCut',
+        'large_material_id',
+        'small_material_id',
+        'shippingInfo',
+        'status'
     ];
 
     protected $with = ['actions'];
@@ -54,8 +50,11 @@ class Job extends Model
 
     public function actions(): BelongsToMany
     {
-        return $this->belongsToMany(JobAction::class)->withPivot(['status', 'quantity']);
+        return $this->belongsToMany(JobAction::class, 'job_job_action', 'job_id', 'job_action_id')
+            ->withPivot(['status', 'quantity']);
     }
+
+
 
     public function invoices(): BelongsToMany
     {
@@ -78,7 +77,6 @@ class Job extends Model
         return $this->belongsTo(LargeFormatMaterial::class, 'large_material_id');
     }
 
-
     public function getTotalPriceAttribute(): float|int
     {
         $smallMaterial = SmallMaterial::with('article')->find($this->small_material_id);
@@ -97,7 +95,6 @@ class Job extends Model
         }
         return $price;
     }
-
 
     public function scopeWithActionStatusCounts($query)
     {

@@ -191,7 +191,6 @@ export default {
             const toast = useToast();
             try {
                 const response = await axios.post('/incomingInvoice', this.newInvoice);
-                console.log(response);
                 toast.success('Incoming invoice added successfully!');
                 this.closeDialog();
             } catch (error) {

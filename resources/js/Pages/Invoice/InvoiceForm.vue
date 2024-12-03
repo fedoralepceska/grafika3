@@ -67,10 +67,10 @@
                             <Tab title="ADD" icon="mdi mdi-plus-circle">
                                 <TabsWrapperV2>
                                     <TabV2 title="Manual" icon="mdi mdi-gesture-tap">
-                                        <OrderInfo v-if="$refs.dragAndDrop?.jobs?.length > 0" @jobs-updated="updateJobs" :jobs="$refs.dragAndDrop?.jobs"/>
+                                        <OrderInfo v-if="$refs.dragAndDrop?.jobs?.length > 0" @jobs-updated="updateJobs" @catalog-jobs-created="handleCatalogJobs" :jobs="$refs.dragAndDrop?.jobs"/>
                                     </TabV2>
                                     <TabV2 title="From Catalog" icon="mdi mdi-book-open-variant">
-
+                                        <CatalogSelector @jobs-created="handleCatalogJobs" />
                                     </TabV2>
                                 </TabsWrapperV2>
                             </Tab>
@@ -84,7 +84,11 @@
                 <div class="right2">
                     <div class="Order light-gray">
                         <h2 class="sub-title uppercase">{{ $t('orderLines') }}</h2>
-                        <OrderLines :jobs="$refs.dragAndDrop?.jobs" :updatedJobs="updatedJobs"/>
+                        <OrderLines
+                            :jobs="$refs.dragAndDrop?.jobs"
+                            :updatedJobs="updatedJobs"
+                            @job-updated="handleJobUpdate"
+                        />
                     </div>
                 </div>
             </div>
@@ -105,6 +109,7 @@ import TabV2 from "@/Components/tabs/TabV2.vue";
 import TabsWrapperV2 from "@/Components/tabs/TabsWrapperV2.vue";
 import Header from "@/Components/Header.vue";
 import OrderLines from "@/Pages/Invoice/OrderLines.vue";
+import CatalogSelector from "@/Components/CatalogSelector.vue";
 
 
 export default {
@@ -120,6 +125,7 @@ export default {
         DragAndDrop,
         MainLayout,
         PrimaryButton,
+        CatalogSelector,
     },
     data() {
         return {
@@ -271,6 +277,19 @@ export default {
         },
         getImageUrl(id) {
             return `/storage/uploads/${this.$refs.dragAndDrop.jobs.find(j => j.id === id).file}`
+        },
+        handleCatalogJobs(catalogJobs) {
+            if (this.$refs.dragAndDrop) {
+                this.$refs.dragAndDrop.handleCatalogJobs(catalogJobs);
+            }
+        },
+        handleJobUpdate(updatedJob) {
+            if (this.$refs.dragAndDrop) {
+                const index = this.$refs.dragAndDrop.jobs.findIndex(j => j.id === updatedJob.id);
+                if (index !== -1) {
+                    this.$refs.dragAndDrop.jobs[index] = updatedJob;
+                }
+            }
         }
     },
 };

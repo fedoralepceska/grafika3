@@ -13,6 +13,7 @@ use App\Http\Controllers\SmallFormatMaterialController;
 use App\Http\Controllers\SmallMaterialController;
 use App\Http\Controllers\ArticleController;
 use App\Http\Controllers\AnalyticsController;
+use App\Http\Controllers\CatalogItemController;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
@@ -127,6 +128,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('/get-jobs-by-ids', [JobController::class, 'getJobsByIds'])->name('jobs.getJobsByIds');
     Route::get('/jobs/{id}/image-dimensions', [JobController::class, 'calculateImageDimensions'])->name('jobs.calculateImageDimensions');
     Route::put('/jobs/{id}', [JobController::class, 'update'])->name('jobs.update');
+    Route::post('/jobs/{id}/update-file', [JobController::class, 'updateFile'])->name('jobs.updateFile');
     Route::get('/jobs/{id}', [JobController::class, 'show'])->name('jobs.show');
     Route::get('/job-action-status-counts', [JobController::class, 'jobActionStatusCounts']);
     Route::get('/job-machine-print-counts', [JobController::class, 'jobMachinePrintCounts']);
@@ -140,6 +142,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/machines/{id}/jobs', [JobController::class, 'getActionsByMachineName'])->name('jobs.getActionsByMachineName');
     Route::post('/jobs/start-job', [JobController::class, 'fireStartJobEvent'])->name('jobs.fireStartJobEvent');
     Route::post('/jobs/end-job', [JobController::class, 'fireEndJobEvent'])->name('jobs.fireEndJobEvent');
+    Route::post('/jobs-with-prices', [JobController::class, 'getJobsWithPrices'])->name('jobs.getJobsWithPrices');
 });
 
 //Routes For Small Format Materials
@@ -263,5 +266,13 @@ Route::middleware(['auth', 'verified'])->group(function () {
     });
 });
 
-
+Route::get('/catalog-items', [JobController::class, 'getCatalogItems']);
+Route::middleware(['auth', 'verified'])->group(function () {
+    Route::get('/catalog', [CatalogItemController::class, 'index'])->name('catalog.index');
+    Route::get('/catalog/create', [CatalogItemController::class, 'create'])->name('catalog.create');
+    Route::post('/catalog', [CatalogItemController::class, 'store'])->name('catalog.store');
+    Route::get('/catalog/{catalogItem}/edit', [CatalogItemController::class, 'edit'])->name('catalog.edit');
+    Route::put('/catalog/{catalogItem}', [CatalogItemController::class, 'update'])->name('catalog.update');
+    Route::delete('/catalog/{catalogItem}', [CatalogItemController::class, 'destroy'])->name('catalog.destroy');
+});
 require __DIR__.'/auth.php';

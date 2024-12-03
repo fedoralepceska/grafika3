@@ -135,9 +135,11 @@ import store from '../orderStore.js';
 import VueMultiselect from 'vue-multiselect'
 import axios from "axios";
 import Checkbox from "@/Components/inputs/Checkbox.vue";
+import CatalogSelector from './CatalogSelector.vue';
+
 export default {
     name: "OrderInfo",
-    components: {Checkbox, VueMultiselect, SecondaryButton, PrimaryButton },
+    components: {Checkbox, VueMultiselect, SecondaryButton, PrimaryButton, CatalogSelector },
     props: {
         jobs: Array,
         shippingDetails: String,
@@ -202,7 +204,6 @@ export default {
             return actions;
         },
         addAction() {
-            console.log(this.actions);
             this.actions.push({});
         },
         removeAction(index) {
@@ -235,7 +236,7 @@ export default {
                     actions: actions
                 };
             });
-            console.log(this.selectedMaterialSmall, this.selectedMaterial);
+
             axios.post('/sync-all-jobs', {
                 selectedMaterial: this.selectedMaterial.id,
                 selectedMachinePrint: this.selectedMachinePrint,
@@ -320,6 +321,9 @@ export default {
             else {
                 return '';
             }
+        },
+        handleCatalogJobs(jobs) {
+            this.$emit('catalog-jobs-created', jobs);
         }
     }
 };
