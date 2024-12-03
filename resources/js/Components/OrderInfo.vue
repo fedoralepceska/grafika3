@@ -241,7 +241,16 @@ export default {
                 };
             });
 
-            if (this.$props.isCatalog) {
+            if (this.selectedJobs.length) {
+                const filteredJobs = this.jobs.filter(job =>
+                    this.selectedJobs.some(selectedJob => selectedJob.value === job.id)
+                );
+                jobIds = filteredJobs.filter(j => j.isPlaceholder).map(j => j.id);
+            }
+            else {
+                jobIds = this.jobs.filter(j => j.isPlaceholder).map(j => j.id);
+            }
+            if (jobIds.length) {
                 axios.post('/sync-jobs-with-machine', {
                     jobs: jobIds,
                     selectedMachinePrint: this.selectedMachinePrint,
@@ -269,6 +278,12 @@ export default {
                         }
                     });
             } else {
+                if (this.selectedJobs.length) {
+                    jobIds = this.selectedJobs.filter(j => !j.isPlaceholder).map(j => j.value);
+                }
+                else {
+                    jobIds = this.jobs.filter(j => !j.isPlaceholder).map(j => j.id);
+                }
                 axios.post('/sync-all-jobs', {
                     selectedMaterial: this.selectedMaterial.id,
                     selectedMachinePrint: this.selectedMachinePrint,
