@@ -210,6 +210,7 @@ Route::middleware(['auth', 'verified'])->group(function() {
 //Routes For Articles
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/articles', [ArticleController::class, 'index'])->name('articles.index');
+    Route::get('/articles/count', [ArticleController::class, 'getCount'])->name('articles.getCount');
     Route::get('/articles/create', [ArticleController::class, 'create'])->name('articles.create');
     Route::post('/articles/create', [ArticleController::class, 'store'])->name('articles.store');
     Route::put('/articles/{article}', [ArticleController::class, 'update'])->name('articles.update');

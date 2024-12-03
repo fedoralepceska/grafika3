@@ -37,6 +37,16 @@ class ArticleController extends Controller
     }
 
     /**
+     * Get count of articles.
+     */
+    public function getCount()
+    {
+        $count = Article::all()->count();
+
+        return response()->json(['count' => $count]);
+    }
+
+    /**
      * Show the form for creating a new resource.
      */
     public function create()

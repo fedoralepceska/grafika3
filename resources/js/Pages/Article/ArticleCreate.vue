@@ -158,7 +158,16 @@ export default {
             }
         }
     },
+    beforeMount() {
+        this.fetchArticleCount();
+    },
     methods: {
+        async fetchArticleCount() {
+            const response = await axios.get('/articles/count');
+            if (response.data.count) {
+                this.form.code = response.data.count + 1;
+            }
+        },
         async createArticle() {
             try {
                 switch (this.form.unit) {
