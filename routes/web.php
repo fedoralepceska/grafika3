@@ -143,6 +143,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('/jobs/start-job', [JobController::class, 'fireStartJobEvent'])->name('jobs.fireStartJobEvent');
     Route::post('/jobs/end-job', [JobController::class, 'fireEndJobEvent'])->name('jobs.fireEndJobEvent');
     Route::post('/jobs-with-prices', [JobController::class, 'getJobsWithPrices'])->name('jobs.getJobsWithPrices');
+    Route::post('/sync-jobs-with-machine', [JobController::class, 'syncAllJobsWithMachines'])->name('jobs.syncAllJobsWithMachines');
 });
 
 //Routes For Small Format Materials

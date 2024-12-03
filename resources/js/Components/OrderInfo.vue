@@ -143,7 +143,11 @@ export default {
     props: {
         jobs: Array,
         shippingDetails: String,
-        shipping: Boolean
+        shipping: Boolean,
+        isCatalog: {
+            type: Boolean,
+            default: false
+        }
     },
     data() {
         return {
@@ -237,39 +241,68 @@ export default {
                 };
             });
 
-            axios.post('/sync-all-jobs', {
-                selectedMaterial: this.selectedMaterial.id,
-                selectedMachinePrint: this.selectedMachinePrint,
-                selectedMachineCut: this.selectedMachineCut,
-                selectedMaterialsSmall: this.selectedMaterialSmall.id,
-                quantity: this.quantity,
-                copies: this.copies,
-                shipping: store.state.shippingDetails,
-                jobs: jobIds,
-                jobsWithActions: jobsWithActions,
-            })
-                .then(response => {
-                    toast.success(`Successfully synced ${jobIds.length} jobs!`);
-                    jobIds = this.jobs.map(job => job.id);
-                    axios.post('/get-jobs-by-ids', {
-                        jobs: jobIds,
-                    })
-                        .then(response => {
-                            this.$emit('jobs-updated', response.data.jobs);
-                        })
-                        .catch(error => {
-                            toast.error("Couldn't fetch updated jobs");
-                        });
+            if (this.$props.isCatalog) {
+                axios.post('/sync-jobs-with-machine', {
+                    jobs: jobIds,
+                    selectedMachinePrint: this.selectedMachinePrint,
                 })
-                .catch(error => {
-                    if (error.response && error.response.data.message) {
-                        // Specific error message from the backend
-                        toast.error(error.response.data.message);
-                    } else {
-                        // Generic error message
-                        toast.error("Couldn't sync jobs");
-                    }
-                });
+                    .then(response => {
+                        toast.success(`Successfully synced ${jobIds.length} jobs!`);
+                        jobIds = this.jobs.map(job => job.id);
+                        axios.post('/get-jobs-by-ids', {
+                            jobs: jobIds,
+                        })
+                            .then(response => {
+                                this.$emit('jobs-updated', response.data.jobs);
+                            })
+                            .catch(error => {
+                                toast.error("Couldn't fetch updated jobs");
+                            });
+                    })
+                    .catch(error => {
+                        if (error.response && error.response.data.message) {
+                            // Specific error message from the backend
+                            toast.error(error.response.data.message);
+                        } else {
+                            // Generic error message
+                            toast.error("Couldn't sync jobs");
+                        }
+                    });
+            } else {
+                axios.post('/sync-all-jobs', {
+                    selectedMaterial: this.selectedMaterial.id,
+                    selectedMachinePrint: this.selectedMachinePrint,
+                    selectedMachineCut: this.selectedMachineCut,
+                    selectedMaterialsSmall: this.selectedMaterialSmall.id,
+                    quantity: this.quantity,
+                    copies: this.copies,
+                    shipping: store.state.shippingDetails,
+                    jobs: jobIds,
+                    jobsWithActions: jobsWithActions,
+                })
+                    .then(response => {
+                        toast.success(`Successfully synced ${jobIds.length} jobs!`);
+                        jobIds = this.jobs.map(job => job.id);
+                        axios.post('/get-jobs-by-ids', {
+                            jobs: jobIds,
+                        })
+                            .then(response => {
+                                this.$emit('jobs-updated', response.data.jobs);
+                            })
+                            .catch(error => {
+                                toast.error("Couldn't fetch updated jobs");
+                            });
+                    })
+                    .catch(error => {
+                        if (error.response && error.response.data.message) {
+                            // Specific error message from the backend
+                            toast.error(error.response.data.message);
+                        } else {
+                            // Generic error message
+                            toast.error("Couldn't sync jobs");
+                        }
+                    });
+            }
         },
         syncAllWithShipping() {
             const toast = useToast();

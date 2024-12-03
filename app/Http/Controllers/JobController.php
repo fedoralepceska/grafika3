@@ -275,6 +275,30 @@ class JobController extends Controller
         }
     }
 
+    /**
+     * @throws \Exception
+     */
+    public function syncAllJobsWithMachines(Request $request): \Illuminate\Http\JsonResponse
+    {
+        try {
+            $jobIds = $request->input('jobs');
+            $selectedMachinePrint = $request->input('selectedMachinePrint');
+
+            // Update jobs with materials and machines
+            Job::whereIn('id', $jobIds)->update([
+                'machinePrint' => $selectedMachinePrint,
+            ]);
+
+            return response()->json(['message' => 'Jobs synced successfully']);
+        } catch (\Exception $e) {
+            \Log::error('Error syncing jobs:', ['error' => $e->getMessage()]);
+            return response()->json([
+                'error' => 'Failed to sync jobs',
+                'details' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
 
 
     public function syncJobsWithShipping(Request $request): \Illuminate\Http\JsonResponse

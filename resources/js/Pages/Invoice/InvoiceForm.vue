@@ -67,7 +67,13 @@
                             <Tab title="ADD" icon="mdi mdi-plus-circle">
                                 <TabsWrapperV2>
                                     <TabV2 title="Manual" icon="mdi mdi-gesture-tap">
-                                        <OrderInfo v-if="$refs.dragAndDrop?.jobs?.length > 0" @jobs-updated="updateJobs" @catalog-jobs-created="handleCatalogJobs" :jobs="$refs.dragAndDrop?.jobs"/>
+                                        <OrderInfo
+                                            v-if="$refs.dragAndDrop?.jobs?.length > 0"
+                                            @jobs-updated="updateJobs"
+                                            @catalog-jobs-created="handleCatalogJobs"
+                                            :jobs="$refs.dragAndDrop?.jobs"
+                                            :isCatalog="true"
+                                        />
                                     </TabV2>
                                     <TabV2 title="From Catalog" icon="mdi mdi-book-open-variant">
                                         <CatalogSelector @jobs-created="handleCatalogJobs" />
