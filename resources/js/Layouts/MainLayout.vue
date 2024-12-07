@@ -31,9 +31,13 @@ const showingNavigationDropdown = ref(false);
                     <div class="flex">
                         <!-- Logo -->
                         <div class="shrink-0 flex items-center">
+                            <Link href="/orders" class="p-4 text-white text-sm leading-4 font-medium mr-6">
+                                <i class="fas fa-receipt" style="color: white"></i>
+                                Production
+                            </Link>
                             <Link href="/production" class="p-4 text-white text-sm leading-4 font-medium mr-6">
                                 <i class="fa-solid fa-chart-pie" style="color: white"></i>
-                                Production
+                                Dashboard
                             </Link>
                             <Link href="/machines" class="p-4 text-white text-sm leading-4 font-medium">
                                 <i class="fa-solid fa-print" style="color: white"></i>
