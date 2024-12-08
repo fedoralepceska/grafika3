@@ -177,6 +177,14 @@ export default {
                             href: '/catalog/create',
                             title: 'Add new catalog item',
                         },
+                        {
+                            href: '/offer',
+                            title: 'View all offers'
+                        },
+                        {
+                            href: '/offer/create',
+                            title: 'Add new offer'
+                        }
                     ],
                 },
                 {
