@@ -404,7 +404,6 @@ class JobController extends Controller
             // Fetch actions associated with the current job from job_job_action table
             $actionsForJob = DB::table('job_job_action')
                 ->join('job_actions', 'job_job_action.job_action_id', '=', 'job_actions.id')
-                ->where('job_actions.name', '=', $actionId)
                 ->where('job_job_action.job_id', $job->job_id)
                 ->select('job_actions.*')
                 ->get()
@@ -435,30 +434,20 @@ class JobController extends Controller
                 ->pluck('job_id');
 
             $jobsForInvoice = DB::table('jobs')
-                ->whereIn('jobs.id', $jobIdsForInvoice)
-                ->where('jobs.status', '!=', 'Completed')
-                ->join('job_job_action', 'jobs.id', '=', 'job_job_action.job_id')
-                ->whereIn('job_job_action.job_action_id', $actions->pluck('id'))
+                ->whereIn('id', $jobIdsForInvoice)
+                ->where('status', '!=', 'Completed')
                 ->get();
 
             // Now, get all jobs with actions in one go
-            $jobsWithActions = Job::with(['actions' => function($query) use ($actionId) {
-                $query->where('name', $actionId);
-            }])->whereIn('id', $jobIdsForInvoice)->get()->keyBy('id');
+            $jobsWithActions = Job::with('actions')->whereIn('id', $jobIdsForInvoice)->get()->keyBy('id');
 
             // Replace each job in $jobsForInvoice with the corresponding one from $jobsWithActions
             foreach ($jobsForInvoice as $index => $job) {
-                if (isset($jobsWithActions[$job->job_id])) {
-                    $jobsForInvoice[$index] = $jobsWithActions[$job->job_id];
+                if (isset($jobsWithActions[$job->id])) {
+                    $jobsForInvoice[$index] = $jobsWithActions[$job->id];
 
                     // Sort the actions for the current job
-                    $sortedActions = collect($job->actions)
-                        ->filter(function ($action) use ($actionId) {
-                            return $action['name'] === $actionId;
-                        })
-                        ->sortBy('id')
-                        ->values()
-                        ->toArray();
+                    $sortedActions = collect($job->actions)->sortBy('id')->values()->toArray();
 
                     $jobsForInvoice[$index]->actions = $sortedActions;
                 }
