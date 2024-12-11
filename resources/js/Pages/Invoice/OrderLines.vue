@@ -6,9 +6,9 @@
                 <!-- ORDER INDEX, NAME, AND ADDITIONAL INFO -->
                 <div class="text-white">
                     <td class="text-black bg-gray-200 font-weight-black">
-                        <span class="bold">#{{ index + 1 }}</span>
+                        <span class="bold">#{{ index + 1 }} {{ job.name }}</span>
                     </td>
-                    <td> Name: <span class="bold">{{ job.file }}</span></td>
+                    <td> File: <span class="bold">{{ job.file }}</span></td>
                     <td>ID: <span class="bold">{{ job.id }}</span></td>
                     <td>{{ $t('width') }}: <span class="bold">{{ job.width ? job.width.toFixed(2) : '0.00' }}mm</span></td>
                     <td>{{ $t('height') }}: <span class="bold">{{ job.height ? job.height.toFixed(2) : '0.00' }}mm</span></td>

@@ -201,6 +201,7 @@ export default {
                         machineCut: item.machineCut,
                         large_material_id: item.largeMaterial,
                         small_material_id: item.smallMaterial,
+                        name: item.name,
                         quantity: item.quantity,
                         copies: item.copies,
                         actions: formattedActions

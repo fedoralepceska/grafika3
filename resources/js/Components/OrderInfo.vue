@@ -20,6 +20,10 @@
         </div>
         <div class="order-info-box">
             <div class="form-group mt-2 p-2 text-black sameRow">
+                <label class="label-fixed-width">{{ $t('Name') }}</label>
+                <input type="text" v-model="name" class="select-fixed-width">
+            </div>
+            <div class="form-group mt-2 p-2 text-black sameRow">
                 <label class="label-fixed-width">{{ $t('machineP') }}</label>
                 <select v-model="selectedMachinePrint" class="select-fixed-width">
                     <option v-for="machine in machinesPrint" :key="machine.id" :value="machine.name">
@@ -159,6 +163,7 @@ export default {
             selectedAction: '',
             quantity: 1,
             copies: 1,
+            name: '',
             selectedJobs: [],
             actions: [{}],
             actionOptions: this.generateActionOptions(),
@@ -292,6 +297,7 @@ export default {
                     quantity: this.quantity,
                     copies: this.copies,
                     shipping: store.state.shippingDetails,
+                    name: this.name,
                     jobs: jobIds,
                     jobsWithActions: jobsWithActions,
                 })

@@ -33,7 +33,8 @@ class Job extends Model
         'large_material_id',
         'small_material_id',
         'shippingInfo',
-        'status'
+        'status',
+        'name'
     ];
 
     protected $with = ['actions'];

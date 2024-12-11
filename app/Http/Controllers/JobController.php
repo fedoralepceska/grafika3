@@ -55,6 +55,7 @@ class JobController extends Controller
                 $job->machineCut = $request->input('machineCut');
                 $job->large_material_id = $request->input('large_material_id');
                 $job->small_material_id = $request->input('small_material_id');
+                $job->name = $request->input('name');
                 $job->quantity = $request->input('quantity');
                 $job->copies = $request->input('copies');
                 $job->file = 'placeholder.jpeg';
@@ -195,6 +196,7 @@ class JobController extends Controller
             $validatedData = $request->validate([
                 'selectedMaterial' => 'nullable|exists:large_format_materials,id',
                 'selectedMaterialsSmall' => 'nullable|exists:small_material,id',
+                'name' => 'nullable|string',
                 'quantity' => 'required|integer|min:1',
                 'copies' => 'required|integer|min:1',
                 'jobs' => 'required|array',
@@ -211,6 +213,7 @@ class JobController extends Controller
             // Extract inputs
             $selectedMaterial = $request->input('selectedMaterial');
             $selectedMaterialSmall = $request->input('selectedMaterialsSmall');
+            $name = $request->input('name');
             $quantity = $request->input('quantity');
             $copies = $request->input('copies');
             $jobIds = $request->input('jobs');
@@ -239,6 +242,7 @@ class JobController extends Controller
             Job::whereIn('id', $jobIds)->update([
                 'large_material_id' => $selectedMaterial,
                 'small_material_id' => $selectedMaterialSmall,
+                'name' => $name,
                 'machineCut' => $selectedMachineCut,
                 'machinePrint' => $selectedMachinePrint,
                 'quantity' => $quantity,
