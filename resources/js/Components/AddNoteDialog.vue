@@ -127,7 +127,7 @@ export default {
 <style src="vue-multiselect/dist/vue-multiselect.css"></style>
 <style scoped lang="scss">
 .bt{
-    font-size:45px ;
+    font-size:35px ;
     cursor: pointer;
     padding: 12px;
 }

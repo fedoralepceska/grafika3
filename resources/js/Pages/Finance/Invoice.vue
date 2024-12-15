@@ -237,7 +237,7 @@ export default {
     color: $orange;
 }
 .blue-text {
-    color: $blue;
+    color: #1ba5e4;
 }
 .bold {
     font-weight: bold;

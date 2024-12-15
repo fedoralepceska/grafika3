@@ -47,10 +47,10 @@
                         </div>
                     </div>
                     <div v-if="invoices.data">
-                        <div class="border mb-1" v-for="invoice in invoices.data" :key="invoice.id">
-                            <div class="bg-white text-black flex justify-between">
-                                <div class="p-2 bold">{{invoice.invoice_title}}</div>
-                                <div class="flex">
+                        <div class="border mb-2" v-for="invoice in invoices.data" :key="invoice.id">
+                            <div class="bg-white text-black flex justify-between" style="line-height: normal">
+                                <div class="p-2 bold" style="font-size: 16px">{{invoice.invoice_title}}</div>
+                                <div class="flex" style="font-size: 12px">
                                     <button class="flex items-center p-1" @click="viewJobs(invoice.id)">
                                         <i v-if="iconStates[invoice.id]" class="fa-solid fa-angles-up bg-gray-300 p-2 rounded" aria-hidden="true"></i>
                                         <i v-else class="fa-solid fa-angles-down bg-gray-300 p-2 rounded" aria-hidden="true"></i>
@@ -60,7 +60,7 @@
                                     </button>
                                 </div>
                             </div>
-                            <div class="flex gap-40 p-2">
+                            <div class="flex gap-40 pl-2 pt-1" style="line-height: initial">
                                 <div class="info">
                                     <div>Order</div>
                                     <div class="bold">#{{invoice.id}}</div>
@@ -86,7 +86,7 @@
                                 </div>
                             </div>
                                 <div v-if="currentInvoiceId" class="job-details-container" :class="{ active: currentInvoiceId === invoice.id }">
-                                    <div v-if="currentInvoiceId===invoice.id" class="bgJobs text-white p-2 bold">
+                                    <div v-if="currentInvoiceId===invoice.id" class="bgJobs text-white p-2 bold" style="line-height: normal;">
                                         Jobs for Order #{{invoice.id}} {{invoice.invoice_title}}
                                     </div>
                                     <div v-if="currentInvoiceId===invoice.id" class="jobInfo border-b" v-for="(job,index) in invoice.jobs">
@@ -234,7 +234,7 @@ export default {
 </script>
 <style scoped lang="scss">
 .info {
-    flex: 1;
+
     min-width: 0;
     display: flex;
     flex-direction: column;

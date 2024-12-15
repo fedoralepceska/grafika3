@@ -385,10 +385,10 @@ export default {
 <style src="vue-multiselect/dist/vue-multiselect.css"></style>
 <style>
 .multiselect__tag {
-    background-color: #81c950;
+    background-color: #408a0b;
 }
 .multiselect__option--highlight{
-    background-color: #81c950;
+    background-color: #408a0b;
 }
 .multiselect__option--selected.multiselect__option--highlight{
     background-color: indianred;

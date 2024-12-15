@@ -50,7 +50,7 @@
                     </div>
                     <div class="form-container p-2 light-gray" :style="invoice.perfect ? { 'background-color': '#d88f0b' } : {}">
                         <div class="InvoiceDetails">
-                            <div class="invoice-details flex gap-20 relative">
+                            <div class="invoice-details flex gap-5 relative" >
                                 <div class="invoice-title bg-white text-black bold p-3 ">{{ invoice?.invoice_title }}</div>
                                 <div class="info">
                                     <div>Order</div>
@@ -72,6 +72,15 @@
                                     <div>Created By</div>
                                     <div class="bold">{{ invoice.user.name }}</div>
                                 </div>
+                                <div class="info">
+                                    <div>{{ $t('Status') }}</div>
+                                    <div>
+                                        <!--
+                                                                            WE SHOULD BE CHECKING IF JOB STATUS IS COMPLETED TODO
+                                        -->
+                                        <span class="bold" style="text-shadow: darkred " :class="getStatusColorClass">{{ invoice?.status }}</span>
+                                    </div>
+                                </div>
                                 <div class="btns flex gap-2">
                                     <div class="bt"><i class="fa-regular fa-pen-to-square"></i></div>
                                     <div class="bt" @click="toggleSpreadsheetMode"
@@ -86,15 +95,7 @@
                                 </div>
                                 <AddNoteDialog v-if="openDialog" :invoice="invoice" ref="addNoteDialog" />
                             </div>
-                            <div class="info pl-2">
-                                <div>{{ $t('Status') }}</div>
-                                <div>
-<!--
-                                    WE SHOULD BE CHECKING IF JOB STATUS IS COMPLETED TODO
--->
-                                    <span class="bold" :class="getStatusColorClass">{{ invoice?.status }}</span>
-                                </div>
-                            </div>
+
                         </div>
                     </div>
                     <div class="form-container  light-gray mt-2">
@@ -135,7 +136,7 @@
                                         <OrderJobDetails :job="job"/>
                                     </div>
                                     <div class="jobInfo relative">
-                                        <div class="jobShippingInfo">
+                                        <div class="jobShippingInfo" style="line-height: normal">
                                             <div class=" bg-white text-black bold ">
                                                 <div class="flex" style="align-items: center;">
                                                     <img src="/images/shipping.png" class="w-10 h-10 pr-1" alt="Shipping">
@@ -175,6 +176,7 @@ import Header from "@/Components/Header.vue";
 import OrderHistory from "@/Pages/Invoice/OrderHistory.vue";
 import AddNoteDialog from "@/Components/AddNoteDialog.vue";
 import AddLockNoteDialog from "@/Components/AddLockNoteDialog.vue";
+
 
 export default {
     components: {
@@ -488,10 +490,11 @@ export default {
     color: $orange;
 }
 .blue-text {
-    color: $blue;
+    color: #1ba5e4;
 }
 .bold {
-    font-weight: bold;
+    font-weight: bolder;
+    font-family: Tahoma, sans-serif;
 }
 .green-text {
     color: $green;
@@ -549,7 +552,7 @@ export default {
     border-radius: 2px;
 }
 .btn2{
-    font-size: 14px;
+    font-size: 13px;
     margin-right: 4px;
     padding: 7px 10px;
     border: none;
@@ -560,7 +563,7 @@ export default {
 }
 .btns{
     position: absolute;
-    top: -11px;
+    top: -6px;
     right: 0;
     padding: 0;
 }
@@ -576,7 +579,7 @@ export default {
     border-bottom: 2px dashed lightgray;
 }
 .bt{
-    font-size:45px ;
+    font-size:35px ;
     cursor: pointer;
     padding: 0;
 }

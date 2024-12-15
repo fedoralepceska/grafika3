@@ -62,12 +62,12 @@
 
                 <!-- SHIPPING INFO -->
                 <div class="flex justify-between">
-                    <td class="flex items-center bg-gray-200 text-black">
-                        <img src="/images/shipping.png" class="w-10 h-10 pr-1" alt="Shipping">
+                    <td class="flex items-center bg-gray-200 text-black" style="padding: 0 5px 0 0;">
+                        <img src="/images/shipping.png" class="w-8 h-8 pr-1" alt="Shipping">
                         {{ $t('Shipping') }}: <strong> {{ job.shippingInfo }}</strong>
                     </td>
                     <div class="bg-white text-black bold">
-                        <div class="pt-4 pl-2 pr-2">
+                        <div class="pt-1 pl-2 pr-2">
                             {{ $t('jobPrice') }}: <span class="bold">{{ job?.totalPrice?.toFixed(2) }} ден.</span>
                         </div>
                     </div>

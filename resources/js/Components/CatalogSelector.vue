@@ -71,7 +71,7 @@
         <div v-if="selectedItemDetails" class="modal-backdrop">
             <div class="modal">
                 <div class="modal-header">
-                    <h2>{{ selectedItemDetails.name }} Details</h2>
+                    <h2>Details for <span style="font-weight: bolder" class="uppercase">"{{ selectedItemDetails.name }}"</span></h2>
                     <button @click="closeItemDetails" class="close-button">&times;</button>
                 </div>
                 <div class="modal-body">
@@ -104,7 +104,7 @@
                     </div>
 
                     <div class="detail-section" v-if="selectedItemDetails.actions && selectedItemDetails.actions.length">
-                        <h3>Associated Actions</h3>
+                        <h3>Actions</h3>
                         <div
                             v-for="(action, index) in selectedItemDetails.actions"
                             :key="index"
@@ -275,13 +275,13 @@ $orange: #a36a03;
 .catalog-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
-    gap: 1rem;
+    gap: 0.2rem;
 }
 
 .catalog-item {
     background-color: $dark-gray;
     border: 1px solid $gray;
-    padding: 1rem;
+    padding: 0.3rem 0.3rem 0.3rem 0.6rem;
     transition: all 0.2s ease;
 
 }
@@ -300,7 +300,7 @@ $orange: #a36a03;
 .info-button {
     background: none;
     border: none;
-    color: $blue;
+    color: $light-gray;
     font-size: 1.2rem;
     cursor: pointer;
     transition: color 0.2s ease;

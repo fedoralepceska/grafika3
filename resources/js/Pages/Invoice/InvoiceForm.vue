@@ -89,7 +89,7 @@
                 </div>
                 <div class="right2">
                     <div class="Order light-gray">
-                        <h2 class="sub-title uppercase">{{ $t('orderLines') }}</h2>
+                        <h2 class="sub-title uppercase pl-1" >{{ $t('orderLines') }}</h2>
                         <OrderLines
                             :jobs="$refs.dragAndDrop?.jobs"
                             :updatedJobs="updatedJobs"
