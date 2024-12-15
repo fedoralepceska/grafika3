@@ -150,7 +150,7 @@
         <table class="job-table" style="width: 100%; border-collapse: collapse; font-size: 10px" >
             <tr>
                 <td class="tahoma" style="background-color: #F0EFEF; padding-left: 5px; border-bottom: 1px solid #cccccc; margin: 0; font-size: 9.5pt">Производ</td>
-                <td colspan="3"> {{ $invoice->invoice_title }}</td>
+                <td colspan="3"> {{ $job->name }}</td>
             </tr>
             @if($job->small_material)
                 <tr>
