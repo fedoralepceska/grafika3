@@ -3,45 +3,59 @@
         <div class="flex gap-8 line">
             <div class="completed line">
                 <div class="action">
-                    <div class="flexed" :class="{
+                    <div
+                        class="flexed"
+                        :class="{
                             'circle': true,
                             'dark-gray': job.status === 'Not started yet',
                             'green': job.status === 'Completed' || 'In progress',
-                             }">
+                            'disabled' : true,
+                        }"
+                    >
                         <span v-if="job.status === 'Completed'">&#10003;</span>
                     </div>
                     <span>Start</span>
                 </div>
             </div>
-            <div v-for="action in actions(job.id)" :key="action">
+            <div v-for="action in actions(job.id)" :key="action.name">
                 <div class="action">
-                    <div class="flexed" :class="{
-                        'circle': true,
-                        'dark-gray': action.status === 'Not started yet',
-                        'green': action.status === 'Completed',
-                        'blue': action.status === 'In progress'
-                      }">
+                    <div
+                        class="flexed"
+                        style="cursor: pointer"
+                        :class="{
+                            'circle': true,
+                            'dark-gray': action.status === 'Not started yet',
+                            'green': action.status === 'Completed',
+                            'blue': action.status === 'In progress',
+                        }"
+                        @click="navigateToAction(action.name)"
+                    >
                         <span v-if="action.status === 'Completed'">&#10003;</span>
                     </div>
-                        <span>{{ action.name }}</span>
+                    <span>{{ action.name }}</span>
                 </div>
             </div>
-            <div class="completed line ">
+            <div class="completed line">
                 <div class="action">
-                    <div class="flexed" :class="{
-                        'circle': true,
-                        'dark-gray': job.status === 'Not started yet',
-                        'blue': job.status === 'In progress',
-                        'green': job.status === 'Completed',
-                      }">
+                    <div
+                        class="flexed"
+                        :class="{
+                            'circle': true,
+                            'dark-gray': job.status === 'Not started yet',
+                            'blue': job.status === 'In progress',
+                            'green': job.status === 'Completed',
+                            'disabled' : true,
+                        }"
+                    >
                         <span v-if="job.status === 'Completed'">&#10003;</span>
                     </div>
-                        <span>Completed</span>
+                    <span>Completed</span>
                 </div>
             </div>
         </div>
     </div>
 </template>
+
 
 <script>
 import axios from "axios";
@@ -86,6 +100,9 @@ export default {
             }
             return false; // Return a default value if there are no actions for the job
         },
+        navigateToAction(actionName) {
+                window.location.href = `/actions/${actionName}`;
+        },
     },
 };
 </script>
@@ -129,6 +146,10 @@ export default {
             color: #fff; // Adjust as necessary
         }
     }
+}
+.disabled {
+    cursor: not-allowed;
+    pointer-events: none;
 }
 .flexed{
     display: flex;
