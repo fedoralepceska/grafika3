@@ -917,7 +917,7 @@ class JobController extends Controller
             $query = CatalogItem::with([
                 'largeMaterial.article',
                 'smallMaterial.article'
-            ]);
+            ])->where('is_for_sales', 1);
 
             // Add optional search functionality
             if (!empty($searchTerm)) {
