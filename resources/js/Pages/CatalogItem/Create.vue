@@ -126,11 +126,11 @@
                         </div>
                         <div class="grid grid-cols-2 gap-4 pt-9">
                             <div>
-                                <Checkbox name="is_for_offer" v-model:checked="form.is_for_offer" @change="handleOfferChange" />
+                                <Checkbox name="is_for_offer" v-model:checked="form.is_for_offer" />
                                 <label class="text-white ml-2">For Offer</label>
                             </div>
                             <div>
-                                <Checkbox name="is_for_sales" v-model:checked="form.is_for_sales" @change="handleSalesChange" />
+                                <Checkbox name="is_for_sales" v-model:checked="form.is_for_sales" />
                                 <label class="text-white ml-2">For Sales</label>
                             </div>
                         </div>
@@ -236,8 +236,8 @@ export default {
                 quantity: 1,
                 copies: 1,
                 actions: [],
-                is_for_offer: true,
-                is_for_sales: false,
+                is_for_offer: false,
+                is_for_sales: true,
                 category: ''
             },
             categories: ['material', 'article', 'small_format']
@@ -255,16 +255,6 @@ export default {
     },
 
     methods: {
-        handleOfferChange() {
-            if (this.form.is_for_offer) {
-                this.form.is_for_sales = false;
-            }
-        },
-        handleSalesChange() {
-            if (this.form.is_for_sales) {
-                this.form.is_for_offer = false;
-            }
-        },
         addAction() {
             this.form.actions.push({
                 selectedAction: '',
