@@ -15,11 +15,20 @@ class CatalogItem extends Model
         'small_material_id',
         'quantity',
         'copies',
-        'actions'
+        'actions',
+        'is_for_offer',
+        'is_for_sales',
+        'category'
     ];
 
     protected $casts = [
         'actions' => 'array'
+    ];
+
+    public const CATEGORIES = [
+        'material',
+        'article',
+        'small_format',
     ];
 
     public function largeMaterial()
@@ -32,4 +41,31 @@ class CatalogItem extends Model
         return $this->belongsTo(SmallMaterial::class, 'small_material_id');
     }
 
+    public function offers()
+    {
+        return $this->belongsToMany(Offer::class, 'catalog_item_offer');
+    }
+
+    public function setCategoryAttribute($value): void
+    {
+        if (!in_array($value, self::CATEGORIES, true)) {
+            throw new \InvalidArgumentException("Invalid category: {$value}");
+        }
+        $this->attributes['category'] = $value;
+    }
+
+    public function isMaterial(): bool
+    {
+        return $this->category === 'material';
+    }
+
+    public function isArticle(): bool
+    {
+        return $this->category === 'article';
+    }
+
+    public function isSmallFormat(): bool
+    {
+        return $this->category === 'small_format';
+    }
 }

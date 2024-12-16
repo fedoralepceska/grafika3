@@ -13,19 +13,14 @@ use ReflectionClass;
 use Illuminate\Support\Facades\DB;
 
 class CatalogItemController extends Controller
+
 {
-//    public function index()
-//    {
-//        $catalogItems = CatalogItem::with([
-//            'largeMaterial',
-//            'smallMaterial',
-//            'largeMaterial.article',
-//            'smallMaterial.article'
-//        ])->get();
-//        return Inertia::render('CatalogItem/CatalogList', [
-//            'catalogItems' => $catalogItems
-//        ]);
-//    }
+    public function fetchAllForOffer()
+    {
+        $catalogItems = CatalogItem::all()->where('is_for_offer', true);
+        return response()->json($catalogItems);
+
+    }
 
     public function index(Request $request)
     {
@@ -157,7 +152,10 @@ class CatalogItemController extends Controller
             'actions' => 'required|array',
             'actions.*.id' => 'required|exists:dorabotka,id',
             'actions.*.quantity' => 'integer|min:0|required_if:actions.*.isMaterialized,true|nullable',
-            'actions.*.isMaterialized' => 'boolean'
+            'actions.*.isMaterialized' => 'boolean',
+            'is_for_offer' => 'nullable|boolean',
+            'is_for_sales' => 'nullable|boolean',
+            'category' => 'nullable|string|in:' . implode(',', \App\Models\CatalogItem::CATEGORIES),
         ]);
 
         // Create the catalog item without actions for now

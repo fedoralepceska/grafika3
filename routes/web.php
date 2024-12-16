@@ -276,5 +276,13 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/catalog/{catalogItem}/edit', [CatalogItemController::class, 'edit'])->name('catalog.edit');
     Route::put('/catalog/{catalogItem}', [CatalogItemController::class, 'update'])->name('catalog.update');
     Route::delete('/catalog/{catalogItem}', [CatalogItemController::class, 'destroy'])->name('catalog.destroy');
+    Route::get('/catalog_items/offer', [CatalogItemController::class, 'fetchAllForOffer'])->name('catalog.fetchAllForOffer');
+});
+
+Route::middleware(['auth', 'verified'])->group(function () {
+    Route::get('/offer', [\App\Http\Controllers\OfferController::class, 'index'])->name('offer.index');
+    Route::get('/offer/create', [\App\Http\Controllers\OfferController::class, 'create'])->name('offer.create');
+    Route::post('/offer', [\App\Http\Controllers\OfferController::class, 'store'])->name('offer.store');
+    Route::delete('/offer/{offer}', [\App\Http\Controllers\OfferController::class, 'destroy'])->name('offer.destroy');
 });
 require __DIR__.'/auth.php';
