@@ -107,6 +107,7 @@ Route::middleware(['auth', 'verified'])->group(function() {
     Route::put('/clients/{client}', [ClientController::class, 'update'])->name('clients.update');
     Route::delete('/clients/{client}', [ClientController::class, 'destroy'])->name('clients.destroy');
     Route::get('/api/clients', [ClientController::class, 'getClients'])->name('clients.getClients');
+    Route::get('/api/clients/all', [ClientController::class, 'getAllClients']);
 });
 
 //Routes for Client Statements

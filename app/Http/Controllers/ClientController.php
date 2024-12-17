@@ -167,4 +167,13 @@ class ClientController extends Controller
 
         return response()->json($clients, 200);
     }
+    public function getAllClients()
+    {
+        $clients = Client::with('contacts')
+            ->select('id', 'name')
+            ->orderBy('name')
+            ->get();
+        
+        return response()->json($clients);
+    }
 }

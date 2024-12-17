@@ -17,9 +17,32 @@
                                     </div>
                                     <div class="form-group gap-4">
                                         <label for="client">{{ $t('client') }}:</label>
-                                        <select v-model="invoice.client_id" id="client" class="text-gray-700" required>
-                                            <option v-for="client in clients" :key="client.id" :value="client.id">{{ client?.name }}</option>
-                                        </select>
+                                        <div class="relative w70">
+                                            <input
+                                                type="text"
+                                                v-model="clientSearch"
+                                                @focus="showClientDropdown = true"
+                                                @input="filterClients"
+                                                :placeholder="selectedClientName || 'Search client...'"
+                                                class="text-gray-700 w70"
+                                                style="width: 100%;"
+                                            />
+                                            <div v-if="showClientDropdown"
+                                                 class="absolute z-1 0 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-auto">
+                                                <div
+                                                    v-for="client in filteredClients"
+                                                    :key="client.id"
+                                                    @click="selectClient(client)"
+                                                    class="px-4 py-2 hover:bg-gray-100 cursor-pointer text-gray-700"
+                                                    :class="{'bg-gray-200': invoice.client_id === client.id}"
+                                                >
+                                                    {{ client.name }}
+                                                </div>
+                                                <div v-if="filteredClients.length === 0" class="px-4 py-2 text-gray-500">
+                                                    No clients found
+                                                </div>
+                                            </div>
+                                        </div>
                                     </div>
                                     <div class="form-group gap-4" v-if="invoice.client_id !== ''">
                                         <label for="contact">{{ $t('contact') }}:</label>
@@ -154,18 +177,19 @@ export default {
             showMachinePrint: false,
             showActions: false,
             newJobs: [],
-            contacts: []
+            contacts: [],
+            clientSearch: '',
+            showClientDropdown: false,
+            filteredClients: [],
+            selectedClientName: '',
         };
     },
     props: {
         invoiceData: Object,
     },
     async beforeMount() {
-        // Fetch clients when component is created
         await this.fetchInvoices();
-        if (!this.clients.length) {
-            await this.fetchClients();
-        }
+        await this.fetchAllClients();
         if (!this.contacts.length) {
             await this.fetchContacts();
         }
@@ -173,7 +197,7 @@ export default {
     },
     computed: {
         client() {
-          return this.clients.find(c => this.invoiceData?.client_id == c.id || this.invoice.client_id === c.id);
+            return this.clients.find(c => this.invoiceData?.client_id == c.id || this.invoice.client_id === c.id);
         },
         contact() {
             return this.contacts.find(c => c.id == this.invoiceData?.contact_id);
@@ -228,13 +252,13 @@ export default {
             }
         },
         async onClientSelected() {
-            const contact = this.contact || this.client.contacts.find(c => c.id === this.invoice.contact_id);
+            const contact = this.contact || this.client?.contacts?.find(c => c.id === this.invoice.contact_id);
             if (contact) {
                 this.selectedClientPhone = contact.phone;
                 this.selectedClientCompany = contact.name;
             } else {
                 this.selectedClientPhone = '';
-                this.selectedClientCompany= '';
+                this.selectedClientCompany = '';
             }
         },
 
@@ -296,7 +320,62 @@ export default {
                     this.$refs.dragAndDrop.jobs[index] = updatedJob;
                 }
             }
-        }
+        },
+        filterClients() {
+            if (!this.clientSearch) {
+                this.filteredClients = [...this.clients];
+                return;
+            }
+
+            this.filteredClients = this.clients.filter(client =>
+                client.name.toLowerCase().includes(this.clientSearch.toLowerCase())
+            );
+        },
+        selectClient(client) {
+            this.invoice.client_id = client.id;
+            this.clientSearch = client.name;
+            this.selectedClientName = client.name;
+            this.showClientDropdown = false;
+
+            // Reset contact selection when client changes
+            this.invoice.contact_id = '';
+            this.selectedClientPhone = '';
+            this.selectedClientCompany = '';
+
+            // Trigger client selection handler
+            this.onClientSelected();
+        },
+        async fetchAllClients() {
+            try {
+                const response = await axios.get('/api/clients/all');
+                this.clients = response.data;
+                this.filteredClients = [...this.clients];
+
+                // Set initial client name if exists
+                if (this.invoice.client_id) {
+                    const selectedClient = this.clients.find(c => c.id === this.invoice.client_id);
+                    if (selectedClient) {
+                        this.selectedClientName = selectedClient.name;
+                        this.clientSearch = selectedClient.name;
+                    }
+                }
+            } catch (error) {
+                console.error("Failed to fetch clients:", error);
+                const toast = useToast();
+                toast.error('Error fetching clients');
+            }
+        },
+    },
+    mounted() {
+        document.addEventListener('click', (e) => {
+            const dropdown = document.querySelector('.relative.w-60');
+            if (dropdown && !dropdown.contains(e.target)) {
+                this.showClientDropdown = false;
+            }
+        });
+    },
+    beforeUnmount() {
+        document.removeEventListener('click', this.closeDropdown);
     },
 };
 </script>
@@ -458,5 +537,55 @@ input, select {
     display: flex;
     flex-direction: column;
     padding: 10px;
+}
+
+.relative {
+    position: relative;
+}
+
+.absolute {
+    position: absolute;
+}
+
+.z-10 {
+    z-index: 10;
+}
+
+.max-h-60 {
+    max-height: 15rem;
+}
+
+.overflow-auto {
+    overflow: auto;
+}
+
+.hover\:bg-gray-100:hover {
+    background-color: #f3f4f6;
+}
+
+.bg-gray-200 {
+    background-color: #e5e7eb;
+}
+
+.cursor-pointer {
+    cursor: pointer;
+}
+
+/* Scrollbar styling */
+.overflow-auto::-webkit-scrollbar {
+    width: 8px;
+}
+
+.overflow-auto::-webkit-scrollbar-track {
+    background: #f1f1f1;
+}
+
+.overflow-auto::-webkit-scrollbar-thumb {
+    background: #888;
+    border-radius: 4px;
+}
+
+.overflow-auto::-webkit-scrollbar-thumb:hover {
+    background: #555;
 }
 </style>
