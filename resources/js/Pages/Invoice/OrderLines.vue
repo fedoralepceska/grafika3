@@ -12,8 +12,44 @@
                     <td>ID: <span class="bold">{{ job.id }}</span></td>
                     <td>{{ $t('width') }}: <span class="bold">{{ job.width ? job.width.toFixed(2) : '0.00' }}mm</span></td>
                     <td>{{ $t('height') }}: <span class="bold">{{ job.height ? job.height.toFixed(2) : '0.00' }}mm</span></td>
-                    <td>{{ $t('Quantity') }}: <span class="bold">{{ job.quantity }}</span></td>
-                    <td>{{ $t('Copies') }}: <span class="bold">{{ job.copies }}</span></td>
+                    <td>
+                        {{ $t('Quantity') }}: 
+                        <span 
+                            class="bold editable" 
+                            @dblclick="startEditing(job, 'quantity')"
+                            v-if="!(editingJob?.id === job.id && editingField === 'quantity')"
+                        >
+                            {{ job.quantity }}
+                        </span>
+                        <input 
+                            v-else
+                            type="number"
+                            v-model="editingValue"
+                            @keyup.enter="saveEdit(job)"
+                            @blur="saveEdit(job)"
+                            :ref="el => { if (el) quantityInput = el }"
+                            class="edit-input"
+                        />
+                    </td>
+                    <td>
+                        {{ $t('Copies') }}: 
+                        <span 
+                            class="bold editable" 
+                            @dblclick="startEditing(job, 'copies')"
+                            v-if="!(editingJob?.id === job.id && editingField === 'copies')"
+                        >
+                            {{ job.copies }}
+                        </span>
+                        <input 
+                            v-else
+                            type="number"
+                            v-model="editingValue"
+                            @keyup.enter="saveEdit(job)"
+                            @blur="saveEdit(job)"
+                            :ref="el => { if (el) copiesInput = el }"
+                            class="edit-input"
+                        />
+                    </td>
                 </div>
 
                 <!-- FILE INFO -->
@@ -93,19 +129,44 @@ export default {
     data() {
         return {
             showActions: null,
-            jobsWithPrices: []
+            jobsWithPrices: [],
+            editingJob: null,
+            editingField: null,
+            editingValue: null,
+            quantityInput: null,
+            copiesInput: null,
         };
     },
 
     computed: {
         jobsToDisplay() {
-            const mergedJobs = [...this.updatedJobs, ...this.jobs, ...this.jobsWithPrices];
+            const mergedJobs = [...this.jobs || [], ...this.updatedJobs || [], ...this.jobsWithPrices || []];
 
-            // Create a Map to store jobs by ID, prioritizing those with totalPrice
+            // Create a Map to store jobs by ID, preserving the most recent updates
             const jobMap = new Map();
+            
+            // First pass: store initial values
             for (const job of mergedJobs) {
-                if (!jobMap.has(job.id) || (job.totalPrice && !jobMap.get(job.id).totalPrice)) {
-                    jobMap.set(job.id, job); // Keep the job with totalPrice if available
+                if (!jobMap.has(job.id)) {
+                    jobMap.set(job.id, { ...job });
+                }
+            }
+            
+            // Second pass: update with latest values, preserving edited fields
+            for (const job of mergedJobs) {
+                const existingJob = jobMap.get(job.id);
+                if (existingJob) {
+                    jobMap.set(job.id, {
+                        ...existingJob,
+                        ...job,
+                        // Always keep the most recent quantity and copies values
+                        quantity: job.quantity !== undefined ? job.quantity : existingJob.quantity,
+                        copies: job.copies !== undefined ? job.copies : existingJob.copies,
+                        // Keep other important fields
+                        totalPrice: job.totalPrice || existingJob.totalPrice,
+                        actions: job.actions || existingJob.actions,
+                        file: job.file || existingJob.file
+                    });
                 }
             }
 
@@ -139,6 +200,10 @@ export default {
                 const formData = new FormData();
                 formData.append('file', file);
 
+                // Store current quantity and copies values
+                const currentQuantity = job.quantity;
+                const currentCopies = job.copies;
+
                 const response = await axios.post(
                     `/jobs/${job.id}/update-file`, formData, {
                         headers: {
@@ -153,22 +218,35 @@ export default {
                     file: response.data.job.file,
                     width: dimensions.data.width,
                     height: dimensions.data.height,
-                    fileSize: file.size, // Add file size for accurate calculations
+                    fileSize: file.size,
+                    // Preserve the current quantity and copies
+                    quantity: currentQuantity,
+                    copies: currentCopies
                 };
 
                 await axios.put(`/jobs/${job.id}`, {
                     file: response.data.job.file,
                     width: dimensions.data.width,
                     height: dimensions.data.height,
+                    // Also update quantity and copies in the backend
+                    quantity: currentQuantity,
+                    copies: currentCopies
                 });
 
                 axios.post('/get-jobs-by-ids', {
                     jobs: [job.id],
                 })
                     .then(response => {
-                        this.$emit('jobs-updated', response.data.jobs);
-                        this.$emit('job-updated', response.data.jobs);
-                        this.jobsWithPrices = response.data.jobs;
+                        // Preserve quantity and copies in the response data
+                        const jobsWithPreservedValues = response.data.jobs.map(j => ({
+                            ...j,
+                            quantity: currentQuantity,
+                            copies: currentCopies
+                        }));
+
+                        this.$emit('jobs-updated', jobsWithPreservedValues);
+                        this.$emit('job-updated', jobsWithPreservedValues);
+                        this.jobsWithPrices = jobsWithPreservedValues;
                     })
                     .catch(error => {
                         toast.error("Couldn't fetch updated jobs");
@@ -180,6 +258,103 @@ export default {
                 toast.error('Failed to upload file');
                 console.error(error);
             }
+        },
+
+        startEditing(job, field) {
+            this.editingJob = job;
+            this.editingField = field;
+            this.editingValue = job[field];
+            this.$nextTick(() => {
+                if (field === 'quantity' && this.quantityInput) {
+                    this.quantityInput.focus();
+                } else if (field === 'copies' && this.copiesInput) {
+                    this.copiesInput.focus();
+                }
+            });
+        },
+
+        async saveEdit(job) {
+            if (!this.editingJob || !this.editingField) return;
+            
+            const toast = useToast();
+            const valueToUpdate = parseInt(this.editingValue);
+            
+            try {
+                // Log the data being sent to verify
+                console.log('Updating job:', {
+                    field: this.editingField,
+                    value: valueToUpdate,
+                    jobId: job.id
+                });
+
+                // First update the backend
+                const response = await axios.put(`/jobs/${job.id}`, {
+                    [this.editingField]: valueToUpdate,
+                    // Include both fields to ensure both are updated
+                    quantity: this.editingField === 'quantity' ? valueToUpdate : job.quantity,
+                    copies: this.editingField === 'copies' ? valueToUpdate : job.copies
+                });
+
+                if (response.status === 200) {
+                    // Immediately update the local job data
+                    job[this.editingField] = valueToUpdate;
+
+                    // Get fresh data with updated calculations
+                    const updatedJobResponse = await axios.post('/get-jobs-by-ids', {
+                        jobs: [job.id],
+                    });
+
+                    if (updatedJobResponse.data.jobs?.[0]) {
+                        const updatedJob = {
+                            ...updatedJobResponse.data.jobs[0],
+                            // Ensure we keep our updated values
+                            [this.editingField]: valueToUpdate
+                        };
+
+                        // Update in jobsWithPrices
+                        const index = this.jobsWithPrices.findIndex(j => j.id === job.id);
+                        if (index !== -1) {
+                            this.jobsWithPrices[index] = {
+                                ...this.jobsWithPrices[index],
+                                ...updatedJob,
+                                [this.editingField]: valueToUpdate
+                            };
+                        } else {
+                            this.jobsWithPrices.push(updatedJob);
+                        }
+
+                        // Also update in updatedJobs if it exists
+                        if (this.updatedJobs) {
+                            const updatedIndex = this.updatedJobs.findIndex(j => j.id === job.id);
+                            if (updatedIndex !== -1) {
+                                this.updatedJobs[updatedIndex] = {
+                                    ...this.updatedJobs[updatedIndex],
+                                    ...updatedJob,
+                                    [this.editingField]: valueToUpdate
+                                };
+                            } else {
+                                this.updatedJobs.push(updatedJob);
+                            }
+                        }
+
+                        // Emit the update with preserved values
+                        this.$emit('job-updated', {
+                            ...updatedJob,
+                            [this.editingField]: valueToUpdate
+                        });
+                    }
+                    
+                    toast.success('Updated successfully');
+                }
+            } catch (error) {
+                toast.error('Failed to update');
+                console.error('Error updating job:', error);
+            }
+
+            // Reset editing state
+            this.editingJob = null;
+            this.editingField = null;
+            this.editingValue = null;
         },
     },
 };
@@ -309,5 +484,24 @@ input, select {
 .placeholder-upload:hover {
     border-color: $light-green;
     background-color: rgba($light-green, 0.1);
+}
+
+.editable {
+    cursor: pointer;
+    padding: 2px 4px;
+    border-radius: 3px;
+}
+
+.editable:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+}
+
+.edit-input {
+    width: 60px;
+    padding: 2px 4px;
+    border: 1px solid #ccc;
+    border-radius: 3px;
+    background-color: white;
+    color: black;
 }
 </style>

@@ -604,25 +604,38 @@ class JobController extends Controller
             return response()->json(['message' => 'Job not found'], 404);
         }
 
-        // Validate and update the width and height
-        $validatedData = $request->validate([
-            'width' => 'sometimes|required|numeric',
-            'height' => 'sometimes|required|numeric',
-            'quantity' => 'sometimes|required|numeric',
-            'status' => 'sometimes|required',
-            'salePrice' => 'sometimes|required',
-        ]);
+        try {
+            // Validate the incoming request data
+            $validatedData = $request->validate([
+                'quantity' => 'sometimes|required|numeric',
+                'copies' => 'sometimes|required|numeric',
+                'width' => 'sometimes|required|numeric',
+                'height' => 'sometimes|required|numeric',
+                'file' => 'sometimes|required',
+                'status' => 'sometimes|required',
+                'salePrice' => 'sometimes|required', // Keep the original salePrice validation
+            ]);
 
-        // Update the job with only the validated data that's present in the request
-        $job->update($request->only([
-            'width',
-            'height',
-            'quantity',
-            'status',
-            'salePrice'
-        ]));
+            // Update the job with the validated data
+            $job->update($validatedData);
 
-        return response()->json(['message' => 'Job updated successfully']);
+            // Return success response with the updated job
+            return response()->json([
+                'message' => 'Job updated successfully',
+                'job' => $job->fresh() // Get a fresh instance with updated data
+            ]);
+        } catch (\Exception $e) {
+            \Log::error('Error updating job:', [
+                'job_id' => $id,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            
+            return response()->json([
+                'message' => 'Failed to update job',
+                'error' => $e->getMessage()
+            ], 500);
+        }
     }
 
     public function calculateImageDimensions($id): array
