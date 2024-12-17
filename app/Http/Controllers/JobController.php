@@ -61,6 +61,21 @@ class JobController extends Controller
                 $job->file = 'placeholder.jpeg';
                 $job->width = 0;
                 $job->height = 0;
+
+                if ($request->input('large_material_id') !== null) {
+                    $large_material = LargeFormatMaterial::find($request->input('large_material_id'));
+                    if ($large_material->quantity - $request->input('copies') < 0) {
+                        throw new \Exception("Insufficient large material quantity.");
+                    }
+                }
+
+                if ($request->input('small_material_id') !== null) {
+                    $small_material = SmallMaterial::find($request->input('small_material_id'));
+                    if ($small_material->quantity - $request->input('copies') < 0) {
+                        throw new \Exception("Insufficient small material quantity.");
+                    }
+                }
+
                 $job->save();
 
                 // Step 2: Retrieve Catalog Item Actions
@@ -630,7 +645,7 @@ class JobController extends Controller
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString()
             ]);
-            
+
             return response()->json([
                 'message' => 'Failed to update job',
                 'error' => $e->getMessage()
