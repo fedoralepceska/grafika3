@@ -69,7 +69,10 @@
                             </template>
                             </tbody>
                         </table>
-                        <Pagination :pagination="clients"/>
+                        <ClientPagination 
+                            :pagination="fetchedClients" 
+                            @page-changed="handlePageChange"
+                        />
                     </div>
                 </div>
             </div>
@@ -83,7 +86,7 @@ import SecondaryButton from "@/Components/buttons/SecondaryButton.vue";
 import axios from "axios";
 import AddContactDialog from "@/Components/AddContactDialog.vue";
 import ViewContactsDialog from "@/Components/ViewContactsDialog.vue";
-import Pagination from "@/Components/Pagination.vue"
+import ClientPagination from "@/Components/ClientPagination.vue";
 import Header from "@/Components/Header.vue";
 import UpdateClientDialog from "@/Components/UpdateClientDialog.vue";
 import CardStatementUpdateDialog from "@/Components/CardStatementUpdateDialog.vue";
@@ -97,7 +100,7 @@ export default {
         MainLayout,
         PrimaryButton,
         SecondaryButton,
-        Pagination,
+        ClientPagination,
         Header
     },
     props: {
@@ -108,19 +111,33 @@ export default {
             editMode: false,
             clientExpanded: null,
             search: '',
-            fetchedClients: [],
+            fetchedClients: {
+                data: [],
+                current_page: 1,
+                last_page: 1,
+                per_page: 10,
+                total: 0
+            },
             perPage: 10,
         };
     },
     methods: {
         async fetchClients(page = 1) {
-            const params = {
-                page,
-                ...(this.search ? { search: this.search } : {}), // Include search parameter if available
-                per_page: this.perPage,
-            };
-            const response = await axios.get('/clients', { params });
-            this.fetchedClients = response.data;
+            try {
+                const params = {
+                    page,
+                    search: this.search,
+                    per_page: this.perPage,
+                };
+                
+                const response = await axios.get('/clients', { params });
+                this.fetchedClients = response.data;
+            } catch (error) {
+                console.error('Error fetching clients:', error);
+            }
+        },
+        handlePageChange(page) {
+            this.fetchClients(page);
         },
         async deleteContact(client, contact) {
             try {
@@ -135,6 +152,14 @@ export default {
             }
         },
         fetchClientData() {
+        }
+    },
+    watch: {
+        search(newVal) {
+            this.fetchClients(1); // Reset to first page when search changes
+        },
+        perPage(newVal) {
+            this.fetchClients(1); // Reset to first page when perPage changes
         }
     },
     mounted() {
