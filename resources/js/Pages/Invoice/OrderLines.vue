@@ -13,15 +13,16 @@
                     <td>{{ $t('width') }}: <span class="bold">{{ job.width ? job.width.toFixed(2) : '0.00' }}mm</span></td>
                     <td>{{ $t('height') }}: <span class="bold">{{ job.height ? job.height.toFixed(2) : '0.00' }}mm</span></td>
                     <td>
-                        {{ $t('Quantity') }}: 
-                        <span 
-                            class="bold editable" 
+                        {{ $t('Quantity') }}:
+                        <span
+                            class="bold editable bg-white/20"
                             @dblclick="startEditing(job, 'quantity')"
                             v-if="!(editingJob?.id === job.id && editingField === 'quantity')"
                         >
                             {{ job.quantity }}
                         </span>
-                        <input 
+                        <input
+                            min="1"
                             v-else
                             type="number"
                             v-model="editingValue"
@@ -32,15 +33,16 @@
                         />
                     </td>
                     <td>
-                        {{ $t('Copies') }}: 
-                        <span 
-                            class="bold editable" 
+                        {{ $t('Copies') }}:
+                        <span
+                            class="bold editable bg-white/20"
                             @dblclick="startEditing(job, 'copies')"
                             v-if="!(editingJob?.id === job.id && editingField === 'copies')"
                         >
                             {{ job.copies }}
                         </span>
-                        <input 
+                        <input
+                            min="1"
                             v-else
                             type="number"
                             v-model="editingValue"
@@ -144,14 +146,14 @@ export default {
 
             // Create a Map to store jobs by ID, preserving the most recent updates
             const jobMap = new Map();
-            
+
             // First pass: store initial values
             for (const job of mergedJobs) {
                 if (!jobMap.has(job.id)) {
                     jobMap.set(job.id, { ...job });
                 }
             }
-            
+
             // Second pass: update with latest values, preserving edited fields
             for (const job of mergedJobs) {
                 const existingJob = jobMap.get(job.id);
@@ -275,10 +277,10 @@ export default {
 
         async saveEdit(job) {
             if (!this.editingJob || !this.editingField) return;
-            
+
             const toast = useToast();
             const valueToUpdate = parseInt(this.editingValue);
-            
+
             try {
                 // Log the data being sent to verify
                 console.log('Updating job:', {
@@ -343,7 +345,7 @@ export default {
                             [this.editingField]: valueToUpdate
                         });
                     }
-                    
+
                     toast.success('Updated successfully');
                 }
             } catch (error) {
