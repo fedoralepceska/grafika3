@@ -63,18 +63,32 @@
                 <!-- FILE INFO -->
                 <div class="flex text-white">
                     <td>
-                        <div v-if="job.file === 'placeholder.jpeg'" class="placeholder-upload">
-                            <div class="placeholder-content">
-                                <span class="placeholder-text">Drop PDF here</span>
-                                <input
-                                    type="file"
-                                    accept=".pdf"
-                                    @change="(e) => handleFileDrop(e, job)"
-                                    class="file-input"
-                                />
+                        <!-- Hidden file input -->
+                        <input
+                            type="file"
+                            accept=".pdf"
+                            @change="(e) => handleFileDrop(e, job)"
+                            class="file-input"
+                            :id="'file-input-' + job.id"
+                            style="display: none;"
+                        />
+
+                        <!-- Show placeholder or image -->
+                        <div v-if="!job.file || job.file === 'placeholder.jpeg'" class="placeholder-upload">
+                            <div class="placeholder-content" @click="triggerFileInput(job.id)">
+                                <span class="placeholder-text">Drop PDF here or click to upload</span>
                             </div>
                         </div>
-                        <img v-else :src="getImageUrl(job.id)" alt="Job Image" class="jobImg thumbnail" />
+
+                        <div v-else>
+                            <img
+                                :src="getImageUrl(job.id)"
+                                alt="Job Image"
+                                class="jobImg thumbnail"
+                                @click="triggerFileInput(job.id)"
+                                style="cursor: pointer;"
+                            />
+                        </div>
                     </td>
                     <td>
                         <div v-if="job.machinePrint">
@@ -210,6 +224,12 @@ export default {
     },
 
     methods: {
+        triggerFileInput(jobId) {
+            const fileInput = document.getElementById('file-input-' + jobId);
+            if (fileInput) {
+                fileInput.click();
+            }
+        },
         getImageUrl(id) {
             const job = this.jobsToDisplay.find(j => j.id === id);
             return job && job.file !== 'placeholder.jpeg'
@@ -302,6 +322,25 @@ export default {
                     this.copiesInput.focus();
                 }
             });
+        },
+
+        resetFile(job) {
+            const updatedJob = {
+                ...job,
+                file: 'placeholder.jpeg',
+                width: null,
+                height: null,
+            };
+
+            // Update the job in the reactive array
+            const index = this.jobs.findIndex(j => j.id === job.id);
+            if (index !== -1) {
+                // Replace the job object in the jobs array
+                this.jobs.splice(index, 1, updatedJob);
+            }
+
+            // Emit an event to notify parent components, if necessary
+            this.$emit('job-updated', updatedJob);
         },
 
         async saveEdit(job) {
