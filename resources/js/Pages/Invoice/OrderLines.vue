@@ -76,7 +76,7 @@
                         <!-- Show placeholder or image -->
                         <div v-if="!job.file || job.file === 'placeholder.jpeg'" class="placeholder-upload">
                             <div class="placeholder-content" @click="triggerFileInput(job.id)">
-                                <span class="placeholder-text">Drop PDF here or click to upload</span>
+                                <span class="placeholder-text">Drop File</span>
                             </div>
                         </div>
 
