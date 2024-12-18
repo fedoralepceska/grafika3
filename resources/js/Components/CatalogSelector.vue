@@ -215,7 +215,7 @@ export default {
                 this.selectedItems = [];
             } catch (error) {
                 console.error('Error creating jobs:', error.response?.data || error);
-                toast.error('Failed to create jobs from catalog');
+                toast.error(error.response?.data?.error);
             }
         },
 

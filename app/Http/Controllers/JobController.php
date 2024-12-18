@@ -802,20 +802,24 @@ class JobController extends Controller
         foreach ($actionNames as $name) {
             $total = DB::table('job_job_action')
                 ->join('job_actions', 'job_job_action.job_action_id', '=', 'job_actions.id')
+                ->join('invoice_job', 'invoice_job.job_id', '=', 'job_job_action.job_id') // Ensure job is linked to an invoice
+                ->join('invoices', 'invoices.id', '=', 'invoice_job.invoice_id') // Ensure invoice exists
                 ->where('job_actions.name', $name)
                 ->where('job_job_action.status', 'In Progress')
                 ->count();
 
             $secondaryCount = DB::table('job_job_action')
                 ->join('job_actions', 'job_job_action.job_action_id', '=', 'job_actions.id')
+                ->join('invoice_job', 'invoice_job.job_id', '=', 'job_job_action.job_id') // Ensure job is linked to an invoice
+                ->join('invoices', 'invoices.id', '=', 'invoice_job.invoice_id') // Ensure invoice exists
                 ->where('job_actions.name', $name)
                 ->where('job_job_action.status', 'Not started yet')
                 ->count();
 
             $onHoldCount = DB::table('job_job_action')
                 ->join('job_actions', 'job_job_action.job_action_id', '=', 'job_actions.id')
-                ->join('invoice_job', 'invoice_job.job_id', '=', 'job_job_action.job_id') // Adjust the join for the pivot table
-                ->join('invoices', 'invoices.id', '=', 'invoice_job.invoice_id') // Join with invoices table
+                ->join('invoice_job', 'invoice_job.job_id', '=', 'job_job_action.job_id') // Ensure job is linked to an invoice
+                ->join('invoices', 'invoices.id', '=', 'invoice_job.invoice_id') // Ensure invoice exists
                 ->where('job_actions.name', $name)
                 ->where('invoices.onHold', true)
                 ->whereIn('job_job_action.status', ['Not started yet', 'In Progress'])
@@ -823,8 +827,8 @@ class JobController extends Controller
 
             $onRushCount = DB::table('job_job_action')
                 ->join('job_actions', 'job_job_action.job_action_id', '=', 'job_actions.id')
-                ->join('invoice_job', 'invoice_job.job_id', '=', 'job_job_action.job_id') // Adjust the join for the pivot table
-                ->join('invoices', 'invoices.id', '=', 'invoice_job.invoice_id') // Join with invoices table
+                ->join('invoice_job', 'invoice_job.job_id', '=', 'job_job_action.job_id') // Ensure job is linked to an invoice
+                ->join('invoices', 'invoices.id', '=', 'invoice_job.invoice_id') // Ensure invoice exists
                 ->where('job_actions.name', $name)
                 ->where('invoices.rush', true)
                 ->whereIn('job_job_action.status', ['Not started yet', 'In Progress'])
