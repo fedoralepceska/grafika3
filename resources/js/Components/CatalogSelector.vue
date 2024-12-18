@@ -1,49 +1,96 @@
 <template>
     <div class="catalog-container">
-        <div class="search-container mb-4">
-            <input
-                v-model="searchTerm"
-                type="text"
-                placeholder="Search catalog items..."
-                class="search-input w-full p-2 border rounded"
-                @input="fetchCatalogItems"
-            />
-        </div>
-
-        <div class="catalog-grid">
-            <div
-                v-for="item in catalogItems"
-                :key="item.id"
-                class="catalog-item flex items-center"
-            >
-                <div class="item-content flex-grow flex items-center">
-                    <div class="item-details flex-grow">
-                        <div class="item-header flex items-center">
-                            <span class="item-name mr-4">{{ item.name }}</span>
+        <TabsWrapperV2>
+            <TabV2 title="Small Material">
+                <div class="search-container mb-4">
+                    <input
+                        v-model="searchTerm"
+                        type="text"
+                        placeholder="Search catalog items..."
+                        class="search-input w-full p-2 border rounded"
+                        @input="fetchCatalogItems"
+                    />
+                </div>
+                <div
+                    v-for="item in catalogItemsSmall"
+                    :key="item.id"
+                    class="catalog-item flex items-center"
+                >
+                    <div class="item-content flex-grow flex items-center">
+                        <div class="item-details flex-grow">
+                            <div class="item-header flex items-center">
+                                <span class="item-name mr-4">{{ item.name }}</span>
+                                <button
+                                    @click="openItemDetails(item)"
+                                    class="info-button"
+                                    title="View Item Details"
+                                >
+                                    <i class="fas fa-info-circle"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="item-select">
                             <button
-                                @click="openItemDetails(item)"
-                                class="info-button"
-                                title="View Item Details"
+                                @click="selectItem(item)"
+                                class="select-circle-button"
+                                :class="{ 'selected': selectedItems.includes(item.id) }"
                             >
-                                <i class="fas fa-info-circle"></i>
+                                <i
+                                    :class="selectedItems.includes(item.id)
+                                    ? 'fas fa-times'
+                                    : 'fas fa-arrow-right'"
+                                ></i>
                             </button>
                         </div>
                     </div>
-                    <div class="item-select">
-                        <button
-                            @click="selectItem(item)"
-                            class="select-circle-button"
-                            :class="{ 'selected': selectedItems.includes(item.id) }"
-                        >
-                            <i
-                                :class="selectedItems.includes(item.id)
+                </div>
+            </TabV2>
+            <TabV2 title="Large Material">
+                <div class="search-container mb-4">
+                    <input
+                        v-model="searchTerm"
+                        type="text"
+                        placeholder="Search catalog items..."
+                        class="search-input w-full p-2 border rounded"
+                        @input="fetchCatalogItems"
+                    />
+                </div>
+                <div
+                    v-for="item in catalogItemsLarge"
+                    :key="item.id"
+                    class="catalog-item flex items-center"
+                >
+                    <div class="item-content flex-grow flex items-center">
+                        <div class="item-details flex-grow">
+                            <div class="item-header flex items-center">
+                                <span class="item-name mr-4">{{ item.name }}</span>
+                                <button
+                                    @click="openItemDetails(item)"
+                                    class="info-button"
+                                    title="View Item Details"
+                                >
+                                    <i class="fas fa-info-circle"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="item-select">
+                            <button
+                                @click="selectItem(item)"
+                                class="select-circle-button"
+                                :class="{ 'selected': selectedItems.includes(item.id) }"
+                            >
+                                <i
+                                    :class="selectedItems.includes(item.id)
                                     ? 'fas fa-times'
                                     : 'fas fa-arrow-right'"
-                            ></i>
-                        </button>
+                                ></i>
+                            </button>
+                        </div>
                     </div>
                 </div>
-            </div>
+            </TabV2>
+        </TabsWrapperV2>
+        <div class="catalog-grid">
         </div>
 
         <!-- Pagination Controls -->
@@ -128,12 +175,16 @@
 <script>
 import axios from 'axios';
 import { useToast } from "vue-toastification";
+import TabV2 from "@/Components/tabs/TabV2.vue";
+import TabsWrapperV2 from "@/Components/tabs/TabsWrapperV2.vue";
 
 export default {
     name: "CatalogSelector",
+    components: { TabV2, TabsWrapperV2 },
     data() {
         return {
-            catalogItems: [],
+            catalogItemsSmall: [],
+            catalogItemsLarge: [],
             selectedItems: [],
             searchTerm: '',
             selectedItemDetails: null,
@@ -154,7 +205,8 @@ export default {
                     }
                 });
 
-                this.catalogItems = response.data.data;
+                this.catalogItemsSmall = response.data.data.filter(c => c.smallMaterial !== null);
+                this.catalogItemsLarge = response.data.data.filter(c => c.largeMaterial !== null);
                 this.totalPages = response.data.pagination.total_pages;
             } catch (error) {
                 console.error('Error fetching catalog items:', error.response?.data || error);

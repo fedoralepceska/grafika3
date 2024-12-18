@@ -8,7 +8,7 @@
                 @click="selectedTitle = tab.props.title"
             >
                 {{tab.props.title}}
-                <v-icon>{{tab.props.icon}}</v-icon>
+                <v-icon v-if="tab.props.icon">{{tab.props.icon}}</v-icon>
             </li>
         </ul>
         <slot/>
