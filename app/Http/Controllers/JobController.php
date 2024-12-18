@@ -1009,4 +1009,51 @@ class JobController extends Controller
             ], 500);
         }
     }
+
+    public function destroy($id)
+    {
+        try {
+            // Find the job
+            $job = Job::findOrFail($id);
+
+            // Begin transaction to ensure all related records are deleted
+            DB::beginTransaction();
+
+            try {
+                // Get all action IDs associated with this job
+                $actionIds = DB::table('job_job_action')
+                    ->where('job_id', $job->id)
+                    ->pluck('job_action_id');
+
+                // Delete records from job_job_action
+                DB::table('job_job_action')
+                    ->where('job_id', $job->id)
+                    ->delete();
+
+                // Delete records from job_actions
+                DB::table('job_actions')
+                    ->whereIn('id', $actionIds)
+                    ->delete();
+
+                // Finally delete the job
+                $job->delete();
+
+                DB::commit();
+
+                return response()->json([
+                    'message' => 'Job and related actions deleted successfully'
+                ]);
+
+            } catch (\Exception $e) {
+                DB::rollBack();
+                throw $e;
+            }
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'message' => 'Failed to delete job',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
 }

@@ -117,6 +117,7 @@
                             :jobs="$refs.dragAndDrop?.jobs"
                             :updatedJobs="updatedJobs"
                             @job-updated="handleJobUpdate"
+                            @delete-job="handleJobDelete"
                         />
                     </div>
                 </div>
@@ -363,6 +364,27 @@ export default {
                 console.error("Failed to fetch clients:", error);
                 const toast = useToast();
                 toast.error('Error fetching clients');
+            }
+        },
+        async handleJobDelete(jobId) {
+            if (this.$refs.dragAndDrop) {
+                const toast = useToast();
+                
+                try {
+                    // Call the API to delete the job and its related records
+                    await axios.delete(`/jobs/${jobId}`);
+                    
+                    // Remove the job from DragAndDrop component's jobs array
+                    this.$refs.dragAndDrop.jobs = this.$refs.dragAndDrop.jobs.filter(job => job.id !== jobId);
+                    
+                    // Also remove from updatedJobs if it exists there
+                    this.updatedJobs = this.updatedJobs.filter(job => job.id !== jobId);
+                    
+                    toast.success('Job deleted successfully');
+                } catch (error) {
+                    console.error('Error deleting job:', error);
+                    toast.error('Failed to delete job');
+                }
             }
         },
     },

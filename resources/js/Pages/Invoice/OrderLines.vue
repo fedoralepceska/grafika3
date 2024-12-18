@@ -5,8 +5,14 @@
             <tr v-for="(job, index) in jobsToDisplay" :key="index">
                 <!-- ORDER INDEX, NAME, AND ADDITIONAL INFO -->
                 <div class="text-white">
-                    <td class="text-black bg-gray-200 font-weight-black">
+                    <td class="text-black bg-gray-200 font-weight-black flex justify-between items-center" style="padding: 0 0 0 5px">
                         <span class="bold">#{{ index + 1 }} {{ job.name }}</span>
+                        <button
+                            @click="confirmDelete(job)"
+                            class="delete-btn text-red-600 hover:text-red-800"
+                        >
+                            <i class="fa fa-times"></i>
+                        </button>
                     </td>
                     <td> File: <span class="bold">{{ job.file }}</span></td>
                     <td>ID: <span class="bold">{{ job.id }}</span></td>
@@ -104,7 +110,7 @@
                         <img src="/images/shipping.png" class="w-8 h-8 pr-1" alt="Shipping">
                         {{ $t('Shipping') }}: <strong> {{ job.shippingInfo }}</strong>
                     </td>
-                    <div class="bg-white text-black bold">
+                    <div class="bg-gray-200 text-black bold">
                         <div class="pt-1 pl-2 pr-2">
                             {{ $t('jobPrice') }}: <span class="bold">{{ job?.totalPrice?.toFixed(2) }} ден.</span>
                         </div>
@@ -113,6 +119,27 @@
             </tr>
             </tbody>
         </table>
+
+        <!-- Confirmation Dialog -->
+        <div v-if="showDeleteConfirm" class="confirmation-dialog">
+            <div class="dialog-content">
+                <p>Are you sure you want to delete this job?</p>
+                <div class="dialog-buttons">
+                    <button
+                        @click="deleteJob"
+                        class="confirm-btn"
+                    >
+                        Yes, Delete
+                    </button>
+                    <button
+                        @click="showDeleteConfirm = false"
+                        class="cancel-btn"
+                    >
+                        Cancel
+                    </button>
+                </div>
+            </div>
+        </div>
     </div>
 </template>
 
@@ -137,6 +164,8 @@ export default {
             editingValue: null,
             quantityInput: null,
             copiesInput: null,
+            showDeleteConfirm: false,
+            jobToDelete: null,
         };
     },
 
@@ -358,6 +387,22 @@ export default {
             this.editingField = null;
             this.editingValue = null;
         },
+
+        confirmDelete(job) {
+            this.jobToDelete = job;
+            this.showDeleteConfirm = true;
+        },
+
+        deleteJob() {
+            if (this.jobToDelete) {
+                // Emit event to parent component to handle the deletion
+                this.$emit('delete-job', this.jobToDelete.id);
+
+                // Reset the confirmation dialog
+                this.showDeleteConfirm = false;
+                this.jobToDelete = null;
+            }
+        },
     },
 };
 </script>
@@ -505,5 +550,66 @@ input, select {
     border-radius: 3px;
     background-color: white;
     color: black;
+}
+
+.delete-btn {
+    padding: 4px 8px;
+    border-radius: 4px;
+    transition: all 0.2s;
+}
+
+.confirmation-dialog {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.7);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+}
+
+.dialog-content {
+    background-color: $gray;
+    padding: 20px;
+    border-radius: 8px;
+    text-align: center;
+
+    p {
+        margin-bottom: 20px;
+        color: white;
+    }
+}
+
+.dialog-buttons {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+
+    button {
+        padding: 8px 16px;
+        border-radius: 4px;
+        cursor: pointer;
+    }
+}
+
+.confirm-btn {
+    background-color: $red;
+    color: white;
+
+    &:hover {
+        background-color: darken($red, 10%);
+    }
+}
+
+.cancel-btn {
+    background-color: $light-gray;
+    color: white;
+
+    &:hover {
+        background-color: darken($gray, 10%);
+    }
 }
 </style>
