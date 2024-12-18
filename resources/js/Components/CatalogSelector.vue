@@ -1,6 +1,6 @@
 <template>
     <div class="catalog-container">
-        <TabsWrapperV2>
+        <TabsWrapperSwitch>
             <TabV2 title="Small Material">
                 <div class="search-container mb-4">
                     <input
@@ -89,12 +89,12 @@
                     </div>
                 </div>
             </TabV2>
-        </TabsWrapperV2>
+        </TabsWrapperSwitch>
         <div class="catalog-grid">
         </div>
 
         <!-- Pagination Controls -->
-        <div class="pagination-container flex justify-between items-center mt-4">
+        <div class="pagination-container flex justify-between items-center m-2">
             <button
                 @click="prevPage"
                 :disabled="currentPage === 1"
@@ -176,11 +176,11 @@
 import axios from 'axios';
 import { useToast } from "vue-toastification";
 import TabV2 from "@/Components/tabs/TabV2.vue";
-import TabsWrapperV2 from "@/Components/tabs/TabsWrapperV2.vue";
+import TabsWrapperSwitch from "@/Components/tabs/TabsWrapperSwitch.vue";
 
 export default {
     name: "CatalogSelector",
-    components: { TabV2, TabsWrapperV2 },
+    components: { TabV2, TabsWrapperSwitch },
     data() {
         return {
             catalogItemsSmall: [],
@@ -234,7 +234,9 @@ export default {
 
         async createJobs() {
             const toast = useToast();
-            const selectedCatalogItems = this.catalogItems.filter(item =>
+            // Combine both small and large catalog items
+            const allCatalogItems = [...this.catalogItemsSmall, ...this.catalogItemsLarge];
+            const selectedCatalogItems = allCatalogItems.filter(item =>
                 this.selectedItems.includes(item.id)
             );
 
@@ -267,7 +269,7 @@ export default {
                 this.selectedItems = [];
             } catch (error) {
                 console.error('Error creating jobs:', error.response?.data || error);
-                toast.error(error.response?.data?.error);
+                toast.error(error.response?.data?.error || 'Failed to create jobs');
             }
         },
 
@@ -315,7 +317,8 @@ $orange: #a36a03;
 
 .catalog-container {
     background-color: $light-gray;
-    padding: 1rem;
+    min-height: fit-content;
+    padding: 2px;
 }
 
 .search-input {
@@ -390,7 +393,7 @@ $orange: #a36a03;
 
 .pagination-container {
     background-color: $dark-gray;
-    padding: 0.5rem;
+    padding: 0.3rem;
     border-radius: 4px;
 }
 

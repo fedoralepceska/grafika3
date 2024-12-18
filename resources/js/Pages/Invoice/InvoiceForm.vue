@@ -88,7 +88,7 @@
 
                         <TabsWrapper>
                             <Tab title="ADD" icon="mdi mdi-plus-circle">
-                                <TabsWrapperV2>
+                                <TabsWrapperV2 style="margin-top: 5px">
                                     <TabV2 title="Manual" icon="mdi mdi-gesture-tap">
                                         <OrderInfo
                                             v-if="$refs.dragAndDrop?.jobs?.length > 0"
@@ -369,17 +369,17 @@ export default {
         async handleJobDelete(jobId) {
             if (this.$refs.dragAndDrop) {
                 const toast = useToast();
-                
+
                 try {
                     // Call the API to delete the job and its related records
                     await axios.delete(`/jobs/${jobId}`);
-                    
+
                     // Remove the job from DragAndDrop component's jobs array
                     this.$refs.dragAndDrop.jobs = this.$refs.dragAndDrop.jobs.filter(job => job.id !== jobId);
-                    
+
                     // Also remove from updatedJobs if it exists there
                     this.updatedJobs = this.updatedJobs.filter(job => job.id !== jobId);
-                    
+
                     toast.success('Job deleted successfully');
                 } catch (error) {
                     console.error('Error deleting job:', error);

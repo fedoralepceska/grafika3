@@ -40,7 +40,6 @@ export default {
 }
 .tabs__header{
     justify-content: center;
-    margin-bottom: 10px;
     list-style: none;
     padding: 0;
     display: flex;
