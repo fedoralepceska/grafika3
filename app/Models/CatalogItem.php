@@ -18,7 +18,8 @@ class CatalogItem extends Model
         'actions',
         'is_for_offer',
         'is_for_sales',
-        'category'
+        'category',
+        'file'
     ];
 
     protected $casts = [

@@ -19,6 +19,12 @@
                     <div class="item-content flex-grow flex items-center">
                         <div class="item-details flex-grow">
                             <div class="item-header flex items-center">
+                                <img
+                                    :src="getImageUrl(item.id)"
+                                    alt="Job Image"
+                                    class="jobImg thumbnail"
+                                    style="cursor: pointer;"
+                                />
                                 <span class="item-name mr-4">{{ item.name }}</span>
                                 <button
                                     @click="openItemDetails(item)"
@@ -63,6 +69,12 @@
                     <div class="item-content flex-grow flex items-center">
                         <div class="item-details flex-grow">
                             <div class="item-header flex items-center">
+                                <img
+                                    :src="getImageUrl(item.id)"
+                                    alt="Job Image"
+                                    class="jobImg thumbnail"
+                                    style="cursor: pointer;"
+                                />
                                 <span class="item-name mr-4">{{ item.name }}</span>
                                 <button
                                     @click="openItemDetails(item)"
@@ -285,7 +297,15 @@ export default {
                 this.currentPage++;
                 this.fetchCatalogItems();
             }
-        }
+        },
+        getImageUrl(id) {
+            const items = [...this.catalogItemsSmall, ...this.catalogItemsLarge];
+            const catalog = items.find(j => j.id === id);
+
+            return catalog && catalog.file !== 'placeholder.jpeg'
+                ? `/storage/uploads/${catalog.file}`
+                : '/storage/uploads/placeholder.jpeg';
+        },
     },
 
     mounted() {
@@ -497,5 +517,20 @@ $orange: #a36a03;
     cursor: pointer;
     transition: background-color 0.2s ease;
 
+}
+.jobImg {
+    width: 60px;
+    margin: 0 1rem;
+    display: flex;
+}
+.thumbnail {
+    top:-50px;
+    left:-35px;
+    display:block;
+    z-index:999;
+    cursor: pointer;
+    -webkit-transition-property: all;
+    -webkit-transition-duration: 0.3s;
+    -webkit-transition-timing-function: ease;
 }
 </style>

@@ -974,6 +974,7 @@ class JobController extends Controller
                     'smallMaterial' => $item->small_material_id,
                     'quantity' => $item->quantity,
                     'copies' => $item->copies,
+                    'file' => $item->file,
                     'actions' => collect($item->actions ?? [])->map(function($action) {
                         return [
                             'action_id' => [

@@ -137,6 +137,36 @@
                     </div>
                 </div>
 
+                <!-- File Section -->
+                <div class="file-upload mt-6" style="width: 150px">
+                    <h3 class="text-white text-lg font-semibold mb-4">File Upload</h3>
+                    <div
+                        class="upload-area"
+                        @dragover.prevent
+                        @drop.prevent="handleDrop"
+                        @click="triggerFileInput"
+                    >
+                        <input
+                            type="file"
+                            id="file-input"
+                            class="hidden"
+                            @change="handleFileInput"
+                            accept=".pdf, .png, .jpg, .jpeg"
+                        />
+                        <div v-if="!previewUrl" class="placeholder-content">
+                            <span class="border p-3">Drop File</span>
+                        </div>
+                        <div v-else>
+                            <img
+                                v-if="isImage"
+                                :src="previewUrl"
+                                alt="Preview"
+                                class="preview-image"
+                            />
+                            <span v-if="!isImage">Uploaded PDF: {{ fileName }}</span>
+                        </div>
+                    </div>
+                </div>
                 <!-- Actions Section -->
                 <div class="mt-6">
                     <h3 class="text-white text-lg font-semibold mb-4">Actions</h3>
@@ -238,9 +268,12 @@ export default {
                 actions: [],
                 is_for_offer: false,
                 is_for_sales: true,
-                category: ''
+                category: '',
+                file: 'placeholder.jpeg',
             },
-            categories: ['material', 'article', 'small_format']
+            categories: ['material', 'article', 'small_format'],
+            previewUrl: null, // URL for file preview
+            fileName: '', // Stores the file name
         }
     },
 
@@ -295,21 +328,61 @@ export default {
         removeAction(index) {
             this.form.actions.splice(index, 1)
         },
+        async handleDrop(event) {
+            const file = event.dataTransfer.files[0];
+            this.processFile(file);
+        },
+        async handleFileInput(event) {
+            const file = event.target.files[0];
+            this.processFile(file);
+        },
+        processFile(file) {
+            if (!file) return;
 
+            // Store file and generate preview URL
+            this.form.file = file;
+            this.fileName = file.name;
+
+            // Check file type for preview
+            if (file.type.startsWith("image/")) {
+                this.isImage = true;
+                this.previewUrl = URL.createObjectURL(file);
+            } else if (file.type === "application/pdf") {
+                this.isImage = false;
+                this.previewUrl = "/storage/uploads/placeholder.jpeg"; // Placeholder for PDFs
+            }
+        },
+        isImage() {
+            return this.form.file && this.form.file.type.startsWith("image/");
+        },
         async submit() {
             const toast = useToast();
+            const formData = new FormData();
+
+            // Append fields
+            Object.entries(this.form).forEach(([key, value]) => {
+                if (key !== 'actions' && key !== 'file') {
+                    formData.append(key, value);
+                }
+            });
+
+            // Append file
+            if (this.form.file instanceof File) {
+                formData.append('file', this.form.file);
+            }
+
+            // Serialize actions
+            this.form.actions.forEach((action, index) => {
+                formData.append(`actions[${index}][id]`, action.selectedAction);
+                formData.append(`actions[${index}][quantity]`, action.quantity || 0);
+                formData.append(`actions[${index}][isMaterialized]`, action.showQuantity || false);
+            });
 
             try {
-                const formData = {
-                    ...this.form,
-                    actions: this.form.actions.map(action => ({
-                        id: action.action_id.id,
-                        quantity: action.quantity,
-                        isMaterialized: this.actions.find(a => a.id === action.action_id.id).isMaterialized,
-                    }))
-                };
+                const response = await axios.post(route('catalog.store'), formData, {
+                    headers: { 'Content-Type': 'multipart/form-data' },
+                });
 
-                const response = await axios.post(route('catalog.store'), formData);
                 toast.success('Catalog item created successfully');
                 this.$inertia.visit(route('catalog.index'));
             } catch (error) {
@@ -321,7 +394,10 @@ export default {
                     toast.error('An error occurred while creating the catalog item');
                 }
             }
-        }
+        },
+        triggerFileInput() {
+            document.getElementById("file-input").click();
+        },
     },
 
     mounted() {
@@ -366,6 +442,10 @@ export default {
 
 .option, input, option, select {
     color: black;
+}
+.preview-image {
+    width: 100px;
+    height: 100px;
 }
 
 </style>

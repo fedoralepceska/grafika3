@@ -71,7 +71,7 @@ class CatalogItemController extends Controller
                             'status' => $action['status'] ?? 'Not started yet',
                             'quantity' => $action['quantity']
                         ];
-                    })->toArray()
+                    })->toArray(),
                 ];
             });
 
@@ -97,10 +97,6 @@ class CatalogItemController extends Controller
             ], 500);
         }
     }
-
-
-
-
 
     public function create()
     {
@@ -141,6 +137,18 @@ class CatalogItemController extends Controller
     {
         \Log::info('Storing catalog item:', $request->all());
 
+        $request->merge([
+            'is_for_offer' => filter_var($request->input('is_for_offer'), FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE),
+            'is_for_sales' => filter_var($request->input('is_for_sales'), FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE),
+            'small_material_id' => $request->input('small_material_id') === 'null' ? null : $request->input('small_material_id'),
+        ]);
+        $actions = $request->input('actions');
+        $actions = array_map(function ($action) {
+            $action['isMaterialized'] = filter_var($action['isMaterialized'], FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
+            return $action;
+        }, $actions);
+        $request->merge(['actions' => $actions]);
+
         $request->validate([
             'name' => 'required|string|unique:catalog_items',
             'machinePrint' => 'nullable|string',
@@ -152,14 +160,27 @@ class CatalogItemController extends Controller
             'actions' => 'required|array',
             'actions.*.id' => 'required|exists:dorabotka,id',
             'actions.*.quantity' => 'integer|min:0|required_if:actions.*.isMaterialized,true|nullable',
-            'actions.*.isMaterialized' => 'boolean',
+            'actions.*.isMaterialized' => 'boolean|in:0,1,true,false',
             'is_for_offer' => 'nullable|boolean',
             'is_for_sales' => 'nullable|boolean',
             'category' => 'nullable|string|in:' . implode(',', \App\Models\CatalogItem::CATEGORIES),
+            'file' => 'required|mimes:jpg,jpeg,png,pdf|max:20480', // 20MB max
         ]);
 
         // Create the catalog item without actions for now
         $catalogItem = CatalogItem::create($request->except('actions'));
+
+        $file = $request->file('file');
+        $fileName = time() . '_' . $file->getClientOriginalName();
+        $catalogItem->file = $fileName;
+        // Store the file in the 'public/uploads' directory
+        try {
+            $file->storeAs('public/uploads', $fileName);
+        } catch (\Exception $e) {
+            dd('Error storing file: ' . $e->getMessage());
+        }
+
+        $catalogItem->save();
 
         // Process actions and populate both `catalog_items` and `job_actions`
         $catalogItemActions = collect($request->actions)->map(function ($action) {
