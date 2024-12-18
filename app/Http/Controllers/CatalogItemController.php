@@ -237,31 +237,79 @@ class CatalogItemController extends Controller
 
     public function update(Request $request, CatalogItem $catalogItem)
     {
-        $request->validate([
-            'name' => 'required|string|unique:catalog_items,name,' . $catalogItem->id,
-            'machinePrint' => 'nullable|string',
-            'machineCut' => 'nullable|string',
-            'large_material_id' => 'nullable|exists:large_format_materials,id',
-            'small_material_id' => 'nullable|exists:small_material,id',
-            'quantity' => 'required|integer|min:1',
-            'copies' => 'required|integer|min:1',
-            'actions' => 'required|array',
-            'actions.*.id' => 'required|string',
-            'actions.*.quantity' => 'required|integer|min:0',
-        ]);
+        try {
+            $request->validate([
+                'name' => 'required|string|unique:catalog_items,name,' . $catalogItem->id,
+                'machinePrint' => 'nullable|string',
+                'machineCut' => 'nullable|string',
+                'large_material_id' => 'nullable|exists:large_format_materials,id',
+                'small_material_id' => 'nullable|exists:small_material,id',
+                'quantity' => 'required|integer|min:1',
+                'copies' => 'required|integer|min:1',
+                'actions' => 'required|array',
+                'actions.*.id' => 'required|exists:dorabotka,id',
+                'actions.*.quantity' => 'integer|min:0|required_if:actions.*.isMaterialized,true|nullable',
+                'actions.*.isMaterialized' => 'boolean',
+                'is_for_offer' => 'nullable|boolean',
+                'is_for_sales' => 'nullable|boolean',
+                'category' => 'nullable|string|in:' . implode(',', CatalogItem::CATEGORIES),
+            ]);
 
-        $catalogItem->update($request->except('actions'));
+            DB::beginTransaction();
 
-        // Store actions as JSON
-        $catalogItem->actions = collect($request->actions)->map(function ($action) {
-            return [
-                'name' => $action['id'],
-                'quantity' => $action['quantity']
-            ];
-        })->toArray();
-        $catalogItem->save();
+            try {
+                // Update the catalog item without actions first
+                $catalogItem->update($request->except('actions'));
 
-        return redirect()->route('catalog.index');
+                // Process actions and update them
+                $catalogItemActions = collect($request->actions)->map(function ($action) {
+                    $actionData = DB::table('dorabotka')->where('id', $action['id'])->first();
+
+                    if (!$actionData) {
+                        throw new \Exception("Action with ID {$action['id']} does not exist.");
+                    }
+
+                    // Use a default value for `isMaterialized` if not provided
+                    $isMaterialized = $action['isMaterialized'] ?? false;
+
+                    // Return action data for the catalog item
+                    return [
+                        'action_id' => [
+                            'id' => $action['id'],
+                            'name' => $actionData->name,
+                        ],
+                        'status' => 'Not started yet',
+                        'quantity' => $isMaterialized ? ($action['quantity'] ?? 0) : null,
+                    ];
+                });
+
+                // Update the actions in the catalog_items table
+                $catalogItem->actions = $catalogItemActions->toArray();
+                $catalogItem->save();
+
+                DB::commit();
+
+                return response()->json([
+                    'message' => 'Catalog item updated successfully',
+                    'catalogItem' => $catalogItem
+                ]);
+
+            } catch (\Exception $e) {
+                DB::rollBack();
+                throw $e;
+            }
+
+        } catch (\Exception $e) {
+            \Log::error('Error updating catalog item:', [
+                'message' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            return response()->json([
+                'error' => 'Failed to update catalog item',
+                'details' => config('app.debug') ? $e->getMessage() : 'An unexpected error occurred'
+            ], 500);
+        }
     }
 
 

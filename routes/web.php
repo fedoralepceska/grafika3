@@ -17,6 +17,9 @@ use App\Http\Controllers\CatalogItemController;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
+use Illuminate\Support\Facades\DB;
+use App\Models\LargeFormatMaterial;
+use App\Models\SmallMaterial;
 
 /*
 |--------------------------------------------------------------------------
@@ -287,4 +290,38 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('/offer', [\App\Http\Controllers\OfferController::class, 'store'])->name('offer.store');
     Route::delete('/offer/{offer}', [\App\Http\Controllers\OfferController::class, 'destroy'])->name('offer.destroy');
 });
+
+// Routes for catalog edit form data
+Route::get('/get-machines-print', function () {
+    return response()->json(DB::table('machines_print')->select('id', 'name')->get());
+});
+
+Route::get('/get-machines-cut', function () {
+    return response()->json(DB::table('machines_cut')->select('id', 'name')->get());
+});
+
+Route::get('/get-materials', function () {
+    $largeMaterials = LargeFormatMaterial::with(['article' => function($query) {
+        $query->select('id', 'name', 'code');
+    }])->get();
+    
+    $smallMaterials = SmallMaterial::with(['article' => function($query) {
+        $query->select('id', 'name', 'code');
+    }])->get();
+    
+    return response()->json([
+        'largeMaterials' => $largeMaterials,
+        'smallMaterials' => $smallMaterials
+    ]);
+});
+
+Route::get('/get-actions', function () {
+    return response()->json(
+        DB::table('dorabotka')
+            ->select('id', 'name', 'isMaterialized')
+            ->whereNotNull('name')
+            ->get()
+    );
+});
+
 require __DIR__.'/auth.php';
