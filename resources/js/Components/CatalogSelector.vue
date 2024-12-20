@@ -19,12 +19,19 @@
                     <div class="item-content flex-grow flex items-center">
                         <div class="item-details flex-grow">
                             <div class="item-header flex items-center">
-                                <img
-                                    :src="getImageUrl(item.id)"
-                                    alt="Job Image"
-                                    class="jobImg thumbnail"
-                                    style="cursor: pointer;"
-                                />
+                                <div class="jobImg-container">
+                                    <img
+                                        v-if="!isPlaceholder(item.id)"
+                                        :src="getImageUrl(item.id)"
+                                        alt="Job Image"
+                                        class="jobImg thumbnail"
+                                        @click.stop="openImageModal(item.id)"
+                                        style="cursor: pointer;"
+                                    />
+                                    <div v-else class="jobImg thumbnail no-image">
+                                        NO IMAGE
+                                    </div>
+                                </div>
                                 <span class="item-name mr-4">{{ item.name }}</span>
                                 <button
                                     @click="openItemDetails(item)"
@@ -69,12 +76,19 @@
                     <div class="item-content flex-grow flex items-center">
                         <div class="item-details flex-grow">
                             <div class="item-header flex items-center">
-                                <img
-                                    :src="getImageUrl(item.id)"
-                                    alt="Job Image"
-                                    class="jobImg thumbnail"
-                                    style="cursor: pointer;"
-                                />
+                                <div class="jobImg-container">
+                                    <img
+                                        v-if="!isPlaceholder(item.id)"
+                                        :src="getImageUrl(item.id)"
+                                        alt="Job Image"
+                                        class="jobImg thumbnail"
+                                        @click.stop="openImageModal(item.id)"
+                                        style="cursor: pointer;"
+                                    />
+                                    <div v-else class="jobImg thumbnail no-image">
+                                        NO IMAGE
+                                    </div>
+                                </div>
                                 <span class="item-name mr-4">{{ item.name }}</span>
                                 <button
                                     @click="openItemDetails(item)"
@@ -181,6 +195,20 @@
                 Create Jobs ({{ selectedItems.length }})
             </button>
         </div>
+
+        <!-- Add this new modal component at the end of the template section, just before closing </div> -->
+        <div v-if="showImageModal" class="image-modal-backdrop" @click="closeImageModal">
+            <div class="image-modal-content" @click.stop>
+                <button class="image-modal-close" @click="closeImageModal">
+                    <i class="fas fa-times"></i>
+                </button>
+                <img 
+                    :src="selectedImageUrl" 
+                    alt="Full size image" 
+                    class="image-modal-img"
+                />
+            </div>
+        </div>
     </div>
 </template>
 
@@ -202,7 +230,9 @@ export default {
             selectedItemDetails: null,
             currentPage: 1,
             itemsPerPage: 10,
-            totalPages: 0
+            totalPages: 0,
+            showImageModal: false,
+            selectedImageUrl: null,
         }
     },
 
@@ -306,6 +336,26 @@ export default {
                 ? `/storage/uploads/${catalog.file}`
                 : '/storage/uploads/placeholder.jpeg';
         },
+
+        isPlaceholder(id) {
+            const items = [...this.catalogItemsSmall, ...this.catalogItemsLarge];
+            const catalog = items.find(j => j.id === id);
+            return !catalog?.file || catalog.file === 'placeholder.jpeg';
+        },
+
+        openImageModal(itemId) {
+            this.selectedImageUrl = this.getImageUrl(itemId);
+            this.showImageModal = true;
+            // Prevent body scrolling when modal is open
+            document.body.style.overflow = 'hidden';
+        },
+
+        closeImageModal() {
+            this.showImageModal = false;
+            this.selectedImageUrl = null;
+            // Restore body scrolling
+            document.body.style.overflow = 'auto';
+        },
     },
 
     mounted() {
@@ -317,6 +367,12 @@ export default {
             this.currentPage = 1;
             this.fetchCatalogItems();
         }
+    },
+
+    // Clean up when component is destroyed
+    beforeUnmount() {
+        // Ensure body scrolling is restored when component is destroyed
+        document.body.style.overflow = 'auto';
     }
 }
 </script>
@@ -518,19 +574,88 @@ $orange: #a36a03;
     transition: background-color 0.2s ease;
 
 }
+.jobImg-container {
+    margin: 0 1rem;
+}
+
 .jobImg {
     width: 60px;
-    margin: 0 1rem;
+    height: 60px;
     display: flex;
+    object-fit: cover;
+    border-radius: 4px;
+    transition: all 0.3s ease;
+    position: relative;
+    z-index: 1;
 }
+
+.no-image {
+    background-color: $dark-gray;
+    border: 1px dashed $gray;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.7rem;
+    color: $ultra-light-gray;
+    text-align: center;
+}
+
 .thumbnail {
-    top:-50px;
-    left:-35px;
-    display:block;
-    z-index:999;
+    &:hover {
+        transform: scale(3);
+        box-shadow: 0 0 10px rgba(0,0,0,0.5);
+        position: relative;
+        z-index: 1000;
+    }
+}
+
+.image-modal-backdrop {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.8);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 9999;
+}
+
+.image-modal-content {
+    position: relative;
+    max-width: 90vw;
+    max-height: 90vh;
+    background-color: $dark-gray;
+    padding: 1rem;
+    border-radius: 8px;
+    box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+}
+
+.image-modal-close {
+    position: absolute;
+    top: -1.5rem;
+    right: -1.5rem;
+    background-color: $red;
+    color: white;
+    border: none;
+    width: 2rem;
+    height: 2rem;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     cursor: pointer;
-    -webkit-transition-property: all;
-    -webkit-transition-duration: 0.3s;
-    -webkit-transition-timing-function: ease;
+    transition: background-color 0.2s ease;
+
+    &:hover {
+        background-color: darken($red, 10%);
+    }
+}
+
+.image-modal-img {
+    max-width: 100%;
+    max-height: calc(90vh - 2rem);
+    object-fit: contain;
 }
 </style>

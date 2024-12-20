@@ -138,7 +138,7 @@
                 </div>
 
                 <!-- File Section -->
-                <div class="file-upload mt-6" style="width: 150px">
+                <div class="file-upload mt-6">
                     <h3 class="text-white text-lg font-semibold mb-4">File Upload</h3>
                     <div
                         class="upload-area"
@@ -154,16 +154,24 @@
                             accept=".pdf, .png, .jpg, .jpeg"
                         />
                         <div v-if="!previewUrl" class="placeholder-content">
-                            <span class="border p-3">Drop File</span>
+                            <div class="upload-icon">
+                                <span class="mdi mdi-cloud-upload text-4xl"></span>
+                            </div>
+                            <p class="upload-text">Drag and drop your file here</p>
+                            <p class="upload-text-sub">or click to browse</p>
+                            <p class="file-types">Supported formats: PDF, PNG, JPG, JPEG</p>
                         </div>
-                        <div v-else>
+                        <div v-else class="preview-container">
                             <img
                                 v-if="isImage"
                                 :src="previewUrl"
                                 alt="Preview"
                                 class="preview-image"
                             />
-                            <span v-if="!isImage">Uploaded PDF: {{ fileName }}</span>
+                            <div v-else class="pdf-preview">
+                                <span class="mdi mdi-file-pdf text-4xl"></span>
+                                <span class="pdf-name">{{ fileName }}</span>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -446,6 +454,87 @@ export default {
 .preview-image {
     width: 100px;
     height: 100px;
+}
+
+.file-upload {
+    width: 100%;
+    max-width: 400px;
+}
+
+.upload-area {
+    background-color: $light-gray;
+    border: 2px dashed $ultra-light-gray;
+    border-radius: 8px;
+    padding: 2rem;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.3s ease;
+
+    &:hover {
+        border-color: $green;
+        background-color: rgba($light-gray, 0.7);
+    }
+}
+
+.placeholder-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+    color: $white;
+}
+
+.upload-icon {
+    color: $ultra-light-gray;
+    margin-bottom: 1rem;
+}
+
+.upload-text {
+    font-size: 1.1rem;
+    font-weight: 500;
+}
+
+.upload-text-sub {
+    font-size: 0.9rem;
+    color: $ultra-light-gray;
+}
+
+.file-types {
+    font-size: 0.8rem;
+    color: $ultra-light-gray;
+    margin-top: 1rem;
+}
+
+.preview-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1rem;
+}
+
+.preview-image {
+    max-width: 200px;
+    max-height: 200px;
+    border-radius: 4px;
+    object-fit: contain;
+}
+
+.pdf-preview {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+    color: $white;
+
+    .mdi-file-pdf {
+        color: #ff4444;
+    }
+
+    .pdf-name {
+        font-size: 0.9rem;
+        word-break: break-all;
+        max-width: 200px;
+    }
 }
 
 </style>
