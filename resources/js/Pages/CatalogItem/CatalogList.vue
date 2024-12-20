@@ -153,9 +153,89 @@
                                         </option>
                                     </select>
                                 </div>
+
+                                <div>
+                                    <label class="text-white">Category</label>
+                                    <select
+                                        v-model="editForm.category"
+                                        class="w-full mt-1 rounded"
+                                    >
+                                        <option value="">Select Category</option>
+                                        <option v-for="category in categories"
+                                                :key="category"
+                                                :value="category"
+                                        >
+                                            {{ category.replace('_', ' ').split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ') }}
+                                        </option>
+                                    </select>
+                                </div>
+
+                                <div class="grid grid-cols-2 gap-4 pt-9">
+                                    <div>
+                                        <input
+                                            type="checkbox"
+                                            id="is_for_offer"
+                                            v-model="editForm.is_for_offer"
+                                            class="rounded border-gray-300 text-indigo-600 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
+                                        />
+                                        <label for="is_for_offer" class="text-white ml-2">For Offer</label>
+                                    </div>
+                                    <div>
+                                        <input
+                                            type="checkbox"
+                                            id="is_for_sales"
+                                            v-model="editForm.is_for_sales"
+                                            class="rounded border-gray-300 text-indigo-600 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
+                                        />
+                                        <label for="is_for_sales" class="text-white ml-2">For Sales</label>
+                                    </div>
+                                </div>
                             </div>
 
+                            <!-- Right column with file upload -->
                             <div class="space-y-4">
+                                <!-- File Section -->
+                                <div class="file-upload">
+                                    <h3 class="text-white text-lg font-semibold mb-4">File Upload</h3>
+                                    <div
+                                        class="upload-area"
+                                        @dragover.prevent
+                                        @drop.prevent="handleDrop"
+                                        @click="triggerFileInput"
+                                    >
+                                        <input
+                                            type="file"
+                                            id="edit-file-input"
+                                            class="hidden"
+                                            @change="handleFileInput"
+                                            accept=".pdf, .png, .jpg, .jpeg"
+                                        />
+                                        <div v-if="!previewUrl && !currentItemFile" class="placeholder-content">
+                                            <div class="upload-icon">
+                                                <span class="mdi mdi-cloud-upload text-4xl"></span>
+                                            </div>
+                                            <p class="upload-text">Drag and drop your file here</p>
+                                            <p class="upload-text-sub">or click to browse</p>
+                                            <p class="file-types">Supported formats: PDF, PNG, JPG, JPEG</p>
+                                        </div>
+                                        <div v-else class="preview-container">
+                                            <img
+                                                v-if="isImage"
+                                                :src="previewUrl || getFileUrl(editForm.id)"
+                                                alt="Preview"
+                                                class="preview-image"
+                                            />
+                                            <div v-else class="pdf-preview">
+                                                <span class="mdi mdi-file-pdf text-4xl"></span>
+                                                <span class="pdf-name">{{ fileName || currentItemFile }}</span>
+                                            </div>
+                                            <div class="update-image-text">
+                                                <p class="text-sm text-ultra-light-gray">Click or drag to update image</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
                                 <div>
                                     <label class="text-white">Large Format Material</label>
                                     <select v-model="editForm.large_material_id"
@@ -295,6 +375,11 @@ export default {
             largeMaterials: [],
             smallMaterials: [],
             actions: [], // Available actions from dorabotka table
+            previewUrl: null,
+            fileName: '',
+            currentItemFile: null,
+            isImage: true,
+            categories: ['material', 'article', 'small_format'],
         };
     },
     methods: {
@@ -337,26 +422,31 @@ export default {
                 name: item.name,
                 machinePrint: item.machinePrint,
                 machineCut: item.machineCut,
-                large_material_id: null,
-                small_material_id: null,
+                large_material_id: item.large_material_id,
+                small_material_id: item.small_material_id,
                 quantity: item.quantity,
                 copies: item.copies,
+                category: item.category,
                 actions: item.actions.map(action => ({
                     selectedAction: action.action_id.id,
                     quantity: action.quantity,
                     showQuantity: action.quantity !== null,
-                    action_id: action.action_id
+                    action_id: action.action_id,
+                    isMaterialized: action.isMaterialized
                 })),
                 is_for_offer: item.is_for_offer,
                 is_for_sales: item.is_for_sales,
-                category: item.category
+                file: null // Will be set if user uploads new file
             };
 
-            if (item.largeMaterial) {
-                this.editForm.large_material_id = parseInt(item.largeMaterial);
-            }
-            if (item.smallMaterial) {
-                this.editForm.small_material_id = parseInt(item.smallMaterial);
+            // Set file information
+            this.previewUrl = null;
+            this.fileName = item.file || '';
+            this.currentItemFile = item.file;
+            this.isImage = item.file && !item.file.toLowerCase().endsWith('.pdf');
+            
+            if (item.file && item.file !== 'placeholder.jpeg') {
+                this.previewUrl = this.getFileUrl(item.id);
             }
 
             this.showEditDialog = true;
@@ -401,19 +491,35 @@ export default {
             const toast = useToast();
 
             try {
-                const formData = {
-                    ...this.editForm,
-                    actions: this.editForm.actions.map(action => ({
-                        id: action.selectedAction,
-                        quantity: action.quantity,
-                        isMaterialized: this.actions.find(a => a.id === action.selectedAction).isMaterialized,
-                    }))
-                };
+                const formData = new FormData();
 
-                await axios.put(`/catalog/${this.editForm.id}`, formData);
+                // Append all form fields
+                Object.entries(this.editForm).forEach(([key, value]) => {
+                    if (key !== 'actions' && key !== 'file') {
+                        formData.append(key, value);
+                    }
+                });
+
+                // Append file if it exists
+                if (this.editForm.file instanceof File) {
+                    formData.append('file', this.editForm.file);
+                }
+
+                // Append actions
+                this.editForm.actions.forEach((action, index) => {
+                    const actionData = this.actions.find(a => a.id === action.selectedAction);
+                    formData.append(`actions[${index}][id]`, action.selectedAction);
+                    formData.append(`actions[${index}][quantity]`, action.quantity || 0);
+                    formData.append(`actions[${index}][isMaterialized]`, actionData?.isMaterialized ? 1 : 0);
+                });
+
+                await axios.post(`/catalog/${this.editForm.id}?_method=PUT`, formData, {
+                    headers: { 'Content-Type': 'multipart/form-data' },
+                });
+
                 toast.success('Catalog item updated successfully');
                 this.closeEditDialog();
-                this.fetchCatalogItems(); // Refresh the list
+                this.fetchCatalogItems();
             } catch (error) {
                 if (error.response?.data?.errors) {
                     Object.values(error.response.data.errors).forEach(errors => {
@@ -469,6 +575,41 @@ export default {
             if (!action.showQuantity) {
                 action.quantity = 0;
             }
+        },
+
+        getFileUrl(itemId) {
+            return this.currentItemFile && this.currentItemFile !== 'placeholder.jpeg'
+                ? `/storage/uploads/${this.currentItemFile}`
+                : '/storage/uploads/placeholder.jpeg';
+        },
+
+        handleDrop(event) {
+            const file = event.dataTransfer.files[0];
+            this.processFile(file);
+        },
+
+        handleFileInput(event) {
+            const file = event.target.files[0];
+            this.processFile(file);
+        },
+
+        processFile(file) {
+            if (!file) return;
+
+            this.editForm.file = file;
+            this.fileName = file.name;
+
+            if (file.type.startsWith("image/")) {
+                this.isImage = true;
+                this.previewUrl = URL.createObjectURL(file);
+            } else if (file.type === "application/pdf") {
+                this.isImage = false;
+                this.previewUrl = "/storage/uploads/placeholder.jpeg";
+            }
+        },
+
+        triggerFileInput() {
+            document.getElementById("edit-file-input").click();
         },
     },
     mounted() {
@@ -621,5 +762,92 @@ tbody td {
     &:hover {
         color: $red;
     }
+}
+
+.file-upload {
+    width: 100%;
+    max-width: 400px;
+}
+
+.upload-area {
+    background-color: $light-gray;
+    border: 2px dashed $ultra-light-gray;
+    border-radius: 8px;
+    padding: 2rem;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.3s ease;
+
+    &:hover {
+        border-color: $green;
+        background-color: rgba($light-gray, 0.7);
+    }
+}
+
+.placeholder-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+    color: $white;
+}
+
+.upload-icon {
+    color: $ultra-light-gray;
+    margin-bottom: 1rem;
+}
+
+.upload-text {
+    font-size: 1.1rem;
+    font-weight: 500;
+}
+
+.upload-text-sub {
+    font-size: 0.9rem;
+    color: $ultra-light-gray;
+}
+
+.file-types {
+    font-size: 0.8rem;
+    color: $ultra-light-gray;
+    margin-top: 1rem;
+}
+
+.preview-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1rem;
+}
+
+.preview-image {
+    max-width: 200px;
+    max-height: 200px;
+    border-radius: 4px;
+    object-fit: contain;
+}
+
+.pdf-preview {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+    color: $white;
+
+    .mdi-file-pdf {
+        color: #ff4444;
+    }
+
+    .pdf-name {
+        font-size: 0.9rem;
+        word-break: break-all;
+        max-width: 200px;
+    }
+}
+
+.update-image-text {
+    margin-top: 0.5rem;
+    text-align: center;
+    font-style: italic;
 }
 </style>

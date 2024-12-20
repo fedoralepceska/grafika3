@@ -11,6 +11,7 @@ use Illuminate\Http\Request;
 use Inertia\Inertia;
 use ReflectionClass;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 
 class CatalogItemController extends Controller
 
@@ -59,9 +60,15 @@ class CatalogItemController extends Controller
                     'name' => $item->name,
                     'machinePrint' => $item->machinePrint,
                     'machineCut' => $item->machineCut,
-                    'material' => $materialDisplay, // Use material display
+                    'material' => $materialDisplay,
                     'quantity' => $item->quantity,
                     'copies' => $item->copies,
+                    'file' => $item->file,
+                    'category' => $item->category,
+                    'is_for_offer' => (bool)$item->is_for_offer,
+                    'is_for_sales' => (bool)$item->is_for_sales,
+                    'large_material_id' => $item->large_material_id,
+                    'small_material_id' => $item->small_material_id,
                     'actions' => collect($item->actions ?? [])->map(function($action) {
                         return [
                             'action_id' => [
@@ -69,7 +76,8 @@ class CatalogItemController extends Controller
                                 'name' => $action['action_id']['name'] ?? $action['name']
                             ],
                             'status' => $action['status'] ?? 'Not started yet',
-                            'quantity' => $action['quantity']
+                            'quantity' => $action['quantity'],
+                            'isMaterialized' => $action['isMaterialized'] ?? false
                         ];
                     })->toArray(),
                 ];
@@ -140,7 +148,8 @@ class CatalogItemController extends Controller
         $request->merge([
             'is_for_offer' => filter_var($request->input('is_for_offer'), FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE),
             'is_for_sales' => filter_var($request->input('is_for_sales'), FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE),
-            'small_material_id' => $request->input('small_material_id') === 'null' ? null : $request->input('small_material_id'),
+            'small_material_id' => $request->input('small_material_id') === 'null' || $request->input('small_material_id') === '' ? null : $request->input('small_material_id'),
+            'large_material_id' => $request->input('large_material_id') === 'null' || $request->input('large_material_id') === '' ? null : $request->input('large_material_id'),
         ]);
         $actions = $request->input('actions');
         $actions = array_map(function ($action) {
@@ -259,6 +268,13 @@ class CatalogItemController extends Controller
     public function update(Request $request, CatalogItem $catalogItem)
     {
         try {
+            $request->merge([
+                'is_for_offer' => filter_var($request->input('is_for_offer'), FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE),
+                'is_for_sales' => filter_var($request->input('is_for_sales'), FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE),
+                'small_material_id' => $request->input('small_material_id') === 'null' || $request->input('small_material_id') === '' ? null : $request->input('small_material_id'),
+                'large_material_id' => $request->input('large_material_id') === 'null' || $request->input('large_material_id') === '' ? null : $request->input('large_material_id'),
+            ]);
+
             $request->validate([
                 'name' => 'required|string|unique:catalog_items,name,' . $catalogItem->id,
                 'machinePrint' => 'nullable|string',
@@ -274,13 +290,27 @@ class CatalogItemController extends Controller
                 'is_for_offer' => 'nullable|boolean',
                 'is_for_sales' => 'nullable|boolean',
                 'category' => 'nullable|string|in:' . implode(',', CatalogItem::CATEGORIES),
+                'file' => 'nullable|mimes:jpg,jpeg,png,pdf|max:20480',
             ]);
 
             DB::beginTransaction();
 
             try {
+                // Handle file upload if a new file is provided
+                if ($request->hasFile('file')) {
+                    // Delete old file if it exists and is not the placeholder
+                    if ($catalogItem->file && $catalogItem->file !== 'placeholder.jpeg') {
+                        Storage::disk('public')->delete('uploads/' . $catalogItem->file);
+                    }
+                    
+                    $file = $request->file('file');
+                    $fileName = time() . '_' . $file->getClientOriginalName();
+                    $file->storeAs('public/uploads', $fileName);
+                    $catalogItem->file = $fileName;
+                }
+
                 // Update the catalog item without actions first
-                $catalogItem->update($request->except('actions'));
+                $catalogItem->update($request->except(['actions', 'file']));
 
                 // Process actions and update them
                 $catalogItemActions = collect($request->actions)->map(function ($action) {
@@ -323,7 +353,8 @@ class CatalogItemController extends Controller
         } catch (\Exception $e) {
             \Log::error('Error updating catalog item:', [
                 'message' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
+                'trace' => $e->getTraceAsString(),
+                'request_data' => $request->all()
             ]);
 
             return response()->json([
