@@ -186,6 +186,7 @@
                                     :value="action.selectedAction"
                                     @input="(e) => handleActionSelect(e, action)"
                                     class="w-full rounded option"
+                                    :class="{ 'border-red-500': !action.selectedAction }"
                                     required
                                 >
                                     <option class="option" value="">Select Action</option>
@@ -201,10 +202,12 @@
                             </div>
                             <div v-if="action.showQuantity" class="w-32">
                                 <input
+                                    v-if="action.showQuantity"
                                     v-model="action.quantity"
                                     type="number"
                                     min="0"
                                     class="w-full rounded option"
+                                    :class="{ 'border-red-500': action.showQuantity && (!action.quantity || action.quantity <= 0) }"
                                     placeholder="Quantity"
                                     required
                                 />
@@ -363,8 +366,32 @@ export default {
         isImage() {
             return this.form.file && this.form.file.type.startsWith("image/");
         },
+        validateActions() {
+            if (this.form.actions.length === 0) {
+                return 'At least one action is required';
+            }
+
+            for (let i = 0; i < this.form.actions.length; i++) {
+                const action = this.form.actions[i];
+                if (!action.selectedAction) {
+                    return 'All actions must have a selected type';
+                }
+                if (action.showQuantity && (!action.quantity || action.quantity <= 0)) {
+                    return 'Quantity is required for materialized actions';
+                }
+            }
+            return null;
+        },
         async submit() {
             const toast = useToast();
+            
+            // Validate actions before submission
+            const actionError = this.validateActions();
+            if (actionError) {
+                toast.error(actionError);
+                return;
+            }
+
             const formData = new FormData();
 
             // Append fields
