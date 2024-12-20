@@ -28,6 +28,7 @@
                 <table class="w-full text-left border-collapse">
                     <thead>
                     <tr class="bg-gray-700 text-white">
+                        <th class="p-4">Preview</th>
                         <th class="p-4">Name</th>
                         <th class="p-4">Machine Print</th>
                         <th class="p-4">Machine Cut</th>
@@ -42,6 +43,20 @@
                         :key="item.id"
                         class="bg-gray-800 text-white border-t border-gray-700"
                     >
+                        <td class="p-4">
+                            <div class="jobImg-container">
+                                <img
+                                    v-if="!isPlaceholder(item.file)"
+                                    :src="getFileUrl(item.file)"
+                                    alt="Item Preview"
+                                    class="jobImg thumbnail"
+                                    style="cursor: pointer;"
+                                />
+                                <div v-else class="jobImg thumbnail no-image">
+                                    NO IMAGE
+                                </div>
+                            </div>
+                        </td>
                         <td class="p-4">{{ item.name }}</td>
                         <td class="p-4">{{ item.machinePrint }}</td>
                         <td class="p-4">{{ item.machineCut }}</td>
@@ -170,72 +185,6 @@
                                     </select>
                                 </div>
 
-                                <div class="grid grid-cols-2 gap-4 pt-9">
-                                    <div>
-                                        <input
-                                            type="checkbox"
-                                            id="is_for_offer"
-                                            v-model="editForm.is_for_offer"
-                                            class="rounded border-gray-300 text-indigo-600 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
-                                        />
-                                        <label for="is_for_offer" class="text-white ml-2">For Offer</label>
-                                    </div>
-                                    <div>
-                                        <input
-                                            type="checkbox"
-                                            id="is_for_sales"
-                                            v-model="editForm.is_for_sales"
-                                            class="rounded border-gray-300 text-indigo-600 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
-                                        />
-                                        <label for="is_for_sales" class="text-white ml-2">For Sales</label>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <!-- Right column with file upload -->
-                            <div class="space-y-4">
-                                <!-- File Section -->
-                                <div class="file-upload">
-                                    <h3 class="text-white text-lg font-semibold mb-4">File Upload</h3>
-                                    <div
-                                        class="upload-area"
-                                        @dragover.prevent
-                                        @drop.prevent="handleDrop"
-                                        @click="triggerFileInput"
-                                    >
-                                        <input
-                                            type="file"
-                                            id="edit-file-input"
-                                            class="hidden"
-                                            @change="handleFileInput"
-                                            accept=".pdf, .png, .jpg, .jpeg"
-                                        />
-                                        <div v-if="!previewUrl && !currentItemFile" class="placeholder-content">
-                                            <div class="upload-icon">
-                                                <span class="mdi mdi-cloud-upload text-4xl"></span>
-                                            </div>
-                                            <p class="upload-text">Drag and drop your file here</p>
-                                            <p class="upload-text-sub">or click to browse</p>
-                                            <p class="file-types">Supported formats: PDF, PNG, JPG, JPEG</p>
-                                        </div>
-                                        <div v-else class="preview-container">
-                                            <img
-                                                v-if="isImage"
-                                                :src="previewUrl || getFileUrl(editForm.id)"
-                                                alt="Preview"
-                                                class="preview-image"
-                                            />
-                                            <div v-else class="pdf-preview">
-                                                <span class="mdi mdi-file-pdf text-4xl"></span>
-                                                <span class="pdf-name">{{ fileName || currentItemFile }}</span>
-                                            </div>
-                                            <div class="update-image-text">
-                                                <p class="text-sm text-ultra-light-gray">Click or drag to update image</p>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-
                                 <div>
                                     <label class="text-white">Large Format Material</label>
                                     <select v-model="editForm.large_material_id"
@@ -285,6 +234,73 @@
                                                class="w-full mt-1 rounded" required />
                                     </div>
                                 </div>
+                            </div>
+
+                            <!-- Right column with file upload -->
+                            <div class="space-y-4">
+                                <!-- File Section -->
+                                <div class="file-upload">
+                                    <h3 class="text-white text-lg font-semibold mb-4">File Upload</h3>
+                                    <div
+                                        class="upload-area"
+                                        @dragover.prevent
+                                        @drop.prevent="handleDrop"
+                                        @click="triggerFileInput"
+                                    >
+                                        <input
+                                            type="file"
+                                            id="edit-file-input"
+                                            class="hidden"
+                                            @change="handleFileInput"
+                                            accept=".pdf, .png, .jpg, .jpeg"
+                                        />
+                                        <div v-if="!previewUrl && !currentItemFile" class="placeholder-content">
+                                            <div class="upload-icon">
+                                                <span class="mdi mdi-cloud-upload text-4xl"></span>
+                                            </div>
+                                            <p class="upload-text">Drag and drop your file here</p>
+                                            <p class="upload-text-sub">or click to browse</p>
+                                            <p class="file-types">Supported formats: PDF, PNG, JPG, JPEG</p>
+                                        </div>
+                                        <div v-else class="preview-container">
+                                            <img
+                                                v-if="isImage"
+                                                :src="previewUrl || '/storage/uploads/placeholder.jpeg'"
+                                                alt="Preview"
+                                                class="preview-image"
+                                            />
+                                            <div v-else class="pdf-preview">
+                                                <span class="mdi mdi-file-pdf text-4xl"></span>
+                                                <span class="pdf-name">{{ fileName || currentItemFile }}</span>
+                                            </div>
+                                            <div class="update-image-text">
+                                                <p class="text-sm text-ultra-light-gray">Click or drag to update image</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="grid grid-cols-2 gap-4 pt-9">
+                                    <div>
+                                        <input
+                                            type="checkbox"
+                                            id="is_for_offer"
+                                            v-model="editForm.is_for_offer"
+                                            class="rounded border-gray-300 text-indigo-600 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
+                                        />
+                                        <label for="is_for_offer" class="text-white ml-2">For Offer</label>
+                                    </div>
+                                    <div>
+                                        <input
+                                            type="checkbox"
+                                            id="is_for_sales"
+                                            v-model="editForm.is_for_sales"
+                                            class="rounded border-gray-300 text-indigo-600 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
+                                        />
+                                        <label for="is_for_sales" class="text-white ml-2">For Sales</label>
+                                    </div>
+                                </div>
+
                             </div>
                         </div>
 
@@ -444,9 +460,9 @@ export default {
             this.fileName = item.file || '';
             this.currentItemFile = item.file;
             this.isImage = item.file && !item.file.toLowerCase().endsWith('.pdf');
-            
+
             if (item.file && item.file !== 'placeholder.jpeg') {
-                this.previewUrl = this.getFileUrl(item.id);
+                this.previewUrl = `/storage/uploads/${item.file}`;
             }
 
             this.showEditDialog = true;
@@ -577,9 +593,9 @@ export default {
             }
         },
 
-        getFileUrl(itemId) {
-            return this.currentItemFile && this.currentItemFile !== 'placeholder.jpeg'
-                ? `/storage/uploads/${this.currentItemFile}`
+        getFileUrl(file) {
+            return file && file !== 'placeholder.jpeg'
+                ? `/storage/uploads/${file}`
                 : '/storage/uploads/placeholder.jpeg';
         },
 
@@ -610,6 +626,16 @@ export default {
 
         triggerFileInput() {
             document.getElementById("edit-file-input").click();
+        },
+
+        isPlaceholder(file) {
+            return !file || file === 'placeholder.jpeg';
+        },
+
+        getEditFileUrl(itemId) {
+            return this.previewUrl || (this.currentItemFile && this.currentItemFile !== 'placeholder.jpeg'
+                ? `/storage/uploads/${this.currentItemFile}`
+                : '/storage/uploads/placeholder.jpeg');
         },
     },
     mounted() {
@@ -849,5 +875,40 @@ tbody td {
     margin-top: 0.5rem;
     text-align: center;
     font-style: italic;
+}
+
+.jobImg-container {
+    margin: 0 1rem;
+}
+
+.jobImg {
+    width: 60px;
+    height: 60px;
+    display: flex;
+    object-fit: cover;
+    border-radius: 4px;
+    transition: all 0.3s ease;
+    position: relative;
+    z-index: 1;
+}
+
+.no-image {
+    background-color: $dark-gray;
+    border: 1px dashed $gray;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.7rem;
+    color: $ultra-light-gray;
+    text-align: center;
+}
+
+.thumbnail {
+    &:hover {
+        transform: scale(3);
+        box-shadow: 0 0 10px rgba(0,0,0,0.5);
+        position: relative;
+        z-index: 1000;
+    }
 }
 </style>
