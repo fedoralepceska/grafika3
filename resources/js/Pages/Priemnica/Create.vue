@@ -80,12 +80,22 @@
                                 <td></td>
                                 <td>{{ index + 1 }}</td>
                                 <td>
-                                    <input v-model="row.code" type="text" class="table-input" @keyup.enter="findArticleByCode(row.code, index)">
+                                    <ArticleSearchDropdown
+                                        v-model="row.code"
+                                        :placeholder="$t('Code')"
+                                        search-type="code"
+                                        @article-selected="(article) => handleArticleSelected(article, index)"
+                                    />
                                 </td>
                                 <td>
-                                    <input v-model="row.name" type="text" class="table-input" @keyup.enter="findArticleByName(row.name, index)">
+                                    <ArticleSearchDropdown
+                                        v-model="row.name"
+                                        :placeholder="$t('articleName')"
+                                        search-type="name"
+                                        @article-selected="(article) => handleArticleSelected(article, index)"
+                                    />
                                 </td>
-                                <td><input v-model.number="row.quantity" type="number" class="table-input" @input="updateRowValues(index)"></td>
+                                <td><input v-model.number="row.quantity" min="1" type="number" class="table-input" @input="updateRowValues(index)"></td>
                                 <td>{{row.purchase_price}}</td>
                                 <td>{{ taxTypePercentage(row.tax_type) }}%</td>
                                 <td>{{formatNumber(row.priceWithVAT) }}</td>
@@ -113,10 +123,17 @@ import MainLayout from "@/Layouts/MainLayout.vue";
 import { useToast } from "vue-toastification";
 import Header from "@/Components/Header.vue";
 import SecondaryButton from "@/Components/buttons/SecondaryButton.vue";
+import ArticleSearchDropdown from "@/Components/ArticleSearchDropdown.vue";
 
 export default {
     name: 'Create',
-    components: {SecondaryButton, Header, MainLayout, PrimaryButton },
+    components: {
+        SecondaryButton,
+        Header,
+        MainLayout,
+        PrimaryButton,
+        ArticleSearchDropdown
+    },
     data() {
         return {
             rows: [],
@@ -311,41 +328,30 @@ export default {
                     toast.error('Failed to create receipt!');
                 });
         },
-        findArticleByCode(code, index) {
-            const toast = useToast();
-            if (!code) return; // Handle empty code case
-
-            const foundArticle = this.articles.data.find(article => article.code === code);
-            if (foundArticle) {
-                this.rows[index] = {
-                    ...this.rows[index], // Preserve existing data
-                    ...foundArticle, // Override with article data
-                };
-                this.addRow();
-            } else {
-                toast.error(`Article ${code} not found!`);
-            }
-        },
-        findArticleByName(name, index) {
-            const toast = useToast();
-            if (!name) return; // Handle empty name case
-
-            const foundArticle = this.articles.data.find(article => article.name.toLowerCase().includes(name.toLowerCase())); // Case-insensitive search
-            if (foundArticle) {
-                this.rows[index] = {
-                    ...this.rows[index],
-                    ...foundArticle,
-                };
-                this.addRow();
-            } else {
-                toast.error(`Article ${name} not found!`);
-            }
+        handleArticleSelected(article, index) {
+            this.rows[index] = {
+                ...this.rows[index],
+                ...article,
+            };
+            this.updateRowValues(index);
+            this.addRow();
         },
     },
 };
 </script>
 
 <style scoped lang="scss">
+$background-color: #1a2732;
+$gray: #3c4e59;
+$dark-gray: #2a3946;
+$light-gray: #54606b;
+$ultra-light-gray: #77808b;
+$white: #ffffff;
+$black: #000000;
+$hover-color: #4a5a68;
+$green: #408a0b;
+$red: #9e2c30;
+
 .table-input {
     background-color: transparent;
     border: transparent;
@@ -447,34 +453,158 @@ legend {
     justify-content: end;
 }
 .excel-table {
-    border-collapse: collapse;
+    border-collapse: separate;
+    border-spacing: 0;
     width: 100%;
-    color: white;
+    color: $white;
     table-layout: fixed;
+    background-color: $background-color;
+    border: 1px solid $gray;
+    border-radius: 4px;
+    position: relative;
+    margin-bottom: 1rem;
 }
+
+/* Column widths */
+.excel-table {
+    th:nth-child(1) { width: 40px; } /* # */
+    th:nth-child(2) { width: 50px; } /* Nr */
+    th:nth-child(3) { width: 120px; } /* Code */
+    th:nth-child(4) { width: 200px; } /* Article Name */
+    th:nth-child(5) { width: 80px; } /* Qty */
+    th:nth-child(6) { width: 100px; } /* Price */
+    th:nth-child(7) { width: 80px; } /* VAT% */
+    th:nth-child(8) { width: 100px; } /* Price VAT */
+    th:nth-child(9) { width: 100px; } /* Amount */
+    th:nth-child(10) { width: 100px; } /* Tax */
+    th:nth-child(11) { width: 100px; } /* Total */
+    th:nth-child(12) { width: 150px; } /* Comment */
+}
+
 .excel-table th,
 .excel-table td {
-    border: 1px solid #dddddd;
+    border: 1px solid $gray;
     text-align: center;
-    overflow: hidden;
-    white-space: nowrap;
-    text-overflow: ellipsis;
     position: relative;
+    padding: 10px 8px;
+    font-size: 0.9rem;
+    transition: background-color 0.2s ease;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
+
 .excel-table th {
-    min-width: 50px;
+    background-color: $dark-gray;
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: 0.8rem;
+    letter-spacing: 0.5px;
+    padding-right: 20px; /* Space for resizer */
+    user-select: none;
 }
-.excel-table tr:nth-child(even) {
-    background-color: $ultra-light-gray;
+
+.excel-table td {
+    background-color: rgba($background-color, 0.7);
+    border-bottom: 1px solid $gray;
+    border-right: 1px solid $gray;
+    height: 42px; /* Fixed height for consistency */
 }
+
+/* Specific styling for numeric columns */
+.excel-table td:nth-child(n+5):nth-child(-n+11) {
+    font-family: 'Consolas', monospace;
+    text-align: right;
+    padding-right: 12px;
+}
+
+/* Hover effects */
+.excel-table tbody tr {
+    transition: all 0.2s ease;
+
+    &:hover td {
+        background-color: rgba($hover-color, 0.3);
+    }
+
+    &:nth-child(even) td {
+        background-color: rgba($dark-gray, 0.3);
+    }
+}
+
+/* Resizer styling */
 .resizer {
-    width: 5px;
+    width: 4px;
     height: 100%;
     position: absolute;
     right: 0;
     top: 0;
     cursor: col-resize;
     user-select: none;
+    background-color: $gray;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+
+    &:hover {
+        opacity: 1;
+        background-color: $ultra-light-gray;
+    }
+}
+
+/* Table wrapper styling */
+.table-wrapper {
+    position: relative;
+    overflow-x: auto;
+    overflow-y: visible;
+    margin: 0;
+    padding: 1px;
+    border-radius: 4px;
+    background: $gray;
+
+    &::-webkit-scrollbar {
+        height: 8px;
+    }
+
+    &::-webkit-scrollbar-track {
+        background: $dark-gray;
+        border-radius: 4px;
+    }
+
+    &::-webkit-scrollbar-thumb {
+        background: $light-gray;
+        border-radius: 4px;
+
+        &:hover {
+            background: $ultra-light-gray;
+        }
+    }
+}
+
+/* Input styling within table */
+.table-input {
+    width: 100%;
+    height: 100%;
     background-color: transparent;
+    border: none;
+    color: $white;
+    padding: 8px;
+    font-size: 0.9rem;
+    outline: none;
+    transition: background-color 0.2s ease;
+
+    &::placeholder {
+        color: $ultra-light-gray;
+        opacity: 0.7;
+    }
+
+    &:focus {
+        background-color: $dark-gray;
+    }
+}
+
+/* Specific styling for numeric inputs */
+input[type="number"].table-input {
+    text-align: right;
+    padding-right: 12px;
+    font-family: 'Consolas', monospace;
 }
 </style>
