@@ -164,7 +164,7 @@ export default {
     methods: {
         async fetchArticleCount() {
             const response = await axios.get('/articles/count');
-            if (response.data.count) {
+            if (response.data) {
                 this.form.code = response.data.count + 1;
             }
         },

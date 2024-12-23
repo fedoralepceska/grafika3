@@ -61,7 +61,7 @@ class ArticleController extends Controller
     {
         // Validate the incoming request data
         $validatedData = $request->validate([
-            'code' => 'required|string|max:255',
+            'code' => 'required|numeric|max:255',
             'name' => 'required|string|max:255',
             'selectedOption' => 'required|string|max:255',
             'type' => 'required|string|max:255',
