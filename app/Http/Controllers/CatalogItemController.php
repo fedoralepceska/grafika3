@@ -174,6 +174,7 @@ class CatalogItemController extends Controller
             'is_for_sales' => 'nullable|boolean',
             'category' => 'nullable|string|in:' . implode(',', \App\Models\CatalogItem::CATEGORIES),
             'file' => 'required|mimes:jpg,jpeg,png,pdf|max:20480', // 20MB max
+            'price' => 'required|numeric|min:0',
         ]);
 
         // Create the catalog item without actions for now
@@ -291,6 +292,7 @@ class CatalogItemController extends Controller
                 'is_for_sales' => 'nullable|boolean',
                 'category' => 'nullable|string|in:' . implode(',', CatalogItem::CATEGORIES),
                 'file' => 'nullable|mimes:jpg,jpeg,png,pdf|max:20480',
+                'price' => 'required|numeric|min:0',
             ]);
 
             DB::beginTransaction();
@@ -302,7 +304,7 @@ class CatalogItemController extends Controller
                     if ($catalogItem->file && $catalogItem->file !== 'placeholder.jpeg') {
                         Storage::disk('public')->delete('uploads/' . $catalogItem->file);
                     }
-                    
+
                     $file = $request->file('file');
                     $fileName = time() . '_' . $file->getClientOriginalName();
                     $file->storeAs('public/uploads', $fileName);
@@ -323,7 +325,6 @@ class CatalogItemController extends Controller
                     // Use a default value for `isMaterialized` if not provided
                     $isMaterialized = $action['isMaterialized'] ?? false;
 
-                    // Return action data for the catalog item
                     return [
                         'action_id' => [
                             'id' => $action['id'],
@@ -334,16 +335,13 @@ class CatalogItemController extends Controller
                     ];
                 });
 
-                // Update the actions in the catalog_items table
                 $catalogItem->actions = $catalogItemActions->toArray();
                 $catalogItem->save();
 
                 DB::commit();
 
-                return response()->json([
-                    'message' => 'Catalog item updated successfully',
-                    'catalogItem' => $catalogItem
-                ]);
+                return redirect()->route('catalog.index')
+                    ->with('success', 'Catalog item updated successfully.');
 
             } catch (\Exception $e) {
                 DB::rollBack();

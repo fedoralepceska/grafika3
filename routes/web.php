@@ -20,6 +20,10 @@ use Inertia\Inertia;
 use Illuminate\Support\Facades\DB;
 use App\Models\LargeFormatMaterial;
 use App\Models\SmallMaterial;
+use App\Http\Controllers\PricePerClientController;
+use App\Http\Controllers\PricePerQuantityController;
+use App\Http\Controllers\ClientPriceController;
+use App\Http\Controllers\QuantityPriceController;
 
 /*
 |--------------------------------------------------------------------------
@@ -322,6 +326,47 @@ Route::get('/get-actions', function () {
             ->whereNotNull('name')
             ->get()
     );
+});
+
+// Price Management Routes
+Route::middleware(['auth'])->group(function () {
+    // Client Prices
+    Route::get('/client-prices', [PricePerClientController::class, 'index'])->name('client-prices.index');
+    Route::get('/client-prices/create', [PricePerClientController::class, 'create'])->name('client-prices.create');
+    Route::post('/client-prices', [PricePerClientController::class, 'store'])->name('client-prices.store');
+    Route::get('/client-prices/{clientPrice}/edit', [PricePerClientController::class, 'edit'])->name('client-prices.edit');
+    Route::put('/client-prices/{clientPrice}', [PricePerClientController::class, 'update'])->name('client-prices.update');
+    Route::delete('/client-prices/{clientPrice}', [PricePerClientController::class, 'destroy'])->name('client-prices.destroy');
+    Route::get('/catalog-items/{catalogItem}/client-prices', [PricePerClientController::class, 'getClientPrices'])->name('client-prices.get');
+
+    // Quantity Prices
+    Route::get('/quantity-prices', [PricePerQuantityController::class, 'index'])->name('quantity-prices.index');
+    Route::get('/quantity-prices/create', [PricePerQuantityController::class, 'create'])->name('quantity-prices.create');
+    Route::post('/quantity-prices', [PricePerQuantityController::class, 'store'])->name('quantity-prices.store');
+    Route::get('/quantity-prices/{quantityPrice}/edit', [PricePerQuantityController::class, 'edit'])->name('quantity-prices.edit');
+    Route::put('/quantity-prices/{quantityPrice}', [PricePerQuantityController::class, 'update'])->name('quantity-prices.update');
+    Route::delete('/quantity-prices/{quantityPrice}', [PricePerQuantityController::class, 'destroy'])->name('quantity-prices.destroy');
+    Route::get('/catalog-items/{catalogItem}/clients/{client}/quantity-prices', [PricePerQuantityController::class, 'getQuantityPrices'])->name('quantity-prices.get');
+});
+
+// Client-specific prices routes
+Route::middleware(['auth'])->group(function () {
+    Route::get('/client-prices', [ClientPriceController::class, 'index'])->name('client-prices.index');
+    Route::get('/client-prices/create', [ClientPriceController::class, 'create'])->name('client-prices.create');
+    Route::post('/client-prices', [ClientPriceController::class, 'store'])->name('client-prices.store');
+    Route::get('/client-prices/{clientPrice}/edit', [ClientPriceController::class, 'edit'])->name('client-prices.edit');
+    Route::put('/client-prices/{clientPrice}', [ClientPriceController::class, 'update'])->name('client-prices.update');
+    Route::delete('/client-prices/{clientPrice}', [ClientPriceController::class, 'destroy'])->name('client-prices.destroy');
+});
+
+// Quantity-based prices routes
+Route::middleware(['auth'])->group(function () {
+    Route::get('/quantity-prices', [QuantityPriceController::class, 'index'])->name('quantity-prices.index');
+    Route::get('/quantity-prices/create', [QuantityPriceController::class, 'create'])->name('quantity-prices.create');
+    Route::post('/quantity-prices', [QuantityPriceController::class, 'store'])->name('quantity-prices.store');
+    Route::get('/quantity-prices/{quantityPrice}/edit', [QuantityPriceController::class, 'edit'])->name('quantity-prices.edit');
+    Route::put('/quantity-prices/{quantityPrice}', [QuantityPriceController::class, 'update'])->name('quantity-prices.update');
+    Route::delete('/quantity-prices/{quantityPrice}', [QuantityPriceController::class, 'destroy'])->name('quantity-prices.destroy');
 });
 
 require __DIR__.'/auth.php';

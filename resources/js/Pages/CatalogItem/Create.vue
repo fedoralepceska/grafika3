@@ -124,6 +124,17 @@
                                 />
                             </div>
                         </div>
+                        <div>
+                            <label class="text-white">Default Price</label>
+                            <input
+                                v-model="form.price"
+                                type="number"
+                                step="0.01"
+                                min="0"
+                                class="w-full mt-1 rounded"
+                                required
+                            />
+                        </div>
                         <div class="grid grid-cols-2 gap-4 pt-9">
                             <div>
                                 <Checkbox name="is_for_offer" v-model:checked="form.is_for_offer" />
