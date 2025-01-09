@@ -221,6 +221,12 @@ import TabsWrapperSwitch from "@/Components/tabs/TabsWrapperSwitch.vue";
 export default {
     name: "CatalogSelector",
     components: { TabV2, TabsWrapperSwitch },
+    props: {
+        clientId: {
+            type: [Number, String],
+            default: null
+        }
+    },
     data() {
         return {
             catalogItemsSmall: [],
@@ -276,6 +282,12 @@ export default {
 
         async createJobs() {
             const toast = useToast();
+            
+            if (!this.clientId) {
+                toast.error('Please select a client first');
+                return;
+            }
+
             // Combine both small and large catalog items
             const allCatalogItems = [...this.catalogItemsSmall, ...this.catalogItemsLarge];
             const selectedCatalogItems = allCatalogItems.filter(item =>
@@ -298,9 +310,11 @@ export default {
                         large_material_id: item.largeMaterial,
                         small_material_id: item.smallMaterial,
                         name: item.name,
-                        quantity: item.quantity,
-                        copies: item.copies,
-                        actions: formattedActions
+                        quantity: item.quantity || 1, // Default to 1 if not set
+                        copies: item.copies || 1, // Default to 1 if not set
+                        actions: formattedActions,
+                        client_id: this.clientId,
+                        catalog_item_id: item.id
                     });
 
                     return response.data.job;

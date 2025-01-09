@@ -99,7 +99,10 @@
                                         />
                                     </TabV2>
                                     <TabV2 title="From Catalog" icon="mdi mdi-book-open-variant">
-                                        <CatalogSelector @jobs-created="handleCatalogJobs" />
+                                        <CatalogSelector 
+                                            @jobs-created="handleCatalogJobs" 
+                                            :clientId="invoice.client_id"
+                                        />
                                     </TabV2>
                                 </TabsWrapperV2>
                             </Tab>
@@ -311,6 +314,14 @@ export default {
         },
         handleCatalogJobs(catalogJobs) {
             if (this.$refs.dragAndDrop) {
+                // Ensure client is selected before proceeding
+                if (!this.invoice.client_id) {
+                    const toast = useToast();
+                    toast.error('Please select a client first');
+                    return;
+                }
+                
+                // Add the jobs to the DragAndDrop component
                 this.$refs.dragAndDrop.handleCatalogJobs(catalogJobs);
             }
         },
