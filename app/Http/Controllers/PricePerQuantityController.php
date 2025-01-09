@@ -148,8 +148,9 @@ class PricePerQuantityController extends Controller
     {
         $prices = $catalogItem->quantityPrices()
             ->where('client_id', $client->id)
+            ->with('client:id,name')
             ->orderBy('quantity_from')
-            ->get();
+            ->paginate(5);
 
         return response()->json($prices);
     }

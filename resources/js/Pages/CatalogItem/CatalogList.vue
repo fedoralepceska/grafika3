@@ -33,6 +33,9 @@
                         <th class="p-4">Machine Print</th>
                         <th class="p-4">Machine Cut</th>
                         <th class="p-4">Material</th>
+                        <th class="p-4">Default Price</th>
+                        <th class="p-4">Client Prices</th>
+                        <th class="p-4">Quantity Prices</th>
                         <th class="p-4 text-center">Actions</th>
                         <th class="p-4">Options</th>
                     </tr>
@@ -62,6 +65,17 @@
                         <td class="p-4">{{ item.machineCut }}</td>
                         <td class="p-4">
                             {{ item.material || 'N/A' }}
+                        </td>
+                        <td class="p-4">{{ formatPrice(item.price) }}</td>
+                        <td class="p-4">
+                            <button @click="openClientPricesDialog(item)" class="btn btn-secondary">
+                                <i class="fas fa-users"></i> Manage
+                            </button>
+                        </td>
+                        <td class="p-4">
+                            <button @click="openQuantityPricesDialog(item)" class="btn btn-secondary">
+                                <i class="fas fa-layer-group"></i> Manage
+                            </button>
                         </td>
                         <td class="p-4 text-center">
                             <button
@@ -234,6 +248,17 @@
                                                class="w-full mt-1 rounded" required />
                                     </div>
                                 </div>
+                                <div>
+                                    <label class="text-white">Default Price</label>
+                                    <input
+                                        v-model="editForm.price"
+                                        type="number"
+                                        step="0.01"
+                                        min="0"
+                                        class="w-full mt-1 rounded"
+                                        required
+                                    />
+                                </div>
                             </div>
 
                             <!-- Right column with file upload -->
@@ -347,6 +372,202 @@
                 </div>
             </div>
         </div>
+        <!-- Client Prices Dialog -->
+        <div v-if="showClientPricesDialog" class="modal-backdrop">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2>Manage Client Prices - {{ selectedItemForPrices?.name }}</h2>
+                    <button @click="closeClientPricesDialog" class="close-button">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <!-- Add new client price form -->
+                    <form @submit.prevent="saveClientPrice" class="mb-6">
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="text-white">Client</label>
+                                <select v-model="clientPriceForm.client_id" class="w-full mt-1 rounded" required>
+                                    <option value="">Select Client</option>
+                                    <option v-for="client in clients" :key="client.id" :value="client.id">
+                                        {{ client.name }}
+                                    </option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="text-white">Price</label>
+                                <input
+                                    v-model="clientPriceForm.price"
+                                    type="number"
+                                    step="0.01"
+                                    min="0"
+                                    class="w-full mt-1 rounded"
+                                    required
+                                />
+                            </div>
+                        </div>
+                        <div class="mt-4">
+                            <button type="submit" class="btn btn-primary">Add Client Price</button>
+                        </div>
+                    </form>
+
+                    <!-- Client prices list -->
+                    <div class="mt-6">
+                        <h3 class="text-white text-lg font-semibold mb-4">Current Client Prices</h3>
+                        <table class="w-full">
+                            <thead>
+                                <tr class="bg-gray-700">
+                                    <th class="p-2 text-left text-white">Client</th>
+                                    <th class="p-2 text-left text-white">Price</th>
+                                    <th class="p-2 text-center text-white">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr v-for="price in clientPrices" :key="price.id" class="border-t border-gray-700">
+                                    <td class="p-2 text-white">{{ price.client.name }}</td>
+                                    <td class="p-2 text-white">{{ formatPrice(price.price) }}</td>
+                                    <td class="p-2 text-center">
+                                        <button @click="deleteClientPrice(price.id)" class="btn btn-danger">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                        <!-- Client Prices Pagination -->
+                        <div class="flex justify-between items-center mt-4" v-if="clientPricesPagination.last_page > 1">
+                            <button
+                                :disabled="clientPricesPagination.current_page === 1"
+                                @click="loadClientPrices(clientPricesPagination.current_page - 1)"
+                                class="btn btn-secondary"
+                            >
+                                Previous
+                            </button>
+                            <span class="text-white">
+                                Page {{ clientPricesPagination.current_page }} of {{ clientPricesPagination.last_page }}
+                            </span>
+                            <button
+                                :disabled="clientPricesPagination.current_page === clientPricesPagination.last_page"
+                                @click="loadClientPrices(clientPricesPagination.current_page + 1)"
+                                class="btn btn-secondary"
+                            >
+                                Next
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Quantity Prices Dialog -->
+        <div v-if="showQuantityPricesDialog" class="modal-backdrop">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2>Manage Quantity Prices - {{ selectedItemForPrices?.name }}</h2>
+                    <button @click="closeQuantityPricesDialog" class="close-button">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <!-- Add new quantity price form -->
+                    <form @submit.prevent="saveQuantityPrice" class="mb-6">
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="text-white">Client</label>
+                                <select 
+                                    v-model="quantityPriceForm.client_id" 
+                                    class="w-full mt-1 rounded" 
+                                    required
+                                    @change="handleClientChange"
+                                >
+                                    <option value="">Select Client</option>
+                                    <option v-for="client in clients" :key="client.id" :value="client.id">
+                                        {{ client.name }}
+                                    </option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="text-white">Price</label>
+                                <input
+                                    v-model="quantityPriceForm.price"
+                                    type="number"
+                                    step="0.01"
+                                    min="0"
+                                    class="w-full mt-1 rounded"
+                                    required
+                                />
+                            </div>
+                            <div>
+                                <label class="text-white">Quantity From</label>
+                                <input
+                                    v-model="quantityPriceForm.quantity_from"
+                                    type="number"
+                                    min="1"
+                                    class="w-full mt-1 rounded"
+                                />
+                            </div>
+                            <div>
+                                <label class="text-white">Quantity To</label>
+                                <input
+                                    v-model="quantityPriceForm.quantity_to"
+                                    type="number"
+                                    min="1"
+                                    class="w-full mt-1 rounded"
+                                />
+                            </div>
+                        </div>
+                        <div class="mt-4">
+                            <button type="submit" class="btn btn-primary">Add Quantity Price</button>
+                        </div>
+                    </form>
+
+                    <!-- Quantity prices list -->
+                    <div class="mt-6">
+                        <h3 class="text-white text-lg font-semibold mb-4">Current Quantity Prices</h3>
+                        <table class="w-full">
+                            <thead>
+                                <tr class="bg-gray-700">
+                                    <th class="p-2 text-left text-white">Client</th>
+                                    <th class="p-2 text-left text-white">Quantity Range</th>
+                                    <th class="p-2 text-left text-white">Price</th>
+                                    <th class="p-2 text-center text-white">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr v-for="price in quantityPrices" :key="price.id" class="border-t border-gray-700">
+                                    <td class="p-2 text-white">{{ price.client.name }}</td>
+                                    <td class="p-2 text-white">
+                                        {{ price.quantity_from || '0' }} - {{ price.quantity_to || '∞' }}
+                                    </td>
+                                    <td class="p-2 text-white">{{ formatPrice(price.price) }}</td>
+                                    <td class="p-2 text-center">
+                                        <button @click="deleteQuantityPrice(price.id)" class="btn btn-danger">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                        <!-- Quantity Prices Pagination -->
+                        <div class="flex justify-between items-center mt-4" v-if="quantityPricesPagination.last_page > 1">
+                            <button
+                                :disabled="quantityPricesPagination.current_page === 1"
+                                @click="loadQuantityPrices(quantityPricesPagination.current_page - 1)"
+                                class="btn btn-secondary"
+                            >
+                                Previous
+                            </button>
+                            <span class="text-white">
+                                Page {{ quantityPricesPagination.current_page }} of {{ quantityPricesPagination.last_page }}
+                            </span>
+                            <button
+                                :disabled="quantityPricesPagination.current_page === quantityPricesPagination.last_page"
+                                @click="loadQuantityPrices(quantityPricesPagination.current_page + 1)"
+                                class="btn btn-secondary"
+                            >
+                                Next
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
     </MainLayout>
 </template>
 
@@ -371,6 +592,12 @@ export default {
             searchQuery: "",
             selectedItem: null,
             showEditDialog: false,
+            showClientPricesDialog: false,
+            showQuantityPricesDialog: false,
+            selectedItemForPrices: null,
+            clientPrices: [],
+            quantityPrices: [],
+            clients: [], // Will be populated with available clients
             editForm: {
                 id: null,
                 name: '',
@@ -383,7 +610,18 @@ export default {
                 actions: [],
                 is_for_offer: false,
                 is_for_sales: true,
-                category: ''
+                category: '',
+                price: 0
+            },
+            clientPriceForm: {
+                client_id: null,
+                price: 0
+            },
+            quantityPriceForm: {
+                client_id: null,
+                quantity_from: null,
+                quantity_to: null,
+                price: 0
             },
             // New data properties for dropdowns
             machinesPrint: [],
@@ -396,6 +634,18 @@ export default {
             currentItemFile: null,
             isImage: true,
             categories: ['material', 'article', 'small_format'],
+            clientPricesPagination: {
+                current_page: 1,
+                total: 0,
+                per_page: 5,
+                last_page: 1
+            },
+            quantityPricesPagination: {
+                current_page: 1,
+                total: 0,
+                per_page: 5,
+                last_page: 1
+            },
         };
     },
     methods: {
@@ -443,6 +693,7 @@ export default {
                 quantity: item.quantity,
                 copies: item.copies,
                 category: item.category,
+                price: item.price,
                 actions: item.actions.map(action => ({
                     selectedAction: action.action_id.id,
                     quantity: action.quantity,
@@ -482,7 +733,8 @@ export default {
                 actions: [],
                 is_for_offer: false,
                 is_for_sales: true,
-                category: ''
+                category: '',
+                price: 0
             };
         },
 
@@ -512,7 +764,12 @@ export default {
                 // Append all form fields
                 Object.entries(this.editForm).forEach(([key, value]) => {
                     if (key !== 'actions' && key !== 'file') {
-                        formData.append(key, value);
+                        // Convert price to number if it's the price field
+                        if (key === 'price') {
+                            formData.append(key, Number(value));
+                        } else {
+                            formData.append(key, value);
+                        }
                     }
                 });
 
@@ -636,6 +893,184 @@ export default {
             return this.previewUrl || (this.currentItemFile && this.currentItemFile !== 'placeholder.jpeg'
                 ? `/storage/uploads/${this.currentItemFile}`
                 : '/storage/uploads/placeholder.jpeg');
+        },
+
+        formatPrice(price) {
+            if (!price) return '€0.00';
+            return new Intl.NumberFormat('de-DE', {
+                style: 'currency',
+                currency: 'EUR'
+            }).format(price);
+        },
+
+        async openClientPricesDialog(item) {
+            this.selectedItemForPrices = item;
+            try {
+                const [clientsResponse] = await Promise.all([
+                    axios.get('/api/clients/all'),
+                ]);
+                this.clients = clientsResponse.data;
+                await this.loadClientPrices(1);
+                this.showClientPricesDialog = true;
+            } catch (error) {
+                const toast = useToast();
+                toast.error('Failed to load client prices');
+                console.error('Error loading client prices:', error);
+            }
+        },
+
+        async openQuantityPricesDialog(item) {
+            this.selectedItemForPrices = item;
+            try {
+                const clientsResponse = await axios.get('/api/clients/all');
+                this.clients = clientsResponse.data;
+                this.quantityPrices = []; // Reset prices until client is selected
+                this.showQuantityPricesDialog = true;
+            } catch (error) {
+                const toast = useToast();
+                toast.error('Failed to load clients');
+                console.error('Error loading clients:', error);
+            }
+        },
+
+        async loadClientPrices(page = 1) {
+            try {
+                const response = await axios.get(`/catalog-items/${this.selectedItemForPrices.id}/client-prices`, {
+                    params: { page }
+                });
+                this.clientPrices = response.data.data;
+                this.clientPricesPagination = {
+                    current_page: response.data.current_page,
+                    total: response.data.total,
+                    per_page: response.data.per_page,
+                    last_page: response.data.last_page
+                };
+            } catch (error) {
+                const toast = useToast();
+                toast.error('Failed to load client prices');
+                console.error('Error loading client prices:', error);
+            }
+        },
+
+        async loadQuantityPrices(page = 1) {
+            if (!this.quantityPriceForm.client_id || !this.selectedItemForPrices) return;
+            
+            try {
+                const response = await axios.get(
+                    `/catalog-items/${this.selectedItemForPrices.id}/clients/${this.quantityPriceForm.client_id}/quantity-prices`,
+                    { params: { page } }
+                );
+                this.quantityPrices = response.data.data;
+                this.quantityPricesPagination = {
+                    current_page: response.data.current_page,
+                    total: response.data.total,
+                    per_page: response.data.per_page,
+                    last_page: response.data.last_page
+                };
+            } catch (error) {
+                console.error('Error details:', error.response?.data || error);
+                const toast = useToast();
+                toast.error('Failed to load quantity prices');
+            }
+        },
+
+        async handleClientChange() {
+            console.log('Client changed to:', this.quantityPriceForm.client_id);
+            await this.loadQuantityPrices();
+        },
+
+        closeClientPricesDialog() {
+            this.showClientPricesDialog = false;
+            this.selectedItemForPrices = null;
+            this.clientPriceForm = {
+                client_id: null,
+                price: 0
+            };
+        },
+
+        closeQuantityPricesDialog() {
+            this.showQuantityPricesDialog = false;
+            this.selectedItemForPrices = null;
+            this.quantityPrices = [];
+            this.quantityPriceForm = {
+                client_id: null,
+                quantity_from: null,
+                quantity_to: null,
+                price: 0
+            };
+        },
+
+        async saveClientPrice() {
+            try {
+                await axios.post('/client-prices', {
+                    catalog_item_id: this.selectedItemForPrices.id,
+                    ...this.clientPriceForm
+                });
+                await this.loadClientPrices(this.clientPricesPagination.current_page);
+                this.clientPriceForm = {
+                    client_id: null,
+                    price: 0
+                };
+                const toast = useToast();
+                toast.success('Client price saved successfully');
+            } catch (error) {
+                const toast = useToast();
+                toast.error('Failed to save client price');
+                console.error('Error saving client price:', error);
+            }
+        },
+
+        async saveQuantityPrice() {
+            try {
+                await axios.post('/quantity-prices', {
+                    catalog_item_id: this.selectedItemForPrices.id,
+                    ...this.quantityPriceForm
+                });
+                await this.loadQuantityPrices(this.quantityPricesPagination.current_page);
+                const currentClientId = this.quantityPriceForm.client_id;
+                this.quantityPriceForm = {
+                    client_id: currentClientId,
+                    quantity_from: null,
+                    quantity_to: null,
+                    price: 0
+                };
+                const toast = useToast();
+                toast.success('Quantity price saved successfully');
+            } catch (error) {
+                const toast = useToast();
+                toast.error('Failed to save quantity price');
+                console.error('Error saving quantity price:', error);
+            }
+        },
+
+        async deleteClientPrice(priceId) {
+            if (!confirm('Are you sure you want to delete this client price?')) return;
+            
+            try {
+                await axios.delete(`/client-prices/${priceId}`);
+                await this.loadClientPrices(this.clientPricesPagination.current_page);
+                const toast = useToast();
+                toast.success('Client price deleted successfully');
+            } catch (error) {
+                const toast = useToast();
+                toast.error('Failed to delete client price');
+                console.error('Error deleting client price:', error);
+            }
+        },
+
+        async deleteQuantityPrice(priceId) {
+            if (!confirm('Are you sure you want to delete this quantity price?')) return;
+            
+            try {
+                await axios.delete(`/quantity-prices/${priceId}`);
+                await this.loadQuantityPrices(this.quantityPricesPagination.current_page);
+                const toast = useToast();
+                toast.success('Quantity price deleted successfully');
+            } catch (error) {
+                const toast = useToast();
+                toast.error('Failed to delete quantity price');
+                console.error('Error deleting quantity price:', error);
+            }
         },
     },
     mounted() {

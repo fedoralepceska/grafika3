@@ -69,6 +69,7 @@ class CatalogItemController extends Controller
                     'is_for_sales' => (bool)$item->is_for_sales,
                     'large_material_id' => $item->large_material_id,
                     'small_material_id' => $item->small_material_id,
+                    'price' => $item->price,
                     'actions' => collect($item->actions ?? [])->map(function($action) {
                         return [
                             'action_id' => [

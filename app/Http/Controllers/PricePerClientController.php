@@ -103,7 +103,8 @@ class PricePerClientController extends Controller
     {
         $prices = $catalogItem->clientPrices()
             ->with('client:id,name')
-            ->get();
+            ->orderBy('created_at', 'desc')
+            ->paginate(5);
 
         return response()->json($prices);
     }
