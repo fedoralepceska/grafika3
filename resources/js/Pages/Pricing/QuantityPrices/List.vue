@@ -7,7 +7,7 @@
                 icon="Price.png"
             />
 
-            <div class="dark-gray p-2 text-white">
+            <div class="dark-gray p-5 text-white">
                 <!-- Search and Add Button -->
                 <div class="flex justify-between items-center mb-4">
                     <div class="flex-1 max-w-md">
@@ -29,9 +29,9 @@
 
                 <!-- Prices Table -->
                 <div class="overflow-x-auto">
-                    <table class="min-w-full bg-dark-gray">
+                    <table class="min-w-full bg-gray-800">
                         <thead>
-                            <tr class="border-b border-gray-700">
+                            <tr class="gray">
                                 <th class="px-4 py-2 text-left">Catalog Item</th>
                                 <th class="px-4 py-2 text-left">Client</th>
                                 <th class="px-4 py-2 text-left">Quantity Range</th>
@@ -65,16 +65,16 @@
                                     <div class="flex space-x-2">
                                         <Link
                                             :href="route('quantity-prices.edit', price.id)"
-                                            class="text-blue-500 hover:text-blue-400"
+                                            class="btn btn-secondary text-blue-500 hover:text-blue-400"
                                         >
-                                            Edit
+                                        <i class="fas fa-edit"></i> Edit
                                         </Link>
-                                        <button
-                                            @click="confirmDelete(price)"
-                                            class="text-red-500 hover:text-red-400"
-                                        >
-                                            Delete
-                                        </button>
+<!--                                        <button-->
+<!--                                            @click="confirmDelete(price)"-->
+<!--                                            class="text-red-500 hover:text-red-400"-->
+<!--                                        >-->
+<!--                                            Delete-->
+<!--                                        </button>-->
                                     </div>
                                 </td>
                             </tr>
@@ -259,6 +259,12 @@ export default {
 </script>
 
 <style scoped lang="scss">
+.gray {
+    background-color: $gray;
+}
+.light-gray{
+    background-color: $light-gray;
+}
 .dark-gray {
     background-color: $dark-gray;
     min-height: 20vh;
@@ -295,11 +301,11 @@ export default {
     }
 
     &.btn-secondary {
-        background-color: $light-gray;
+        background-color: $dark-gray;
         color: $white;
 
         &:hover:not(:disabled) {
-            background-color: darken($light-gray, 10%);
+            background-color: darken($dark-gray, 10%);
         }
     }
 

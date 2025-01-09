@@ -8,8 +8,8 @@
                 link="client-prices"
             />
 
-            <div class="dark-gray p-2 text-white">
-                <div class="form-container p-2">
+            <div class="dark-gray p-5 text-white">
+                <div class="form-container p-5 light-gray">
                     <form @submit.prevent="submit" class="space-y-6">
                         <!-- Catalog Item Selection -->
                         <div class="form-group" v-if="!isEditing">
@@ -165,6 +165,9 @@ export default {
 </script>
 
 <style scoped lang="scss">
+.light-gray{
+    background-color: $light-gray;
+}
 .dark-gray {
     background-color: $dark-gray;
     min-height: 20vh;
@@ -192,7 +195,7 @@ export default {
     width: 100%;
     padding: 0.5rem;
     border-radius: 4px;
-    background-color: $light-gray;
+    background-color: $dark-gray;
     color: $white;
     border: 1px solid $ultra-light-gray;
 

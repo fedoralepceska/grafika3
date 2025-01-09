@@ -8,8 +8,8 @@
                 link="quantity-prices"
             />
 
-            <div class="dark-gray p-2 text-white">
-                <div class="form-container p-2">
+            <div class="dark-gray p-5 text-white">
+                <div class="form-container p-5 light-gray">
                     <form @submit.prevent="submit" class="space-y-6">
                         <!-- Catalog Item Selection -->
                         <div class="form-group" v-if="!isEditing">
@@ -85,7 +85,7 @@
                         <!-- Range Preview -->
                         <div class="form-group" v-if="rangePreview">
                             <label class="form-label">Range Preview</label>
-                            <div class="p-2 bg-gray-700 rounded">
+                            <div class="p-2 bg-[#2a3946] rounded">
                                 {{ rangePreview }}
                             </div>
                         </div>
@@ -254,9 +254,13 @@ export default {
 </script>
 
 <style scoped lang="scss">
+.light-gray{
+    background-color: $light-gray;
+}
 .dark-gray {
     background-color: $dark-gray;
     min-height: 20vh;
+    margin-bottom: 2vh;
     min-width: 80vh;
 }
 
@@ -281,7 +285,7 @@ export default {
     width: 100%;
     padding: 0.5rem;
     border-radius: 4px;
-    background-color: $light-gray;
+    background-color: $dark-gray;
     color: $white;
     border: 1px solid $ultra-light-gray;
 
@@ -312,7 +316,7 @@ export default {
         }
 
         &:disabled {
-            background-color: darken($green, 30%);
+            background-color: darken($green, 10%);
             cursor: not-allowed;
         }
     }
