@@ -64,6 +64,8 @@ class JobController extends Controller
                 $job->file = 'placeholder.jpeg';
                 $job->width = 0;
                 $job->height = 0;
+                $job->catalog_item_id = $request->input('catalog_item_id');
+                $job->client_id = $request->input('client_id');
 
                 // Calculate unit price based on hierarchy
                 $unitPrice = $priceCalculationService->calculateEffectivePrice(
@@ -71,6 +73,13 @@ class JobController extends Controller
                     $request->input('client_id'),
                     $request->input('quantity')
                 );
+
+                \Log::info('Creating job from catalog item', [
+                    'catalog_item_id' => $request->input('catalog_item_id'),
+                    'client_id' => $request->input('client_id'),
+                    'quantity' => $request->input('quantity'),
+                    'calculated_unit_price' => $unitPrice
+                ]);
 
                 // If hierarchy-based price exists, use it; otherwise fall back to the original calculation
                 if ($unitPrice !== null) {
@@ -263,6 +272,13 @@ class JobController extends Controller
                 $request->input('quantity')
             );
 
+            \Log::info('Syncing jobs with price calculation', [
+                'catalog_item_id' => $request->input('catalog_item_id'),
+                'client_id' => $request->input('client_id'),
+                'quantity' => $request->input('quantity'),
+                'calculated_unit_price' => $unitPrice
+            ]);
+
             // Get the jobs that need to be updated
             $jobsToUpdate = Job::whereIn('id', $request->input('jobs'))->get();
 
@@ -275,6 +291,8 @@ class JobController extends Controller
                     'machinePrint' => $request->input('selectedMachinePrint'),
                     'quantity' => $request->input('quantity'),
                     'copies' => $request->input('copies'),
+                    'catalog_item_id' => $request->input('catalog_item_id'),
+                    'client_id' => $request->input('client_id'),
                     // Preserve existing values if they exist
                     'width' => $job->width ?: 0,
                     'height' => $job->height ?: 0,
@@ -310,12 +328,14 @@ class JobController extends Controller
             }
 
             // Return the first job's data for price information
-            $updatedJob = Job::with('actions')->find($request->input('jobs')[0]);
+            $updatedJob = Job::with(['actions', 'catalogItem', 'client'])->find($request->input('jobs')[0]);
 
             return response()->json([
                 'message' => 'Jobs synced successfully',
                 'price' => $updatedJob->price,
-                'jobs' => Job::whereIn('id', $request->input('jobs'))->get() // Return all updated jobs
+                'jobs' => Job::with(['actions', 'catalogItem', 'client'])
+                    ->whereIn('id', $request->input('jobs'))
+                    ->get() // Return all updated jobs
             ]);
         } catch (\Exception $e) {
             \Log::error('Error syncing jobs:', [
@@ -698,70 +718,54 @@ class JobController extends Controller
     public function update(Request $request, $id)
     {
         try {
-            $job = Job::findOrFail($id);
+            $job = Job::with(['invoice'])->findOrFail($id);
             
             // Validate request
             $validatedData = $request->validate([
                 'quantity' => 'sometimes|required|numeric',
                 'copies' => 'sometimes|required|numeric',
+                'catalog_item_id' => 'sometimes|exists:catalog_items,id',
+                'client_id' => 'sometimes|exists:clients,id',
             ]);
 
             // If quantity is being updated, recalculate the price
             if ($request->has('quantity')) {
                 $priceCalculationService = app()->make(PriceCalculationService::class);
                 
-                // Get the catalog_item_id and client_id from the existing job
-                $catalogItemId = $job->catalog_item_id;
-                $clientId = $job->client_id;
+                // Get the catalog_item_id and client_id from request or existing job/invoice
+                $catalogItemId = $request->input('catalog_item_id') ?? $job->catalog_item_id ?? $job->invoice?->catalog_item_id;
+                $clientId = $request->input('client_id') ?? $job->client_id ?? $job->invoice?->client_id;
 
-                if ($catalogItemId && $clientId) {
-                    // Get the unit price based on hierarchy
-                    $unitPrice = $priceCalculationService->calculateEffectivePrice(
-                        $catalogItemId,
-                        $clientId,
-                        $request->input('quantity')
-                    );
+                \Log::info('Recalculating price for job update', [
+                    'job_id' => $id,
+                    'catalog_item_id' => $catalogItemId,
+                    'client_id' => $clientId,
+                    'new_quantity' => $request->input('quantity')
+                ]);
 
-                    if ($unitPrice !== null) {
-                        // Calculate total price based on unit price and quantity
-                        $job->price = $unitPrice * $request->input('quantity');
-                    } else {
-                        // If no special pricing, use the default catalog price
-                        $catalogItem = CatalogItem::find($catalogItemId);
-                        if ($catalogItem) {
-                            $job->price = $catalogItem->price * $request->input('quantity');
-                        }
-                    }
-                } else {
-                    // For jobs that already have a price, adjust it based on the new quantity
-                    if ($job->price > 0) {
-                        // Calculate the unit price from the current total price and quantity
-                        $currentUnitPrice = $job->price / $job->quantity;
-                        // Set new total price based on new quantity
-                        $job->price = $currentUnitPrice * $request->input('quantity');
-                    } else {
-                        // Original price calculation logic for non-catalog items
-                        $smallMaterial = SmallMaterial::with('article')->find($job->small_material_id);
-                        $largeMaterial = LargeFormatMaterial::with('article')->find($job->large_material_id);
-                        $price = 0;
+                // Calculate the new price based on the updated quantity
+                $newPrice = $priceCalculationService->calculateEffectivePrice(
+                    $catalogItemId,
+                    $clientId,
+                    $request->input('quantity')
+                );
 
-                        // Only calculate from actions if they exist
-                        $jobWithActions = Job::with('actions')->find($job->id);
-                        if ($jobWithActions && $jobWithActions->actions) {
-                            foreach ($jobWithActions->actions as $action) {
-                                if ($action->pivot && $action->pivot->quantity) {
-                                    if (isset($smallMaterial)) {
-                                        $price = $price + ($action->pivot->quantity * $smallMaterial->article->price_1);
-                                    }
-                                    if (isset($largeMaterial)) {
-                                        $price = $price + ($action->pivot->quantity * $largeMaterial->article->price_1);
-                                    }
-                                }
-                            }
-                        }
-                        $job->price = $price * $request->input('quantity');
-                    }
+                \Log::info('Price calculation result', [
+                    'job_id' => $id,
+                    'calculated_price' => $newPrice
+                ]);
+
+                if ($newPrice !== null) {
+                    $job->price = $newPrice;
                 }
+            }
+
+            // Update catalog_item_id and client_id if provided
+            if (isset($validatedData['catalog_item_id'])) {
+                $job->catalog_item_id = $validatedData['catalog_item_id'];
+            }
+            if (isset($validatedData['client_id'])) {
+                $job->client_id = $validatedData['client_id'];
             }
 
             // Update quantity and copies from validated data

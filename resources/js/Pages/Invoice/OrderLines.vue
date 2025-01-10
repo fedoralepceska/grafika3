@@ -331,14 +331,33 @@ export default {
             const toast = useToast();
             const valueToUpdate = parseInt(this.editingValue);
 
+            // Get catalog_item_id and client_id from the effective attributes
+            const catalog_item_id = job.effective_catalog_item_id;
+            const client_id = job.effective_client_id;
+
+            // Debug log to check job data
+            console.log('Job data being sent:', {
+                jobId: job.id,
+                catalog_item_id,
+                client_id,
+                quantity: this.editingField === 'quantity' ? valueToUpdate : job.quantity,
+                copies: this.editingField === 'copies' ? valueToUpdate : job.copies
+            });
+
             try {
                 // First update the backend
                 const response = await axios.put(`/jobs/${job.id}`, {
                     [this.editingField]: valueToUpdate,
                     // Include both fields to ensure both are updated
                     quantity: this.editingField === 'quantity' ? valueToUpdate : job.quantity,
-                    copies: this.editingField === 'copies' ? valueToUpdate : job.copies
+                    copies: this.editingField === 'copies' ? valueToUpdate : job.copies,
+                    // Include these fields for price recalculation
+                    catalog_item_id,
+                    client_id
                 });
+
+                // Debug log to check response data
+                console.log('Response from server:', response.data);
 
                 if (response.status === 200) {
                     // Update the local job with the response data, preserving width and height
@@ -348,8 +367,13 @@ export default {
                         height: job.height || response.data.job.height,
                         quantity: parseInt(response.data.job.quantity),
                         copies: parseInt(response.data.job.copies),
-                        price: parseFloat(response.data.job.price)
+                        price: parseFloat(response.data.job.price),
+                        effective_catalog_item_id: catalog_item_id,
+                        effective_client_id: client_id
                     };
+
+                    // Debug log to check updated job data
+                    console.log('Updated job data:', updatedJob);
 
                     // Update in jobsWithPrices
                     const index = this.jobsWithPrices.findIndex(j => j.id === job.id);
@@ -374,8 +398,8 @@ export default {
                     toast.success('Updated successfully');
                 }
             } catch (error) {
+                console.error('Error details:', error.response?.data || error);
                 toast.error('Failed to update');
-                console.error('Error updating job:', error);
             }
 
             // Reset editing state
