@@ -17,8 +17,13 @@
                                 {{$t('currentReport')}} {{$t('Nr')}} {{certificate.id}} - {{certificate.date}}
                             </h1>
                         </div>
-                        <div class="justify-end flex gap-10 pb-5 mr-3">
-                            <div>
+                        <div class="justify-end flex gap-6 pb-5 mr-3">
+                            <div class="flex justify-between mb-4">
+                        <button class="btn green" @click="toggleEditMode">
+                            {{ isEditMode ? $t('Exit Edit Mode') : $t('Edit Mode') }}
+                        </button>
+                    </div>  
+                            <div class="pr-3">
                                 <AddCertificateDialog
                                 :certificate="certificate"
                                 />
@@ -55,39 +60,89 @@
                                     <div>Date</div>
                                     <span class="bold">{{ certificate.date }}</span>
                                 </div>
+                                <div class="info">
+                                    <div>Total Expense</div>
+                                    <span class="bold">{{ totalExpense }}</span>
+                                </div>
+                                <div class="info">
+                                    <div>Total Income</div> 
+                                    <span class="bold">{{ totalIncome }}</span>
+                                </div>
                             </div>
                         </div>
                     </div>
-                    <div>
-                        <table>
-                            <tr>
-                                <th>ID</th>
-                                <th>Statement</th>
-                                <th>Item</th>
-                                <th>Client</th>
-                                <th>Expense</th>
-                                <th>Income</th>
-                                <th>Code</th>
-                                <th>Reference to</th>
-                                <th>Comment</th>
-                            </tr>
-                            <tr v-for="(item,index) in items">
-                                <th>{{item.id}}</th>
-                                <th>{{certificate.id}}</th>
-                                <th>#{{index+1}}</th>
-                                <th>{{item.client.name}}</th>
-                                <th>{{item.expense}}</th>
-                                <th>{{item.income}}</th>
-                                <th>{{item.code}}</th>
-                                <th>{{item.reference_to}}</th>
-                                <th>{{item.comment}}</th>
-                            </tr>
-                        </table>
-                        <div class="flex justify-end">
-                            <button class="btn create-order">
-                                Save
-                            </button>
-                        </div>
+                    
+                    <table>
+                        <tr>
+                            <th>ID</th>
+                            <th>Statement</th>
+                            <th>Item</th>
+                            <th>Client</th>
+                            <th>Expense</th>
+                            <th>Income</th>
+                            <th>Code</th>
+                            <th>Reference to</th>
+                            <th>Comment</th>
+                            <th v-if="isEditMode">Actions</th>
+                        </tr>
+                        <tr v-for="(item, index) in items" :key="item.id">
+                            <td>{{item.id}}</td>
+                            <td>{{certificate.id}}</td>
+                            <td>#{{index+1}}</td>
+                            <td>{{item.client.name}}</td>
+                            <td>
+                                <input v-if="isEditMode" 
+                                    type="number" 
+                                    v-model="item.expense" 
+                                    class="edit-input"
+                                    @input="markAsModified(item)">
+                                <span v-else>{{item.expense}}</span>
+                            </td>
+                            <td>
+                                <input v-if="isEditMode" 
+                                    type="number" 
+                                    v-model="item.income" 
+                                    class="edit-input"
+                                    @input="markAsModified(item)">
+                                <span v-else>{{item.income}}</span>
+                            </td>
+                            <td>
+                                <input v-if="isEditMode" 
+                                    type="text" 
+                                    v-model="item.code" 
+                                    class="edit-input"
+                                    @input="markAsModified(item)">
+                                <span v-else>{{item.code}}</span>
+                            </td>
+                            <td>
+                                <input v-if="isEditMode" 
+                                    type="text" 
+                                    v-model="item.reference_to" 
+                                    class="edit-input"
+                                    @input="markAsModified(item)">
+                                <span v-else>{{item.reference_to}}</span>
+                            </td>
+                            <td>
+                                <input v-if="isEditMode" 
+                                    type="text" 
+                                    v-model="item.comment" 
+                                    class="edit-input"
+                                    @input="markAsModified(item)">
+                                <span v-else>{{item.comment}}</span>
+                            </td>
+                            <td v-if="isEditMode">
+                                <button class="delete-btn" @click="deleteItem(item.id)">
+                                    <span class="mdi mdi-close"></span>
+                                </button>
+                            </td>
+                        </tr>
+                    </table>
+                    <div class="flex justify-end">
+                        <button v-if="isEditMode && hasModifiedItems" 
+                            class="btn create-order"
+                            @click="saveChanges">
+                            Save Changes
+                        </button>
                     </div>
                 </div>
             </div>
@@ -117,11 +172,28 @@ export default {
     props: {
         certificate: Object,
     },
+    computed: {
+        hasModifiedItems() {
+            return this.modifiedItems.size > 0;
+        },
+        totalExpense() {
+            return this.items.reduce((sum, item) => {
+                return sum + (Number(item.expense) || 0);
+            }, 0);
+        },
+        totalIncome() {
+            return this.items.reduce((sum, item) => {
+                return sum + (Number(item.income) || 0);
+            }, 0);
+        }
+    },
     data() {
         return {
             isSidebarVisible: false,
             addItemDialogVisible: false,
             openDialog: false,
+            isEditMode: false,
+            modifiedItems: new Set(),
             item: {
                 client_id: null,
                 certificate_id: this.certificate.id,
@@ -179,7 +251,67 @@ export default {
                 .catch((error) => {
                     toast.error("Error adding certificate!");
                 });
-        }
+        },
+
+        toggleEditMode() {
+            if (this.isEditMode && this.hasModifiedItems) {
+                this.saveChanges();
+            } else {
+                this.isEditMode = !this.isEditMode;
+                if (!this.isEditMode) {
+                    this.refreshItems();
+                }
+            }
+        },
+        async refreshItems() {
+            try {
+                const response = await axios.get(`/items/${this.certificate.id}`);
+                this.items = response.data;
+            } catch (error) {
+                console.error('Error refreshing items:', error);
+                const toast = useToast();
+                toast.error("Error refreshing items");
+            }
+        },
+        markAsModified(item) {
+            this.modifiedItems.add(item.id);
+        },
+        async deleteItem(itemId) {
+            const toast = useToast();
+            try {
+                await axios.delete(`/items/${itemId}`);
+                const response = await axios.get(`/items/${this.certificate.id}`);
+                this.items = response.data;
+                toast.success("Item deleted successfully");
+            } catch (error) {
+                toast.error("Error deleting item");
+            }
+        },
+        async saveChanges() {
+            const toast = useToast();
+            try {
+                const modifiedItemsList = this.items.filter(item => this.modifiedItems.has(item.id));
+                await Promise.all(modifiedItemsList.map(item => 
+                    axios.put(`/items/${item.id}`, {
+                        income: item.income,
+                        expense: item.expense,
+                        code: item.code,
+                        reference_to: item.reference_to,
+                        comment: item.comment
+                    })
+                ));
+                
+                const response = await axios.get(`/items/${this.certificate.id}`);
+                this.items = response.data;
+                
+                toast.success("Changes saved successfully");
+                this.modifiedItems.clear();
+                this.isEditMode = false;
+            } catch (error) {
+                console.error('Error saving changes:', error);
+                toast.error("Error saving changes: " + (error.response?.data?.message || error.message));
+            }
+        },
     },
 };
 </script>
@@ -403,11 +535,37 @@ table th, table td {
     text-align: center;
 }
 
-table th {
+table th, table tr {
     color: white;
     border-top: 1px solid #ddd;
     border-bottom: 1px solid #ddd;
     background-color: $ultra-light-gray;
 
+}
+
+.edit-input {
+    width: 100%;
+    padding: 4px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    background-color: white;
+    color: black;
+}
+
+.delete-btn {
+    color: red;
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 4px;
+    font-size: 18px;
+    
+    &:hover {
+        opacity: 0.8;
+    }
+}
+
+.InvoiceDetails {
+    border-bottom: 2px dashed lightgray;
 }
 </style>

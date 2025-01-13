@@ -20,6 +20,7 @@ use Inertia\Inertia;
 use Illuminate\Support\Facades\DB;
 use App\Models\LargeFormatMaterial;
 use App\Models\SmallMaterial;
+use App\Http\Controllers\ItemController;
 
 /*
 |--------------------------------------------------------------------------
@@ -322,6 +323,12 @@ Route::get('/get-actions', function () {
             ->whereNotNull('name')
             ->get()
     );
+});
+
+Route::middleware(['auth', 'verified'])->group(function () {
+    Route::get('/items/{id}', [ItemController::class, 'getAllByCertificateId']);
+    Route::put('/items/{item}', [ItemController::class, 'update']);
+    Route::delete('/items/{item}', [ItemController::class, 'destroy']);
 });
 
 require __DIR__.'/auth.php';
