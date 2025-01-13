@@ -15,4 +15,11 @@ class Offer extends Model
     {
         return $this->belongsToMany(CatalogItem::class, 'catalog_item_offer', 'offer_id', 'catalog_item_id');
     }
+
+    public function clients()
+    {
+        return $this->belongsToMany(Client::class, 'offer_client')
+            ->withPivot('is_accepted', 'description')
+            ->withTimestamps();
+    }
 }

@@ -189,10 +189,18 @@ export default {
                         //     href: '/offer',
                         //     title: 'View all offers'
                         // },
-                        // {
-                        //     href: '/offer/create',
-                        //     title: 'Add new offer'
-                        // }
+                        {
+                            href: '/offer/create',
+                            title: 'Add new offer'
+                        },
+                        {
+                            href: '/offer-client/create',
+                            title: 'Create offers for clients'
+                        },
+                        {
+                            href: '/offer-client',
+                            title: 'Offers for clients'
+                        }
                     ],
                 },
                 {

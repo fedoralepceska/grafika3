@@ -135,4 +135,57 @@ class OfferController extends Controller
 
         return redirect()->route('catalog.index')->with('success', 'Catalog item deleted successfully.');
     }
+
+    public function getOffers()
+    {
+        return response()->json(Offer::all(), 200);
+    }
+
+    public function displayOfferClientPage()
+    {
+        return Inertia::render('OfferClient/Create');
+    }
+
+    public function storeOfferClient(Request $request)
+    {
+        foreach ($request->associations as $association) {
+            DB::table('offer_client')->insert($association);
+        }
+
+        return response()->json(['message' => 'Associations created successfully.']);
+    }
+
+    public function getOffersClients()
+    {
+        $offersClients = DB::table('offer_client')
+            ->join('offers', 'offer_client.offer_id', '=', 'offers.id')
+            ->join('clients', 'offer_client.client_id', '=', 'clients.id')
+            ->select(
+                'offer_client.*',
+                'offers.name as offer_name',
+                'clients.name as client_name'
+            )
+            ->get();
+
+        return Inertia::render('OfferClient/Index', [
+            'offers_clients' => $offersClients
+        ]);
+    }
+
+    public function acceptOffer(Request $request)
+    {
+        // Validate the incoming request
+        $request->validate([
+            'offer_client' => 'required|exists:offer_client,id',
+            'accept' => 'required|boolean',
+            'description' => 'sometimes'
+        ]);
+
+        // Update the is_accepted field for the given offer_client ID
+        DB::table('offer_client')
+            ->where('id', $request->offer_client)
+            ->update(['is_accepted' => $request->accept, 'description' => $request->description]);
+
+        return response()->json(['message' => 'Offer status updated successfully.'], 200);
+    }
 }

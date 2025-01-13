@@ -290,9 +290,14 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/offer', [\App\Http\Controllers\OfferController::class, 'index'])->name('offer.index');
+    Route::get('/offers', [\App\Http\Controllers\OfferController::class, 'getOffers'])->name('offer.getOffers');
     Route::get('/offer/create', [\App\Http\Controllers\OfferController::class, 'create'])->name('offer.create');
     Route::post('/offer', [\App\Http\Controllers\OfferController::class, 'store'])->name('offer.store');
     Route::delete('/offer/{offer}', [\App\Http\Controllers\OfferController::class, 'destroy'])->name('offer.destroy');
+    Route::get('/offer-client/create', [\App\Http\Controllers\OfferController::class, 'displayOfferClientPage'])->name('offer.displayOfferClientPage');
+    Route::post('/offer-client', [\App\Http\Controllers\OfferController::class, 'storeOfferClient'])->name('offer.storeOfferClient');
+    Route::get('/offer-client', [\App\Http\Controllers\OfferController::class, 'getOffersClients'])->name('offer.getOffersClients');
+    Route::post('/offer-client/accept', [\App\Http\Controllers\OfferController::class, 'acceptOffer'])->name('offer.acceptOffer');
 });
 
 // Routes for catalog edit form data
@@ -308,11 +313,11 @@ Route::get('/get-materials', function () {
     $largeMaterials = LargeFormatMaterial::with(['article' => function($query) {
         $query->select('id', 'name', 'code');
     }])->get();
-    
+
     $smallMaterials = SmallMaterial::with(['article' => function($query) {
         $query->select('id', 'name', 'code');
     }])->get();
-    
+
     return response()->json([
         'largeMaterials' => $largeMaterials,
         'smallMaterials' => $smallMaterials
