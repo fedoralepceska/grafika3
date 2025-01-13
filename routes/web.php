@@ -245,6 +245,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('/api/banks', [\App\Http\Controllers\BanksController::class, 'createBank']);
     Route::get('/api/banks', [\App\Http\Controllers\BanksController::class, 'getBanks']);
     Route::delete('/api/banks/{id}', [\App\Http\Controllers\BanksController::class, 'deleteBank']);
+    Route::put('/api/banks/{id}', [\App\Http\Controllers\BanksController::class, 'updateBank']);
 });
 
 // Analytics
