@@ -19,6 +19,7 @@
                                 <th>{{$t('offer')}}<div class="resizer" @mousedown="initResize($event, 1)"></div></th>
                                 <th>{{$t('client')}}<div class="resizer" @mousedown="initResize($event, 1)"></div></th>
                                 <th>{{$t('ACTIONS')}}<div class="resizer" @mousedown="initResize($event, 2)"></div></th>
+                                <th></th>
                             </tr>
                             </thead>
                             <tbody>
@@ -35,6 +36,11 @@
                                         <th v-else>
                                             <PrimaryButton @click="acceptOffer(item.id, true)" type="submit">{{ $t('accept') }}</PrimaryButton>
                                             <button class="btn"><DeclineOfferDialog :offer_client_id="item.id" /></button>
+                                        </th>
+                                        <th>
+                                            <div class="centered">
+                                                <OfferClientInfoDialog :offer_client_id="item.id" />
+                                            </div>
                                         </th>
                                     </tr>
                                 </template>
@@ -59,11 +65,13 @@ import axios from "axios";
 import DangerButton from "@/Components/DangerButton.vue";
 import {useToast} from "vue-toastification";
 import DeclineOfferDialog from "@/Components/DeclineOfferDialog.vue";
+import OfferClientInfoDialog from "@/Components/OfferClientInfoDialog.vue";
 
 
 export default {
     name: 'Index',
     components: {
+        OfferClientInfoDialog,
         DeclineOfferDialog,
         DangerButton,
         MainLayout,
@@ -121,6 +129,11 @@ export default {
 </script>
 
 <style scoped lang="scss">
+.centered {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
 .btn {
     padding: 5px 10px;
     border: none;

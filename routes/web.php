@@ -298,6 +298,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('/offer-client', [\App\Http\Controllers\OfferController::class, 'storeOfferClient'])->name('offer.storeOfferClient');
     Route::get('/offer-client', [\App\Http\Controllers\OfferController::class, 'getOffersClients'])->name('offer.getOffersClients');
     Route::post('/offer-client/accept', [\App\Http\Controllers\OfferController::class, 'acceptOffer'])->name('offer.acceptOffer');
+    Route::get('/offer-client/details/{id}', [\App\Http\Controllers\OfferController::class, 'getDetails'])->name('offer.getDetails');
+
 });
 
 // Routes for catalog edit form data

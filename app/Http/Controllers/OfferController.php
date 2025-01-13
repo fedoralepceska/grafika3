@@ -3,14 +3,12 @@
 namespace App\Http\Controllers;
 
 use App\Models\CatalogItem;
-use App\Enums\MachineCut as MachineCutEnum;
-use App\Enums\MachinePrint as MachinePrintEnum;
-use App\Models\LargeFormatMaterial;
+use App\Models\Client;
 use App\Models\Offer;
-use App\Models\SmallMaterial;
+use App\Models\OfferClient;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
-use ReflectionClass;
 use Illuminate\Support\Facades\DB;
 
 class OfferController extends Controller
@@ -184,8 +182,34 @@ class OfferController extends Controller
         // Update the is_accepted field for the given offer_client ID
         DB::table('offer_client')
             ->where('id', $request->offer_client)
-            ->update(['is_accepted' => $request->accept, 'description' => $request->description]);
+            ->update(['is_accepted' => $request->accept, 'decription' => $request->description]);
 
         return response()->json(['message' => 'Offer status updated successfully.'], 200);
+    }
+
+    public function getDetails($id): JsonResponse
+    {
+        // Fetch the offer_client record based on the offer_client table's pivot data
+        $offerClient = DB::table('offer_client')
+            ->where('id', $id)
+            ->first();
+
+        if (!$offerClient) {
+            return response()->json(['message' => 'OfferClient not found'], 404);
+        }
+
+        // Get related offer and client using their IDs
+        $offer = Offer::findOrFail($offerClient->offer_id);
+        $client = Client::findOrFail($offerClient->client_id);
+
+        // Fetch catalog items linked to the offer
+        $catalogItems = $offer->catalogItems;
+
+        // Return the data
+        return response()->json([
+            'offer' => $offer,
+            'client' => $client,
+            'catalog_items' => $catalogItems,
+        ]);
     }
 }
