@@ -18,13 +18,15 @@
                     <div>
                         <div class="form-group">
                             <label for="name" class="text-white width100">Bank Name</label>
-                            <input type="text" id="name" class="rounded text-black" v-model="newBank.name">
+                            <input type="text" id="name" class="rounded text-black" v-model="newBank.name" @input="checkDuplicate">
                         </div>
                         <div class="form-group" >
                             <label for="address" class="text-white width100 ">Bank Account</label>
-                            <input type="text"  id="address" class="rounded text-black" v-model="newBank.address">
+                            <input type="text"  id="address" class="rounded text-black" v-model="newBank.address" @input="checkDuplicate">
                         </div>
-
+                        <div v-if="isDuplicate" class="error-message">
+                            This bank with this account already exists!
+                        </div>
                     </div>
                 </v-card-text>
                 <v-card-actions class="flexSpace gap-4">
@@ -32,7 +34,7 @@
                     <SecondaryButton @click="closeDialog" class="red">
                         Close
                     </SecondaryButton>
-                    <SecondaryButton @click="saveData" class="green">
+                    <SecondaryButton @click="saveData" class="green" :disabled="isDuplicate || !isValid">
                        Add
                     </SecondaryButton>
                 </v-card-actions>
@@ -54,11 +56,18 @@ export default {
     data() {
         return {
             dialog: false,
-            newBank:{
-            name: '',
-            address:'',
-            }
+            newBank: {
+                name: '',
+                address: '',
+            },
+            existingBanks: [],
+            isDuplicate: false,
         };
+    },
+    computed: {
+        isValid() {
+            return this.newBank.name.trim() !== '' && this.newBank.address.trim() !== '';
+        }
     },
     props: {
         bank: Object
@@ -69,8 +78,31 @@ export default {
         },
         closeDialog() {
             this.dialog = false;
+            this.newBank.name = '';
+            this.newBank.address = '';
+            this.isDuplicate = false;
+        },
+        async fetchBanks() {
+            try {
+                const response = await axios.get('/api/banks');
+                this.existingBanks = response.data;
+            } catch (error) {
+                console.error('Error fetching banks:', error);
+            }
+        },
+        checkDuplicate() {
+            if (this.newBank.name && this.newBank.address) {
+                this.isDuplicate = this.existingBanks.some(bank => 
+                    bank.name.toLowerCase() === this.newBank.name.toLowerCase() && 
+                    bank.address.toLowerCase() === this.newBank.address.toLowerCase()
+                );
+            } else {
+                this.isDuplicate = false;
+            }
         },
         saveData() {
+            if (this.isDuplicate) return;
+
             const toast = useToast();
             axios.post('/api/banks', this.newBank)
                 .then((response) => {
@@ -79,10 +111,8 @@ export default {
 
                     setTimeout(() => {
                         window.location.reload();
-                    }, 1000); // Adding a slight delay before reload to ensure the toast message is displayed
-
+                    }, 1000);
                 })
-
                 .catch((error) => {
                     console.error('Error creating bank:', error);
                     toast.error('Failed to create bank!');
@@ -94,9 +124,13 @@ export default {
             }
         }
     },
-    mounted() {
+    async mounted() {
         document.addEventListener('keydown', this.handleEscapeKey);
+        await this.fetchBanks();
     },
+    beforeUnmount() {
+        document.removeEventListener('keydown', this.handleEscapeKey);
+    }
 };
 </script>
 <style src="vue-multiselect/dist/vue-multiselect.css"></style>
@@ -143,5 +177,15 @@ export default {
     background-color: $green;
     color: white;
     border: none;
+
+    &:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+}
+.error-message {
+    color: $red;
+    margin-top: 5px;
+    font-size: 0.9em;
 }
 </style>
