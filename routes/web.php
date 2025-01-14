@@ -96,6 +96,8 @@ Route::middleware(['auth', 'verified'])->group(function() {
     Route::post('/item', [\App\Http\Controllers\ItemController::class, 'store'])->name('item.store');
     Route::get('/items/{id}', [\App\Http\Controllers\ItemController::class, 'getAllByCertificateId'])->name('item.getAllByCertificateId');
     Route::post('/certificate', [CertificateController::class, 'store'])->name('certificate.store');
+    Route::put('/certificate/{certificate}', [CertificateController::class, 'update'])->name('certificate.update');
+    Route::get('/banks-list', [CertificateController::class, 'getBanksList'])->name('banks.list');
     Route::post('/client_card_statement', [ClientCardStatementController::class, 'store'])->name('ccs.store');
     Route::get('/client_card_statement/{id}', [ClientCardStatementController::class, 'getCCSByClientId'])->name('ccs.getCCSByClientId');
 });
@@ -118,6 +120,7 @@ Route::middleware(['auth', 'verified'])->group(function() {
 Route::middleware(['auth', 'verified'])->group(function() {
     Route::get('/cardStatements', [ClientCardStatementController::class, 'index'])->name('clientCards.index');
     Route::get('/cardStatement/{id}', [ClientCardStatementController::class, 'show'])->name('cardStatement.show');
+    Route::get('/clients-with-statements', [ItemController::class, 'getClientsWithCardStatements'])->name('clients.withStatements');
 });
 
 //Rotues For Jobs

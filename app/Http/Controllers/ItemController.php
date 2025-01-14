@@ -3,6 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Models\Item;
+use App\Models\Client;
+use App\Models\ClientCardStatement;
 use Illuminate\Http\Request;
 
 class ItemController extends Controller
@@ -91,6 +93,7 @@ class ItemController extends Controller
             'code' => 'string',
             'reference_to' => 'string',
             'comment' => 'nullable|string',
+            'client_id' => 'exists:clients,id'
         ]);
 
         // Update the item with validated data
@@ -106,5 +109,14 @@ class ItemController extends Controller
     {
         $item->delete();
         return response()->json(['message' => 'Item deleted successfully']);
+    }
+
+    public function getClientsWithCardStatements()
+    {
+        $clientsWithStatements = Client::whereHas('clientCardStatement')
+            ->select('id', 'name')
+            ->get();
+
+        return response()->json($clientsWithStatements);
     }
 }

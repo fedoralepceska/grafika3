@@ -19,10 +19,13 @@
                         </div>
                         <div class="justify-end flex gap-6 pb-5 mr-3">
                             <div class="flex justify-between mb-4">
-                        <button class="btn green" @click="toggleEditMode">
-                            {{ isEditMode ? $t('Exit Edit Mode') : $t('Edit Mode') }}
-                        </button>
-                    </div>  
+                                <button class="btn green" @click="toggleEditMode">
+                                    {{ isEditMode ? $t('Exit Edit Mode') : $t('Edit Mode') }}
+                                </button>
+                                <button class="btn blue ml-2" @click="toggleStatementEditMode">
+                                    {{ isStatementEditMode ? (hasStatementChanges ? 'Save & Exit' : 'Exit Edit Mode') : 'Edit Statement' }}
+                                </button>
+                            </div>  
                             <div class="pr-3">
                                 <AddCertificateDialog
                                 :certificate="certificate"
@@ -45,20 +48,51 @@
                                 </div>
                                 <div class="info">
                                     <div>Bank</div>
-                                    <div class="bold">{{certificate.bank}}</div>
+                                    <div v-if="isStatementEditMode" class="relative">
+                                        <input
+                                            type="text"
+                                            v-model="bankSearch"
+                                            @focus="showBankDropdown = true"
+                                            @input="filterBanks"
+                                            :placeholder="certificate.bank"
+                                            class="edit-input"
+                                        />
+                                        <div v-if="showBankDropdown"
+                                             class="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-auto">
+                                            <div
+                                                v-for="bank in filteredBanks"
+                                                :key="bank.id"
+                                                @click="selectBank(bank)"
+                                                class="px-4 py-2 hover:bg-gray-100 cursor-pointer text-gray-700"
+                                            >
+                                                {{ bank.name }}
+                                            </div>
+                                            <div v-if="!filteredBanks.length" class="px-4 py-2 text-gray-500">
+                                                No banks found
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div v-else class="bold">{{certificate.bank}}</div>
                                 </div>
                                 <div class="info">
                                     <div>Bank Account</div>
-                                    <div class="bold">{{certificate.bankAccount}}</div>
+                                    <div class="bold">{{ isStatementEditMode ? editedCertificate.bankAccount : certificate.bankAccount }}</div>
                                 </div>
                                 <div class="info">
                                     <div>Created By</div>
                                     <div class="bold">{{certificate.created_by?.name}}</div>
                                 </div>
-
                                 <div class="info">
                                     <div>Date</div>
-                                    <span class="bold">{{ certificate.date }}</span>
+                                    <div v-if="isStatementEditMode">
+                                        <input 
+                                            type="date" 
+                                            v-model="editedCertificate.date"
+                                            class="edit-input"
+                                            @input="markStatementAsModified"
+                                        >
+                                    </div>
+                                    <span v-else class="bold">{{ certificate.date }}</span>
                                 </div>
                                 <div class="info">
                                     <div>Total Expense</div>
@@ -89,7 +123,34 @@
                             <td>{{item.id}}</td>
                             <td>{{certificate.id}}</td>
                             <td>#{{index+1}}</td>
-                            <td>{{item.client.name}}</td>
+                            <td>
+                                <div v-if="isEditMode" class="relative">
+                                    <input
+                                        type="text"
+                                        v-model="clientSearch[item.id]"
+                                        @focus="initializeClientDropdown(item.id)"
+                                        @input="filterClients(item.id)"
+                                        :placeholder="getClientName(item)"
+                                        class="edit-input"
+                                    />
+                                    <div v-if="showClientDropdown[item.id]"
+                                         class="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-auto">
+                                        <div
+                                            v-for="client in filteredClients[item.id] || []"
+                                            :key="client.id"
+                                            @click="selectClient(client, item)"
+                                            class="px-4 py-2 hover:bg-gray-100 cursor-pointer text-gray-700"
+                                            :class="{'bg-gray-200': item.client_id === client.id}"
+                                        >
+                                            {{ client.name }}
+                                        </div>
+                                        <div v-if="!filteredClients[item.id]?.length" class="px-4 py-2 text-gray-500">
+                                            No clients found
+                                        </div>
+                                    </div>
+                                </div>
+                                <span v-else>{{item.client.name}}</span>
+                            </td>
                             <td>
                                 <input v-if="isEditMode" 
                                     type="number" 
@@ -208,12 +269,24 @@ export default {
                 bank: '',
                 bankAccount: '',
             },
-            items: []
+            items: [],
+            clients: [],
+            clientSearch: {},
+            showClientDropdown: {},
+            filteredClients: {},
+            isStatementEditMode: false,
+            hasStatementChanges: false,
+            editedCertificate: {},
+            banks: [],
+            bankSearch: '',
+            showBankDropdown: false,
+            filteredBanks: [],
         }
     },
     async beforeMount() {
         const response = await axios.get(`/items/${this.item.certificate_id}`);
         this.items = response.data;
+        await this.fetchClientsWithStatements();
     },
     methods: {
         toggleSidebar() {
@@ -297,7 +370,8 @@ export default {
                         expense: item.expense,
                         code: item.code,
                         reference_to: item.reference_to,
-                        comment: item.comment
+                        comment: item.comment,
+                        client_id: item.client_id
                     })
                 ));
                 
@@ -312,6 +386,120 @@ export default {
                 toast.error("Error saving changes: " + (error.response?.data?.message || error.message));
             }
         },
+        async fetchClientsWithStatements() {
+            try {
+                const response = await axios.get('/clients-with-statements');
+                this.clients = response.data;
+            } catch (error) {
+                console.error("Failed to fetch clients:", error);
+                const toast = useToast();
+                toast.error('Error fetching clients');
+            }
+        },
+        initializeClientDropdown(itemId) {
+            this.showClientDropdown[itemId] = true;
+            this.filteredClients[itemId] = [...this.clients];
+        },
+        filterClients(itemId) {
+            if (!this.clientSearch[itemId]) {
+                this.filteredClients[itemId] = [...this.clients];
+                return;
+            }
+
+            this.filteredClients[itemId] = this.clients.filter(client =>
+                client.name.toLowerCase().includes(this.clientSearch[itemId].toLowerCase())
+            );
+        },
+        selectClient(client, item) {
+            item.client_id = client.id;
+            item.client = client;
+            this.clientSearch[item.id] = client.name;
+            this.showClientDropdown[item.id] = false;
+            this.markAsModified(item);
+        },
+        getClientName(item) {
+            return item.client?.name || '';
+        },
+        async fetchBanks() {
+            try {
+                const response = await axios.get('/banks-list');
+                this.banks = response.data;
+                this.filteredBanks = [...this.banks];
+            } catch (error) {
+                console.error("Failed to fetch banks:", error);
+                const toast = useToast();
+                toast.error('Error fetching banks');
+            }
+        },
+        filterBanks() {
+            if (!this.bankSearch) {
+                this.filteredBanks = [...this.banks];
+                return;
+            }
+
+            this.filteredBanks = this.banks.filter(bank =>
+                bank.name.toLowerCase().includes(this.bankSearch.toLowerCase())
+            );
+        },
+        selectBank(bank) {
+            this.editedCertificate.bank = bank.name;
+            this.editedCertificate.bankAccount = bank.bankAccount;
+            this.bankSearch = bank.name;
+            this.showBankDropdown = false;
+            this.markStatementAsModified();
+        },
+        toggleStatementEditMode() {
+            if (this.isStatementEditMode && this.hasStatementChanges) {
+                this.saveStatementChanges();
+            } else if (this.isStatementEditMode) {
+                this.isStatementEditMode = false;
+                this.hasStatementChanges = false;
+            } else {
+                this.isStatementEditMode = true;
+                this.editedCertificate = { ...this.certificate };
+                this.bankSearch = this.certificate.bank;
+            }
+        },
+        markStatementAsModified() {
+            this.hasStatementChanges = true;
+        },
+        async saveStatementChanges() {
+            const toast = useToast();
+            try {
+                const response = await axios.put(`/certificate/${this.certificate.id}`, {
+                    date: this.editedCertificate.date,
+                    bank: this.editedCertificate.bank,
+                    bankAccount: this.editedCertificate.bankAccount,
+                });
+                
+                Object.assign(this.certificate, response.data.certificate);
+                
+                toast.success("Statement updated successfully");
+                this.isStatementEditMode = false;
+                this.hasStatementChanges = false;
+            } catch (error) {
+                console.error('Error saving statement changes:', error);
+                toast.error("Error saving statement changes: " + (error.response?.data?.message || error.message));
+            }
+        },
+    },
+    async mounted() {
+        document.addEventListener('click', (e) => {
+            // Close dropdowns when clicking outside
+            const dropdowns = document.querySelectorAll('.relative');
+            dropdowns.forEach(dropdown => {
+                if (!dropdown.contains(e.target)) {
+                    const itemId = dropdown.closest('tr')?.querySelector('td')?.textContent;
+                    if (itemId) {
+                        this.showClientDropdown[itemId] = false;
+                    }
+                }
+            });
+        });
+        await this.fetchBanks();
+    },
+    beforeUnmount() {
+        document.removeEventListener('click', this.handleClickOutside);
     },
 };
 </script>
@@ -414,12 +602,12 @@ export default {
     border-radius: 2px;
 }
 
-.add-row,{
+.add-row {
     background-color: $blue;
     color: white;
 }
 
-.InvoiceDetails{
+.InvoiceDetails {
     border-bottom: 2px dashed lightgray;
 }
 .bt{
@@ -567,5 +755,52 @@ table th, table tr {
 
 .InvoiceDetails {
     border-bottom: 2px dashed lightgray;
+}
+
+.relative {
+    position: relative;
+}
+
+.absolute {
+    position: absolute;
+    z-index: 1000;
+}
+
+.max-h-60 {
+    max-height: 15rem;
+}
+
+.overflow-auto {
+    overflow: auto;
+}
+
+.hover\:bg-gray-100:hover {
+    background-color: #f3f4f6;
+}
+
+.bg-gray-200 {
+    background-color: #e5e7eb;
+}
+
+.cursor-pointer {
+    cursor: pointer;
+}
+
+/* Scrollbar styling */
+.overflow-auto::-webkit-scrollbar {
+    width: 8px;
+}
+
+.overflow-auto::-webkit-scrollbar-track {
+    background: #f1f1f1;
+}
+
+.overflow-auto::-webkit-scrollbar-thumb {
+    background: #888;
+    border-radius: 4px;
+}
+
+.overflow-auto::-webkit-scrollbar-thumb:hover {
+    background: #555;
 }
 </style>

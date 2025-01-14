@@ -76,7 +76,7 @@
                                 </div>
                                 <div class="info">
                                     <div>Date Created</div>
-                                    <div>{{ new Date(certificate.created_at).toLocaleDateString('en-US', { year: 'numeric', month: '2-digit', day: '2-digit' }) }}</div>
+                                    <div>{{ new Date(certificate.date).toLocaleDateString('en-US', { year: 'numeric', month: '2-digit', day: '2-digit' }) }}</div>
                                 </div>
                             </div>
                         </div>

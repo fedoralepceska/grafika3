@@ -121,7 +121,18 @@ class CertificateController extends Controller
      */
     public function update(Request $request, Certificate $certificate)
     {
-        //
+        $validatedData = $request->validate([
+            'date' => 'required|date',
+            'bank' => 'required|string',
+            'bankAccount' => 'required|string',
+        ]);
+
+        $certificate->update($validatedData);
+
+        return response()->json([
+            'message' => 'Certificate updated successfully',
+            'certificate' => $certificate
+        ]);
     }
 
     /**
@@ -130,5 +141,11 @@ class CertificateController extends Controller
     public function destroy(Certificate $certificate)
     {
         //
+    }
+
+    public function getBanksList()
+    {
+        $banks = \App\Models\Bank::select('id', 'name', 'address as bankAccount')->get();
+        return response()->json($banks);
     }
 }
