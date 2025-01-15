@@ -23,9 +23,9 @@ class OfferController extends Controller
             $searchTerm = $request->input('search', '');
 
             // Start with base query
-            $query = Offer::with([
-                'catalogItems',
-            ]);
+            $query = Offer::with(['catalogItems' => function($query) {
+                $query->with(['largeMaterial', 'smallMaterial']);
+            }]);
 
             // Add optional search functionality
             if (!empty($searchTerm)) {
@@ -33,23 +33,34 @@ class OfferController extends Controller
             }
 
             // Paginate the results
-            $catalogItems = $query->paginate($perPage, ['*'], 'page', $page);
+            $offers = $query->paginate($perPage, ['*'], 'page', $page);
 
             // Transform the paginated items
-            $transformedItems = $catalogItems->getCollection()->map(function($item) {
-
+            $transformedItems = $offers->getCollection()->map(function($offer) {
                 return [
-                    'id' => $item->id,
-                    'name' => $item->name,
-                    'description' => $item->description,
-                    'price1' => $item->price1,
-                    'price2' => $item->price2,
-                    'price3' => $item->price3,
-                    'catalogItems' => collect($item->catalogItems ?? [])->map(function($item) {
+                    'id' => $offer->id,
+                    'name' => $offer->name,
+                    'description' => $offer->description,
+                    'price1' => $offer->price1,
+                    'price2' => $offer->price2,
+                    'price3' => $offer->price3,
+                    'catalogItems' => $offer->catalogItems->map(function($item) {
                         return [
-                            'catalog_item_id' => $item['catalog_item_id']
+                            'id' => $item->id,
+                            'catalog_item_id' => $item->id,
+                            'name' => $item->name,
+                            'file' => $item->file,
+                            'price' => $item->price,
+                            'large_material' => $item->largeMaterial ? [
+                                'id' => $item->largeMaterial->id,
+                                'name' => $item->largeMaterial->name
+                            ] : null,
+                            'small_material' => $item->smallMaterial ? [
+                                'id' => $item->smallMaterial->id,
+                                'name' => $item->smallMaterial->name
+                            ] : null
                         ];
-                    })->toArray()
+                    })->values()->toArray()
                 ];
             });
 
@@ -57,10 +68,14 @@ class OfferController extends Controller
             return Inertia::render('Offer/Index', [
                 'offers' => $transformedItems,
                 'pagination' => [
-                    'current_page' => $catalogItems->currentPage(),
-                    'total_pages' => $catalogItems->lastPage(),
-                    'total_items' => $catalogItems->total(),
-                    'per_page' => $catalogItems->perPage()
+                    'current_page' => $offers->currentPage(),
+                    'total_pages' => $offers->lastPage(),
+                    'total_items' => $offers->total(),
+                    'per_page' => $offers->perPage(),
+                    'links' => [
+                        'prev' => $offers->previousPageUrl() ? true : false,
+                        'next' => $offers->nextPageUrl() ? true : false
+                    ]
                 ]
             ]);
         } catch (\Exception $e) {
@@ -78,11 +93,27 @@ class OfferController extends Controller
 
     public function create()
     {
-        $catalogItems = DB::table('catalog_items')
-            ->select('id', 'name', 'category')
-            ->whereNotNull('catalog_items.name')
-            ->where('catalog_items.is_for_offer', true)
-            ->get();
+        $catalogItems = CatalogItem::with(['largeMaterial', 'smallMaterial'])
+            ->where('is_for_offer', true)
+            ->get()
+            ->map(function($item) {
+                return [
+                    'id' => $item->id,
+                    'name' => $item->name,
+                    'price' => $item->price,
+                    'file' => $item->file,
+                    'large_material_id' => $item->large_material_id,
+                    'small_material_id' => $item->small_material_id,
+                    'large_material' => $item->largeMaterial ? [
+                        'id' => $item->largeMaterial->id,
+                        'name' => $item->largeMaterial->name,
+                    ] : null,
+                    'small_material' => $item->smallMaterial ? [
+                        'id' => $item->smallMaterial->id,
+                        'name' => $item->smallMaterial->name,
+                    ] : null,
+                ];
+            });
 
         return Inertia::render('Offer/Create', [
             'catalogItems' => $catalogItems,
@@ -126,12 +157,15 @@ class OfferController extends Controller
         ], 201);
     }
 
-    public function destroy(CatalogItem $catalogItem)
+    public function destroy(Offer $offer)
     {
-        $catalogItem->actions()->detach();
-        $catalogItem->delete();
-
-        return redirect()->route('catalog.index')->with('success', 'Catalog item deleted successfully.');
+        try {
+            $offer->catalogItems()->detach();
+            $offer->delete();
+            return response()->json(['message' => 'Offer deleted successfully']);
+        } catch (\Exception $e) {
+            return response()->json(['error' => 'Failed to delete offer'], 500);
+        }
     }
 
     public function getOffers()

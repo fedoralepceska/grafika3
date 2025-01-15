@@ -13,7 +13,8 @@ class Offer extends Model
 
     public function catalogItems()
     {
-        return $this->belongsToMany(CatalogItem::class, 'catalog_item_offer', 'offer_id', 'catalog_item_id');
+        return $this->belongsToMany(CatalogItem::class, 'catalog_item_offer')
+                    ->withTimestamps();
     }
 
     public function clients()
