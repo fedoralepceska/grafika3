@@ -154,13 +154,19 @@ class CatalogItemController extends Controller
         ]);
         $actions = $request->input('actions');
         $actions = array_map(function ($action) {
-            $action['isMaterialized'] = filter_var($action['isMaterialized'], FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
+            // Convert empty string to null for isMaterialized
+            if ($action['isMaterialized'] === '') {
+                $action['isMaterialized'] = null;
+            } else {
+                $action['isMaterialized'] = filter_var($action['isMaterialized'], FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
+            }
             return $action;
         }, $actions);
         $request->merge(['actions' => $actions]);
 
         $request->validate([
             'name' => 'required|string|unique:catalog_items',
+            'description' => 'nullable|string',
             'machinePrint' => 'nullable|string',
             'machineCut' => 'nullable|string',
             'large_material_id' => 'nullable|exists:large_format_materials,id',
@@ -170,7 +176,7 @@ class CatalogItemController extends Controller
             'actions' => 'required|array',
             'actions.*.id' => 'required|exists:dorabotka,id',
             'actions.*.quantity' => 'integer|min:0|required_if:actions.*.isMaterialized,true|nullable',
-            'actions.*.isMaterialized' => 'boolean|in:0,1,true,false',
+            'actions.*.isMaterialized' => 'nullable',
             'is_for_offer' => 'nullable|boolean',
             'is_for_sales' => 'nullable|boolean',
             'category' => 'nullable|string|in:' . implode(',', \App\Models\CatalogItem::CATEGORIES),
@@ -277,8 +283,23 @@ class CatalogItemController extends Controller
                 'large_material_id' => $request->input('large_material_id') === 'null' || $request->input('large_material_id') === '' ? null : $request->input('large_material_id'),
             ]);
 
+            $actions = $request->input('actions');
+            if ($actions) {
+                $actions = array_map(function ($action) {
+                    // Convert empty string to null for isMaterialized
+                    if ($action['isMaterialized'] === '') {
+                        $action['isMaterialized'] = null;
+                    } else {
+                        $action['isMaterialized'] = filter_var($action['isMaterialized'], FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
+                    }
+                    return $action;
+                }, $actions);
+                $request->merge(['actions' => $actions]);
+            }
+
             $request->validate([
                 'name' => 'required|string|unique:catalog_items,name,' . $catalogItem->id,
+                'description' => 'nullable|string',
                 'machinePrint' => 'nullable|string',
                 'machineCut' => 'nullable|string',
                 'large_material_id' => 'nullable|exists:large_format_materials,id',
@@ -288,7 +309,7 @@ class CatalogItemController extends Controller
                 'actions' => 'required|array',
                 'actions.*.id' => 'required|exists:dorabotka,id',
                 'actions.*.quantity' => 'integer|min:0|required_if:actions.*.isMaterialized,true|nullable',
-                'actions.*.isMaterialized' => 'boolean',
+                'actions.*.isMaterialized' => 'nullable',
                 'is_for_offer' => 'nullable|boolean',
                 'is_for_sales' => 'nullable|boolean',
                 'category' => 'nullable|string|in:' . implode(',', CatalogItem::CATEGORIES),

@@ -24,6 +24,7 @@ use App\Http\Controllers\PricePerClientController;
 use App\Http\Controllers\PricePerQuantityController;
 use App\Http\Controllers\ClientPriceController;
 use App\Http\Controllers\QuantityPriceController;
+use App\Http\Controllers\OfferController;
 
 /*
 |--------------------------------------------------------------------------
@@ -300,6 +301,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('/offer-client/accept', [\App\Http\Controllers\OfferController::class, 'acceptOffer'])->name('offer.acceptOffer');
     Route::get('/offer-client/details/{id}', [\App\Http\Controllers\OfferController::class, 'getDetails'])->name('offer.getDetails');
 
+    // Offer routes
+    Route::resource('offers', \App\Http\Controllers\OfferController::class);
+    Route::get('/offers/{offer}/items', [\App\Http\Controllers\OfferController::class, 'items'])->name('offers.items');
 });
 
 // Routes for catalog edit form data
@@ -374,6 +378,16 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/quantity-prices/{quantityPrice}/edit', [QuantityPriceController::class, 'edit'])->name('quantity-prices.edit');
     Route::put('/quantity-prices/{quantityPrice}', [QuantityPriceController::class, 'update'])->name('quantity-prices.update');
     Route::delete('/quantity-prices/{quantityPrice}', [QuantityPriceController::class, 'destroy'])->name('quantity-prices.destroy');
+});
+
+// Offer Routes
+Route::middleware(['auth'])->group(function () {
+    Route::get('/offers', [OfferController::class, 'index'])->name('offers.index');
+    Route::get('/offers/create', [OfferController::class, 'create'])->name('offers.create');
+    Route::post('/offers', [OfferController::class, 'store'])->name('offers.store');
+    Route::get('/offers/{offer}', [OfferController::class, 'show'])->name('offers.show');
+    Route::patch('/offers/{offer}/status', [OfferController::class, 'updateStatus'])->name('offers.update-status');
+    Route::get('/offers/{offer}/items', [OfferController::class, 'items'])->name('offers.items');
 });
 
 require __DIR__.'/auth.php';

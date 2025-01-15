@@ -9,18 +9,53 @@ class Offer extends Model
 {
     use HasFactory;
 
-    protected $fillable = ['name', 'description', 'price1', 'price2', 'price3'];
+    protected $fillable = [
+        'name',
+        'description',
+        'client_id',
+        'validity_days',
+        'production_start_date',
+        'production_end_date',
+        'price1',
+        'price2',
+        'price3',
+        'status',
+        'decline_reason'
+    ];
+
+    protected $casts = [
+        'production_start_date' => 'date',
+        'production_end_date' => 'date',
+        'validity_days' => 'integer',
+        'price1' => 'decimal:2',
+        'price2' => 'decimal:2',
+        'price3' => 'decimal:2',
+    ];
 
     public function catalogItems()
     {
         return $this->belongsToMany(CatalogItem::class, 'catalog_item_offer')
+                    ->withPivot('quantity', 'description')
                     ->withTimestamps();
     }
 
-    public function clients()
+    public function client()
     {
-        return $this->belongsToMany(Client::class, 'offer_client')
-            ->withPivot('is_accepted', 'description')
-            ->withTimestamps();
+        return $this->belongsTo(Client::class);
+    }
+
+    public function isPending()
+    {
+        return $this->status === 'pending';
+    }
+
+    public function isAccepted()
+    {
+        return $this->status === 'accepted';
+    }
+
+    public function isDeclined()
+    {
+        return $this->status === 'declined';
     }
 }

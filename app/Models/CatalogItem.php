@@ -13,6 +13,7 @@ class CatalogItem extends Model
 
     protected $fillable = [
         'name',
+        'description',
         'machinePrint',
         'machineCut',
         'large_material_id',

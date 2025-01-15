@@ -1,274 +1,299 @@
 <template>
     <MainLayout>
         <div class="pl-7 pr-7">
-            <Header 
-                title="Offers" 
-                subtitle="All Offers" 
-                icon="List.png" 
-                link="offers"
-                buttonText="Create New Offer"
-                :showButton="true"
-                buttonLink="offer.create"
-            />
+            <Header title="Offers List" subtitle="Manage Offers" icon="List.png">
+                <Link :href="route('offers.create')" class="btn btn-primary">
+                    Create New Offer
+                </Link>
+            </Header>
 
-            <div class="dark-gray p-2 text-white">
-                <div class="form-container p-2">
-                    <div class="flex justify-between items-center mb-4">
-                        <h2 class="sub-title">Offers Dashboard</h2>
-                        <div class="flex items-center space-x-4">
-                            <div class="relative">
-                                <input
-                                    v-model="searchQuery"
-                                    type="text"
-                                    placeholder="Search offers..."
-                                    class="pl-10 pr-4 py-2 rounded-md bg-gray-700 text-white placeholder-gray-400 border border-gray-600 focus:border-green-500 focus:outline-none focus:ring-1 focus:ring-green-500 w-64 transition-colors duration-200"
-                                    @input="debouncedSearch"
-                                />
-                            </div>
-                            <div class="flex items-center space-x-2">
-                                <button 
-                                    type="button"
-                                    @click="viewMode = 'list'"
-                                    :class="['view-toggle-btn', viewMode === 'list' ? 'active' : '']"
-                                    title="List View"
-                                >
-                                    <i class="fas fa-list"></i>
-                                </button>
-                                <button 
-                                    type="button"
-                                    @click="viewMode = 'card'"
-                                    :class="['view-toggle-btn', viewMode === 'card' ? 'active' : '']"
-                                    title="Card View"
-                                >
-                                    <i class="fas fa-th-large"></i>
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- List View -->
-                    <div v-if="viewMode === 'list'" class="space-y-2">
-                        <table class="w-full text-left border-collapse">
-                            <thead>
-                                <tr class="bg-gray-700 text-white">
-                                    <th class="p-4">Name</th>
-                                    <th class="p-4">Description</th>
-                                    <th class="p-4">Price 1</th>
-                                    <th class="p-4">Price 2</th>
-                                    <th class="p-4">Price 3</th>
-                                    <th class="p-4">Items Count</th>
-                                    <th class="p-4 text-right">Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr v-for="offer in offers" 
-                                    :key="offer.id"
-                                    class="bg-gray-800 text-white border-t border-gray-700"
-                                >
-                                    <td class="p-4">{{ offer.name }}</td>
-                                    <td class="p-4">
-                                        <div class="max-w-xs truncate">{{ offer.description }}</div>
-                                    </td>
-                                    <td class="p-4">{{ formatPrice(offer.price1) }}</td>
-                                    <td class="p-4">{{ formatPrice(offer.price2) }}</td>
-                                    <td class="p-4">{{ formatPrice(offer.price3) }}</td>
-                                    <td class="p-4">{{ offer.catalogItems?.length || 0 }}</td>
-                                    <td class="p-4 text-center">
-                                        <div class="flex justify-left space-x-2">
-                                            <button 
-                                                @click="viewOffer(offer)"
-                                                class="btn-info px-2 py-1 rounded"
-                                                title="View Details"
-                                            >
-                                                <i class="fas fa-eye"></i>
-                                            </button>
-                                            <button 
-                                                @click="confirmDelete(offer)"
-                                                class="btn-danger px-2 py-1 rounded"
-                                                title="Delete Offer"
-                                            >
-                                                <i class="fas fa-trash"></i>
-                                            </button>
-                                        </div>
-                                    </td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-
-                    <!-- Card View -->
-                    <div v-else class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                        <div v-for="offer in offers" 
-                             :key="offer.id" 
-                             class="offer-card"
-                        >
-                            <div class="p-4">
-                                <div class="flex justify-between items-start mb-3">
-                                    <h3 class="font-medium text-lg text-white">{{ offer.name }}</h3>
-                                    <div class="flex space-x-2">
-                                        <button 
-                                            @click="viewOffer(offer)"
-                                            class="btn-info px-2 py-1 rounded"
-                                            title="View Details"
-                                        >
-                                            <i class="fas fa-eye"></i>
-                                        </button>
-                                        <button 
-                                            @click="confirmDelete(offer)"
-                                            class="btn-danger px-2 py-1 rounded"
-                                            title="Delete Offer"
-                                        >
-                                            <i class="fas fa-trash"></i>
-                                        </button>
-                                    </div>
-                                </div>
-                                <div class="text-gray-300 text-sm mb-4 h-12 overflow-hidden">
-                                    {{ offer.description }}
-                                </div>
-                                <div class="grid grid-cols-3 gap-2 mb-4">
-                                    <div class="text-center p-2 bg-gray-700 rounded">
-                                        <div class="text-xs text-gray-400">Price 1</div>
-                                        <div class="text-sm font-medium">{{ formatPrice(offer.price1) }}</div>
-                                    </div>
-                                    <div class="text-center p-2 bg-gray-700 rounded">
-                                        <div class="text-xs text-gray-400">Price 2</div>
-                                        <div class="text-sm font-medium">{{ formatPrice(offer.price2) }}</div>
-                                    </div>
-                                    <div class="text-center p-2 bg-gray-700 rounded">
-                                        <div class="text-xs text-gray-400">Price 3</div>
-                                        <div class="text-sm font-medium">{{ formatPrice(offer.price3) }}</div>
-                                    </div>
-                                </div>
-                                <div class="flex items-center justify-between text-sm text-gray-400">
-                                    <span>Items: {{ offer.catalogItems?.length || 0 }}</span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Pagination -->
-                    <div class="flex justify-between items-center mt-4">
-                        <button
-                            :disabled="!pagination.links?.prev"
-                            @click="fetchOffers(pagination.current_page - 1)"
-                            class="btn btn-secondary"
-                        >
-                            Previous
-                        </button>
-                        <span class="text-white">
-                            Page {{ pagination.current_page }} of {{ pagination.total_pages }}
-                        </span>
-                        <button
-                            :disabled="!pagination.links?.next"
-                            @click="fetchOffers(pagination.current_page + 1)"
-                            class="btn btn-secondary"
-                        >
-                            Next
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- View Offer Dialog -->
-        <div v-if="selectedOffer" class="modal-backdrop">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h2>Offer Details</h2>
-                    <button @click="closeViewDialog" class="close-button">&times;</button>
-                </div>
-                <div class="modal-body">
-                    <div class="space-y-4">
-                        <div>
-                            <h3 class="text-white font-medium mb-2">Basic Information</h3>
-                            <div class="grid grid-cols-2 gap-4">
-                                <div>
-                                    <div class="text-gray-400">Name</div>
-                                    <div class="text-white">{{ selectedOffer.name }}</div>
-                                </div>
-                                <div>
-                                    <div class="text-gray-400">Description</div>
-                                    <div class="text-white">{{ selectedOffer.description }}</div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div>
-                            <h3 class="text-white font-medium mb-2">Pricing</h3>
-                            <div class="grid grid-cols-3 gap-4">
-                                <div class="bg-gray-700 p-3 rounded">
-                                    <div class="text-gray-400 text-sm">Price 1</div>
-                                    <div class="text-white font-medium">{{ formatPrice(selectedOffer.price1) }}</div>
-                                </div>
-                                <div class="bg-gray-700 p-3 rounded">
-                                    <div class="text-gray-400 text-sm">Price 2</div>
-                                    <div class="text-white font-medium">{{ formatPrice(selectedOffer.price2) }}</div>
-                                </div>
-                                <div class="bg-gray-700 p-3 rounded">
-                                    <div class="text-gray-400 text-sm">Price 3</div>
-                                    <div class="text-white font-medium">{{ formatPrice(selectedOffer.price3) }}</div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div>
-                            <h3 class="text-white font-medium mb-2">Catalog Items</h3>
-                            <div v-if="selectedOffer.catalogItems && selectedOffer.catalogItems.length > 0" 
-                                 class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                <div v-for="item in selectedOffer.catalogItems" 
-                                     :key="item.id"
-                                     class="bg-gray-700 p-4 rounded-lg flex flex-col"
-                                >
-                                    <div class="space-y-2">
-                                        <h4 class="text-white font-medium">{{ item.name }}</h4>
-                                        <div class="text-sm text-gray-300">
-                                            Price: {{ formatPrice(item.price) }}
-                                        </div>
-                                        <div v-if="item.large_material" class="text-sm text-gray-300">
-                                            Large Material: {{ item.large_material.name }}
-                                        </div>
-                                        <div v-if="item.small_material" class="text-sm text-gray-300">
-                                            Small Material: {{ item.small_material.name }}
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                            <div v-else class="text-gray-400 text-center py-4">
-                                No catalog items associated with this offer.
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Delete Confirmation Modal -->
-        <div v-if="showDeleteModal" class="modal-backdrop">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h2>Confirm Delete</h2>
-                    <button @click="closeDeleteModal" class="close-button">&times;</button>
-                </div>
-                <div class="modal-body">
-                    <p class="text-gray-300 mb-4">
-                        Are you sure you want to delete the offer "{{ offerToDelete?.name }}"?
-                    </p>
-                    <div class="flex justify-end space-x-3">
+            <div class="dark-gray">
+                <!-- Tabs -->
+                <div class="tabs-container mb-6">
+                    <div class="flex">
                         <button 
-                            @click="closeDeleteModal"
-                            class="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700 transition-colors"
+                            v-for="tab in tabs" 
+                            :key="tab.value"
+                            @click="currentTab = tab.value"
+                            :class="[
+                                'tab-button',
+                                currentTab === tab.value ? 'active' : ''
+                            ]"
                         >
-                            Cancel
-                        </button>
-                        <button 
-                            @click="deleteOffer"
-                            class="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 transition-colors"
-                        >
-                            Delete
+                            <span class="tab-label">{{ tab.label }}</span>
+                            <span :class="['tab-count', `tab-count-${tab.value}`]">
+                                {{ getOffersCount(tab.value) }}
+                            </span>
                         </button>
                     </div>
                 </div>
+
+                <table class="w-full">
+                    <thead>
+                        <tr>
+                            <th>Client</th>
+                            <th>Status</th>
+                            <th>Validity Days</th>
+                            <th>Production Period</th>
+                            <th>Items</th>
+                            <th>Created At</th>
+                            <th v-if="currentTab === 'pending'" class="flex justify-center">Actions</th>
+                            <th v-if="currentTab === 'declined'">Decline Reason</th>
+                            <th>PDF</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr v-for="offer in filteredOffers" :key="offer.id">
+                            <td>{{ offer.client }}</td>
+                            <td>
+                                <span :class="['status-badge', offer.status]">
+                                    {{ offer.status }}
+                                </span>
+                            </td>
+                            <td>{{ offer.validity_days }} days</td>
+                            <td>{{ formatDate(offer.production_start_date) }} - {{ formatDate(offer.production_end_date) }}</td>
+                            <td>
+                                <button 
+                                    @click="viewItems(offer)"
+                                    class="text-green hover:text-light-green"
+                                >
+                                    {{ offer.items_count }}
+                                    <i class="fas fa-eye ml-1"></i>
+                                </button>
+                            </td>
+                            <td>{{ formatDate(offer.created_at) }}</td>
+                            <td v-if="currentTab === 'pending'" class="space-x-2 flex justify-center">
+                                <button 
+                                    @click="acceptOffer(offer)"
+                                    class="px-2 py-1 btn-success text-white"
+                                >
+                                    Accept
+                                    <i class="fas fa-check ml-1"></i>
+                                </button>
+
+                                <button 
+                                    @click="openDeclineModal(offer)"
+                                    class="px-2 py-1 btn-danger text-white"
+                                >
+                                    Decline
+                                    <i class="fas fa-times ml-1"></i>
+                                </button>
+                            </td>
+                            <td v-if="currentTab === 'declined'" class="relative">
+                                <div class="flex justify-center items-center space-x-2">
+                                    <span class="text-ultra-light-gray">
+                                        {{ offer.decline_reason || 'No reason provided' }}
+                                    </span>
+                                    <button 
+                                        @click="openDeclineModal(offer)"
+                                        class="text-light-gray hover:text-white"
+                                    >
+                                        <i class="fas fa-edit"></i>
+                                    </button>
+                                </div>
+                            </td>
+                            <td >
+                                <button 
+                                    @click="downloadPDF(offer)"
+                                    class="text-light-gray hover:text-white"
+                                >
+                                    <i class="fas fa-file-pdf" style="font-size: 1.5rem;"></i>
+                                </button>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
             </div>
+
+            <!-- Items Modal -->
+            <Modal :show="showItemsModal" @close="closeItemsModal">
+                <div class="p-4 text-white bg-dark-gray background-color">
+                    <!-- Modal Header -->
+                    <div class="modal-header flex justify-between items-center mb-4 pb-2">
+                        <div>
+                            <h2 class="text-lg font-semibold">Offer Items</h2>
+                            <p class="text-sm">Client: {{ selectedOffer?.client }}</p>
+                        </div>
+                        <button @click="closeItemsModal" class="text-light-gray hover:text-dark-gray">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+
+                    <!-- Items Grid -->
+                    <div v-if="selectedOffer" class="space-y-4">
+                        <!-- View Toggle -->
+                        <div class="view-toggle flex justify-end space-x-2 mb-2">
+                            <button 
+                                @click="itemsViewMode = 'grid'"
+                                :class="['px-2 py-1 rounded text-sm font-medium', itemsViewMode === 'grid' ? 'active' : '']"
+                            >
+                                <i class="fas fa-th-large mr-1"></i> Grid
+                            </button>
+                            <button 
+                                @click="itemsViewMode = 'list'"
+                                :class="['px-2 py-1 rounded text-sm font-medium', itemsViewMode === 'list' ? 'active' : '']"
+                            >
+                                <i class="fas fa-list mr-1"></i> List
+                            </button>
+                        </div>
+
+                        <!-- Grid View -->
+                        <div v-if="itemsViewMode === 'grid'" class="grid grid-cols-2 gap-3">
+                            <div v-for="item in selectedOffer.catalog_items" 
+                                :key="item.id" 
+                                class="item-card"
+                            >
+                                <!-- Item Image -->
+                                <div class="relative aspect-w-4 aspect-h-3">
+                                    <div v-if="isPlaceholder(item.file)" 
+                                        class="no-image w-full h-24 flex items-center justify-center text-xs"
+                                    >
+                                        NO IMAGE
+                                    </div>
+                                    <img v-else 
+                                        :src="getFileUrl(item.file)" 
+                                        :alt="item.name"
+                                        class="w-full h-24 object-contain bg-white"
+                                    >
+                                </div>
+
+                                <!-- Item Details -->
+                                <div class="p-3 space-y-2">
+                                    <div>
+                                        <h3 class="item-name text-base font-medium truncate">{{ item.name }}</h3>
+                                        <p class="item-type text-xs">
+                                            {{ item.large_material ? 'Large Format' : 'Small Format' }} Material
+                                        </p>
+                                    </div>
+
+                                    <div class="item-details grid grid-cols-2 gap-2 text-xs">
+                                        <div>
+                                            <span>Quantity: {{ item.quantity }}</span>
+                                        </div>
+                                        <div>
+                                            <span>{{ item.price ? `€${item.price}` : '-' }}</span>
+                                        </div>
+                                    </div>
+
+                                    <!-- Descriptions -->
+                                    <div class="descriptions space-y-1 pt-1">
+                                       
+                                        <div v-if="item.custom_description" class="text-xs">
+                                            <p class="label">Description:</p>
+                                            <p class="text line-clamp-2">{{ item.custom_description }}</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- List View -->
+                        <div v-else class="space-y-2">
+                            <div v-for="item in selectedOffer.catalog_items" 
+                                :key="item.id" 
+                                class="item-card"
+                            >
+                                <div class="p-3 flex items-start space-x-3">
+                                    <!-- Item Image -->
+                                    <div class="w-16 h-16 flex-shrink-0">
+                                        <div v-if="isPlaceholder(item.file)" 
+                                            class="no-image w-full h-full flex items-center justify-center text-xs"
+                                        >
+                                            NO IMAGE
+                                        </div>
+                                        <img v-else 
+                                            :src="getFileUrl(item.file)" 
+                                            :alt="item.name"
+                                            class="w-full h-full object-contain bg-white rounded"
+                                        >
+                                    </div>
+
+                                    <!-- Item Details -->
+                                    <div class="flex-1 min-w-0">
+                                        <div class="flex justify-between items-start">
+                                            <div>
+                                                <h3 class="item-name text-base font-medium">{{ item.name }}</h3>
+                                                <p class="item-type text-xs">
+                                                    {{ item.large_material ? 'Large Format' : 'Small Format' }} Material
+                                                </p>
+                                            </div>
+                                            <div class="item-details text-right text-xs">
+                                                <p>
+                                                    <span>Quantity: {{ item.quantity }}</span>
+                                                </p>
+                                                <p>
+                                                    <span>{{ item.price ? `€${item.price}` : '-' }}</span>
+                                                </p>
+                                            </div>
+                                        </div>
+
+                                        <!-- Descriptions -->
+                                        <div class="descriptions mt-2 space-y-1 text-xs">
+                                            
+                                            <div v-if="item.custom_description">
+                                                <p class="label">Description:</p>
+                                                <p class="text line-clamp-2">{{ item.custom_description }}</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </Modal>
+
+            <!-- Decline Reason Modal -->
+            <Modal :show="showDeclineModal" @close="closeDeclineModal">
+                <div class="p-4 background-color">
+                    <div class="modal-header flex justify-between items-center mb-4 pb-2">
+                        <div>
+                            <h2 class="text-lg font-semibold">{{ isEditingDeclineReason ? 'Edit Decline Reason' : 'Decline Offer' }}</h2>
+                            <p class="text-sm">Client: {{ selectedOffer?.client }}</p>
+                        </div>
+                        <button @click="closeDeclineModal" class="text-light-gray hover:text-white">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+
+                    <div class="space-y-4 background-color">
+                        <div>
+                            <label class="block text-white text-sm mb-2">
+                                Reason (Optional)
+                            </label>
+                            <textarea
+                                v-model="declineReason"
+                                rows="3"
+                                class="w-full px-3 py-2 bg-gray-600 border border-light-gray rounded-md text-white placeholder-ultra-light-gray focus:border-green focus:outline-none"
+                                placeholder="Enter reason for declining..."
+                            ></textarea>
+                        </div>
+
+                        <div class="flex justify-end space-x-2">
+                            <button 
+                                @click="closeDeclineModal"
+                                class="px-4 py-2 btn-danger text-white"
+                            >
+                                Cancel
+                            </button>
+                            <button 
+                                v-if="declineReason.trim()"
+                                @click="confirmDecline"
+                                class="px-4 py-2 btn-primary text-white"
+                            >
+                                {{ isEditingDeclineReason ? 'Update Reason' : 'Decline with Reason' }}
+                            </button>
+                            <button 
+                                v-else
+                                @click="confirmDecline"
+                                class="px-4 py-2 btn-primary text-white"
+                            >
+                                No Reason
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </Modal>
         </div>
     </MainLayout>
 </template>
@@ -276,237 +301,408 @@
 <script>
 import MainLayout from '@/Layouts/MainLayout.vue';
 import Header from '@/Components/Header.vue';
-import { useToast } from 'vue-toastification';
-import '@fortawesome/fontawesome-free/css/all.css';
+import Modal from '@/Components/Modal.vue';
+import { Link } from '@inertiajs/vue3';
 
 export default {
-    name: 'Index',
     components: {
         MainLayout,
-        Header
+        Header,
+        Modal,
+        Link
     },
+
     props: {
-        offers: {
-            type: Array,
-            required: true
-        },
-        pagination: {
-            type: Object,
-            required: true
-        }
+        offers: Array
     },
+
     data() {
         return {
-            searchQuery: '',
-            viewMode: 'list',
+            showModal: false,
+            showItemsModal: false,
+            showDeclineModal: false,
             selectedOffer: null,
-            showDeleteModal: false,
-            offerToDelete: null,
-            searchTimeout: null
+            itemsViewMode: 'grid',
+            currentTab: 'pending',
+            declineReason: '',
+            isEditingDeclineReason: false,
+            tabs: [
+                { label: 'Pending', value: 'pending' },
+                { label: 'Accepted', value: 'accepted' },
+                { label: 'Declined', value: 'declined' }
+            ]
         };
     },
-    methods: {
-        formatPrice(price) {
-            if (!price) return '€0.00';
-            return new Intl.NumberFormat('de-DE', {
-                style: 'currency',
-                currency: 'EUR'
-            }).format(price);
-        },
-        debouncedSearch() {
-            clearTimeout(this.searchTimeout);
-            this.searchTimeout = setTimeout(() => {
-                this.fetchOffers(1); // Reset to first page when searching
-            }, 300); // 300ms delay
-        },
-        async fetchOffers(page = 1) {
-            await this.$inertia.get(route('offer.index'), {
-                search: this.searchQuery,
-                page: page,
-                per_page: this.pagination.per_page
-            }, {
-                preserveState: true,
-                preserveScroll: true,
-                only: ['offers', 'pagination']
-            });
-        },
-        viewOffer(offer) {
-            this.selectedOffer = offer;
-        },
-        closeViewDialog() {
-            this.selectedOffer = null;
-        },
-        confirmDelete(offer) {
-            this.offerToDelete = offer;
-            this.showDeleteModal = true;
-        },
-        closeDeleteModal() {
-            this.showDeleteModal = false;
-            this.offerToDelete = null;
-        },
-        async deleteOffer() {
-            try {
-                await axios.delete(route('offer.destroy', this.offerToDelete.id));
-                const toast = useToast();
-                toast.success('Offer deleted successfully');
-                this.closeDeleteModal();
-                this.fetchOffers(this.pagination.current_page);
-            } catch (error) {
-                const toast = useToast();
-                toast.error('Failed to delete offer');
-                console.error('Error deleting offer:', error);
-            }
+
+    computed: {
+        filteredOffers() {
+            return this.offers.filter(offer => offer.status === this.currentTab);
         }
     },
-    beforeUnmount() {
-        clearTimeout(this.searchTimeout); // Clean up the timeout
+
+    methods: {
+        formatDate(date) {
+            if (!date) return '-';
+            const d = new Date(date);
+            return d.toLocaleDateString('en-GB', {
+                day: '2-digit',
+                month: '2-digit',
+                year: 'numeric'
+            });
+        },
+        
+        async viewItems(offer) {
+            this.selectedOffer = offer;
+            this.showItemsModal = true;
+        },
+
+        closeItemsModal() {
+            this.showItemsModal = false;
+            this.selectedOffer = null;
+        },
+
+        getFileUrl(file) {
+            return file && file !== 'placeholder.jpeg'
+                ? `/storage/uploads/${file}`
+                : '/storage/uploads/placeholder.jpeg';
+        },
+
+        isPlaceholder(file) {
+            return !file || file === 'placeholder.jpeg';
+        },
+
+        getOffersCount(status) {
+            return this.offers.filter(offer => offer.status === status).length;
+        },
+
+        getTabCountClass(status) {
+            const baseClasses = 'bg-opacity-20';
+            switch (status) {
+                case 'pending':
+                    return `${baseClasses} bg-orange text-orange`;
+                case 'accepted':
+                    return `${baseClasses} bg-green text-green`;
+                case 'declined':
+                    return `${baseClasses} bg-red text-red`;
+                default:
+                    return '';
+            }
+        },
+
+        async acceptOffer(offer) {
+            try {
+                await this.$inertia.patch(route('offers.update-status', offer.id), {
+                    status: 'accepted'
+                }, {
+                    preserveScroll: true,
+                    preserveState: true,
+                    onSuccess: () => {
+                        this.$toast.success('Offer has been accepted successfully.');
+                    },
+                    onError: () => {
+                        this.$toast.error('Failed to accept the offer. Please try again.');
+                    }
+                });
+            } catch (error) {
+                console.error('Error accepting offer:', error);
+                this.$toast.error('An unexpected error occurred.');
+            }
+        },
+
+        openDeclineModal(offer) {
+            this.selectedOffer = offer;
+            this.isEditingDeclineReason = offer.status === 'declined';
+            this.declineReason = offer.decline_reason || '';
+            this.showDeclineModal = true;
+        },
+
+        closeDeclineModal() {
+            this.showDeclineModal = false;
+            this.selectedOffer = null;
+            this.declineReason = '';
+            this.isEditingDeclineReason = false;
+        },
+
+        async confirmDecline() {
+            if (!this.selectedOffer) return;
+
+            try {
+                await this.$inertia.patch(route('offers.update-status', this.selectedOffer.id), {
+                    status: 'declined',
+                    decline_reason: this.declineReason.trim() || null
+                }, {
+                    preserveScroll: true,
+                    preserveState: true,
+                    onSuccess: () => {
+                        const message = this.declineReason.trim()
+                            ? 'Offer has been declined with reason.'
+                            : 'Offer has been declined without reason.';
+                        this.$toast.success(message);
+                        this.closeDeclineModal();
+                    },
+                    onError: (errors) => {
+                        if (errors.decline_reason) {
+                            this.$toast.error(errors.decline_reason);
+                        } else {
+                            this.$toast.error('Failed to decline the offer. Please try again.');
+                        }
+                    }
+                });
+            } catch (error) {
+                console.error('Error declining offer:', error);
+                this.$toast.error('An unexpected error occurred.');
+            }
+        }
     }
 };
 </script>
 
 <style scoped lang="scss">
-.form-container {
-    display: flex;
-    flex-direction: column;
-    gap: 20px;
-    width: 100%;
-}
+$background-color: #1a2732;
+$gray: #3c4e59;
+$dark-gray: #2a3946;
+$light-gray: #54606b;
+$ultra-light-gray: #77808b;
+$white: #ffffff;
+$black: #000000;
+$green: #408a0b;
+$light-green: #81c950;
+$blue: #0073a9;
+$red: #9e2c30;
+$orange: #a36a03;
 
+.background-color {
+    background-color: $background-color;
+}
+.green {
+    color: $green;
+}
+.btn-success {
+    background-color: $green;
+    border-radius: 0.375rem;
+}
+.btn-danger {
+    border-radius: 0.375rem;
+    background-color: $red;
+}
+.btn-success:hover {
+    background-color: darken($green, 5%);
+}
+.btn-danger:hover {
+    background-color: darken($red, 5%);
+}
 .dark-gray {
     background-color: $dark-gray;
-    min-height: 20vh;
-    width: 100%;
+    padding: 1rem;
+    border-radius: 0.5rem;
+    margin-top: 1rem;
 }
 
-.sub-title {
-    font-size: 20px;
-    font-weight: bold;
-    margin-bottom: 20px;
-    display: flex;
-    align-items: center;
-    color: $white;
-}
-
-.btn {
-    @apply px-3 py-2 rounded-md font-medium transition-colors duration-200;
-    
-    &.btn-info {
-        @apply bg-blue-600 hover:bg-blue-700 text-white;
-    }
-    
-    &.btn-danger {
-        @apply bg-red-600 hover:bg-red-700 text-white;
-    }
-}
-
-.btn-secondary {
-    background-color: #4a5568;
-}
-
-.btn-info {
-    background-color: $ultra-light-gray;
-    color: white;
-}
-
-.btn-danger {
-    background-color: #e53e3e;
-    color: white;
-}
-
-/* View toggle buttons */
-.view-toggle-btn {
-    @apply p-2 text-sm rounded-md transition-colors duration-200;
-    &.active {
-        background-color: $green;
-        @apply text-white;
-    }
-    &:not(.active) {
-        @apply text-gray-400 hover:text-white hover:bg-gray-700;
-    }
-}
-
-/* Card styles */
-.offer-card {
-    @apply bg-gray-800 rounded-lg shadow-md overflow-hidden transition-all duration-200;
-    
-    &:hover {
-        @apply shadow-lg transform scale-[1.01];
-    }
-}
-
-/* Modal styles */
-.modal-backdrop {
-    @apply fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4;
-}
-
-.modal-content {
-    @apply bg-gray-800 rounded-lg shadow-xl w-full;
-    max-width: 28rem; /* equivalent to max-w-md */
-}
-
-.modal-header {
-    @apply flex justify-between items-center p-4 bg-gray-800 border-b border-gray-700;
-}
-
-.modal-header h2 {
-    @apply text-xl font-bold text-white;
-}
-
-.close-button {
-    @apply text-gray-400 hover:text-white text-2xl font-bold bg-transparent border-none cursor-pointer transition-colors;
-}
-
-.modal-body {
-    @apply p-6;
-}
-
-/* View toggle buttons */
-.view-toggle-btn {
-    @apply p-2 text-sm rounded-md transition-colors duration-200;
-    &.active {
-        background-color: $green;
-        @apply text-white;
-    }
-    &:not(.active) {
-        @apply text-gray-400 hover:text-white hover:bg-gray-700;
-    }
-}
-
-/* Table styles */
 table {
-    @apply w-full border-collapse;
+    width: 100%;
+    border-collapse: collapse;
     
     th, td {
-        @apply p-4 text-left;
+        padding: 0.75rem;
+        text-align: center;
+        color: $white;
     }
     
-    thead tr {
-        @apply bg-gray-700;
+    th {
+        font-weight: 600;
+        background-color: rgba($white, 0.1);
     }
     
-    tbody tr {
-        @apply border-t border-gray-700;
+    tr:hover td {
+        background-color: rgba($white, 0.05);
+    }
+}
+
+.status-badge {
+    padding: 0.25rem 0.75rem;
+    border-radius: 9999px;
+    font-size: 0.75rem;
+    font-weight: 500;
+    
+    &.pending {
+        background-color: rgba($orange, 0.2);
+        color: $orange;
+    }
+    
+    &.accepted {
+        background-color: rgba($green, 0.2);
+        color: $green;
+    }
+    
+    &.declined {
+        background-color: rgba($red, 0.2);
+        color: $red;
+    }
+}
+
+.btn-primary {
+    padding: 0.5rem 1rem;
+    background-color: $green;
+    color: $white;
+    border-radius: 0.375rem;
+    
+    &:hover {
+        background-color: darken($green, 5%);
+    }
+}
+
+// Modal Styles
+.modal {
+    background-color: $background-color
+}
+.modal-content {
+    background-color: $dark-gray;
+    border-radius: 0.5rem;
+    max-width: 32rem;
+    margin: 0 auto;
+    box-shadow: 0 0 15px rgba($black, 0.3);
+}
+    .modal-header {
+        border-bottom: 1px solid rgba($light-gray, 0.2);
+        
+        h2 {
+            color: $white;
+        }
+        
+        p {
+            color: $ultra-light-gray;
+        }
+    }
+    
+    .view-toggle {
+        button {
+            &.active {
+                background-color: $green;
+                color: $white;
+            }
+            
+            &:not(.active) {
+                color: $ultra-light-gray;
+                
+                &:hover {
+                    color: $white;
+                }
+            }
+        }
+    }
+    
+    .item-card {
+        background-color: $gray;
+        border: 1px solid rgba($light-gray, 0.1);
+        border-radius: 0.375rem;
+        transition: all 0.2s ease;
         
         &:hover {
-            @apply bg-gray-700;
+            border-color: rgba($light-gray, 0.2);
+            box-shadow: 0 2px 4px rgba($black, 0.1);
+        }
+        
+        .no-image {
+            background-color: $background-color;
+            color: $ultra-light-gray;
+        }
+        
+        .item-name {
+            color: $white;
+        }
+        
+        .item-type {
+            color: $ultra-light-gray;
+        }
+        
+        .item-details {
+            color: $ultra-light-gray;
+            
+            span {
+                color: $white;
+            }
+        }
+        
+        .descriptions {
+            border-top: 1px solid rgba($light-gray, 0.1);
+            
+            .label {
+                color: $ultra-light-gray;
+            }
+            
+            .text {
+                color: $white;
+            }
+        }
+
+        img {
+            background-color: $background-color;
+        }
+    }
+
+.tabs-container {
+    border-bottom: 1px solid rgba($light-gray, 0.2);
+    margin: 0 -1rem 1.5rem -1rem;
+    padding: 0 1rem;
+}
+
+.tab-button {
+    position: relative;
+    padding: 0.75rem 1.5rem;
+    font-weight: 500;
+    color: $ultra-light-gray;
+    transition: all 0.2s ease;
+    
+    &:hover:not(.active) {
+        color: $white;
+    }
+    
+    &.active {
+        color: $white;
+        
+        &:after {
+            content: '';
+            position: absolute;
+            bottom: -1px;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background-color: $green;
+            border-radius: 2px 2px 0 0;
+        }
+    }
+
+    .tab-label {
+        display: inline-block;
+        margin-right: 0.5rem;
+    }
+
+    .tab-count {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 1.5rem;
+        height: 1.5rem;
+        padding: 0 0.5rem;
+        font-size: 0.75rem;
+        font-weight: 500;
+        border-radius: 0.75rem;
+        
+        &.tab-count-pending {
+            background-color: rgba($orange, 0.15);
+            color: $orange;
+        }
+        
+        &.tab-count-accepted {
+            background-color: rgba($green, 0.15);
+            color: $green;
+        }
+        
+        &.tab-count-declined {
+            background-color: rgba($red, 0.15);
+            color: $red;
         }
     }
 }
 
-.btn {
-    @apply px-3 py-2 rounded-md font-medium transition-colors duration-200;
-    
-    &.btn-info {
-        @apply bg-blue-600 hover:bg-blue-700 text-white;
-    }
-    
-    &.btn-danger {
-        @apply bg-red-600 hover:bg-red-700 text-white;
-    }
-}
-
-/* Search input focus ring color */
-input:focus {
-    box-shadow: 0 0 0 2px rgba(129, 201, 80, 0.2); /* Using your $green color with opacity */
-}
 </style> 
