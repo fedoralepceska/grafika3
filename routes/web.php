@@ -231,6 +231,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('/articles/create', [ArticleController::class, 'store'])->name('articles.store');
     Route::put('/articles/{article}', [ArticleController::class, 'update'])->name('articles.update');
     Route::delete('/articles/{id}', [ArticleController::class, 'destroy'])->name('articles.destroy');
+    Route::get('/articles/search', [\App\Http\Controllers\ArticleController::class, 'search'])->name('api.articles.search');
+    Route::get('/articles/{id}', [\App\Http\Controllers\ArticleController::class, 'get'])->name('api.articles.get');
 });
 
 //Routes for Priemnici
