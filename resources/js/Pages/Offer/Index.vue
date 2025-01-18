@@ -36,20 +36,27 @@
                             <th>Validity Days</th>
                             <th>Items</th>
                             <th>Created At</th>
-                            <th v-if="currentTab === 'pending'" class="flex justify-center">Actions</th>
+                            <th class="flex justify-center">Actions</th>
                             <th v-if="currentTab === 'declined'">Decline Reason</th>
                             <th>PDF</th>
                         </tr>
                     </thead>
                     <tbody>
                         <tr v-for="offer in filteredOffers" :key="offer.id">
+                            <!-- Client -->
                             <td>{{ offer.client }}</td>
+
+                            <!-- Status -->
                             <td>
                                 <span :class="['status-badge', offer.status]">
                                     {{ offer.status }}
                                 </span>
                             </td>
+
+                            <!-- Validity days -->
                             <td>{{ offer.validity_days }} days</td>
+
+                            <!-- Items -->
                             <td>
                                 <button
                                     @click="viewItems(offer)"
@@ -59,9 +66,14 @@
                                     <i class="fas fa-eye ml-1"></i>
                                 </button>
                             </td>
+
+                            <!-- Created at -->
                             <td>{{ formatDate(offer.created_at) }}</td>
-                            <td v-if="currentTab === 'pending'" class="space-x-2 flex justify-center">
+
+                            <!-- Actions -->
+                            <td class="space-x-2 flex justify-center">
                                 <button
+                                    v-if="currentTab === 'pending' || currentTab === 'declined'"
                                     @click="acceptOffer(offer)"
                                     class="px-2 py-1 btn-success text-white"
                                 >
@@ -70,6 +82,7 @@
                                 </button>
 
                                 <button
+                                    v-if="currentTab === 'pending' || currentTab === 'accepted'"
                                     @click="openDeclineModal(offer)"
                                     class="px-2 py-1 btn-danger text-white"
                                 >
@@ -323,6 +336,7 @@ import MainLayout from '@/Layouts/MainLayout.vue';
 import Header from '@/Components/Header.vue';
 import Modal from '@/Components/Modal.vue';
 import { Link } from '@inertiajs/vue3';
+import {useToast} from "vue-toastification";
 
 export default {
     components: {
@@ -410,6 +424,7 @@ export default {
         },
 
         async acceptOffer(offer) {
+            const toast = useToast();
             try {
                 await this.$inertia.patch(route('offers.update-status', offer.id), {
                     status: 'accepted'
@@ -417,15 +432,15 @@ export default {
                     preserveScroll: true,
                     preserveState: true,
                     onSuccess: () => {
-                        this.$toast.success('Offer has been accepted successfully.');
+                        toast.success('Offer has been accepted successfully.');
                     },
                     onError: () => {
-                        this.$toast.error('Failed to accept the offer. Please try again.');
+                        toast.error('Failed to accept the offer. Please try again.');
                     }
                 });
             } catch (error) {
                 console.error('Error accepting offer:', error);
-                this.$toast.error('An unexpected error occurred.');
+                toast.error('An unexpected error occurred.');
             }
         },
 
@@ -441,9 +456,11 @@ export default {
             this.selectedOffer = null;
             this.declineReason = '';
             this.isEditingDeclineReason = false;
+            console.log(this.showDeclineModal)
         },
 
         async confirmDecline() {
+            const toast = useToast();
             if (!this.selectedOffer) return;
 
             try {
@@ -457,20 +474,20 @@ export default {
                         const message = this.declineReason.trim()
                             ? 'Offer has been declined with reason.'
                             : 'Offer has been declined without reason.';
-                        this.$toast.success(message);
+                        toast.success(message);
                         this.closeDeclineModal();
                     },
                     onError: (errors) => {
                         if (errors.decline_reason) {
-                            this.$toast.error(errors.decline_reason);
+                            toast.error(errors.decline_reason);
                         } else {
-                            this.$toast.error('Failed to decline the offer. Please try again.');
+                            toast.error('Failed to decline the offer. Please try again.');
                         }
                     }
                 });
             } catch (error) {
                 console.error('Error declining offer:', error);
-                this.$toast.error('An unexpected error occurred.');
+                toast.error('An unexpected error occurred.');
             }
         }
     }
