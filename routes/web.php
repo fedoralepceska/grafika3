@@ -25,6 +25,8 @@ use App\Http\Controllers\PricePerQuantityController;
 use App\Http\Controllers\ClientPriceController;
 use App\Http\Controllers\QuantityPriceController;
 use App\Http\Controllers\OfferController;
+use App\Http\Controllers\ItemController;
+
 
 /*
 |--------------------------------------------------------------------------
@@ -100,6 +102,8 @@ Route::middleware(['auth', 'verified'])->group(function() {
     Route::post('/item', [\App\Http\Controllers\ItemController::class, 'store'])->name('item.store');
     Route::get('/items/{id}', [\App\Http\Controllers\ItemController::class, 'getAllByCertificateId'])->name('item.getAllByCertificateId');
     Route::post('/certificate', [CertificateController::class, 'store'])->name('certificate.store');
+    Route::put('/certificate/{certificate}', [CertificateController::class, 'update'])->name('certificate.update');
+    Route::get('/banks-list', [CertificateController::class, 'getBanksList'])->name('banks.list');
     Route::post('/client_card_statement', [ClientCardStatementController::class, 'store'])->name('ccs.store');
     Route::get('/client_card_statement/{id}', [ClientCardStatementController::class, 'getCCSByClientId'])->name('ccs.getCCSByClientId');
 });
@@ -122,6 +126,7 @@ Route::middleware(['auth', 'verified'])->group(function() {
 Route::middleware(['auth', 'verified'])->group(function() {
     Route::get('/cardStatements', [ClientCardStatementController::class, 'index'])->name('clientCards.index');
     Route::get('/cardStatement/{id}', [ClientCardStatementController::class, 'show'])->name('cardStatement.show');
+    Route::get('/clients-with-statements', [ItemController::class, 'getClientsWithCardStatements'])->name('clients.withStatements');
 });
 
 //Rotues For Jobs
@@ -249,6 +254,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('/api/banks', [\App\Http\Controllers\BanksController::class, 'createBank']);
     Route::get('/api/banks', [\App\Http\Controllers\BanksController::class, 'getBanks']);
     Route::delete('/api/banks/{id}', [\App\Http\Controllers\BanksController::class, 'deleteBank']);
+    Route::put('/api/banks/{id}', [\App\Http\Controllers\BanksController::class, 'updateBank']);
 });
 
 // Analytics
@@ -389,6 +395,12 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/offers/{offer}', [OfferController::class, 'show'])->name('offers.show');
     Route::patch('/offers/{offer}/status', [OfferController::class, 'updateStatus'])->name('offers.update-status');
     Route::get('/offers/{offer}/items', [OfferController::class, 'items'])->name('offers.items');
+
+Route::middleware(['auth', 'verified'])->group(function () {
+    Route::get('/items/{id}', [ItemController::class, 'getAllByCertificateId']);
+    Route::put('/items/{item}', [ItemController::class, 'update']);
+    Route::delete('/items/{item}', [ItemController::class, 'destroy']);
+
 });
 
 require __DIR__.'/auth.php';

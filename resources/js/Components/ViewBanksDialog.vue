@@ -22,17 +22,46 @@
                                     <td>{{$t('Nr')}}</td>
                                     <td>Name</td>
                                     <td>Account</td>
-                                    <td>Delete</td>
+                                    <td>Actions</td>
                                 </tr>
                             </thead>
                             <tbody>
                                 <tr v-for="(bank,index) in banks" :key="index">
                                     <td>{{index+1}}</td>
-                                    <td>{{bank.name}}</td>
-                                    <td>{{bank.address}}</td>
-                                    <td><SecondaryButton @click="deleteBank(bank)" class="red">
-                                        Delete
-                                    </SecondaryButton></td>
+                                    <td>
+                                        <input v-if="editMode && editingBank?.id === bank.id" 
+                                            v-model="editingBank.name" 
+                                            type="text" 
+                                            class="edit-input"
+                                        />
+                                        <span v-else>{{bank.name}}</span>
+                                    </td>
+                                    <td>
+                                        <input v-if="editMode && editingBank?.id === bank.id" 
+                                            v-model="editingBank.address" 
+                                            type="text" 
+                                            class="edit-input"
+                                        />
+                                        <span v-else>{{bank.address}}</span>
+                                    </td>
+                                    <td class="actions">
+                                        <template v-if="editMode && editingBank?.id === bank.id">
+                                            <SecondaryButton @click="saveChanges" class="green">
+                                                Save
+                                            </SecondaryButton>
+                                            <SecondaryButton @click="cancelEdit" class="red">
+                                                Cancel
+                                            </SecondaryButton>
+                                        </template>
+                                        <template v-else>
+                                            <SecondaryButton @click="startEdit(bank)" class="blue">
+                                                Edit
+                                            </SecondaryButton>
+                                            <SecondaryButton @click="deleteBank(bank)" class="red">
+                                                Delete
+                                            </SecondaryButton>
+                                        </template>
+                                    </td>
                                 </tr>
                             </tbody>
                         </table>
@@ -64,6 +93,8 @@ export default {
         return {
             dialog: false,
             banks: [],
+            editMode: false,
+            editingBank: null,
         };
     },
 
@@ -99,7 +130,35 @@ export default {
             if (event.key === 'Escape') {
                 this.closeDialog();
             }
-        }
+        },
+        startEdit(bank) {
+            this.editMode = true;
+            this.editingBank = { ...bank };
+        },
+        cancelEdit() {
+            this.editMode = false;
+            this.editingBank = null;
+        },
+        saveChanges() {
+            const toast = useToast();
+            axios.put(`/api/banks/${this.editingBank.id}`, {
+                name: this.editingBank.name,
+                address: this.editingBank.address,
+            })
+                .then((response) => {
+                    const index = this.banks.findIndex(b => b.id === this.editingBank.id);
+                    if (index !== -1) {
+                        this.banks[index] = response.data.bank;
+                    }
+                    this.editMode = false;
+                    this.editingBank = null;
+                    toast.success('Bank updated successfully!');
+                })
+                .catch((error) => {
+                    console.error('Error updating bank:', error);
+                    toast.error('Failed to update bank!');
+                });
+        },
     },
     mounted() {
         document.addEventListener('keydown', this.handleEscapeKey);
@@ -165,6 +224,41 @@ export default {
     border: 1px solid #dddddd;
     padding: 4px;
     text-align: center;
+}
+
+.edit-input {
+    width: 100%;
+    padding: 4px 8px;
+    border: 1px solid $blue;
+    border-radius: 4px;
+    background-color: white;
+    color: black;
+}
+
+.actions {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+}
+
+.blue {
+    background-color: $blue;
+    color: white;
+    border: none;
+}
+
+.blue:hover {
+    background-color: darken($blue, 10%);
+}
+
+.orange {
+    background-color: $orange;
+    color: white;
+    border: none;
+}
+
+.orange:hover {
+    background-color: darken($orange, 10%);
 }
 
 </style>

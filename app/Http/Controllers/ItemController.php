@@ -3,6 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Models\Item;
+use App\Models\Client;
+use App\Models\ClientCardStatement;
 use Illuminate\Http\Request;
 
 class ItemController extends Controller
@@ -84,7 +86,20 @@ class ItemController extends Controller
      */
     public function update(Request $request, Item $item)
     {
-        //
+        // Validate the incoming request data
+        $validatedData = $request->validate([
+            'income' => 'numeric',
+            'expense' => 'numeric',
+            'code' => 'string',
+            'reference_to' => 'string',
+            'comment' => 'nullable|string',
+            'client_id' => 'exists:clients,id'
+        ]);
+
+        // Update the item with validated data
+        $item->update($validatedData);
+
+        return response()->json(['message' => 'Item updated successfully']);
     }
 
     /**
@@ -92,6 +107,16 @@ class ItemController extends Controller
      */
     public function destroy(Item $item)
     {
-        //
+        $item->delete();
+        return response()->json(['message' => 'Item deleted successfully']);
+    }
+
+    public function getClientsWithCardStatements()
+    {
+        $clientsWithStatements = Client::whereHas('clientCardStatement')
+            ->select('id', 'name')
+            ->get();
+
+        return response()->json($clientsWithStatements);
     }
 }
