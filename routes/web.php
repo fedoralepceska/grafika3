@@ -304,6 +304,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     // Offer routes
     Route::resource('offers', \App\Http\Controllers\OfferController::class);
     Route::get('/offers/{offer}/items', [\App\Http\Controllers\OfferController::class, 'items'])->name('offers.items');
+    Route::get('/offers/{offer}/pdf', [OfferController::class, 'generateOfferPdf'])->name('offers.pdf');
 });
 
 // Routes for catalog edit form data

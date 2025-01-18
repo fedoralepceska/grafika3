@@ -7,6 +7,7 @@ use App\Models\Client;
 use App\Models\CatalogItem;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
+use Barryvdh\DomPDF\Facade\Pdf;
 
 class OfferController extends Controller
 {
@@ -209,5 +210,21 @@ class OfferController extends Controller
                 })
             ]
         ]);
+    }
+
+    public function generateOfferPdf($offerId)
+    {
+        $offer = Offer::with(['client', 'catalogItems.largeMaterial', 'catalogItems.smallMaterial'])
+            ->findOrFail($offerId);
+
+        // Load the view and pass data
+        $pdf = Pdf::loadView('offers.pdf', compact('offer'), [
+            'isHtml5ParserEnabled' => true,
+            'isRemoteEnabled' => true,
+            'isFontSubsettingEnabled' => true,
+            'chroot' => storage_path('fonts'),
+        ]);
+
+        return $pdf->stream('Offer_' . $offer->id . '_' . date('Y-m-d') . '.pdf');
     }
 }

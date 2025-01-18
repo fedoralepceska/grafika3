@@ -51,7 +51,7 @@ class JobController extends Controller
         if ($request->has('fromCatalog')) {
             try {
                 $priceCalculationService = app()->make(PriceCalculationService::class);
-                
+
                 // Step 1: Create the Job
                 $job = new Job();
                 $job->machinePrint = $request->input('machinePrint');
@@ -124,7 +124,7 @@ class JobController extends Controller
                 // Step 2: Retrieve Catalog Item Actions
                 if ($request->has('actions')) {
                     $catalogActions = $request->input('actions');
-                    
+
                     // Step 3: Duplicate Actions into `job_actions`
                     $printAction = new JobAction([
                         'name' => $request->input('machinePrint'),
@@ -259,12 +259,12 @@ class JobController extends Controller
                 'jobs' => 'required|array',
                 'jobs.*' => 'exists:jobs,id',
                 'jobsWithActions' => 'required|array',
-                'client_id' => 'required|exists:clients,id',
-                'catalog_item_id' => 'required|exists:catalog_items,id',
+                'client_id' => 'sometimes|exists:clients,id',
+                'catalog_item_id' => 'sometimes|exists:catalog_items,id',
             ]);
 
             $priceCalculationService = app()->make(PriceCalculationService::class);
-            
+
             // Calculate unit price based on hierarchy
             $unitPrice = $priceCalculationService->calculateEffectivePrice(
                 $request->input('catalog_item_id'),
@@ -677,7 +677,7 @@ class JobController extends Controller
                     $job->save();
 
                     return response()->json([
-                        'message' => 'File updated successfully', 
+                        'message' => 'File updated successfully',
                         'job' => $job,
                         'file_url' => '/storage/uploads/' . $imageFilename
                     ]);
@@ -703,7 +703,7 @@ class JobController extends Controller
                     $job->save();
 
                     return response()->json([
-                        'message' => 'File updated successfully', 
+                        'message' => 'File updated successfully',
                         'job' => $job,
                         'file_url' => '/storage/uploads/' . $imageFilename
                     ]);
@@ -719,7 +719,7 @@ class JobController extends Controller
     {
         try {
             $job = Job::with(['invoice'])->findOrFail($id);
-            
+
             // Validate request
             $validatedData = $request->validate([
                 'quantity' => 'sometimes|required|numeric',
@@ -731,7 +731,7 @@ class JobController extends Controller
             // If quantity is being updated, recalculate the price
             if ($request->has('quantity')) {
                 $priceCalculationService = app()->make(PriceCalculationService::class);
-                
+
                 // Get the catalog_item_id and client_id from request or existing job/invoice
                 $catalogItemId = $request->input('catalog_item_id') ?? $job->catalog_item_id ?? $job->invoice?->catalog_item_id;
                 $clientId = $request->input('client_id') ?? $job->client_id ?? $job->invoice?->client_id;

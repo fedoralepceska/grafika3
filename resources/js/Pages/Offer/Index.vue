@@ -92,13 +92,35 @@
                                     </button>
                                 </div>
                             </td>
-                            <td >
-                                <button 
-                                    @click="downloadPDF(offer)"
-                                    class="text-light-gray hover:text-white"
+                            <td class="px-4 py-2 text-right space-x-2">
+                                <button
+                                    @click="acceptOffer(offer)"
+                                    v-if="offer.status === 'pending'"
+                                    class="btn btn-sm bg-green-500 hover:bg-green-600 text-white"
                                 >
-                                    <i class="fas fa-file-pdf" style="font-size: 1.5rem;"></i>
+                                    Accept
                                 </button>
+                                <button
+                                    @click="openDeclineModal(offer)"
+                                    v-if="offer.status === 'pending'"
+                                    class="btn btn-sm bg-red-500 hover:bg-red-600 text-white"
+                                >
+                                    Decline
+                                </button>
+                                <button
+                                    @click="viewItems(offer)"
+                                    class="btn btn-sm bg-blue-500 hover:bg-blue-600 text-white"
+                                >
+                                    Items
+                                </button>
+                                <a
+                                    :href="route('offers.pdf', offer.id)"
+                                    target="_blank"
+                                    class="btn btn-sm bg-purple-500 hover:bg-purple-600 text-white"
+                                >
+                                    <i class="fas fa-file-pdf mr-1"></i>
+                                    PDF
+                                </a>
                             </td>
                         </tr>
                     </tbody>
