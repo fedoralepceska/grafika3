@@ -177,13 +177,29 @@ export default {
                             href: '/catalog/create',
                             title: 'Add new catalog item',
                         },
+                        {
+                            href: '/quantity-prices',
+                            title: 'Prices per quantity',
+                        },
+                        {
+                            href: '/client-prices',
+                            title: 'Prices per client',
+                        },
+                        {
+                            href: '/offers',
+                            title: 'View all offers'
+                        },
+                        {
+                            href: '/offer/create',
+                            title: 'Add new offer'
+                        },
                         // {
-                        //     href: '/offer',
-                        //     title: 'View all offers'
+                        //     href: '/offer-client/create',
+                        //     title: 'Create offers for clients'
                         // },
                         // {
-                        //     href: '/offer/create',
-                        //     title: 'Add new offer'
+                        //     href: '/offer-client',
+                        //     title: 'Offers for clients'
                         // }
                     ],
                 },

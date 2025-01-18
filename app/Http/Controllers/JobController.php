@@ -18,6 +18,7 @@ use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Imagick;
 use Inertia\Inertia;
+use App\Services\PriceCalculationService;
 
 class JobController extends Controller
 {
@@ -49,6 +50,8 @@ class JobController extends Controller
     {
         if ($request->has('fromCatalog')) {
             try {
+                $priceCalculationService = app()->make(PriceCalculationService::class);
+
                 // Step 1: Create the Job
                 $job = new Job();
                 $job->machinePrint = $request->input('machinePrint');
@@ -61,6 +64,46 @@ class JobController extends Controller
                 $job->file = 'placeholder.jpeg';
                 $job->width = 0;
                 $job->height = 0;
+                $job->catalog_item_id = $request->input('catalog_item_id');
+                $job->client_id = $request->input('client_id');
+
+                // Calculate unit price based on hierarchy
+                $unitPrice = $priceCalculationService->calculateEffectivePrice(
+                    $request->input('catalog_item_id'),
+                    $request->input('client_id'),
+                    $request->input('quantity')
+                );
+
+                \Log::info('Creating job from catalog item', [
+                    'catalog_item_id' => $request->input('catalog_item_id'),
+                    'client_id' => $request->input('client_id'),
+                    'quantity' => $request->input('quantity'),
+                    'calculated_unit_price' => $unitPrice
+                ]);
+
+                // If hierarchy-based price exists, use it; otherwise fall back to the original calculation
+                if ($unitPrice !== null) {
+                    $job->price = $unitPrice; // Store the per-unit price
+                } else {
+                    // Original price calculation logic
+                    $smallMaterial = SmallMaterial::with('article')->find($request->input('small_material_id'));
+                    $largeMaterial = LargeFormatMaterial::with('article')->find($request->input('large_material_id'));
+                    $price = 0;
+
+                    if ($request->has('actions')) {
+                        foreach ($request->input('actions') as $action) {
+                            if (isset($action['quantity'])) {
+                                if (isset($smallMaterial)) {
+                                    $price = $price + ($action['quantity'] * $smallMaterial->article->price_1);
+                                }
+                                if (isset($largeMaterial)) {
+                                    $price = $price + ($action['quantity'] * $largeMaterial->article->price_1);
+                                }
+                            }
+                        }
+                    }
+                    $job->price = $price;
+                }
 
                 if ($request->input('large_material_id') !== null) {
                     $large_material = LargeFormatMaterial::find($request->input('large_material_id'));
@@ -169,6 +212,7 @@ class JobController extends Controller
                     // Set other job properties if needed
 
                     $job->save(); // Save the job to the database
+
                     return response()->json(['message' => 'Job created successfully', 'job' => $job]);
                 } elseif ($fileExtension === 'pdf') {
                     $imagick = new Imagick();
@@ -200,14 +244,12 @@ class JobController extends Controller
         }
     }
 
-
     /**
      * @throws \Exception
      */
-    public function syncAllJobs(Request $request): \Illuminate\Http\JsonResponse
+    public function syncAllJobs(Request $request)
     {
         try {
-            // Validate the request
             $validatedData = $request->validate([
                 'selectedMaterial' => 'nullable|exists:large_format_materials,id',
                 'selectedMaterialsSmall' => 'nullable|exists:small_material,id',
@@ -217,76 +259,89 @@ class JobController extends Controller
                 'jobs' => 'required|array',
                 'jobs.*' => 'exists:jobs,id',
                 'jobsWithActions' => 'required|array',
-                'jobsWithActions.*.job_id' => 'required|exists:jobs,id',
-                'jobsWithActions.*.actions' => 'required|array',
-                'jobsWithActions.*.actions.*.action_id' => 'required|array',
-                'jobsWithActions.*.actions.*.action_id.name' => 'required|string',
-                'jobsWithActions.*.actions.*.quantity' => 'nullable|integer|min:0',
-                'jobsWithActions.*.actions.*.status' => 'required|string',
+                'client_id' => 'sometimes|exists:clients,id',
+                'catalog_item_id' => 'sometimes|exists:catalog_items,id',
             ]);
 
-            // Extract inputs
-            $selectedMaterial = $request->input('selectedMaterial');
-            $selectedMaterialSmall = $request->input('selectedMaterialsSmall');
-            $name = $request->input('name');
-            $quantity = $request->input('quantity');
-            $copies = $request->input('copies');
-            $jobIds = $request->input('jobs');
-            $jobsWithActions = $request->input('jobsWithActions');
-            $selectedMachineCut = $request->input('selectedMachineCut');
-            $selectedMachinePrint = $request->input('selectedMachinePrint');
+            $priceCalculationService = app()->make(PriceCalculationService::class);
 
-            $small_material = null;
-            $large_material = null;
-            // Update Large Material
-            if ($selectedMaterial) {
-                $large_material = LargeFormatMaterial::find($selectedMaterial);
-                if ($large_material->quantity - $copies < 0) {
-                    throw new \Exception("Insufficient large material quantity.");
-                }
-            }
-            // Update Small Material
-            if ($selectedMaterialSmall) {
-                $small_material = SmallMaterial::find($selectedMaterialSmall);
-                if ($small_material->quantity - $copies < 0) {
-                    throw new \Exception("Insufficient small material quantity.");
-                }
-            }
+            // Calculate unit price based on hierarchy
+            $unitPrice = $priceCalculationService->calculateEffectivePrice(
+                $request->input('catalog_item_id'),
+                $request->input('client_id'),
+                $request->input('quantity')
+            );
 
-            // Update jobs with materials and machines
-            Job::whereIn('id', $jobIds)->update([
-                'large_material_id' => $selectedMaterial,
-                'small_material_id' => $selectedMaterialSmall,
-                'name' => $name,
-                'machineCut' => $selectedMachineCut,
-                'machinePrint' => $selectedMachinePrint,
-                'quantity' => $quantity,
-                'copies' => $copies,
+            \Log::info('Syncing jobs with price calculation', [
+                'catalog_item_id' => $request->input('catalog_item_id'),
+                'client_id' => $request->input('client_id'),
+                'quantity' => $request->input('quantity'),
+                'calculated_unit_price' => $unitPrice
             ]);
 
-            foreach ($jobsWithActions as $jobWithActions) {
-                $job = Job::findOrFail($jobWithActions['job_id']);
-                $printAction = new JobAction([
-                    'name' => $selectedMachinePrint,
-                    'status' => 'Not started yet',
-                ]);
+            // Get the jobs that need to be updated
+            $jobsToUpdate = Job::whereIn('id', $request->input('jobs'))->get();
 
-                $job->actions()->sync([]);
-                $actions = [$printAction];
+            foreach ($jobsToUpdate as $job) {
+                $updateData = [
+                    'large_material_id' => $request->input('selectedMaterial'),
+                    'small_material_id' => $request->input('selectedMaterialsSmall'),
+                    'name' => $request->input('name'),
+                    'machineCut' => $request->input('selectedMachineCut'),
+                    'machinePrint' => $request->input('selectedMachinePrint'),
+                    'quantity' => $request->input('quantity'),
+                    'copies' => $request->input('copies'),
+                    'catalog_item_id' => $request->input('catalog_item_id'),
+                    'client_id' => $request->input('client_id'),
+                    // Preserve existing values if they exist
+                    'width' => $job->width ?: 0,
+                    'height' => $job->height ?: 0,
+                ];
 
-                foreach ($jobWithActions['actions'] as $actionData) {
-                    $actions[] = new JobAction([
-                        'name' => $actionData['action_id']['name'],
-                        'status' => $actionData['status'],
-                        'quantity' => $actionData['quantity'] ?? 0
-                    ]);
+                if ($unitPrice !== null) {
+                    $updateData['price'] = $unitPrice;
+                } else {
+                    // Original price calculation logic
+                    $smallMaterial = SmallMaterial::with('article')->find($request->input('selectedMaterialsSmall'));
+                    $largeMaterial = LargeFormatMaterial::with('article')->find($request->input('selectedMaterial'));
+                    $price = 0;
+
+                    if ($request->has('jobsWithActions')) {
+                        foreach ($request->input('jobsWithActions') as $jobWithActions) {
+                            foreach ($jobWithActions['actions'] as $action) {
+                                if (isset($action['quantity'])) {
+                                    if (isset($smallMaterial)) {
+                                        $price = $price + ($action['quantity'] * $smallMaterial->article->price_1);
+                                    }
+                                    if (isset($largeMaterial)) {
+                                        $price = $price + ($action['quantity'] * $largeMaterial->article->price_1);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    $updateData['price'] = $price;
                 }
-                $job->actions()->saveMany($actions);
+
+                // Update each job individually to preserve its specific attributes
+                $job->update($updateData);
             }
 
-            return response()->json(['message' => 'Jobs synced successfully']);
+            // Return the first job's data for price information
+            $updatedJob = Job::with(['actions', 'catalogItem', 'client'])->find($request->input('jobs')[0]);
+
+            return response()->json([
+                'message' => 'Jobs synced successfully',
+                'price' => $updatedJob->price,
+                'jobs' => Job::with(['actions', 'catalogItem', 'client'])
+                    ->whereIn('id', $request->input('jobs'))
+                    ->get() // Return all updated jobs
+            ]);
         } catch (\Exception $e) {
-            \Log::error('Error syncing jobs:', ['error' => $e->getMessage()]);
+            \Log::error('Error syncing jobs:', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
             return response()->json([
                 'error' => 'Failed to sync jobs',
                 'details' => $e->getMessage(),
@@ -340,19 +395,34 @@ class JobController extends Controller
         // Retrieve the array of job IDs from the request
         $jobIds = $request->input('jobs', []);
 
-        // Fetch the jobs with matching IDs
-        $jobs = Job::whereIn('id', $jobIds)->with('actions')->get()->toArray();
-
-        foreach ($jobs as &$job) {
-            $job['totalPrice'] = $this->calculateTotalPrice($job); // Assuming calculateTotalPrice is a method in your controller
-        }
-        unset($job);
+        // Fetch the jobs with matching IDs, preserving all stored values
+        $jobs = Job::whereIn('id', $jobIds)
+            ->with(['actions'])
+            ->get()
+            ->map(function ($job) {
+                // Convert to array while preserving the exact values
+                $jobArray = $job->toArray();
+                // Ensure numeric values are preserved
+                $jobArray['price'] = (float)$job->price;
+                $jobArray['width'] = (float)$job->width;
+                $jobArray['height'] = (float)$job->height;
+                $jobArray['quantity'] = (int)$job->quantity;
+                $jobArray['copies'] = (int)$job->copies;
+                return $jobArray;
+            })
+            ->toArray();
 
         return response()->json(['jobs' => $jobs]);
     }
 
     private function calculateTotalPrice($job)
     {
+        // This method is kept for backwards compatibility but should not be used for catalog items
+        if (isset($job['catalog_item_id'])) {
+            return $job['price']; // Return the stored price for catalog items
+        }
+
+        // Original calculation for non-catalog items
         $smallMaterial = SmallMaterial::with('article')->find($job['small_material_id']);
         $largeMaterial = LargeFormatMaterial::with('article')->find($job['large_material_id']);
         $price = 0;
@@ -361,10 +431,10 @@ class JobController extends Controller
         foreach ($jobWithActions['actions'] as $action) {
             if ($action['quantity']) {
                 if (isset($smallMaterial)) {
-                    $price = $price + ($action['quantity']*$smallMaterial->article->price_1);
+                    $price = $price + ($action['quantity'] * $smallMaterial->article->price_1);
                 }
                 if (isset($largeMaterial)) {
-                    $price = $price + ($action['quantity']*$largeMaterial->article->price_1);
+                    $price = $price + ($action['quantity'] * $largeMaterial->article->price_1);
                 }
             }
         }
@@ -390,7 +460,7 @@ class JobController extends Controller
                     }
                 }
             }
-            $job['totalPrice'] = $price;
+            $job['price'] = $price;
         }
         return response()->json([
             'jobs' => $jobs,
@@ -571,40 +641,75 @@ class JobController extends Controller
         try {
             // Validate the request data
             $this->validate($request, [
-                'file' => 'mimetypes:image/tiff,application/pdf', // Ensure the file is an image
+                'file' => 'required|mimetypes:image/tiff,application/pdf',
             ]);
+
+            // Find the job
+            $job = Job::findOrFail($id);
 
             // Handle file upload and storage
             if ($request->hasFile('file')) {
                 $file = $request->file('file');
                 $fileExtension = $file->getClientOriginalExtension();
-                $pdfPath = $file->store('public/uploads', ['disk' => 'local']); // Store the PDF file
+                $pdfPath = $file->store('public/uploads', ['disk' => 'local']);
 
                 if ($fileExtension === 'pdf') {
                     $imagick = new Imagick();
                     $imagick->setOption('gs', "C:\Program Files\gs\gs10.02.0");
-                    $imagick->readImage($file->getPathname() . '[0]'); // Read the first page of the PDF
-                    $imagick->setImageFormat('jpg'); // Convert PDF to JPG (you can use other formats too)
-                    $imageFilename = pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME) . '.jpg'; // Unique image file name
-                    $imagick->writeImage(storage_path('app/public/uploads/' . $imageFilename)); // Save the image
+                    $imagick->readImage($file->getPathname() . '[0]');
+                    $imagick->setImageFormat('jpg');
+                    $imageFilename = pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME) . '.jpg';
+                    $imagePath = storage_path('app/public/uploads/' . $imageFilename);
+                    $imagick->writeImage($imagePath);
                     $imagick->clear();
 
-                    // Create a new job
-                    $job = Job::find($id);
-                    $job->file = $imageFilename; // Store the image file name
+                    // Calculate dimensions
+                    list($width, $height) = getimagesize($imagePath);
+                    $dpi = 72; // Default DPI if not available
+                    $widthInMm = ($width / $dpi) * 25.4;
+                    $heightInMm = ($height / $dpi) * 25.4;
+
+                    // Update job with file info and dimensions
+                    $job->file = $imageFilename;
                     $job->originalFile = $pdfPath;
+                    $job->width = $widthInMm;
+                    $job->height = $heightInMm;
+                    $job->save();
 
-                    // Set other job properties if needed
+                    return response()->json([
+                        'message' => 'File updated successfully',
+                        'job' => $job,
+                        'file_url' => '/storage/uploads/' . $imageFilename
+                    ]);
+                } else if ($fileExtension === 'tiff' || $fileExtension === 'tif') {
+                    $imagick = new Imagick();
+                    $imagick->readImage($file->getPathname());
+                    $imagick->setImageFormat('jpg');
+                    $imageFilename = pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME) . '.jpg';
+                    $imagePath = storage_path('app/public/uploads/' . $imageFilename);
+                    $imagick->writeImage($imagePath);
+                    $imagick->clear();
 
-                    $job->save(); // Save the job to the database
+                    // Calculate dimensions
+                    list($width, $height) = getimagesize($imagePath);
+                    $dpi = 72; // Default DPI if not available
+                    $widthInMm = ($width / $dpi) * 25.4;
+                    $heightInMm = ($height / $dpi) * 25.4;
 
-                    // Attach the job to the user or invoice as needed
+                    // Update job with file info and dimensions
+                    $job->file = $imageFilename;
+                    $job->width = $widthInMm;
+                    $job->height = $heightInMm;
+                    $job->save();
 
-                    return response()->json(['message' => 'Job created successfully', 'job' => $job]);
+                    return response()->json([
+                        'message' => 'File updated successfully',
+                        'job' => $job,
+                        'file_url' => '/storage/uploads/' . $imageFilename
+                    ]);
                 }
-            } else {
-                return response()->json(['message' => 'File not provided'], 400);
             }
+            return response()->json(['message' => 'File not provided'], 400);
         } catch (\Exception $e) {
             return response()->json(['error' => $e->getMessage()], 500);
         }
@@ -612,32 +717,74 @@ class JobController extends Controller
 
     public function update(Request $request, $id)
     {
-        // Retrieve the job by its ID
-        $job = Job::find($id);
-
-        if (!$job) {
-            return response()->json(['message' => 'Job not found'], 404);
-        }
-
         try {
-            // Validate the incoming request data
+            $job = Job::with(['invoice'])->findOrFail($id);
+
+            // Validate request
             $validatedData = $request->validate([
                 'quantity' => 'sometimes|required|numeric',
                 'copies' => 'sometimes|required|numeric',
-                'width' => 'sometimes|required|numeric',
-                'height' => 'sometimes|required|numeric',
-                'file' => 'sometimes|required',
-                'status' => 'sometimes|required',
-                'salePrice' => 'sometimes|required', // Keep the original salePrice validation
+                'catalog_item_id' => 'sometimes|exists:catalog_items,id',
+                'client_id' => 'sometimes|exists:clients,id',
             ]);
 
-            // Update the job with the validated data
-            $job->update($validatedData);
+            // If quantity is being updated, recalculate the price
+            if ($request->has('quantity')) {
+                $priceCalculationService = app()->make(PriceCalculationService::class);
 
-            // Return success response with the updated job
+                // Get the catalog_item_id and client_id from request or existing job/invoice
+                $catalogItemId = $request->input('catalog_item_id') ?? $job->catalog_item_id ?? $job->invoice?->catalog_item_id;
+                $clientId = $request->input('client_id') ?? $job->client_id ?? $job->invoice?->client_id;
+
+                \Log::info('Recalculating price for job update', [
+                    'job_id' => $id,
+                    'catalog_item_id' => $catalogItemId,
+                    'client_id' => $clientId,
+                    'new_quantity' => $request->input('quantity')
+                ]);
+
+                // Calculate the new price based on the updated quantity
+                $newPrice = $priceCalculationService->calculateEffectivePrice(
+                    $catalogItemId,
+                    $clientId,
+                    $request->input('quantity')
+                );
+
+                \Log::info('Price calculation result', [
+                    'job_id' => $id,
+                    'calculated_price' => $newPrice
+                ]);
+
+                if ($newPrice !== null) {
+                    $job->price = $newPrice;
+                }
+            }
+
+            // Update catalog_item_id and client_id if provided
+            if (isset($validatedData['catalog_item_id'])) {
+                $job->catalog_item_id = $validatedData['catalog_item_id'];
+            }
+            if (isset($validatedData['client_id'])) {
+                $job->client_id = $validatedData['client_id'];
+            }
+
+            // Update quantity and copies from validated data
+            if (isset($validatedData['quantity'])) {
+                $job->quantity = $validatedData['quantity'];
+            }
+            if (isset($validatedData['copies'])) {
+                $job->copies = $validatedData['copies'];
+            }
+
+            // Save all changes
+            $job->save();
+
+            // Reload the job to get fresh data
+            $job->refresh();
+
             return response()->json([
                 'message' => 'Job updated successfully',
-                'job' => $job->fresh() // Get a fresh instance with updated data
+                'job' => $job
             ]);
         } catch (\Exception $e) {
             \Log::error('Error updating job:', [
@@ -645,10 +792,9 @@ class JobController extends Controller
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString()
             ]);
-
             return response()->json([
-                'message' => 'Failed to update job',
-                'error' => $e->getMessage()
+                'error' => 'Failed to update job',
+                'details' => $e->getMessage()
             ], 500);
         }
     }
@@ -953,7 +1099,7 @@ class JobController extends Controller
             $query = CatalogItem::with([
                 'largeMaterial.article',
                 'smallMaterial.article'
-            ])->where('is_for_sales', 1);
+            ]);
 
             // Add optional search functionality
             if (!empty($searchTerm)) {
@@ -975,13 +1121,14 @@ class JobController extends Controller
                     'quantity' => $item->quantity,
                     'copies' => $item->copies,
                     'file' => $item->file,
+                    'price' => $item->price,
                     'actions' => collect($item->actions ?? [])->map(function($action) {
                         return [
                             'action_id' => [
                                 'id' => $action['action_id']['id'] ?? $action['id'],
                                 'name' => $action['action_id']['name'] ?? $action['name']
                             ],
-                            'status' => $action['status'] ?? 'Not started yet',
+                            'status' => 'Not started yet',
                             'quantity' => $action['quantity']
                         ];
                     })->toArray()

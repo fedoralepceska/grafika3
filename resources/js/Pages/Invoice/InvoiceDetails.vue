@@ -149,7 +149,7 @@
                                         </div>
                                         <div class="jobPriceInfo absolute right-0 bottom-0 bg-white text-black bold">
                                             <div class="p-2">
-                                                {{$t('jobPrice')}}: <span class="bold">{{job.totalPrice.toFixed(2)}} ден.</span>
+                                                {{$t('jobPrice')}}: <span class="bold" v-if="job.price !== null">{{Number(job.price).toFixed(2)}} ден.</span>
                                             </div>
                                         </div>
                                     </div>

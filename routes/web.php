@@ -20,7 +20,13 @@ use Inertia\Inertia;
 use Illuminate\Support\Facades\DB;
 use App\Models\LargeFormatMaterial;
 use App\Models\SmallMaterial;
+use App\Http\Controllers\PricePerClientController;
+use App\Http\Controllers\PricePerQuantityController;
+use App\Http\Controllers\ClientPriceController;
+use App\Http\Controllers\QuantityPriceController;
+use App\Http\Controllers\OfferController;
 use App\Http\Controllers\ItemController;
+
 
 /*
 |--------------------------------------------------------------------------
@@ -291,9 +297,20 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/offer', [\App\Http\Controllers\OfferController::class, 'index'])->name('offer.index');
+    Route::get('/offers', [\App\Http\Controllers\OfferController::class, 'getOffers'])->name('offer.getOffers');
     Route::get('/offer/create', [\App\Http\Controllers\OfferController::class, 'create'])->name('offer.create');
     Route::post('/offer', [\App\Http\Controllers\OfferController::class, 'store'])->name('offer.store');
     Route::delete('/offer/{offer}', [\App\Http\Controllers\OfferController::class, 'destroy'])->name('offer.destroy');
+    Route::get('/offer-client/create', [\App\Http\Controllers\OfferController::class, 'displayOfferClientPage'])->name('offer.displayOfferClientPage');
+    Route::post('/offer-client', [\App\Http\Controllers\OfferController::class, 'storeOfferClient'])->name('offer.storeOfferClient');
+    Route::get('/offer-client', [\App\Http\Controllers\OfferController::class, 'getOffersClients'])->name('offer.getOffersClients');
+    Route::post('/offer-client/accept', [\App\Http\Controllers\OfferController::class, 'acceptOffer'])->name('offer.acceptOffer');
+    Route::get('/offer-client/details/{id}', [\App\Http\Controllers\OfferController::class, 'getDetails'])->name('offer.getDetails');
+
+    // Offer routes
+    Route::resource('offers', \App\Http\Controllers\OfferController::class);
+    Route::get('/offers/{offer}/items', [\App\Http\Controllers\OfferController::class, 'items'])->name('offers.items');
+    Route::get('/offers/{offer}/pdf', [OfferController::class, 'generateOfferPdf'])->name('offers.pdf');
 });
 
 // Routes for catalog edit form data
@@ -309,11 +326,11 @@ Route::get('/get-materials', function () {
     $largeMaterials = LargeFormatMaterial::with(['article' => function($query) {
         $query->select('id', 'name', 'code');
     }])->get();
-    
+
     $smallMaterials = SmallMaterial::with(['article' => function($query) {
         $query->select('id', 'name', 'code');
     }])->get();
-    
+
     return response()->json([
         'largeMaterials' => $largeMaterials,
         'smallMaterials' => $smallMaterials
@@ -329,10 +346,61 @@ Route::get('/get-actions', function () {
     );
 });
 
+// Price Management Routes
+Route::middleware(['auth'])->group(function () {
+    // Client Prices
+    Route::get('/client-prices', [PricePerClientController::class, 'index'])->name('client-prices.index');
+    Route::get('/client-prices/create', [PricePerClientController::class, 'create'])->name('client-prices.create');
+    Route::post('/client-prices', [PricePerClientController::class, 'store'])->name('client-prices.store');
+    Route::get('/client-prices/{clientPrice}/edit', [PricePerClientController::class, 'edit'])->name('client-prices.edit');
+    Route::put('/client-prices/{clientPrice}', [PricePerClientController::class, 'update'])->name('client-prices.update');
+    Route::delete('/client-prices/{clientPrice}', [PricePerClientController::class, 'destroy'])->name('client-prices.destroy');
+    Route::get('/catalog-items/{catalogItem}/client-prices', [PricePerClientController::class, 'getClientPrices'])->name('client-prices.get');
+
+    // Quantity Prices
+    Route::get('/quantity-prices', [PricePerQuantityController::class, 'index'])->name('quantity-prices.index');
+    Route::get('/quantity-prices/create', [PricePerQuantityController::class, 'create'])->name('quantity-prices.create');
+    Route::post('/quantity-prices', [PricePerQuantityController::class, 'store'])->name('quantity-prices.store');
+    Route::get('/quantity-prices/{quantityPrice}/edit', [PricePerQuantityController::class, 'edit'])->name('quantity-prices.edit');
+    Route::put('/quantity-prices/{quantityPrice}', [PricePerQuantityController::class, 'update'])->name('quantity-prices.update');
+    Route::delete('/quantity-prices/{quantityPrice}', [PricePerQuantityController::class, 'destroy'])->name('quantity-prices.destroy');
+    Route::get('/catalog-items/{catalogItem}/clients/{client}/quantity-prices', [PricePerQuantityController::class, 'getQuantityPrices'])->name('quantity-prices.get');
+});
+
+// Client-specific prices routes
+Route::middleware(['auth'])->group(function () {
+    Route::get('/client-prices', [ClientPriceController::class, 'index'])->name('client-prices.index');
+    Route::get('/client-prices/create', [ClientPriceController::class, 'create'])->name('client-prices.create');
+    Route::post('/client-prices', [ClientPriceController::class, 'store'])->name('client-prices.store');
+    Route::get('/client-prices/{clientPrice}/edit', [ClientPriceController::class, 'edit'])->name('client-prices.edit');
+    Route::put('/client-prices/{clientPrice}', [ClientPriceController::class, 'update'])->name('client-prices.update');
+    Route::delete('/client-prices/{clientPrice}', [ClientPriceController::class, 'destroy'])->name('client-prices.destroy');
+});
+
+// Quantity-based prices routes
+Route::middleware(['auth'])->group(function () {
+    Route::get('/quantity-prices', [QuantityPriceController::class, 'index'])->name('quantity-prices.index');
+    Route::get('/quantity-prices/create', [QuantityPriceController::class, 'create'])->name('quantity-prices.create');
+    Route::post('/quantity-prices', [QuantityPriceController::class, 'store'])->name('quantity-prices.store');
+    Route::get('/quantity-prices/{quantityPrice}/edit', [QuantityPriceController::class, 'edit'])->name('quantity-prices.edit');
+    Route::put('/quantity-prices/{quantityPrice}', [QuantityPriceController::class, 'update'])->name('quantity-prices.update');
+    Route::delete('/quantity-prices/{quantityPrice}', [QuantityPriceController::class, 'destroy'])->name('quantity-prices.destroy');
+});
+
+// Offer Routes
+Route::middleware(['auth'])->group(function () {
+    Route::get('/offers', [OfferController::class, 'index'])->name('offers.index');
+    Route::get('/offers/create', [OfferController::class, 'create'])->name('offers.create');
+    Route::post('/offers', [OfferController::class, 'store'])->name('offers.store');
+    Route::get('/offers/{offer}', [OfferController::class, 'show'])->name('offers.show');
+    Route::patch('/offers/{offer}/status', [OfferController::class, 'updateStatus'])->name('offers.update-status');
+    Route::get('/offers/{offer}/items', [OfferController::class, 'items'])->name('offers.items');
+
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/items/{id}', [ItemController::class, 'getAllByCertificateId']);
     Route::put('/items/{item}', [ItemController::class, 'update']);
     Route::delete('/items/{item}', [ItemController::class, 'destroy']);
+
 });
 
 require __DIR__.'/auth.php';

@@ -2,137 +2,229 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\CatalogItem;
-use App\Enums\MachineCut as MachineCutEnum;
-use App\Enums\MachinePrint as MachinePrintEnum;
-use App\Models\LargeFormatMaterial;
 use App\Models\Offer;
-use App\Models\SmallMaterial;
+use App\Models\Client;
+use App\Models\CatalogItem;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
-use ReflectionClass;
-use Illuminate\Support\Facades\DB;
+use Barryvdh\DomPDF\Facade\Pdf;
 
 class OfferController extends Controller
-
 {
-    public function index(Request $request)
+    public function index()
     {
-        try {
-            // Get pagination parameters with defaults
-            $page = $request->input('page', 1);
-            $perPage = $request->input('per_page', 10);
-            $searchTerm = $request->input('search', '');
-
-            // Start with base query
-            $query = Offer::with([
-                'catalogItems',
-            ]);
-
-            // Add optional search functionality
-            if (!empty($searchTerm)) {
-                $query->where('name', 'like', "%{$searchTerm}%");
-            }
-
-            // Paginate the results
-            $catalogItems = $query->paginate($perPage, ['*'], 'page', $page);
-
-            // Transform the paginated items
-            $transformedItems = $catalogItems->getCollection()->map(function($item) {
-
+        $offers = Offer::with(['client', 'catalogItems.largeMaterial', 'catalogItems.smallMaterial'])
+            ->latest()
+            ->get()
+            ->map(function ($offer) {
                 return [
-                    'id' => $item->id,
-                    'name' => $item->name,
-                    'description' => $item->description,
-                    'price1' => $item->price1,
-                    'price2' => $item->price2,
-                    'price3' => $item->price3,
-                    'catalogItems' => collect($item->catalogItems ?? [])->map(function($item) {
+                    'id' => $offer->id,
+                    'client' => $offer->client->name,
+                    'validity_days' => $offer->validity_days,
+                    'production_start_date' => $offer->production_start_date,
+                    'production_end_date' => $offer->production_end_date,
+                    'status' => $offer->status,
+                    'decline_reason' => $offer->decline_reason,
+                    'created_at' => $offer->created_at->format('Y-m-d H:i:s'),
+                    'items_count' => $offer->catalogItems->count(),
+                    'catalog_items' => $offer->catalogItems->map(function ($item) {
                         return [
-                            'catalog_item_id' => $item['catalog_item_id']
+                            'id' => $item->id,
+                            'name' => $item->name,
+                            'description' => $item->description,
+                            'file' => $item->file,
+                            'price' => $item->price,
+                            'quantity' => $item->pivot->quantity,
+                            'custom_description' => $item->pivot->description,
+                            'large_material' => $item->largeMaterial ? [
+                                'id' => $item->largeMaterial->id,
+                                'name' => $item->largeMaterial->name
+                            ] : null,
+                            'small_material' => $item->smallMaterial ? [
+                                'id' => $item->smallMaterial->id,
+                                'name' => $item->smallMaterial->name
+                            ] : null,
                         ];
-                    })->toArray()
+                    })
                 ];
             });
 
-            // Return Inertia view with the transformed data
-            return Inertia::render('Offer/Index', [
-                'offers' => $transformedItems,
-                'pagination' => [
-                    'current_page' => $catalogItems->currentPage(),
-                    'total_pages' => $catalogItems->lastPage(),
-                    'total_items' => $catalogItems->total(),
-                    'per_page' => $catalogItems->perPage()
-                ]
-            ]);
-        } catch (\Exception $e) {
-            \Log::error('Error in getOffers:', [
-                'message' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
-            ]);
-
-            return response()->json([
-                'error' => 'Failed to fetch offers',
-                'details' => config('app.debug') ? $e->getMessage() : 'An unexpected error occurred'
-            ], 500);
-        }
+        return Inertia::render('Offer/Index', [
+            'offers' => $offers
+        ]);
     }
 
     public function create()
     {
-        $catalogItems = DB::table('catalog_items')
-            ->select('id', 'name', 'category')
-            ->whereNotNull('catalog_items.name')
-            ->where('catalog_items.is_for_offer', true)
-            ->get();
+        $clients = Client::select('id', 'name')->get();
+        $catalogItems = CatalogItem::with(['largeMaterial', 'smallMaterial'])
+            ->where('is_for_offer', true)
+            ->get()
+            ->map(function ($item) {
+                return [
+                    'id' => $item->id,
+                    'name' => $item->name,
+                    'description' => $item->description,
+                    'price' => $item->price,
+                    'file' => $item->file,
+                    'large_material' => $item->largeMaterial ? [
+                        'id' => $item->largeMaterial->id,
+                        'name' => $item->largeMaterial->name
+                    ] : null,
+                    'small_material' => $item->smallMaterial ? [
+                        'id' => $item->smallMaterial->id,
+                        'name' => $item->smallMaterial->name
+                    ] : null,
+                ];
+            });
 
         return Inertia::render('Offer/Create', [
-            'catalogItems' => $catalogItems,
+            'clients' => $clients,
+            'catalogItems' => $catalogItems
         ]);
     }
+
     public function store(Request $request)
     {
-        \Log::info('Storing offer:', $request->all());
-
-        // Validate the incoming request
         $request->validate([
-            'name' => 'required|string|unique:offers',
+            'name' => 'required|string|max:255',
             'description' => 'nullable|string',
-            'price1' => 'nullable|numeric',
-            'price2' => 'nullable|numeric',
-            'price3' => 'nullable|numeric',
-            'selectedCatalogItems' => 'nullable|array',
-            'selectedCatalogItems.*' => 'exists:catalog_items,id',
+            'client_id' => 'required|exists:clients,id',
+            'validity_days' => 'required|integer|min:1',
+            'production_start_date' => 'required|date',
+            'production_end_date' => 'required|date|after:production_start_date',
+            'price1' => 'required|numeric|min:0',
+            'price2' => 'required|numeric|min:0',
+            'price3' => 'required|numeric|min:0',
+            'catalog_items' => 'required|array|min:1',
+            'catalog_items.*.id' => 'required|exists:catalog_items,id',
+            'catalog_items.*.quantity' => 'required|integer|min:1',
+            'catalog_items.*.description' => 'nullable|string',
         ]);
 
-        // Create a new offer
-        $offer = new Offer();
-        $offer->name = $request->input('name');
-        $offer->description = $request->input('description');
-        $offer->price1 = $request->input('price1');
-        $offer->price2 = $request->input('price2');
-        $offer->price3 = $request->input('price3');
-        $offer->save();
+        $offer = Offer::create([
+            'name' => $request->name,
+            'description' => $request->description,
+            'client_id' => $request->client_id,
+            'validity_days' => $request->validity_days,
+            'production_start_date' => $request->production_start_date,
+            'production_end_date' => $request->production_end_date,
+            'price1' => $request->price1,
+            'price2' => $request->price2,
+            'price3' => $request->price3,
+            'status' => 'pending'
+        ]);
 
-        // Associate the selected catalog items with the offer
-        if ($request->has('selectedCatalogItems') && is_array($request->input('selectedCatalogItems'))) {
-            $offer->catalogItems()->sync($request->input('selectedCatalogItems'));
+        // Attach catalog items with their quantities and descriptions
+        foreach ($request->catalog_items as $item) {
+            $offer->catalogItems()->attach($item['id'], [
+                'quantity' => $item['quantity'],
+                'description' => $item['description'] ?? null
+            ]);
         }
 
-        \Log::info('Offer stored successfully with ID: ' . $offer->id);
-
-        // Return a response, such as redirect or JSON response
-        return response()->json([
-            'message' => 'Offer created successfully',
-            'offer' => $offer,
-        ], 201);
+        return redirect()->route('offers.index');
     }
 
-    public function destroy(CatalogItem $catalogItem)
+    public function show(Offer $offer)
     {
-        $catalogItem->actions()->detach();
-        $catalogItem->delete();
+        $offer->load(['client', 'catalogItems.largeMaterial', 'catalogItems.smallMaterial']);
+        
+        return Inertia::render('Offer/Show', [
+            'offer' => [
+                'id' => $offer->id,
+                'client' => $offer->client->name,
+                'validity_days' => $offer->validity_days,
+                'production_start_date' => $offer->production_start_date,
+                'production_end_date' => $offer->production_end_date,
+                'status' => $offer->status,
+                'decline_reason' => $offer->decline_reason,
+                'created_at' => $offer->created_at->format('Y-m-d H:i:s'),
+                'catalog_items' => $offer->catalogItems->map(function ($item) {
+                    return [
+                        'id' => $item->id,
+                        'name' => $item->name,
+                        'description' => $item->pivot->description ?? $item->description,
+                        'quantity' => $item->pivot->quantity,
+                        'price' => $item->price,
+                        'file' => $item->file,
+                        'large_material' => $item->largeMaterial ? [
+                            'id' => $item->largeMaterial->id,
+                            'name' => $item->largeMaterial->name
+                        ] : null,
+                        'small_material' => $item->smallMaterial ? [
+                            'id' => $item->smallMaterial->id,
+                            'name' => $item->smallMaterial->name
+                        ] : null,
+                    ];
+                })
+            ]
+        ]);
+    }
 
-        return redirect()->route('catalog.index')->with('success', 'Catalog item deleted successfully.');
+    public function updateStatus(Request $request, Offer $offer)
+    {
+        $request->validate([
+            'status' => 'required|in:accepted,declined',
+            'decline_reason' => 'nullable|string'
+        ]);
+
+        $offer->update([
+            'status' => $request->status,
+            'decline_reason' => $request->status === 'declined' ? $request->decline_reason : null
+        ]);
+
+        $message = $request->status === 'accepted' 
+            ? 'Offer has been accepted successfully.' 
+            : 'Offer has been declined successfully.';
+
+        return back()->with('success', $message);
+    }
+
+    public function items(Offer $offer)
+    {
+        $offer->load(['client', 'catalogItems.largeMaterial', 'catalogItems.smallMaterial']);
+        
+        return Inertia::render('Offer/Items', [
+            'offer' => [
+                'id' => $offer->id,
+                'client' => $offer->client->name,
+                'catalog_items' => $offer->catalogItems->map(function ($item) {
+                    return [
+                        'id' => $item->id,
+                        'name' => $item->name,
+                        'description' => $item->description,
+                        'file' => $item->file,
+                        'price' => $item->price,
+                        'quantity' => $item->pivot->quantity,
+                        'custom_description' => $item->pivot->description,
+                        'large_material' => $item->largeMaterial ? [
+                            'id' => $item->largeMaterial->id,
+                            'name' => $item->largeMaterial->name
+                        ] : null,
+                        'small_material' => $item->smallMaterial ? [
+                            'id' => $item->smallMaterial->id,
+                            'name' => $item->smallMaterial->name
+                        ] : null,
+                    ];
+                })
+            ]
+        ]);
+    }
+
+    public function generateOfferPdf($offerId)
+    {
+        $offer = Offer::with(['client', 'catalogItems.largeMaterial', 'catalogItems.smallMaterial'])
+            ->findOrFail($offerId);
+
+        // Load the view and pass data
+        $pdf = Pdf::loadView('offers.pdf', compact('offer'), [
+            'isHtml5ParserEnabled' => true,
+            'isRemoteEnabled' => true,
+            'isFontSubsettingEnabled' => true,
+            'chroot' => storage_path('fonts'),
+        ]);
+
+        return $pdf->stream('Offer_' . $offer->id . '_' . date('Y-m-d') . '.pdf');
     }
 }

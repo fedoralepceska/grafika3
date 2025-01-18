@@ -270,7 +270,9 @@ const messages = {
         analyticsInvoice: 'Analytics for Order - User',
         receiptId: 'Receipt ID',
         other: 'Other',
-        actionQuantity: 'Action quantity'
+        actionQuantity: 'Action quantity',
+        offerClient: 'Offers for clients',
+        offer: 'Offer'
     },
     mk: {
         // Define your Macedonian translations here
@@ -543,7 +545,9 @@ const messages = {
         analyticsInvoice: 'Аналитика на налози - корисници',
         receiptId: 'Приемница бр.',
         other: 'Друго',
-        actionQuantity: 'Количина доработка'
+        actionQuantity: 'Количина доработка',
+        offerClient: 'Понуди за клиенти',
+        offer: 'Понуда'
     },
 };
 

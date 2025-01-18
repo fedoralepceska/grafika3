@@ -126,7 +126,7 @@
                     </td>
                     <div class="bg-gray-200 text-black bold">
                         <div class="pt-1 pl-2 pr-2">
-                            {{ $t('jobPrice') }}: <span class="bold">{{ job?.totalPrice?.toFixed(2) }} ден.</span>
+                            {{ $t('jobPrice') }}: <span class="bold">{{ (job.price * job.copies).toFixed(2) }} ден.</span>
                         </div>
                     </div>
                 </div>
@@ -193,29 +193,15 @@ export default {
             // First pass: store initial values
             for (const job of mergedJobs) {
                 if (!jobMap.has(job.id)) {
-                    jobMap.set(job.id, { ...job });
-                }
-            }
-
-            // Second pass: update with latest values, preserving edited fields
-            for (const job of mergedJobs) {
-                const existingJob = jobMap.get(job.id);
-                if (existingJob) {
-                    jobMap.set(job.id, {
-                        ...existingJob,
+                    jobMap.set(job.id, { 
                         ...job,
-                        // Always keep the most recent quantity and copies values
-                        quantity: job.quantity !== undefined ? job.quantity : existingJob.quantity,
-                        copies: job.copies !== undefined ? job.copies : existingJob.copies,
-                        // Keep other important fields
-                        totalPrice: job.totalPrice || existingJob.totalPrice,
-                        actions: job.actions || existingJob.actions,
-                        file: job.file || existingJob.file
+                        // No need to store totalPrice as we calculate it on the fly
                     });
                 }
             }
 
-            return Array.from(jobMap.values());
+            // Convert Map values back to array and sort by ID
+            return Array.from(jobMap.values()).sort((a, b) => a.id - b.id);
         },
 
         fileJobs() {
@@ -251,9 +237,10 @@ export default {
                 const formData = new FormData();
                 formData.append('file', file);
 
-                // Store current quantity and copies values
+                // Store current values
                 const currentQuantity = job.quantity;
                 const currentCopies = job.copies;
+                const currentPrice = job.price;
 
                 const response = await axios.post(
                     `/jobs/${job.id}/update-file`, formData, {
@@ -262,48 +249,43 @@ export default {
                         },
                     });
 
+                // Get the dimensions
                 const dimensions = await axios.get(`/jobs/${response.data.job.id}/image-dimensions`);
 
+                // Create updated job object with all necessary data
                 const updatedJob = {
-                    ...job,
-                    file: response.data.job.file,
+                    ...response.data.job,
                     width: dimensions.data.width,
                     height: dimensions.data.height,
                     fileSize: file.size,
-                    // Preserve the current quantity and copies
-                    quantity: currentQuantity,
-                    copies: currentCopies
+                    quantity: parseInt(currentQuantity),
+                    copies: parseInt(currentCopies),
+                    price: parseFloat(currentPrice),
+                    file_url: response.data.file_url
                 };
 
-                await axios.put(`/jobs/${job.id}`, {
-                    file: response.data.job.file,
-                    width: dimensions.data.width,
-                    height: dimensions.data.height,
-                    // Also update quantity and copies in the backend
-                    quantity: currentQuantity,
-                    copies: currentCopies
-                });
+                // Update in jobsWithPrices
+                const index = this.jobsWithPrices.findIndex(j => j.id === job.id);
+                if (index !== -1) {
+                    this.jobsWithPrices[index] = updatedJob;
+                } else {
+                    this.jobsWithPrices.push(updatedJob);
+                }
 
-                axios.post('/get-jobs-by-ids', {
-                    jobs: [job.id],
-                })
-                    .then(response => {
-                        // Preserve quantity and copies in the response data
-                        const jobsWithPreservedValues = response.data.jobs.map(j => ({
-                            ...j,
-                            quantity: currentQuantity,
-                            copies: currentCopies
-                        }));
+                // Also update in updatedJobs if it exists
+                if (this.updatedJobs) {
+                    const updatedIndex = this.updatedJobs.findIndex(j => j.id === job.id);
+                    if (updatedIndex !== -1) {
+                        this.updatedJobs[updatedIndex] = updatedJob;
+                    } else {
+                        this.updatedJobs.push(updatedJob);
+                    }
+                }
 
-                        this.$emit('jobs-updated', jobsWithPreservedValues);
-                        this.$emit('job-updated', jobsWithPreservedValues);
-                        this.jobsWithPrices = jobsWithPreservedValues;
-                    })
-                    .catch(error => {
-                        toast.error("Couldn't fetch updated jobs");
-                    });
+                // Emit updates
+                this.$emit('jobs-updated', [updatedJob]);
+                this.$emit('job-updated', updatedJob);
 
-                this.updatedJobs.push(updatedJob);
                 toast.success('File uploaded successfully');
             } catch (error) {
                 toast.error('Failed to upload file');
@@ -349,76 +331,75 @@ export default {
             const toast = useToast();
             const valueToUpdate = parseInt(this.editingValue);
 
-            try {
-                // Log the data being sent to verify
-                console.log('Updating job:', {
-                    field: this.editingField,
-                    value: valueToUpdate,
-                    jobId: job.id
-                });
+            // Get catalog_item_id and client_id from the effective attributes
+            const catalog_item_id = job.effective_catalog_item_id;
+            const client_id = job.effective_client_id;
 
+            // Debug log to check job data
+            console.log('Job data being sent:', {
+                jobId: job.id,
+                catalog_item_id,
+                client_id,
+                quantity: this.editingField === 'quantity' ? valueToUpdate : job.quantity,
+                copies: this.editingField === 'copies' ? valueToUpdate : job.copies
+            });
+
+            try {
                 // First update the backend
                 const response = await axios.put(`/jobs/${job.id}`, {
                     [this.editingField]: valueToUpdate,
                     // Include both fields to ensure both are updated
                     quantity: this.editingField === 'quantity' ? valueToUpdate : job.quantity,
-                    copies: this.editingField === 'copies' ? valueToUpdate : job.copies
+                    copies: this.editingField === 'copies' ? valueToUpdate : job.copies,
+                    // Include these fields for price recalculation
+                    catalog_item_id,
+                    client_id
                 });
 
+                // Debug log to check response data
+                console.log('Response from server:', response.data);
+
                 if (response.status === 200) {
-                    // Immediately update the local job data
-                    job[this.editingField] = valueToUpdate;
+                    // Update the local job with the response data, preserving width and height
+                    const updatedJob = {
+                        ...response.data.job,
+                        width: job.width || response.data.job.width,
+                        height: job.height || response.data.job.height,
+                        quantity: parseInt(response.data.job.quantity),
+                        copies: parseInt(response.data.job.copies),
+                        price: parseFloat(response.data.job.price),
+                        effective_catalog_item_id: catalog_item_id,
+                        effective_client_id: client_id
+                    };
 
-                    // Get fresh data with updated calculations
-                    const updatedJobResponse = await axios.post('/get-jobs-by-ids', {
-                        jobs: [job.id],
-                    });
+                    // Debug log to check updated job data
+                    console.log('Updated job data:', updatedJob);
 
-                    if (updatedJobResponse.data.jobs?.[0]) {
-                        const updatedJob = {
-                            ...updatedJobResponse.data.jobs[0],
-                            // Ensure we keep our updated values
-                            [this.editingField]: valueToUpdate
-                        };
-
-                        // Update in jobsWithPrices
-                        const index = this.jobsWithPrices.findIndex(j => j.id === job.id);
-                        if (index !== -1) {
-                            this.jobsWithPrices[index] = {
-                                ...this.jobsWithPrices[index],
-                                ...updatedJob,
-                                [this.editingField]: valueToUpdate
-                            };
-                        } else {
-                            this.jobsWithPrices.push(updatedJob);
-                        }
-
-                        // Also update in updatedJobs if it exists
-                        if (this.updatedJobs) {
-                            const updatedIndex = this.updatedJobs.findIndex(j => j.id === job.id);
-                            if (updatedIndex !== -1) {
-                                this.updatedJobs[updatedIndex] = {
-                                    ...this.updatedJobs[updatedIndex],
-                                    ...updatedJob,
-                                    [this.editingField]: valueToUpdate
-                                };
-                            } else {
-                                this.updatedJobs.push(updatedJob);
-                            }
-                        }
-
-                        // Emit the update with preserved values
-                        this.$emit('job-updated', {
-                            ...updatedJob,
-                            [this.editingField]: valueToUpdate
-                        });
+                    // Update in jobsWithPrices
+                    const index = this.jobsWithPrices.findIndex(j => j.id === job.id);
+                    if (index !== -1) {
+                        this.jobsWithPrices[index] = updatedJob;
+                    } else {
+                        this.jobsWithPrices.push(updatedJob);
                     }
 
+                    // Also update in updatedJobs if it exists
+                    if (this.updatedJobs) {
+                        const updatedIndex = this.updatedJobs.findIndex(j => j.id === job.id);
+                        if (updatedIndex !== -1) {
+                            this.updatedJobs[updatedIndex] = updatedJob;
+                        } else {
+                            this.updatedJobs.push(updatedJob);
+                        }
+                    }
+
+                    // Emit the update
+                    this.$emit('job-updated', updatedJob);
                     toast.success('Updated successfully');
                 }
             } catch (error) {
+                console.error('Error details:', error.response?.data || error);
                 toast.error('Failed to update');
-                console.error('Error updating job:', error);
             }
 
             // Reset editing state

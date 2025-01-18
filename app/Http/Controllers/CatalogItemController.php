@@ -69,6 +69,7 @@ class CatalogItemController extends Controller
                     'is_for_sales' => (bool)$item->is_for_sales,
                     'large_material_id' => $item->large_material_id,
                     'small_material_id' => $item->small_material_id,
+                    'price' => $item->price,
                     'actions' => collect($item->actions ?? [])->map(function($action) {
                         return [
                             'action_id' => [
@@ -153,13 +154,19 @@ class CatalogItemController extends Controller
         ]);
         $actions = $request->input('actions');
         $actions = array_map(function ($action) {
-            $action['isMaterialized'] = filter_var($action['isMaterialized'], FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
+            // Convert empty string to null for isMaterialized
+            if ($action['isMaterialized'] === '') {
+                $action['isMaterialized'] = null;
+            } else {
+                $action['isMaterialized'] = filter_var($action['isMaterialized'], FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
+            }
             return $action;
         }, $actions);
         $request->merge(['actions' => $actions]);
 
         $request->validate([
             'name' => 'required|string|unique:catalog_items',
+            'description' => 'nullable|string',
             'machinePrint' => 'nullable|string',
             'machineCut' => 'nullable|string',
             'large_material_id' => 'nullable|exists:large_format_materials,id',
@@ -169,11 +176,12 @@ class CatalogItemController extends Controller
             'actions' => 'required|array',
             'actions.*.id' => 'required|exists:dorabotka,id',
             'actions.*.quantity' => 'integer|min:0|required_if:actions.*.isMaterialized,true|nullable',
-            'actions.*.isMaterialized' => 'boolean|in:0,1,true,false',
+            'actions.*.isMaterialized' => 'nullable',
             'is_for_offer' => 'nullable|boolean',
             'is_for_sales' => 'nullable|boolean',
             'category' => 'nullable|string|in:' . implode(',', \App\Models\CatalogItem::CATEGORIES),
             'file' => 'required|mimes:jpg,jpeg,png,pdf|max:20480', // 20MB max
+            'price' => 'required|numeric|min:0',
         ]);
 
         // Create the catalog item without actions for now
@@ -275,8 +283,23 @@ class CatalogItemController extends Controller
                 'large_material_id' => $request->input('large_material_id') === 'null' || $request->input('large_material_id') === '' ? null : $request->input('large_material_id'),
             ]);
 
+            $actions = $request->input('actions');
+            if ($actions) {
+                $actions = array_map(function ($action) {
+                    // Convert empty string to null for isMaterialized
+                    if ($action['isMaterialized'] === '') {
+                        $action['isMaterialized'] = null;
+                    } else {
+                        $action['isMaterialized'] = filter_var($action['isMaterialized'], FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
+                    }
+                    return $action;
+                }, $actions);
+                $request->merge(['actions' => $actions]);
+            }
+
             $request->validate([
                 'name' => 'required|string|unique:catalog_items,name,' . $catalogItem->id,
+                'description' => 'nullable|string',
                 'machinePrint' => 'nullable|string',
                 'machineCut' => 'nullable|string',
                 'large_material_id' => 'nullable|exists:large_format_materials,id',
@@ -286,11 +309,12 @@ class CatalogItemController extends Controller
                 'actions' => 'required|array',
                 'actions.*.id' => 'required|exists:dorabotka,id',
                 'actions.*.quantity' => 'integer|min:0|required_if:actions.*.isMaterialized,true|nullable',
-                'actions.*.isMaterialized' => 'boolean',
+                'actions.*.isMaterialized' => 'nullable',
                 'is_for_offer' => 'nullable|boolean',
                 'is_for_sales' => 'nullable|boolean',
                 'category' => 'nullable|string|in:' . implode(',', CatalogItem::CATEGORIES),
                 'file' => 'nullable|mimes:jpg,jpeg,png,pdf|max:20480',
+                'price' => 'required|numeric|min:0',
             ]);
 
             DB::beginTransaction();
@@ -302,7 +326,7 @@ class CatalogItemController extends Controller
                     if ($catalogItem->file && $catalogItem->file !== 'placeholder.jpeg') {
                         Storage::disk('public')->delete('uploads/' . $catalogItem->file);
                     }
-                    
+
                     $file = $request->file('file');
                     $fileName = time() . '_' . $file->getClientOriginalName();
                     $file->storeAs('public/uploads', $fileName);
@@ -323,7 +347,6 @@ class CatalogItemController extends Controller
                     // Use a default value for `isMaterialized` if not provided
                     $isMaterialized = $action['isMaterialized'] ?? false;
 
-                    // Return action data for the catalog item
                     return [
                         'action_id' => [
                             'id' => $action['id'],
@@ -334,16 +357,13 @@ class CatalogItemController extends Controller
                     ];
                 });
 
-                // Update the actions in the catalog_items table
                 $catalogItem->actions = $catalogItemActions->toArray();
                 $catalogItem->save();
 
                 DB::commit();
 
-                return response()->json([
-                    'message' => 'Catalog item updated successfully',
-                    'catalogItem' => $catalogItem
-                ]);
+                return redirect()->route('catalog.index')
+                    ->with('success', 'Catalog item updated successfully.');
 
             } catch (\Exception $e) {
                 DB::rollBack();

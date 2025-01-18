@@ -34,20 +34,36 @@ class Job extends Model
         'small_material_id',
         'shippingInfo',
         'status',
-        'name'
+        'name',
+        'catalog_item_id',
+        'client_id',
+        'price',
+        'invoice_id'
     ];
 
-    protected $with = ['actions'];
+    protected $with = ['actions', 'invoice'];
+
+    protected $appends = ['effective_catalog_item_id', 'effective_client_id'];
 
     protected $attributes = [
-        'estimatedTime' => 0, // Set a default value for estimatedTime
-        'shippingInfo' => '', // Set a default value for shippingInfo
-        'status' => 'Not started yet', // Set a default value for status
+        'estimatedTime' => 0,
+        'shippingInfo' => '',
+        'status' => 'Not started yet',
     ];
 
     protected array $enumCasts = [
         'status' => InvoiceStatus::class,
     ];
+
+    public function getEffectiveCatalogItemIdAttribute()
+    {
+        return $this->catalog_item_id ?? $this->invoice?->catalog_item_id;
+    }
+
+    public function getEffectiveClientIdAttribute()
+    {
+        return $this->client_id ?? $this->invoice?->client_id;
+    }
 
     public function actions(): BelongsToMany
     {
@@ -55,11 +71,19 @@ class Job extends Model
             ->withPivot(['status', 'quantity']);
     }
 
-
-
-    public function invoices(): BelongsToMany
+    public function invoice(): BelongsTo
     {
-        return $this->belongsToMany(Invoice::class);
+        return $this->belongsTo(Invoice::class);
+    }
+
+    public function catalogItem(): BelongsTo
+    {
+        return $this->belongsTo(CatalogItem::class);
+    }
+
+    public function client(): BelongsTo
+    {
+        return $this->belongsTo(Client::class);
     }
 
     public function small_material()
@@ -71,7 +95,6 @@ class Job extends Model
     {
         return $this->belongsTo(User::class, 'started_by');
     }
-
 
     public function large_material()
     {
