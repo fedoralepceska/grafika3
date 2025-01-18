@@ -396,11 +396,11 @@ Route::middleware(['auth'])->group(function () {
     Route::patch('/offers/{offer}/status', [OfferController::class, 'updateStatus'])->name('offers.update-status');
     Route::get('/offers/{offer}/items', [OfferController::class, 'items'])->name('offers.items');
 
-Route::middleware(['auth', 'verified'])->group(function () {
-    Route::get('/items/{id}', [ItemController::class, 'getAllByCertificateId']);
-    Route::put('/items/{item}', [ItemController::class, 'update']);
-    Route::delete('/items/{item}', [ItemController::class, 'destroy']);
+    Route::middleware(['auth', 'verified'])->group(function () {
+        Route::get('/items/{id}', [ItemController::class, 'getAllByCertificateId']);
+        Route::put('/items/{item}', [ItemController::class, 'update']);
+        Route::delete('/items/{item}', [ItemController::class, 'destroy']);
 
+    });
 });
-
 require __DIR__.'/auth.php';
