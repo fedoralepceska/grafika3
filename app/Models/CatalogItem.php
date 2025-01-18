@@ -25,13 +25,15 @@ class CatalogItem extends Model
         'is_for_sales',
         'category',
         'file',
-        'price'
+        'price',
+        'cost_price'
     ];
 
     protected $casts = [
         'is_for_offer' => 'boolean',
         'is_for_sales' => 'boolean',
         'price' => 'decimal:2',
+        'cost_price' => 'decimal:2',
         'actions' => 'array'
     ];
 
@@ -163,5 +165,30 @@ class CatalogItem extends Model
             ->exists() || $this->quantityPrices()
             ->where('client_id', $clientId)
             ->exists();
+    }
+
+    // Add new relationship for articles
+    public function articles()
+    {
+        return $this->belongsToMany(Article::class, 'catalog_item_articles')
+            ->withPivot('quantity')
+            ->withTimestamps();
+    }
+
+    // Method to calculate and update cost price
+    public function calculateCostPrice()
+    {
+        $totalCost = 0;
+
+        // Calculate cost from articles
+        foreach ($this->articles as $article) {
+            $totalCost += ($article->purchase_price ?? 0) * $article->pivot->quantity;
+        }
+
+        // Update the cost_price
+        $this->cost_price = $totalCost;
+        $this->save();
+
+        return $totalCost;
     }
 }

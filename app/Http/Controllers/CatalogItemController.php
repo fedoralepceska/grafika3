@@ -34,7 +34,11 @@ class CatalogItemController extends Controller
             // Start with base query
             $query = CatalogItem::with([
                 'largeMaterial', // Relation to large_material
-                'smallMaterial' // Relation to small_material
+                'smallMaterial', // Relation to small_material
+                'articles' => function($query) {
+                    $query->select('article.id', 'name', 'code', 'purchase_price', 'in_meters', 'in_kilograms', 'in_pieces', 'in_square_meters')
+                         ->withPivot('quantity');
+                }
             ]);
 
             // Add optional search functionality
@@ -70,6 +74,21 @@ class CatalogItemController extends Controller
                     'large_material_id' => $item->large_material_id,
                     'small_material_id' => $item->small_material_id,
                     'price' => $item->price,
+                    'articles' => $item->articles->map(function($article) {
+                        return [
+                            'id' => $article->id,
+                            'name' => $article->name,
+                            'code' => $article->code,
+                            'purchase_price' => $article->purchase_price,
+                            'in_meters' => $article->in_meters,
+                            'in_kilograms' => $article->in_kilograms,
+                            'in_pieces' => $article->in_pieces,
+                            'in_square_meters' => $article->in_square_meters,
+                            'pivot' => [
+                                'quantity' => $article->pivot->quantity
+                            ]
+                        ];
+                    }),
                     'actions' => collect($item->actions ?? [])->map(function($action) {
                         return [
                             'action_id' => [
@@ -154,7 +173,6 @@ class CatalogItemController extends Controller
         ]);
         $actions = $request->input('actions');
         $actions = array_map(function ($action) {
-            // Convert empty string to null for isMaterialized
             if ($action['isMaterialized'] === '') {
                 $action['isMaterialized'] = null;
             } else {
@@ -182,55 +200,71 @@ class CatalogItemController extends Controller
             'category' => 'nullable|string|in:' . implode(',', \App\Models\CatalogItem::CATEGORIES),
             'file' => 'required|mimes:jpg,jpeg,png,pdf|max:20480', // 20MB max
             'price' => 'required|numeric|min:0',
+            'articles' => 'nullable|array',
+            'articles.*.id' => 'required|exists:article,id',
+            'articles.*.quantity' => 'required|numeric|min:0.01',
         ]);
 
-        // Create the catalog item without actions for now
-        $catalogItem = CatalogItem::create($request->except('actions'));
-
-        $file = $request->file('file');
-        $fileName = time() . '_' . $file->getClientOriginalName();
-        $catalogItem->file = $fileName;
-        // Store the file in the 'public/uploads' directory
+        DB::beginTransaction();
         try {
-            $file->storeAs('public/uploads', $fileName);
-        } catch (\Exception $e) {
-            dd('Error storing file: ' . $e->getMessage());
-        }
+            // Create the catalog item without actions for now
+            $catalogItem = CatalogItem::create($request->except(['actions', 'articles']));
 
-        $catalogItem->save();
+            $file = $request->file('file');
+            $fileName = time() . '_' . $file->getClientOriginalName();
+            $catalogItem->file = $fileName;
 
-        // Process actions and populate both `catalog_items` and `job_actions`
-        $catalogItemActions = collect($request->actions)->map(function ($action) {
-            $actionData = DB::table('dorabotka')->where('id', $action['id'])->first();
-
-            if (!$actionData) {
-                throw new \Exception("Action with ID {$action['id']} does not exist.");
+            try {
+                $file->storeAs('public/uploads', $fileName);
+            } catch (\Exception $e) {
+                throw new \Exception('Error storing file: ' . $e->getMessage());
             }
 
-            // Use a default value for `isMaterialized` if not provided
-            $isMaterialized = $action['isMaterialized'] ?? false;
+            // Process actions
+            $catalogItemActions = collect($request->actions)->map(function ($action) {
+                $actionData = DB::table('dorabotka')->where('id', $action['id'])->first();
 
-            // Return action data for the catalog item
-            return [
-                'action_id' => [
-                    'id' => $action['id'],
-                    'name' => $actionData->name,
-                ],
-                'status' => 'Not started yet',
-                'quantity' => $isMaterialized ? ($action['quantity'] ?? 0) : null,
-            ];
-        });
+                if (!$actionData) {
+                    throw new \Exception("Action with ID {$action['id']} does not exist.");
+                }
 
-        // Save the processed actions into the `actions` column of `catalog_items`
-        $catalogItem->actions = $catalogItemActions->toArray();
-        $catalogItem->save();
+                $isMaterialized = $action['isMaterialized'] ?? false;
 
-        \Log::info('Stored catalog item actions:', ['actions' => $catalogItem->actions]);
+                return [
+                    'action_id' => [
+                        'id' => $action['id'],
+                        'name' => $actionData->name,
+                    ],
+                    'status' => 'Not started yet',
+                    'quantity' => $isMaterialized ? ($action['quantity'] ?? 0) : null,
+                ];
+            });
 
-        return redirect()->route('catalog.index');
+            $catalogItem->actions = $catalogItemActions->toArray();
+
+            // Process articles if provided
+            if ($request->has('articles')) {
+                foreach ($request->articles as $articleData) {
+                    $catalogItem->articles()->attach($articleData['id'], [
+                        'quantity' => $articleData['quantity']
+                    ]);
+                }
+                // Calculate and update cost price
+                $catalogItem->calculateCostPrice();
+            }
+
+            $catalogItem->save();
+
+            DB::commit();
+            \Log::info('Stored catalog item actions:', ['actions' => $catalogItem->actions]);
+
+            return redirect()->route('catalog.index');
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            throw $e;
+        }
     }
-
-
 
     public function edit(CatalogItem $catalogItem)
     {
@@ -286,7 +320,6 @@ class CatalogItemController extends Controller
             $actions = $request->input('actions');
             if ($actions) {
                 $actions = array_map(function ($action) {
-                    // Convert empty string to null for isMaterialized
                     if ($action['isMaterialized'] === '') {
                         $action['isMaterialized'] = null;
                     } else {
@@ -315,6 +348,9 @@ class CatalogItemController extends Controller
                 'category' => 'nullable|string|in:' . implode(',', CatalogItem::CATEGORIES),
                 'file' => 'nullable|mimes:jpg,jpeg,png,pdf|max:20480',
                 'price' => 'required|numeric|min:0',
+                'articles' => 'nullable|array',
+                'articles.*.id' => 'required|exists:article,id',
+                'articles.*.quantity' => 'required|numeric|min:0.01',
             ]);
 
             DB::beginTransaction();
@@ -322,7 +358,6 @@ class CatalogItemController extends Controller
             try {
                 // Handle file upload if a new file is provided
                 if ($request->hasFile('file')) {
-                    // Delete old file if it exists and is not the placeholder
                     if ($catalogItem->file && $catalogItem->file !== 'placeholder.jpeg') {
                         Storage::disk('public')->delete('uploads/' . $catalogItem->file);
                     }
@@ -334,7 +369,7 @@ class CatalogItemController extends Controller
                 }
 
                 // Update the catalog item without actions first
-                $catalogItem->update($request->except(['actions', 'file']));
+                $catalogItem->update($request->except(['actions', 'file', 'articles']));
 
                 // Process actions and update them
                 $catalogItemActions = collect($request->actions)->map(function ($action) {
@@ -344,7 +379,6 @@ class CatalogItemController extends Controller
                         throw new \Exception("Action with ID {$action['id']} does not exist.");
                     }
 
-                    // Use a default value for `isMaterialized` if not provided
                     $isMaterialized = $action['isMaterialized'] ?? false;
 
                     return [
@@ -358,6 +392,23 @@ class CatalogItemController extends Controller
                 });
 
                 $catalogItem->actions = $catalogItemActions->toArray();
+
+                // Update articles if provided
+                if ($request->has('articles')) {
+                    // Detach all existing articles
+                    $catalogItem->articles()->detach();
+
+                    // Attach new articles with quantities
+                    foreach ($request->articles as $articleData) {
+                        $catalogItem->articles()->attach($articleData['id'], [
+                            'quantity' => $articleData['quantity']
+                        ]);
+                    }
+
+                    // Recalculate cost price
+                    $catalogItem->calculateCostPrice();
+                }
+
                 $catalogItem->save();
 
                 DB::commit();
@@ -383,7 +434,6 @@ class CatalogItemController extends Controller
             ], 500);
         }
     }
-
 
     public function destroy(CatalogItem $catalogItem)
     {

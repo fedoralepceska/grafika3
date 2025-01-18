@@ -3,266 +3,324 @@
         <div class="pl-7 pr-7">
             <Header title="Catalog" subtitle="createNewCatalogItem" icon="List.png" link="catalog"/>
 
-
-        <div class="dark-gray p-2 text-white">
-            <div class="form-container p-2 ">
-
+            <div class="dark-gray p-2 text-white">
+                <div class="form-container p-2 ">
                     <h2 class="sub-title">Catalog item Creation</h2>
 
-            <form @submit.prevent="submit" class="space-y-6 w-full rounded-lg">
-                <!-- Basic Information -->
-                <div class="grid grid-cols-2 gap-6">
-                    <div class="space-y-4">
-                        <div>
-                            <label class="text-white">Name</label>
-                            <input
-                                v-model="form.name"
-                                type="text"
-                                class="w-full mt-1 rounded"
-                                required
-                            />
-                        </div>
-
-                        <div>
-                            <label class="text-white">Machine Print</label>
-                            <select
-                                v-model="form.machinePrint"
-                                class="w-full mt-1 rounded"
-                            >
-                                <option value="">Select Machine</option>
-                                <option v-for="machine in machinesPrint"
-                                        :key="machine.id"
-                                        :value="machine.name">
-                                    {{ machine.name }}
-                                </option>
-                            </select>
-                        </div>
-
-                        <div>
-                            <label class="text-white">Machine Cut</label>
-                            <select
-                                v-model="form.machineCut"
-                                class="w-full mt-1 rounded"
-                            >
-                                <option value="">Select Machine</option>
-                                <option v-for="machine in machinesCut"
-                                        :key="machine.id"
-                                        :value="machine.name">
-                                    {{ machine.name }}
-                                </option>
-                            </select>
-                        </div>
-                        <div>
-                            <label class="text-white">Category</label>
-                            <select
-                                v-model="form.category"
-                                class="w-full mt-1 rounded"
-                            >
-                                <option value="">Select Machine</option>
-                                <option v-for="category in categories"
-                                        :key="category"
-                                        :value="category"
-                                >
-                                    {{ category.replace('_', ' ').split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ') }}
-                                </option>
-                            </select>
-                        </div>
-                    </div>
-
-                    <div class="space-y-4">
-                        <div>
-                            <label class="text-white">Large Format Material</label>
-                            <select
-                                v-model="form.large_material_id"
-                                class="w-full mt-1 rounded"
-                                :disabled="form.small_material_id !== null"
-                            >
-                                <option value="">Select Material</option>
-                                <option v-for="material in largeMaterials"
-                                        :key="material.id"
-                                        :value="material.id">
-                                    {{ material.article?.name }} ({{ material.article?.code }})
-                                </option>
-                            </select>
-                        </div>
-
-                        <div>
-                            <label class="text-white">Small Format Material</label>
-                            <select
-                                v-model="form.small_material_id"
-                                class="w-full mt-1 rounded"
-                                :disabled="form.large_material_id !== null"
-                            >
-                                <option value="">Select Material</option>
-                                <option v-for="material in smallMaterials"
-                                        :key="material.id"
-                                        :value="material.id">
-                                    {{ material.article?.name }} ({{ material.article?.code }})
-                                </option>
-                            </select>
-                        </div>
-
-                        <div class="grid grid-cols-2 gap-4">
-                            <div>
-                                <label class="text-white">Quantity</label>
-                                <input
-                                    v-model="form.quantity"
-                                    type="number"
-                                    min="1"
-                                    class="w-full mt-1 rounded"
-                                    required
-                                />
-                            </div>
-                            <div>
-                                <label class="text-white">Copies</label>
-                                <input
-                                    v-model="form.copies"
-                                    type="number"
-                                    min="1"
-                                    class="w-full mt-1 rounded"
-                                    required
-                                />
-                            </div>
-                        </div>
-                        <div>
-                            <label class="text-white">Default Price</label>
-                            <input
-                                v-model="form.price"
-                                type="number"
-                                step="0.01"
-                                min="0"
-                                class="w-full mt-1 rounded"
-                                required
-                            />
-                        </div>
-                        <div class="grid grid-cols-2 gap-4 pt-9">
-                            <div>
-                                <Checkbox name="is_for_offer" v-model:checked="form.is_for_offer" />
-                                <label class="text-white ml-2">For Offer</label>
-                            </div>
-                            <div>
-                                <Checkbox name="is_for_sales" v-model:checked="form.is_for_sales" />
-                                <label class="text-white ml-2">For Sales</label>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- File and Description Section -->
-                <div class="grid grid-cols-2 gap-6 mt-6">
-                    <div class="file-upload">
-                        <h3 class="text-white text-lg font-semibold mb-4">File Upload</h3>
-                        <div
-                            class="upload-area"
-                            @dragover.prevent
-                            @drop.prevent="handleDrop"
-                            @click="triggerFileInput"
-                        >
-                            <input
-                                type="file"
-                                id="file-input"
-                                class="hidden"
-                                @change="handleFileInput"
-                                accept=".pdf, .png, .jpg, .jpeg"
-                            />
-                            <div v-if="!previewUrl" class="placeholder-content">
-                                <div class="upload-icon">
-                                    <span class="mdi mdi-cloud-upload text-4xl"></span>
+                    <form @submit.prevent="submit" class="space-y-6 w-full rounded-lg">
+                        <!-- Basic Information -->
+                        <div class="grid grid-cols-2 gap-6">
+                            <div class="space-y-4">
+                                <div>
+                                    <label class="text-white">Name</label>
+                                    <input
+                                        v-model="form.name"
+                                        type="text"
+                                        class="w-full mt-1 rounded"
+                                        required
+                                    />
                                 </div>
-                                <p class="upload-text">Drag and drop your file here</p>
-                                <p class="upload-text-sub">or click to browse</p>
-                                <p class="file-types">Supported formats: PDF, PNG, JPG, JPEG</p>
-                            </div>
-                            <div v-else class="preview-container">
-                                <img
-                                    v-if="isImage"
-                                    :src="previewUrl"
-                                    alt="Preview"
-                                    class="preview-image"
-                                />
-                                <div v-else class="pdf-preview">
-                                    <span class="mdi mdi-file-pdf text-4xl"></span>
-                                    <span class="pdf-name">{{ fileName }}</span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
 
-                    <div class="description-section">
-                        <h3 class="text-white text-lg font-semibold mb-4">Description</h3>
-                        <textarea
-                            v-model="form.description"
-                            class="w-full rounded description-textarea"
-                            rows="11"
-                            placeholder="Enter item description..."
-                        ></textarea>
-                    </div>
-                </div>
-
-                <!-- Actions Section -->
-                <div class="mt-6">
-                    <h3 class="text-white text-lg font-semibold mb-4">Actions</h3>
-                    <div class="space-y-4">
-                        <div v-for="(action, index) in form.actions" :key="index"
-                             class="flex items-center space-x-4 light-gray p-4 rounded">
-                            <div class="flex-1">
-                                <select
-                                    :value="action.selectedAction"
-                                    @input="(e) => handleActionSelect(e, action)"
-                                    class="w-full rounded option"
-                                    :class="{ 'border-red-500': !action.selectedAction }"
-                                    required
-                                >
-                                    <option class="option" value="">Select Action</option>
-                                    <option v-for="availableAction in availableActions"
-                                            :key="availableAction.id"
-                                            :value="availableAction.id"
-                                            :selected="action.selectedAction === availableAction.id"
-                                            class="option"
+                                <div>
+                                    <label class="text-white">Machine Print</label>
+                                    <select
+                                        v-model="form.machinePrint"
+                                        class="w-full mt-1 rounded"
                                     >
-                                        {{ availableAction.name }}
-                                    </option>
-                                </select>
+                                        <option value="">Select Machine</option>
+                                        <option v-for="machine in machinesPrint"
+                                                :key="machine.id"
+                                                :value="machine.name">
+                                            {{ machine.name }}
+                                        </option>
+                                    </select>
+                                </div>
+
+                                <div>
+                                    <label class="text-white">Machine Cut</label>
+                                    <select
+                                        v-model="form.machineCut"
+                                        class="w-full mt-1 rounded"
+                                    >
+                                        <option value="">Select Machine</option>
+                                        <option v-for="machine in machinesCut"
+                                                :key="machine.id"
+                                                :value="machine.name">
+                                            {{ machine.name }}
+                                        </option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="text-white">Category</label>
+                                    <select
+                                        v-model="form.category"
+                                        class="w-full mt-1 rounded"
+                                    >
+                                        <option value="">Select Machine</option>
+                                        <option v-for="category in categories"
+                                                :key="category"
+                                                :value="category"
+                                        >
+                                            {{ category.replace('_', ' ').split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ') }}
+                                        </option>
+                                    </select>
+                                </div>
                             </div>
-                            <div v-if="action.showQuantity" class="w-32">
-                                <input
-                                    v-if="action.showQuantity"
-                                    v-model="action.quantity"
-                                    type="number"
-                                    min="0"
-                                    class="w-full rounded option"
-                                    :class="{ 'border-red-500': action.showQuantity && (!action.quantity || action.quantity <= 0) }"
-                                    placeholder="Quantity"
-                                    required
-                                />
+
+                            <div class="space-y-4">
+                                <div>
+                                    <label class="text-white">Large Format Material</label>
+                                    <select
+                                        v-model="form.large_material_id"
+                                        class="w-full mt-1 rounded"
+                                        :disabled="form.small_material_id !== null"
+                                    >
+                                        <option value="">Select Material</option>
+                                        <option v-for="material in largeMaterials"
+                                                :key="material.id"
+                                                :value="material.id">
+                                            {{ material.article?.name }} ({{ material.article?.code }})
+                                        </option>
+                                    </select>
+                                </div>
+
+                                <div>
+                                    <label class="text-white">Small Format Material</label>
+                                    <select
+                                        v-model="form.small_material_id"
+                                        class="w-full mt-1 rounded"
+                                        :disabled="form.large_material_id !== null"
+                                    >
+                                        <option value="">Select Material</option>
+                                        <option v-for="material in smallMaterials"
+                                                :key="material.id"
+                                                :value="material.id">
+                                            {{ material.article?.name }} ({{ material.article?.code }})
+                                        </option>
+                                    </select>
+                                </div>
+
+                                <div class="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label class="text-white">Quantity</label>
+                                        <input
+                                            v-model="form.quantity"
+                                            type="number"
+                                            min="1"
+                                            class="w-full mt-1 rounded"
+                                            required
+                                        />
+                                    </div>
+                                    <div>
+                                        <label class="text-white">Copies</label>
+                                        <input
+                                            v-model="form.copies"
+                                            type="number"
+                                            min="1"
+                                            class="w-full mt-1 rounded"
+                                            required
+                                        />
+                                    </div>
+                                </div>
+                                <div>
+                                    <label class="text-white">Default Price</label>
+                                    <input
+                                        v-model="form.price"
+                                        type="number"
+                                        step="0.01"
+                                        min="0"
+                                        class="w-full mt-1 rounded"
+                                        required
+                                    />
+                                </div>
+                                <div class="grid grid-cols-2 gap-4 pt-9">
+                                    <div>
+                                        <Checkbox name="is_for_offer" v-model:checked="form.is_for_offer" />
+                                        <label class="text-white ml-2">For Offer</label>
+                                    </div>
+                                    <div>
+                                        <Checkbox name="is_for_sales" v-model:checked="form.is_for_sales" />
+                                        <label class="text-white ml-2">For Sales</label>
+                                    </div>
+                                </div>
                             </div>
-                            <button
-                                type="button"
-                                @click="removeAction(index)"
-                                class="text-red-500 hover:text-red-700"
-                            >
-                                <span class="mdi mdi-delete"></span>
+                        </div>
+
+                        <!-- Articles Section -->
+                        <div class="mt-6">
+                            <h3 class="text-white text-lg font-semibold mb-4">Component Articles</h3>
+                            <div class="space-y-4">
+                                <div v-for="(article, index) in form.articles" :key="index"
+                                     class="flex items-center space-x-4 light-gray p-4 rounded">
+                                    <div class="flex-1">
+                                        <label class="text-white mb-2 block">Article</label>
+                                        <CatalogArticleSelect
+                                            v-model="article.id"
+                                            @article-selected="handleArticleSelected($event, index)"
+                                            class="w-full"
+                                        />
+                                    </div>
+                                    <div class="w-32">
+                                        <label class="text-white mb-2 block">Quantity{{ article.unitLabel ? ` (${article.unitLabel})` : '' }}</label>
+                                        <input
+                                            v-model="article.quantity"
+                                            type="number"
+                                            min="0.01"
+                                            step="0.01"
+                                            class="w-full rounded option"
+                                            required
+                                            @input="calculateCostPrice"
+                                        />
+
+                                    </div>
+                                    <div class="w-32 text-right">
+                                        <label class="text-white mb-2 block">Cost</label>
+                                        <div class="text-green-400 font-medium">
+                                            €{{ ((article.purchasePrice || 0) * (article.quantity || 0)).toFixed(2) }}
+                                        </div>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        @click="removeArticle(index)"
+                                        class="text-red-500 hover:text-red-700 mt-8"
+                                    >
+                                        <span class="mdi mdi-delete"></span>
+                                    </button>
+                                </div>
+
+                                <button
+                                    type="button"
+                                    @click="addArticle"
+                                    class="text-green-500 hover:text-green-700"
+                                >
+                                    <span class="mdi mdi-plus-circle"></span> Add Article
+                                </button>
+                            </div>
+
+                            <!-- Cost Price Display -->
+                            <div v-if="form.articles.length > 0" class="mt-4 p-4 bg-gray-700 rounded">
+                                <div class="flex justify-between items-center">
+                                    <p class="text-white">Total Cost Price:</p>
+                                    <p class="text-green-400 text-xl font-bold">€{{ calculatedCostPrice.toFixed(2) }}</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- File and Description Section -->
+                        <div class="grid grid-cols-2 gap-6 mt-6">
+                            <div class="file-upload">
+                                <h3 class="text-white text-lg font-semibold mb-4">File Upload</h3>
+                                <div
+                                    class="upload-area"
+                                    @dragover.prevent
+                                    @drop.prevent="handleDrop"
+                                    @click="triggerFileInput"
+                                >
+                                    <input
+                                        type="file"
+                                        id="file-input"
+                                        class="hidden"
+                                        @change="handleFileInput"
+                                        accept=".pdf, .png, .jpg, .jpeg"
+                                    />
+                                    <div v-if="!previewUrl" class="placeholder-content">
+                                        <div class="upload-icon">
+                                            <span class="mdi mdi-cloud-upload text-4xl"></span>
+                                        </div>
+                                        <p class="upload-text">Drag and drop your file here</p>
+                                        <p class="upload-text-sub">or click to browse</p>
+                                        <p class="file-types">Supported formats: PDF, PNG, JPG, JPEG</p>
+                                    </div>
+                                    <div v-else class="preview-container">
+                                        <img
+                                            v-if="isImage"
+                                            :src="previewUrl"
+                                            alt="Preview"
+                                            class="preview-image"
+                                        />
+                                        <div v-else class="pdf-preview">
+                                            <span class="mdi mdi-file-pdf text-4xl"></span>
+                                            <span class="pdf-name">{{ fileName }}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="description-section">
+                                <h3 class="text-white text-lg font-semibold mb-4">Description</h3>
+                                <textarea
+                                    v-model="form.description"
+                                    class="w-full rounded description-textarea"
+                                    rows="11"
+                                    placeholder="Enter item description..."
+                                ></textarea>
+                            </div>
+                        </div>
+
+                        <!-- Actions Section -->
+                        <div class="mt-6">
+                            <h3 class="text-white text-lg font-semibold mb-4">Actions</h3>
+                            <div class="space-y-4">
+                                <div v-for="(action, index) in form.actions" :key="index"
+                                     class="flex items-center space-x-4 light-gray p-4 rounded">
+                                    <div class="flex-1">
+                                        <select
+                                            :value="action.selectedAction"
+                                            @input="(e) => handleActionSelect(e, action)"
+                                            class="w-full rounded option"
+                                            :class="{ 'border-red-500': !action.selectedAction }"
+                                            required
+                                        >
+                                            <option class="option" value="">Select Action</option>
+                                            <option v-for="availableAction in availableActions"
+                                                    :key="availableAction.id"
+                                                    :value="availableAction.id"
+                                                    :selected="action.selectedAction === availableAction.id"
+                                                    class="option"
+                                            >
+                                                {{ availableAction.name }}
+                                            </option>
+                                        </select>
+                                    </div>
+                                    <div v-if="action.showQuantity" class="w-32">
+                                        <input
+                                            v-if="action.showQuantity"
+                                            v-model="action.quantity"
+                                            type="number"
+                                            min="0"
+                                            class="w-full rounded option"
+                                            :class="{ 'border-red-500': action.showQuantity && (!action.quantity || action.quantity <= 0) }"
+                                            placeholder="Quantity"
+                                            required
+                                        />
+                                    </div>
+                                    <button
+                                        type="button"
+                                        @click="removeAction(index)"
+                                        class="text-red-500 hover:text-red-700"
+                                    >
+                                        <span class="mdi mdi-delete"></span>
+                                    </button>
+                                </div>
+
+                                <button
+                                    type="button"
+                                    @click="addAction"
+                                    class="text-green-500 hover:text-green-700"
+                                >
+                                    <span class="mdi mdi-plus-circle"></span> Add Action
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="flex justify-end space-x-4">
+                            <button type="submit" class="btn btn-primary">
+                                Create Catalog Item
                             </button>
                         </div>
-
-                        <button
-                            type="button"
-                            @click="addAction"
-                            class="text-green-500 hover:text-green-700"
-                        >
-                            <span class="mdi mdi-plus-circle"></span> Add Action
-                        </button>
-                    </div>
+                    </form>
                 </div>
-
-                <div class="flex justify-end space-x-4">
-                    <button type="submit" class="btn btn-primary">
-                        Create Catalog Item
-                    </button>
-                </div>
-            </form>
             </div>
-        </div>
         </div>
     </MainLayout>
 </template>
@@ -273,13 +331,15 @@ import Header from '@/Components/Header.vue';
 import { Link } from '@inertiajs/vue3';
 import { useToast } from 'vue-toastification';
 import Checkbox from '@/Components/inputs/Checkbox.vue';
+import CatalogArticleSelect from '@/Components/CatalogArticleSelect.vue';
 
 export default {
     components: {
         MainLayout,
         Header,
         Link,
-        Checkbox
+        Checkbox,
+        CatalogArticleSelect
     },
 
     props: {
@@ -306,10 +366,13 @@ export default {
                 is_for_sales: true,
                 category: '',
                 file: 'placeholder.jpeg',
+                price: '',
+                articles: []
             },
             categories: ['material', 'article', 'small_format'],
             previewUrl: null, // URL for file preview
             fileName: '', // Stores the file name
+            calculatedCostPrice: 0
         }
     },
 
@@ -320,10 +383,43 @@ export default {
                     selectedAction.selectedAction === action.id
                 )
             })
+        },
+        isImage() {
+            return this.form.file && this.form.file.type?.startsWith("image/");
         }
     },
 
     methods: {
+        addArticle() {
+            this.form.articles.push({
+                id: null,
+                quantity: 1,
+                purchasePrice: 0
+            });
+        },
+
+        removeArticle(index) {
+            this.form.articles.splice(index, 1);
+            this.calculateCostPrice();
+        },
+
+        handleArticleSelected(article, index) {
+            this.form.articles[index] = {
+                ...this.form.articles[index],
+                id: article.id,
+                purchasePrice: article.purchase_price,
+                unitLabel: article.unitLabel,
+                quantity: this.form.articles[index].quantity || 1
+            };
+            this.calculateCostPrice();
+        },
+
+        calculateCostPrice() {
+            this.calculatedCostPrice = this.form.articles.reduce((total, article) => {
+                return total + (article.purchasePrice || 0) * (article.quantity || 0);
+            }, 0);
+        },
+
         addAction() {
             this.form.actions.push({
                 selectedAction: '',
@@ -366,33 +462,32 @@ export default {
         removeAction(index) {
             this.form.actions.splice(index, 1)
         },
+
         async handleDrop(event) {
             const file = event.dataTransfer.files[0];
             this.processFile(file);
         },
+
         async handleFileInput(event) {
             const file = event.target.files[0];
             this.processFile(file);
         },
+
         processFile(file) {
             if (!file) return;
 
-            // Store file and generate preview URL
             this.form.file = file;
             this.fileName = file.name;
 
-            // Check file type for preview
             if (file.type.startsWith("image/")) {
                 this.isImage = true;
                 this.previewUrl = URL.createObjectURL(file);
             } else if (file.type === "application/pdf") {
                 this.isImage = false;
-                this.previewUrl = "/storage/uploads/placeholder.jpeg"; // Placeholder for PDFs
+                this.previewUrl = "/storage/uploads/placeholder.jpeg";
             }
         },
-        isImage() {
-            return this.form.file && this.form.file.type.startsWith("image/");
-        },
+
         validateActions() {
             if (this.form.actions.length === 0) {
                 return 'At least one action is required';
@@ -409,9 +504,10 @@ export default {
             }
             return null;
         },
+
         async submit() {
             const toast = useToast();
-            
+
             // Validate actions before submission
             const actionError = this.validateActions();
             if (actionError) {
@@ -421,9 +517,9 @@ export default {
 
             const formData = new FormData();
 
-            // Append fields
+            // Append basic fields
             Object.entries(this.form).forEach(([key, value]) => {
-                if (key !== 'actions' && key !== 'file') {
+                if (key !== 'actions' && key !== 'file' && key !== 'articles') {
                     formData.append(key, value);
                 }
             });
@@ -433,11 +529,17 @@ export default {
                 formData.append('file', this.form.file);
             }
 
-            // Serialize actions
+            // Append actions
             this.form.actions.forEach((action, index) => {
                 formData.append(`actions[${index}][id]`, action.selectedAction);
                 formData.append(`actions[${index}][quantity]`, action.quantity || 0);
                 formData.append(`actions[${index}][isMaterialized]`, action.isMaterialized === null ? '' : action.isMaterialized);
+            });
+
+            // Append articles
+            this.form.articles.forEach((article, index) => {
+                formData.append(`articles[${index}][id]`, article.id);
+                formData.append(`articles[${index}][quantity]`, article.quantity);
             });
 
             try {
@@ -457,6 +559,7 @@ export default {
                 }
             }
         },
+
         triggerFileInput() {
             document.getElementById("file-input").click();
         },

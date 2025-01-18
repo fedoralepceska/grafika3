@@ -160,4 +160,21 @@ class ArticleController extends Controller
 
         return redirect()->route('articles.index');
     }
+
+    public function search(Request $request)
+    {
+        $query = $request->get('query');
+
+        return Article::where('name', 'like', "%{$query}%")
+            ->orWhere('code', 'like', "%{$query}%")
+            ->select('id', 'name', 'code', 'purchase_price', 'in_meters', 'in_kilograms', 'in_pieces', 'in_square_meters')
+            ->limit(10)
+            ->get();
+    }
+
+    public function get($id)
+    {
+        return Article::select('id', 'name', 'code', 'purchase_price', 'in_meters', 'in_kilograms', 'in_pieces', 'in_square_meters')
+            ->findOrFail($id);
+    }
 }
