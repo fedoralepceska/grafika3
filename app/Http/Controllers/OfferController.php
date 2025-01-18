@@ -56,7 +56,7 @@ class OfferController extends Controller
 
     public function create()
     {
-        $clients = Client::select('id', 'name')->get();
+        $clients = Client::select('id', 'name')->with('contacts')->get();
         $catalogItems = CatalogItem::with(['largeMaterial', 'smallMaterial'])
             ->where('is_for_offer', true)
             ->get()
@@ -90,6 +90,7 @@ class OfferController extends Controller
             'name' => 'required|string|max:255',
             'description' => 'nullable|string',
             'client_id' => 'required|exists:clients,id',
+            'contact_id' => 'required',
             'validity_days' => 'required|integer|min:1',
             'production_start_date' => 'required|date',
             'production_end_date' => 'required|date|after:production_start_date',
@@ -106,6 +107,7 @@ class OfferController extends Controller
             'name' => $request->name,
             'description' => $request->description,
             'client_id' => $request->client_id,
+            'contact_id' =>  $request->contact_id,
             'validity_days' => $request->validity_days,
             'production_start_date' => $request->production_start_date,
             'production_end_date' => $request->production_end_date,
@@ -123,13 +125,13 @@ class OfferController extends Controller
             ]);
         }
 
-        return redirect()->route('offers.index');
+        return redirect()->route('offer.index');
     }
 
     public function show(Offer $offer)
     {
         $offer->load(['client', 'catalogItems.largeMaterial', 'catalogItems.smallMaterial']);
-        
+
         return Inertia::render('Offer/Show', [
             'offer' => [
                 'id' => $offer->id,
@@ -174,8 +176,8 @@ class OfferController extends Controller
             'decline_reason' => $request->status === 'declined' ? $request->decline_reason : null
         ]);
 
-        $message = $request->status === 'accepted' 
-            ? 'Offer has been accepted successfully.' 
+        $message = $request->status === 'accepted'
+            ? 'Offer has been accepted successfully.'
             : 'Offer has been declined successfully.';
 
         return back()->with('success', $message);
@@ -184,7 +186,7 @@ class OfferController extends Controller
     public function items(Offer $offer)
     {
         $offer->load(['client', 'catalogItems.largeMaterial', 'catalogItems.smallMaterial']);
-        
+
         return Inertia::render('Offer/Items', [
             'offer' => [
                 'id' => $offer->id,

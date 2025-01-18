@@ -299,7 +299,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/offer', [\App\Http\Controllers\OfferController::class, 'index'])->name('offer.index');
     Route::get('/offers', [\App\Http\Controllers\OfferController::class, 'getOffers'])->name('offer.getOffers');
     Route::get('/offer/create', [\App\Http\Controllers\OfferController::class, 'create'])->name('offer.create');
-    Route::post('/offer', [\App\Http\Controllers\OfferController::class, 'store'])->name('offer.store');
+    Route::post('/offers', [\App\Http\Controllers\OfferController::class, 'store'])->name('offers.store');
     Route::delete('/offer/{offer}', [\App\Http\Controllers\OfferController::class, 'destroy'])->name('offer.destroy');
     Route::get('/offer-client/create', [\App\Http\Controllers\OfferController::class, 'displayOfferClientPage'])->name('offer.displayOfferClientPage');
     Route::post('/offer-client', [\App\Http\Controllers\OfferController::class, 'storeOfferClient'])->name('offer.storeOfferClient');

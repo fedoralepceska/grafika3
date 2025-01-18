@@ -13,19 +13,26 @@
                             <!-- Client Selection, Name, Description -->
                             <div class="grid grid-cols-2 gap-6">
                                 <div class="space-y-4">
-                        <div>
+                                    <div>
                                         <label class="text-white">Client</label>
-                            <select
-                                v-model="form.client_id"
+                                        <select
+                                            v-model="form.client_id"
                                             class="w-full mt-1 rounded text-black"
-                                required
-                            >
-                                <option value="" disabled>Select a client</option>
-                                <option v-for="client in clients" :key="client.id" :value="client.id">
-                                    {{ client.name }}
-                                </option>
-                            </select>
-                        </div>
+                                            required
+                                            @change="onClientSelect"
+                                        >
+                                            <option value="" disabled>Select a client</option>
+                                            <option v-for="client in clients" :key="client.id" :value="client.id">
+                                                {{ client.name }}
+                                            </option>
+                                        </select>
+                                    </div>
+                                    <div v-if="form.client_id !== ''">
+                                        <label for="contact" class="text-white">{{ $t('contact') }}:</label>
+                                        <select v-model="form.contact_id" id="contact" class="w-full mt-1 rounded text-black" required>
+                                            <option v-for="contact in selectedClient?.contacts" :key="contact?.id" :value="contact?.id">{{ contact?.name }} ({{ contact?.phone }})</option>
+                                        </select>
+                                    </div>
 
                                     <div>
                                         <label class="text-white">Name</label>
@@ -46,74 +53,69 @@
                                             placeholder="Enter offer description"
                                         ></textarea>
                                     </div>
-
-                        <div>
+                                    <div>
                                         <label class="text-white">Validity (Days)</label>
-                            <input
+                                        <input
                                             v-model.number="form.validity_days"
-                                type="number"
-                                min="1"
+                                            type="number"
+                                            min="1"
                                             class="w-full mt-1 rounded text-black"
-                                required
+                                            required
                                         />
                                     </div>
-                        </div>
+                                </div>
 
                                 <div class="space-y-4">
-                        <div>
+                                    <div>
                                         <label class="text-white">Production Start Date</label>
-                            <input
-                                v-model="form.production_start_date"
-                                type="date"
+                                        <input
+                                            v-model="form.production_start_date"
+                                            type="date"
                                             class="w-full mt-1 rounded text-black"
-                                required
+                                            required
                                         />
+                                    </div>
+                                <div>
+                                    <label class="text-white">Production End Date</label>
+                                    <input
+                                        v-model="form.production_end_date"
+                                        type="date"
+                                        class="w-full mt-1 rounded text-black"
+                                        required
+                                    />
+                                </div>
+                                <div>
+                                    <label class="text-white">Price 1</label>
+                                    <input
+                                        v-model.number="form.price1"
+                                        type="number"
+                                        step="0.01"
+                                        class="w-full mt-1 rounded text-black"
+                                        required
+                                    />
+                                </div>
+                                <div>
+                                    <label class="text-white">Price 2</label>
+                                    <input
+                                        v-model.number="form.price2"
+                                        type="number"
+                                        step="0.01"
+                                        class="w-full mt-1 rounded text-black"
+                                        required
+                                    />
+                                </div>
+                                <div>
+                                    <label class="text-white">Price 3</label>
+                                    <input
+                                        v-model.number="form.price3"
+                                        type="number"
+                                        step="0.01"
+                                        class="w-full mt-1 rounded text-black"
+                                        required
+                                    />
+                                </div>
+                            </div>
                         </div>
-
-                        <div>
-                                        <label class="text-white">Production End Date</label>
-                            <input
-                                v-model="form.production_end_date"
-                                type="date"
-                                            class="w-full mt-1 rounded text-black"
-                                required
-                                        />
-                                    </div>
-
-                                    <div>
-                                        <label class="text-white">Price 1</label>
-                                        <input
-                                            v-model.number="form.price1"
-                                            type="number"
-                                            step="0.01"
-                                            class="w-full mt-1 rounded text-black"
-                                            required
-                                        />
-                                    </div>
-
-                                    <div>
-                                        <label class="text-white">Price 2</label>
-                                        <input
-                                            v-model.number="form.price2"
-                                            type="number"
-                                            step="0.01"
-                                            class="w-full mt-1 rounded text-black"
-                                            required
-                                        />
-                                    </div>
-
-                                    <div>
-                                        <label class="text-white">Price 3</label>
-                                        <input
-                                            v-model.number="form.price3"
-                                            type="number"
-                                            step="0.01"
-                                            class="w-full mt-1 rounded text-black"
-                                            required
-                                        />
-                                    </div>
-                        </div>
-                    </div>
 
                             <!-- Selected Items Summary -->
                             <div v-if="form.catalog_items.length > 0" class="bg-gray-800 p-4 rounded-lg">
@@ -175,14 +177,14 @@
                                     </div>
                                     <div class="flex justify-between border-b border-gray-700">
                                         <div class="flex">
-                                            <button 
+                                            <button
                                                 type="button"
                                                 @click="activeTab = 'large'"
                                                 :class="['tab-button', activeTab === 'large' ? 'active' : '']"
                                             >
                                                 Large Format Materials
                                             </button>
-                                            <button 
+                                            <button
                                                 type="button"
                                                 @click="activeTab = 'small'"
                                                 :class="['tab-button', activeTab === 'small' ? 'active' : '']"
@@ -191,7 +193,7 @@
                                             </button>
                                         </div>
                                         <div class="flex items-center mr-4 space-x-2">
-                                            <button 
+                                            <button
                                                 type="button"
                                                 @click="viewMode = 'list'"
                                                 :class="['view-toggle-btn', viewMode === 'list' ? 'active' : '']"
@@ -199,7 +201,7 @@
                                             >
                                                 <i class="fas fa-list"></i>
                                             </button>
-                                            <button 
+                                            <button
                                                 type="button"
                                                 @click="viewMode = 'card'"
                                                 :class="['view-toggle-btn', viewMode === 'card' ? 'active' : '']"
@@ -217,11 +219,11 @@
                                         <div v-if="largeMaterialItems.length === 0" class="empty-state">
                                             No large format materials available
                                         </div>
-                                        
+
                                         <!-- List View -->
                                         <div v-if="viewMode === 'list'" class="space-y-2">
-                                            <div v-for="item in filteredLargeMaterialItems" 
-                                                :key="item.id" 
+                                            <div v-for="item in filteredLargeMaterialItems"
+                                                :key="item.id"
                                                 class="catalog-item"
                                                 @click="toggleItemSelection(item)"
                                             >
@@ -246,8 +248,8 @@
 
                                         <!-- Card View -->
                                         <div v-else class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-8 gap-3">
-                                            <div v-for="item in filteredLargeMaterialItems" 
-                                                :key="item.id" 
+                                            <div v-for="item in filteredLargeMaterialItems"
+                                                :key="item.id"
                                                 class="catalog-card"
                                                 @click="toggleItemSelection(item)"
                                             >
@@ -262,7 +264,7 @@
                                                     <div v-if="isPlaceholder(item.file)" class="w-full h-full no-image">
                                                         NO IMAGE
                                                     </div>
-                                                    <img 
+                                                    <img
                                                         v-else
                                                         :src="getFileUrl(item.file)"
                                                         :alt="item.name"
@@ -287,11 +289,11 @@
                                         <div v-if="smallMaterialItems.length === 0" class="empty-state">
                                             No small format materials available
                                         </div>
-                                        
+
                                         <!-- List View -->
                                         <div v-if="viewMode === 'list'" class="space-y-2">
-                                            <div v-for="item in filteredSmallMaterialItems" 
-                                                :key="item.id" 
+                                            <div v-for="item in filteredSmallMaterialItems"
+                                                :key="item.id"
                                                 class="catalog-item"
                                                 @click="toggleItemSelection(item)"
                                             >
@@ -316,8 +318,8 @@
 
                                         <!-- Card View -->
                                         <div v-else class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-8 gap-3">
-                                            <div v-for="item in filteredSmallMaterialItems" 
-                                                :key="item.id" 
+                                            <div v-for="item in filteredSmallMaterialItems"
+                                                :key="item.id"
                                                 class="catalog-card"
                                                 @click="toggleItemSelection(item)"
                                             >
@@ -332,7 +334,7 @@
                                                     <div v-if="isPlaceholder(item.file)" class="w-full h-full no-image">
                                                         NO IMAGE
                                                     </div>
-                                                    <img 
+                                                    <img
                                                         v-else
                                                         :src="getFileUrl(item.file)"
                                                         :alt="item.name"
@@ -372,6 +374,7 @@ import MainLayout from '@/Layouts/MainLayout.vue';
 import Header from '@/Components/Header.vue';
 import { useForm } from '@inertiajs/vue3';
 import '@fortawesome/fontawesome-free/css/all.css';
+import {useToast} from "vue-toastification";
 
 export default {
     name: 'Create',
@@ -392,6 +395,7 @@ export default {
             form: useForm({
                 name: '',
                 client_id: '',
+                contact_id: '',
                 description: '',
                 validity_days: 30,
                 production_start_date: '',
@@ -402,18 +406,19 @@ export default {
                 catalog_items: []
             }),
             activeTab: 'large',
-            viewMode: 'list'
+            viewMode: 'list',
+            selectedClient: null,
         };
     },
 
     computed: {
         filteredLargeMaterialItems() {
-            return this.largeMaterialItems.filter(item => 
+            return this.largeMaterialItems.filter(item =>
                 item.name.toLowerCase().includes(this.searchQuery.toLowerCase())
             );
         },
         filteredSmallMaterialItems() {
-            return this.smallMaterialItems.filter(item => 
+            return this.smallMaterialItems.filter(item =>
                 item.name.toLowerCase().includes(this.searchQuery.toLowerCase())
             );
         },
@@ -462,8 +467,23 @@ export default {
                 }
             }
         },
-        submit() {
-            this.form.post(route('offers.store'));
+        async submit() {
+            const toast = useToast();
+            axios.post('/offers', this.form)
+                .then((response) => {
+                    toast.success('Offer created successfully!');
+
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 1000);
+                })
+                .catch((error) => {
+                    console.error('Error creating offer:', error);
+                    toast.error('Failed to create offer!');
+                });
+        },
+        onClientSelect() {
+            this.selectedClient =  this.clients.find(c => c.id === this.form.client_id);
         }
     }
 };
@@ -523,7 +543,7 @@ export default {
     min-height: 400px;
     max-height: calc(100vh - 400px);
     width: 100%;
-    
+
     .grid {
         @apply gap-3;
         width: 100%;
@@ -532,7 +552,7 @@ export default {
 
 .catalog-item {
     @apply flex items-center space-x-3 p-2 hover:bg-gray-50 rounded transition-colors duration-200 cursor-pointer;
-    
+
     &:hover {
         @apply bg-gray-50;
     }
@@ -574,7 +594,7 @@ export default {
 /* Card styles */
 .catalog-card {
     @apply bg-white rounded-lg shadow-sm overflow-hidden border border-gray-200 transition-all duration-200 cursor-pointer;
-    
+
     &:hover {
         @apply shadow-lg transform scale-[1.02];
     }
@@ -582,12 +602,12 @@ export default {
     .catalog-card-image {
         @apply relative w-full overflow-hidden bg-gray-100;
         aspect-ratio: 4/3;
-        
+
         img {
             @apply w-full h-full object-contain transition-transform duration-200;
             background-color: white;
         }
-        
+
         &:hover img {
             @apply transform scale-110;
         }
@@ -601,11 +621,11 @@ export default {
 /* Image thumbnail styles */
 .thumbnail-container {
     @apply relative overflow-hidden;
-    
+
     img {
         @apply transition-all duration-300;
     }
-    
+
     &:hover img {
         @apply transform scale-110;
     }

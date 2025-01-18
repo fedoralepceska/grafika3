@@ -20,7 +20,8 @@ class Offer extends Model
         'price2',
         'price3',
         'status',
-        'decline_reason'
+        'decline_reason',
+        'contact_id'
     ];
 
     protected $casts = [
@@ -42,6 +43,11 @@ class Offer extends Model
     public function client()
     {
         return $this->belongsTo(Client::class);
+    }
+
+    public function contact()
+    {
+        return $this->belongsTo(Contact::class);
     }
 
     public function isPending()
