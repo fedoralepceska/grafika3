@@ -73,8 +73,8 @@
                                 <th>{{ item?.number }}</th>
                                 <th>{{ item?.incoming_invoice }}</th>
                                 <th>{{ item?.output_invoice }}</th>
-                                <th>{{ item?.statement_income }}</th>
-                                <th>{{ item?.statement_expense }}</th>
+                                <th>{{ formatNumber(item?.statement_income) }}</th>
+                                <th>{{ formatNumber(item?.statement_expense) }}</th>
                                 <th>{{ item?.comment }}</th>
                             </tr>
                         </table>
@@ -157,6 +157,12 @@ export default {
         },
         applyFilter() {
             this.fetchTableData();
+        },
+        formatNumber(value) {
+            return Number(value).toLocaleString(undefined, {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2
+            });
         }
     }
 }

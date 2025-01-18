@@ -25,7 +25,7 @@
                                 <button class="btn blue ml-2" @click="toggleStatementEditMode">
                                     {{ isStatementEditMode ? (hasStatementChanges ? 'Save & Exit' : 'Exit Edit Mode') : 'Edit Statement' }}
                                 </button>
-                            </div>  
+                            </div>
                             <div class="pr-3">
                                 <AddCertificateDialog
                                 :certificate="certificate"
@@ -85,8 +85,8 @@
                                 <div class="info">
                                     <div>Date</div>
                                     <div v-if="isStatementEditMode">
-                                        <input 
-                                            type="date" 
+                                        <input
+                                            type="date"
                                             v-model="editedCertificate.date"
                                             class="edit-input"
                                             @input="markStatementAsModified"
@@ -99,13 +99,13 @@
                                     <span class="bold">{{ totalExpense }}</span>
                                 </div>
                                 <div class="info">
-                                    <div>Total Income</div> 
+                                    <div>Total Income</div>
                                     <span class="bold">{{ totalIncome }}</span>
                                 </div>
                             </div>
                         </div>
                     </div>
-                    
+
                     <table>
                         <tr>
                             <th>ID</th>
@@ -152,41 +152,41 @@
                                 <span v-else>{{item.client.name}}</span>
                             </td>
                             <td>
-                                <input v-if="isEditMode" 
-                                    type="number" 
-                                    v-model="item.expense" 
+                                <input v-if="isEditMode"
+                                    type="number"
+                                    v-model="item.expense"
                                     class="edit-input"
                                     @input="markAsModified(item)">
-                                <span v-else>{{item.expense}}</span>
+                                <span v-else>{{formatNumber(item.expense)}}</span>
                             </td>
                             <td>
-                                <input v-if="isEditMode" 
-                                    type="number" 
-                                    v-model="item.income" 
+                                <input v-if="isEditMode"
+                                    type="number"
+                                    v-model="item.income"
                                     class="edit-input"
                                     @input="markAsModified(item)">
-                                <span v-else>{{item.income}}</span>
+                                <span v-else>{{formatNumber(item.income)}}</span>
                             </td>
                             <td>
-                                <input v-if="isEditMode" 
-                                    type="text" 
-                                    v-model="item.code" 
+                                <input v-if="isEditMode"
+                                    type="text"
+                                    v-model="item.code"
                                     class="edit-input"
                                     @input="markAsModified(item)">
                                 <span v-else>{{item.code}}</span>
                             </td>
                             <td>
-                                <input v-if="isEditMode" 
-                                    type="text" 
-                                    v-model="item.reference_to" 
+                                <input v-if="isEditMode"
+                                    type="text"
+                                    v-model="item.reference_to"
                                     class="edit-input"
                                     @input="markAsModified(item)">
                                 <span v-else>{{item.reference_to}}</span>
                             </td>
                             <td>
-                                <input v-if="isEditMode" 
-                                    type="text" 
-                                    v-model="item.comment" 
+                                <input v-if="isEditMode"
+                                    type="text"
+                                    v-model="item.comment"
                                     class="edit-input"
                                     @input="markAsModified(item)">
                                 <span v-else>{{item.comment}}</span>
@@ -199,7 +199,7 @@
                         </tr>
                     </table>
                     <div class="flex justify-end">
-                        <button v-if="isEditMode && hasModifiedItems" 
+                        <button v-if="isEditMode && hasModifiedItems"
                             class="btn create-order"
                             @click="saveChanges">
                             Save Changes
@@ -364,7 +364,7 @@ export default {
             const toast = useToast();
             try {
                 const modifiedItemsList = this.items.filter(item => this.modifiedItems.has(item.id));
-                await Promise.all(modifiedItemsList.map(item => 
+                await Promise.all(modifiedItemsList.map(item =>
                     axios.put(`/items/${item.id}`, {
                         income: item.income,
                         expense: item.expense,
@@ -374,10 +374,10 @@ export default {
                         client_id: item.client_id
                     })
                 ));
-                
+
                 const response = await axios.get(`/items/${this.certificate.id}`);
                 this.items = response.data;
-                
+
                 toast.success("Changes saved successfully");
                 this.modifiedItems.clear();
                 this.isEditMode = false;
@@ -471,9 +471,9 @@ export default {
                     bank: this.editedCertificate.bank,
                     bankAccount: this.editedCertificate.bankAccount,
                 });
-                
+
                 Object.assign(this.certificate, response.data.certificate);
-                
+
                 toast.success("Statement updated successfully");
                 this.isStatementEditMode = false;
                 this.hasStatementChanges = false;
@@ -482,6 +482,12 @@ export default {
                 toast.error("Error saving statement changes: " + (error.response?.data?.message || error.message));
             }
         },
+        formatNumber(value) {
+            return Number(value).toLocaleString(undefined, {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2
+            });
+        }
     },
     async mounted() {
         document.addEventListener('click', (e) => {
@@ -747,7 +753,7 @@ table th, table tr {
     cursor: pointer;
     padding: 4px;
     font-size: 18px;
-    
+
     &:hover {
         opacity: 0.8;
     }

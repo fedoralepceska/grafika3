@@ -73,11 +73,25 @@
                                 <div class="type">
                                     <div class="label-input-group">
                                         <label class="text-white">Income</label>
-                                        <input type="number" class="rounded" v-model="newItem.income" placeholder="Income" required>
+                                        <input
+                                            type="text"
+                                            class="rounded"
+                                            :value="formattedIncome"
+                                            @input="handleInputIncome"
+                                            placeholder="Expense"
+                                            required
+                                        />
                                     </div>
                                     <div class="label-input-group">
                                         <label class="text-white">Expense</label>
-                                        <input type="number" class="rounded" v-model="newItem.expense" placeholder="Expense" required>
+                                        <input
+                                            type="text"
+                                            class="rounded"
+                                            :value="formattedExpense"
+                                            @input="handleInputExpense"
+                                            placeholder="Expense"
+                                            required
+                                        />
                                     </div>
                                 </div>
                                 <div class="p-2">
@@ -135,7 +149,10 @@ export default {
                 code: '',
                 reference_to: '',
                 comment: ''
-            }
+            },
+            rawIncome: "",
+            rawExpense: "", // Raw value without formatting
+            timeout: null,  // Reference for delay timeout
         };
     },
     props: {
@@ -144,7 +161,19 @@ export default {
     computed: {
         getClient() {
             return this.clients.find(c => c.id === this.newItem?.client_id);
-        }
+        },
+        formattedExpense() {
+            // Format the rawExpense value with commas
+            if (this.rawExpense === "") return "";
+            const value = parseFloat(this.rawExpense.replace(/,/g, "")) || 0;
+            return value.toLocaleString("en-US");
+        },
+        formattedIncome() {
+            // Format the rawExpense value with commas
+            if (this.rawIncome === "") return "";
+            const value = parseFloat(this.rawIncome.replace(/,/g, "")) || 0;
+            return value.toLocaleString("en-US");
+        },
     },
     methods: {
         openDialog() {
@@ -180,7 +209,45 @@ export default {
             if (event.key === 'Escape') {
                 this.closeDialog();
             }
-        }
+        },
+        handleInputExpense(event) {
+            const input = event.target.value.replace(/,/g, ""); // Remove commas
+
+            // Ensure the input is numeric
+            if (isNaN(input)) return;
+
+            // Update the raw value
+            this.rawExpense = input;
+            this.newItem.expense = input;
+
+            // Clear the previous timeout
+            if (this.timeout) clearTimeout(this.timeout);
+
+            // Add `.00` after 1 second of inactivity
+            this.timeout = setTimeout(() => {
+                const value = parseFloat(this.rawExpense.replace(/,/g, "")) || 0;
+                this.rawExpense = value.toFixed(2); // Update rawExpense with .00
+            }, 1000);
+        },
+        handleInputIncome(event) {
+            const input = event.target.value.replace(/,/g, ""); // Remove commas
+
+            // Ensure the input is numeric
+            if (isNaN(input)) return;
+
+            // Update the raw value
+            this.rawIncome = input;
+            this.newItem.income = input;
+
+            // Clear the previous timeout
+            if (this.timeout) clearTimeout(this.timeout);
+
+            // Add `.00` after 1 second of inactivity
+            this.timeout = setTimeout(() => {
+                const value = parseFloat(this.rawIncome.replace(/,/g, "")) || 0;
+                this.rawIncome = value.toFixed(2); // Update rawExpense with .00
+            }, 1000);
+        },
     },
     mounted() {
         document.addEventListener('keydown', this.handleEscapeKey);
