@@ -11,8 +11,8 @@
                 <!-- Tabs -->
                 <div class="tabs-container mb-6">
                     <div class="flex">
-                        <button 
-                            v-for="tab in tabs" 
+                        <button
+                            v-for="tab in tabs"
                             :key="tab.value"
                             @click="currentTab = tab.value"
                             :class="[
@@ -34,7 +34,6 @@
                             <th>Client</th>
                             <th>Status</th>
                             <th>Validity Days</th>
-                            <th>Production Period</th>
                             <th>Items</th>
                             <th>Created At</th>
                             <th v-if="currentTab === 'pending'" class="flex justify-center">Actions</th>
@@ -51,9 +50,8 @@
                                 </span>
                             </td>
                             <td>{{ offer.validity_days }} days</td>
-                            <td>{{ formatDate(offer.production_start_date) }} - {{ formatDate(offer.production_end_date) }}</td>
                             <td>
-                                <button 
+                                <button
                                     @click="viewItems(offer)"
                                     class="text-green hover:text-light-green"
                                 >
@@ -63,7 +61,7 @@
                             </td>
                             <td>{{ formatDate(offer.created_at) }}</td>
                             <td v-if="currentTab === 'pending'" class="space-x-2 flex justify-center">
-                                <button 
+                                <button
                                     @click="acceptOffer(offer)"
                                     class="px-2 py-1 btn-success text-white"
                                 >
@@ -71,7 +69,7 @@
                                     <i class="fas fa-check ml-1"></i>
                                 </button>
 
-                                <button 
+                                <button
                                     @click="openDeclineModal(offer)"
                                     class="px-2 py-1 btn-danger text-white"
                                 >
@@ -84,7 +82,7 @@
                                     <span class="text-ultra-light-gray">
                                         {{ offer.decline_reason || 'No reason provided' }}
                                     </span>
-                                    <button 
+                                    <button
                                         @click="openDeclineModal(offer)"
                                         class="text-light-gray hover:text-white"
                                     >
@@ -145,13 +143,13 @@
                     <div v-if="selectedOffer" class="space-y-4">
                         <!-- View Toggle -->
                         <div class="view-toggle flex justify-end space-x-2 mb-2">
-                            <button 
+                            <button
                                 @click="itemsViewMode = 'grid'"
                                 :class="['px-2 py-1 rounded text-sm font-medium', itemsViewMode === 'grid' ? 'active' : '']"
                             >
                                 <i class="fas fa-th-large mr-1"></i> Grid
                             </button>
-                            <button 
+                            <button
                                 @click="itemsViewMode = 'list'"
                                 :class="['px-2 py-1 rounded text-sm font-medium', itemsViewMode === 'list' ? 'active' : '']"
                             >
@@ -161,19 +159,19 @@
 
                         <!-- Grid View -->
                         <div v-if="itemsViewMode === 'grid'" class="grid grid-cols-2 gap-3">
-                            <div v-for="item in selectedOffer.catalog_items" 
-                                :key="item.id" 
+                            <div v-for="item in selectedOffer.catalog_items"
+                                :key="item.id"
                                 class="item-card"
                             >
                                 <!-- Item Image -->
                                 <div class="relative aspect-w-4 aspect-h-3">
-                                    <div v-if="isPlaceholder(item.file)" 
+                                    <div v-if="isPlaceholder(item.file)"
                                         class="no-image w-full h-24 flex items-center justify-center text-xs"
                                     >
                                         NO IMAGE
                                     </div>
-                                    <img v-else 
-                                        :src="getFileUrl(item.file)" 
+                                    <img v-else
+                                        :src="getFileUrl(item.file)"
                                         :alt="item.name"
                                         class="w-full h-24 object-contain bg-white"
                                     >
@@ -199,7 +197,7 @@
 
                                     <!-- Descriptions -->
                                     <div class="descriptions space-y-1 pt-1">
-                                       
+
                                         <div v-if="item.custom_description" class="text-xs">
                                             <p class="label">Description:</p>
                                             <p class="text line-clamp-2">{{ item.custom_description }}</p>
@@ -211,20 +209,20 @@
 
                         <!-- List View -->
                         <div v-else class="space-y-2">
-                            <div v-for="item in selectedOffer.catalog_items" 
-                                :key="item.id" 
+                            <div v-for="item in selectedOffer.catalog_items"
+                                :key="item.id"
                                 class="item-card"
                             >
                                 <div class="p-3 flex items-start space-x-3">
                                     <!-- Item Image -->
                                     <div class="w-16 h-16 flex-shrink-0">
-                                        <div v-if="isPlaceholder(item.file)" 
+                                        <div v-if="isPlaceholder(item.file)"
                                             class="no-image w-full h-full flex items-center justify-center text-xs"
                                         >
                                             NO IMAGE
                                         </div>
-                                        <img v-else 
-                                            :src="getFileUrl(item.file)" 
+                                        <img v-else
+                                            :src="getFileUrl(item.file)"
                                             :alt="item.name"
                                             class="w-full h-full object-contain bg-white rounded"
                                         >
@@ -251,7 +249,7 @@
 
                                         <!-- Descriptions -->
                                         <div class="descriptions mt-2 space-y-1 text-xs">
-                                            
+
                                             <div v-if="item.custom_description">
                                                 <p class="label">Description:</p>
                                                 <p class="text line-clamp-2">{{ item.custom_description }}</p>
@@ -292,20 +290,20 @@
                         </div>
 
                         <div class="flex justify-end space-x-2">
-                            <button 
+                            <button
                                 @click="closeDeclineModal"
                                 class="px-4 py-2 btn-danger text-white"
                             >
                                 Cancel
                             </button>
-                            <button 
+                            <button
                                 v-if="declineReason.trim()"
                                 @click="confirmDecline"
                                 class="px-4 py-2 btn-primary text-white"
                             >
                                 {{ isEditingDeclineReason ? 'Update Reason' : 'Decline with Reason' }}
                             </button>
-                            <button 
+                            <button
                                 v-else
                                 @click="confirmDecline"
                                 class="px-4 py-2 btn-primary text-white"
@@ -372,7 +370,7 @@ export default {
                 year: 'numeric'
             });
         },
-        
+
         async viewItems(offer) {
             this.selectedOffer = offer;
             this.showItemsModal = true;
@@ -523,18 +521,18 @@ $orange: #a36a03;
 table {
     width: 100%;
     border-collapse: collapse;
-    
+
     th, td {
         padding: 0.75rem;
         text-align: center;
         color: $white;
     }
-    
+
     th {
         font-weight: 600;
         background-color: rgba($white, 0.1);
     }
-    
+
     tr:hover td {
         background-color: rgba($white, 0.05);
     }
@@ -545,17 +543,17 @@ table {
     border-radius: 9999px;
     font-size: 0.75rem;
     font-weight: 500;
-    
+
     &.pending {
         background-color: rgba($orange, 0.2);
         color: $orange;
     }
-    
+
     &.accepted {
         background-color: rgba($green, 0.2);
         color: $green;
     }
-    
+
     &.declined {
         background-color: rgba($red, 0.2);
         color: $red;
@@ -567,7 +565,7 @@ table {
     background-color: $green;
     color: $white;
     border-radius: 0.375rem;
-    
+
     &:hover {
         background-color: darken($green, 5%);
     }
@@ -586,72 +584,72 @@ table {
 }
     .modal-header {
         border-bottom: 1px solid rgba($light-gray, 0.2);
-        
+
         h2 {
             color: $white;
         }
-        
+
         p {
             color: $ultra-light-gray;
         }
     }
-    
+
     .view-toggle {
         button {
             &.active {
                 background-color: $green;
                 color: $white;
             }
-            
+
             &:not(.active) {
                 color: $ultra-light-gray;
-                
+
                 &:hover {
                     color: $white;
                 }
             }
         }
     }
-    
+
     .item-card {
         background-color: $gray;
         border: 1px solid rgba($light-gray, 0.1);
         border-radius: 0.375rem;
         transition: all 0.2s ease;
-        
+
         &:hover {
             border-color: rgba($light-gray, 0.2);
             box-shadow: 0 2px 4px rgba($black, 0.1);
         }
-        
+
         .no-image {
             background-color: $background-color;
             color: $ultra-light-gray;
         }
-        
+
         .item-name {
             color: $white;
         }
-        
+
         .item-type {
             color: $ultra-light-gray;
         }
-        
+
         .item-details {
             color: $ultra-light-gray;
-            
+
             span {
                 color: $white;
             }
         }
-        
+
         .descriptions {
             border-top: 1px solid rgba($light-gray, 0.1);
-            
+
             .label {
                 color: $ultra-light-gray;
             }
-            
+
             .text {
                 color: $white;
             }
@@ -674,14 +672,14 @@ table {
     font-weight: 500;
     color: $ultra-light-gray;
     transition: all 0.2s ease;
-    
+
     &:hover:not(.active) {
         color: $white;
     }
-    
+
     &.active {
         color: $white;
-        
+
         &:after {
             content: '';
             position: absolute;
@@ -709,17 +707,17 @@ table {
         font-size: 0.75rem;
         font-weight: 500;
         border-radius: 0.75rem;
-        
+
         &.tab-count-pending {
             background-color: rgba($orange, 0.15);
             color: $orange;
         }
-        
+
         &.tab-count-accepted {
             background-color: rgba($green, 0.15);
             color: $green;
         }
-        
+
         &.tab-count-declined {
             background-color: rgba($red, 0.15);
             color: $red;
@@ -727,4 +725,4 @@ table {
     }
 }
 
-</style> 
+</style>

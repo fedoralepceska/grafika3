@@ -92,15 +92,16 @@ class OfferController extends Controller
             'client_id' => 'required|exists:clients,id',
             'contact_id' => 'required',
             'validity_days' => 'required|integer|min:1',
-            'production_start_date' => 'required|date',
-            'production_end_date' => 'required|date|after:production_start_date',
-            'price1' => 'required|numeric|min:0',
-            'price2' => 'required|numeric|min:0',
-            'price3' => 'required|numeric|min:0',
+            'production_start_date' => 'nullable|date',
+            'production_end_date' => 'nullable|date|after:production_start_date',
+            'price1' => 'nullable|numeric|min:0',
+            'price2' => 'nullable|numeric|min:0',
+            'price3' => 'nullable|numeric|min:0',
             'catalog_items' => 'required|array|min:1',
             'catalog_items.*.id' => 'required|exists:catalog_items,id',
             'catalog_items.*.quantity' => 'required|integer|min:1',
             'catalog_items.*.description' => 'nullable|string',
+            'production_time' => 'nullable|string'
         ]);
 
         $offer = Offer::create([
@@ -114,7 +115,8 @@ class OfferController extends Controller
             'price1' => $request->price1,
             'price2' => $request->price2,
             'price3' => $request->price3,
-            'status' => 'pending'
+            'status' => 'pending',
+            'production_time' => $request->production_time
         ]);
 
         // Attach catalog items with their quantities and descriptions

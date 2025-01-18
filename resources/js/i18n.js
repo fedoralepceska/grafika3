@@ -272,7 +272,8 @@ const messages = {
         other: 'Other',
         actionQuantity: 'Action quantity',
         offerClient: 'Offers for clients',
-        offer: 'Offer'
+        offer: 'Offer',
+        productionTime: 'Production time'
     },
     mk: {
         // Define your Macedonian translations here
@@ -547,7 +548,8 @@ const messages = {
         other: 'Друго',
         actionQuantity: 'Количина доработка',
         offerClient: 'Понуди за клиенти',
-        offer: 'Понуда'
+        offer: 'Понуда',
+        productionTime: 'Време на изработка'
     },
 };
 

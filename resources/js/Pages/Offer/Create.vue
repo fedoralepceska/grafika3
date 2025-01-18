@@ -53,6 +53,9 @@
                                             placeholder="Enter offer description"
                                         ></textarea>
                                     </div>
+                                </div>
+
+                                <div class="space-y-4">
                                     <div>
                                         <label class="text-white">Validity (Days)</label>
                                         <input
@@ -63,58 +66,16 @@
                                             required
                                         />
                                     </div>
-                                </div>
-
-                                <div class="space-y-4">
                                     <div>
-                                        <label class="text-white">Production Start Date</label>
+                                        <label class="text-white">{{ $t('productionTime') }}</label>
                                         <input
-                                            v-model="form.production_start_date"
-                                            type="date"
+                                            v-model="form.production_time"
+                                            type="text"
                                             class="w-full mt-1 rounded text-black"
                                             required
                                         />
                                     </div>
-                                <div>
-                                    <label class="text-white">Production End Date</label>
-                                    <input
-                                        v-model="form.production_end_date"
-                                        type="date"
-                                        class="w-full mt-1 rounded text-black"
-                                        required
-                                    />
                                 </div>
-                                <div>
-                                    <label class="text-white">Price 1</label>
-                                    <input
-                                        v-model.number="form.price1"
-                                        type="number"
-                                        step="0.01"
-                                        class="w-full mt-1 rounded text-black"
-                                        required
-                                    />
-                                </div>
-                                <div>
-                                    <label class="text-white">Price 2</label>
-                                    <input
-                                        v-model.number="form.price2"
-                                        type="number"
-                                        step="0.01"
-                                        class="w-full mt-1 rounded text-black"
-                                        required
-                                    />
-                                </div>
-                                <div>
-                                    <label class="text-white">Price 3</label>
-                                    <input
-                                        v-model.number="form.price3"
-                                        type="number"
-                                        step="0.01"
-                                        class="w-full mt-1 rounded text-black"
-                                        required
-                                    />
-                                </div>
-                            </div>
                         </div>
 
                             <!-- Selected Items Summary -->
@@ -398,12 +359,11 @@ export default {
                 contact_id: '',
                 description: '',
                 validity_days: 30,
-                production_start_date: '',
-                production_end_date: '',
                 price1: 0,
                 price2: 0,
                 price3: 0,
-                catalog_items: []
+                catalog_items: [],
+                production_time: '',
             }),
             activeTab: 'large',
             viewMode: 'list',
@@ -474,7 +434,7 @@ export default {
                     toast.success('Offer created successfully!');
 
                     setTimeout(() => {
-                        window.location.reload();
+                        this.$inertia.visit('/offers');
                     }, 1000);
                 })
                 .catch((error) => {

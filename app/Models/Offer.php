@@ -21,7 +21,8 @@ class Offer extends Model
         'price3',
         'status',
         'decline_reason',
-        'contact_id'
+        'contact_id',
+        'production_time'
     ];
 
     protected $casts = [
