@@ -148,10 +148,11 @@ class InvoiceController extends Controller
 
             $invoiceId = $invoice->id;
 
-            $jobs = Job::where('invoice_id', $invoiceId)->get();
-//            $jobs = Job::whereHas('invoice', function ($query) use ($invoiceId) {
-//                $query->where('invoice.id', $invoiceId); // Specify the table name before the column name
-//            })->get();
+            $jobIdsForInvoice = DB::table('invoice_job')
+                ->where('invoice_id', $invoiceId)
+                ->pluck('job_id');
+
+            $jobs = Job::whereIn('id', $jobIdsForInvoice)->get();
 
             foreach ($jobs as $job) {
                 // Update Large Material
