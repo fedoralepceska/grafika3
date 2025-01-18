@@ -148,44 +148,57 @@
                     </div>
                 </div>
 
-                <!-- File Section -->
-                <div class="file-upload mt-6">
-                    <h3 class="text-white text-lg font-semibold mb-4">File Upload</h3>
-                    <div
-                        class="upload-area"
-                        @dragover.prevent
-                        @drop.prevent="handleDrop"
-                        @click="triggerFileInput"
-                    >
-                        <input
-                            type="file"
-                            id="file-input"
-                            class="hidden"
-                            @change="handleFileInput"
-                            accept=".pdf, .png, .jpg, .jpeg"
-                        />
-                        <div v-if="!previewUrl" class="placeholder-content">
-                            <div class="upload-icon">
-                                <span class="mdi mdi-cloud-upload text-4xl"></span>
-                            </div>
-                            <p class="upload-text">Drag and drop your file here</p>
-                            <p class="upload-text-sub">or click to browse</p>
-                            <p class="file-types">Supported formats: PDF, PNG, JPG, JPEG</p>
-                        </div>
-                        <div v-else class="preview-container">
-                            <img
-                                v-if="isImage"
-                                :src="previewUrl"
-                                alt="Preview"
-                                class="preview-image"
+                <!-- File and Description Section -->
+                <div class="grid grid-cols-2 gap-6 mt-6">
+                    <div class="file-upload">
+                        <h3 class="text-white text-lg font-semibold mb-4">File Upload</h3>
+                        <div
+                            class="upload-area"
+                            @dragover.prevent
+                            @drop.prevent="handleDrop"
+                            @click="triggerFileInput"
+                        >
+                            <input
+                                type="file"
+                                id="file-input"
+                                class="hidden"
+                                @change="handleFileInput"
+                                accept=".pdf, .png, .jpg, .jpeg"
                             />
-                            <div v-else class="pdf-preview">
-                                <span class="mdi mdi-file-pdf text-4xl"></span>
-                                <span class="pdf-name">{{ fileName }}</span>
+                            <div v-if="!previewUrl" class="placeholder-content">
+                                <div class="upload-icon">
+                                    <span class="mdi mdi-cloud-upload text-4xl"></span>
+                                </div>
+                                <p class="upload-text">Drag and drop your file here</p>
+                                <p class="upload-text-sub">or click to browse</p>
+                                <p class="file-types">Supported formats: PDF, PNG, JPG, JPEG</p>
+                            </div>
+                            <div v-else class="preview-container">
+                                <img
+                                    v-if="isImage"
+                                    :src="previewUrl"
+                                    alt="Preview"
+                                    class="preview-image"
+                                />
+                                <div v-else class="pdf-preview">
+                                    <span class="mdi mdi-file-pdf text-4xl"></span>
+                                    <span class="pdf-name">{{ fileName }}</span>
+                                </div>
                             </div>
                         </div>
                     </div>
+
+                    <div class="description-section">
+                        <h3 class="text-white text-lg font-semibold mb-4">Description</h3>
+                        <textarea
+                            v-model="form.description"
+                            class="w-full rounded description-textarea"
+                            rows="11"
+                            placeholder="Enter item description..."
+                        ></textarea>
+                    </div>
                 </div>
+
                 <!-- Actions Section -->
                 <div class="mt-6">
                     <h3 class="text-white text-lg font-semibold mb-4">Actions</h3>
@@ -281,6 +294,7 @@ export default {
         return {
             form: {
                 name: '',
+                description: '',
                 machinePrint: '',
                 machineCut: '',
                 large_material_id: null,
@@ -314,8 +328,9 @@ export default {
             this.form.actions.push({
                 selectedAction: '',
                 quantity: 0,
-                showQuantity: false
-            })
+                showQuantity: false,
+                isMaterialized: null
+            });
         },
 
         handleActionSelect(event, action) {
@@ -340,7 +355,8 @@ export default {
                 name: selectedAction.name
             };
             action.status = 'Not started yet';
-            action.showQuantity = selectedAction?.isMaterialized ?? false;
+            action.showQuantity = selectedAction.isMaterialized ?? false;
+            action.isMaterialized = selectedAction.isMaterialized;
 
             if (!action.showQuantity) {
                 action.quantity = 0;
@@ -421,7 +437,7 @@ export default {
             this.form.actions.forEach((action, index) => {
                 formData.append(`actions[${index}][id]`, action.selectedAction);
                 formData.append(`actions[${index}][quantity]`, action.quantity || 0);
-                formData.append(`actions[${index}][isMaterialized]`, action.showQuantity || false);
+                formData.append(`actions[${index}][isMaterialized]`, action.isMaterialized === null ? '' : action.isMaterialized);
             });
 
             try {
@@ -496,7 +512,25 @@ export default {
 
 .file-upload {
     width: 100%;
-    max-width: 400px;
+}
+
+.description-textarea {
+    background-color: $light-gray;
+    border: 2px dashed $ultra-light-gray;
+    padding: 1rem;
+    min-height: 250px;
+    resize: none;
+    transition: all 0.3s ease;
+
+    &:hover, &:focus {
+        border-color: $green;
+        outline: none;
+        background-color: rgba($light-gray, 0.7);
+    }
+
+    &::placeholder {
+        color: $ultra-light-gray;
+    }
 }
 
 .upload-area {

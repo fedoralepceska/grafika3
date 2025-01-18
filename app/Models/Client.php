@@ -24,4 +24,11 @@ class Client extends Model
     {
         return $this->hasOne(ClientCardStatement::class);
     }
+
+    public function offers()
+    {
+        return $this->belongsToMany(Offer::class, 'offer_client')
+            ->withPivot('is_accepted', 'description')
+            ->withTimestamps();
+    }
 }
