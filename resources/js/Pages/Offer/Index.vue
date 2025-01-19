@@ -1,11 +1,14 @@
 <template>
     <MainLayout>
         <div class="pl-7 pr-7">
-            <Header title="Offers List" subtitle="Manage Offers" icon="List.png">
-                <Link :href="route('offers.create')" class="btn btn-primary">
+            <div class="flex justify-between align-center">
+            <Header title="Offers List" subtitle="Manage Offers" icon="List.png" />
+               <div class="flex align-center py-5">
+                <button @click="navigateToOfferCreate" class="btn create-order1">
                     Create New Offer
-                </Link>
-            </Header>
+                </button>
+               </div>
+            </div>
 
             <div class="dark-gray">
                 <!-- Tabs -->
@@ -103,34 +106,13 @@
                                     </button>
                                 </div>
                             </td>
-                            <td class="px-4 py-2 text-right space-x-2">
-                                <button
-                                    @click="acceptOffer(offer)"
-                                    v-if="offer.status === 'pending'"
-                                    class="btn btn-sm bg-green-500 hover:bg-green-600 text-white"
-                                >
-                                    Accept
-                                </button>
-                                <button
-                                    @click="openDeclineModal(offer)"
-                                    v-if="offer.status === 'pending'"
-                                    class="btn btn-sm bg-red-500 hover:bg-red-600 text-white"
-                                >
-                                    Decline
-                                </button>
-                                <button
-                                    @click="viewItems(offer)"
-                                    class="btn btn-sm bg-blue-500 hover:bg-blue-600 text-white"
-                                >
-                                    Items
-                                </button>
+                            <td class="px-4 py-2 text-center hover:text-black">
                                 <a
                                     :href="route('offers.pdf', offer.id)"
                                     target="_blank"
-                                    class="btn btn-sm bg-purple-500 hover:bg-purple-600 text-white"
+                                    class="btn text-white hover:text-gray-400"
                                 >
-                                    <i class="fas fa-file-pdf mr-1"></i>
-                                    PDF
+                                    <i class="fas fa-file-pdf " style="font-size: 25px"></i>
                                 </a>
                             </td>
                         </tr>
@@ -489,7 +471,10 @@ export default {
                 console.error('Error declining offer:', error);
                 toast.error('An unexpected error occurred.');
             }
-        }
+        },
+        navigateToOfferCreate(){
+            this.$inertia.visit(`/offer/create`);
+        },
     }
 };
 </script>
@@ -534,7 +519,17 @@ $orange: #a36a03;
     border-radius: 0.5rem;
     margin-top: 1rem;
 }
-
+.btn {
+    padding: 9px 12px;
+    border: none;
+    cursor: pointer;
+    font-weight: bold;
+    border-radius: 2px;
+}
+.create-order1{
+    background-color: $blue;
+    color: white;
+}
 table {
     width: 100%;
     border-collapse: collapse;

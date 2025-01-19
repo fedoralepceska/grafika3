@@ -37,7 +37,7 @@ class Offer extends Model
     public function catalogItems()
     {
         return $this->belongsToMany(CatalogItem::class, 'catalog_item_offer')
-                    ->withPivot('quantity', 'description')
+                    ->withPivot('quantity', 'description','custom_price')
                     ->withTimestamps();
     }
 

@@ -36,6 +36,7 @@ class OfferController extends Controller
                             'price' => $item->price,
                             'quantity' => $item->pivot->quantity,
                             'custom_description' => $item->pivot->description,
+                            'custom_price' => $item->pivot->custom_price,
                             'large_material' => $item->largeMaterial ? [
                                 'id' => $item->largeMaterial->id,
                                 'name' => $item->largeMaterial->name
@@ -94,9 +95,6 @@ class OfferController extends Controller
             'validity_days' => 'required|integer|min:1',
             'production_start_date' => 'nullable|date',
             'production_end_date' => 'nullable|date|after:production_start_date',
-            'price1' => 'nullable|numeric|min:0',
-            'price2' => 'nullable|numeric|min:0',
-            'price3' => 'nullable|numeric|min:0',
             'catalog_items' => 'required|array|min:1',
             'catalog_items.*.id' => 'required|exists:catalog_items,id',
             'catalog_items.*.quantity' => 'required|integer|min:1',
@@ -110,11 +108,11 @@ class OfferController extends Controller
             'client_id' => $request->client_id,
             'contact_id' =>  $request->contact_id,
             'validity_days' => $request->validity_days,
-            'production_start_date' => $request->production_start_date,
-            'production_end_date' => $request->production_end_date,
-            'price1' => $request->price1,
-            'price2' => $request->price2,
-            'price3' => $request->price3,
+            'production_start_date' => $request->production_start_date ?? null,
+            'production_end_date' => $request->production_end_date ?? null,
+            'price1' => $request->price1 ?? 0,
+            'price2' => $request->price2 ?? 0,
+            'price3' => $request->price3 ?? 0,
             'status' => 'pending',
             'production_time' => $request->production_time
         ]);
@@ -123,7 +121,8 @@ class OfferController extends Controller
         foreach ($request->catalog_items as $item) {
             $offer->catalogItems()->attach($item['id'], [
                 'quantity' => $item['quantity'],
-                'description' => $item['description'] ?? null
+                'description' => $item['description'] ?? null,
+                'custom_price' => $item['custom_price'] ?? null
             ]);
         }
 
@@ -202,6 +201,7 @@ class OfferController extends Controller
                         'price' => $item->price,
                         'quantity' => $item->pivot->quantity,
                         'custom_description' => $item->pivot->description,
+                        'custom_price' => $item->pivot->custom_price,
                         'large_material' => $item->largeMaterial ? [
                             'id' => $item->largeMaterial->id,
                             'name' => $item->largeMaterial->name
@@ -218,7 +218,7 @@ class OfferController extends Controller
 
     public function generateOfferPdf($offerId)
     {
-        $offer = Offer::with(['client', 'catalogItems.largeMaterial', 'catalogItems.smallMaterial'])
+        $offer = Offer::with(['client', 'contact', 'catalogItems.largeMaterial', 'catalogItems.smallMaterial'])
             ->findOrFail($offerId);
 
         // Load the view and pass data
@@ -229,6 +229,6 @@ class OfferController extends Controller
             'chroot' => storage_path('fonts'),
         ]);
 
-        return $pdf->stream('Offer_' . $offer->id . '_' . date('Y-m-d') . '.pdf');
+        return $pdf->stream('GrafikaPlus-PonudaBr-' . $offer->id . '-' . date('Y') . '.pdf');
     }
 }

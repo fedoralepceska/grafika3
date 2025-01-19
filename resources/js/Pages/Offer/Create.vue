@@ -87,15 +87,36 @@
                                             <div class="flex-1">
                                                 <h4 class="text-white font-medium">{{ item.name }}</h4>
                                                 <div class="mt-2 space-y-2">
-                                                    <div>
-                                                        <label class="text-gray-300 text-sm">Quantity</label>
-                                    <input
-                                                            v-model.number="item.quantity"
-                                                            type="number"
-                                                            min="1"
-                                                            class="w-24 mt-1 rounded text-black"
-                                                            required
-                                                        />
+                                                    <div class="flex gap-5">
+                                                        <div>
+                                                            <label class="text-gray-300 text-sm">Quantity</label>
+                                                            <div class="flex items-center space-x-2">
+                                                            <input
+                                                                v-model.number="item.quantity"
+                                                                type="number"
+                                                                min="1"
+                                                                class="w-24 mt-1 rounded text-black"
+                                                                required
+                                                                @change="updatePrice(item)"
+                                                            />
+                                                            </div>
+                                                        </div>
+                                                        <div>
+                                                            <label class="text-gray-300 text-sm">Price (мкд)</label>
+                                                            <div class="flex items-center space-x-2">
+                                                                <input
+                                                                    v-model.number="item.custom_price"
+                                                                    type="number"
+                                                                    min="0"
+                                                                    step="0.01"
+                                                                    class="w-32 mt-1 rounded text-black"
+                                                                    placeholder="Price per unit"
+                                                                />
+                                                                <span v-if="item.calculated_price" class="text-gray-300 text-xs">
+                                                                    (Calculated: {{ item.calculated_price }} ден | Per unit: {{ (item.calculated_price / item.quantity).toFixed(2) }} ден)
+                                                                </span>
+                                                            </div>
+                                                        </div>
                                                     </div>
                                                     <div>
                                                         <label class="text-gray-300 text-sm">Custom Description</label>
@@ -406,9 +427,12 @@ export default {
                     id: item.id,
                     name: item.name,
                     quantity: 1,
-                    description: item.description || ''
+                    description: item.description || '',
+                    custom_price: null,
+                    calculated_price: null
                 });
                 this.selectedItems.push(item.id);
+                this.updatePrice(this.form.catalog_items[this.form.catalog_items.length - 1]);
             } else {
                 this.form.catalog_items.splice(index, 1);
                 const selectedIndex = this.selectedItems.indexOf(item.id);
@@ -443,7 +467,27 @@ export default {
                 });
         },
         onClientSelect() {
-            this.selectedClient =  this.clients.find(c => c.id === this.form.client_id);
+            this.selectedClient = this.clients.find(c => c.id === this.form.client_id);
+            // Update prices for all selected items when client changes
+            this.form.catalog_items.forEach(item => this.updatePrice(item));
+        },
+        async updatePrice(item) {
+            if (!this.form.client_id || !item.quantity) return;
+            
+            try {
+                const response = await axios.get(`/calculate-price`, {
+                    params: {
+                        catalog_item_id: item.id,
+                        client_id: this.form.client_id,
+                        quantity: item.quantity
+                    }
+                });
+                item.calculated_price = response.data.price;
+                // Set custom_price to the per-unit price
+                item.custom_price = response.data.price / item.quantity;
+            } catch (error) {
+                console.error('Error calculating price:', error);
+            }
         }
     }
 };

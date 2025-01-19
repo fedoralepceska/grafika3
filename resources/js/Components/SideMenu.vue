@@ -185,14 +185,7 @@ export default {
                             href: '/client-prices',
                             title: 'Prices per client',
                         },
-                        {
-                            href: '/offers',
-                            title: 'View all offers'
-                        },
-                        {
-                            href: '/offer/create',
-                            title: 'Add new offer'
-                        },
+                    
                         // {
                         //     href: '/offer-client/create',
                         //     title: 'Create offers for clients'
@@ -201,6 +194,21 @@ export default {
                         //     href: '/offer-client',
                         //     title: 'Offers for clients'
                         // }
+                    ],
+                },
+                {
+                    href: '',
+                    title: 'Offers',
+                    icon: 'fa-solid fa-file-invoice',
+                    child: [
+                        {
+                            href: '/offers',
+                            title: 'View all offers'
+                        },
+                        {
+                            href: '/offer/create',
+                            title: 'Add new offer'
+                        },
                     ],
                 },
                 {

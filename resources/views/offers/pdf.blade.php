@@ -104,8 +104,8 @@
                         </td>
                         <td style="padding-top: 15px;">
                             <div class="tahoma bolder" style="font-size: 11.5pt;line-height: 90%;  margin: 0; border-spacing: 0;"> {{ $offer->client->name }}</div>
-                            <div class="tahoma" style="color: #2b2b2b; font-size: 11.5pt; line-height: 90%; margin-top: 10px">Контакт: {{ $offer->client->contact_person ?? 'Билјана' }}</div>
-                            <div class="tahoma" style="color: #2b2b2b; font-size: 11.5pt; line-height: 90%; margin-right: 10px">Тел. {{ $offer->client->phone ?? '070/385-985' }}</div>
+                            <div class="tahoma" style="color: #2b2b2b; font-size: 11.5pt; line-height: 90%; margin-top: 10px">Контакт: {{ $offer->contact->name }}</div>
+                            <div class="tahoma" style="color: #2b2b2b; font-size: 11.5pt; line-height: 90%; margin-right: 10px">Тел. {{ $offer->contact->phone }}</div>
                         </td>
                     </tr>
                 </table>
@@ -143,7 +143,7 @@
             <th class="tahoma" style="width: auto;  background-color:#ececec">Износ</th>
         </tr>
         @foreach($offer->catalogItems as $index => $item)
-        <tr style="border-bottom: 1px solid #2b2b2b" >
+        <tr style="border-bottom: 1px solid #cccccc" >
             <td class="opensans bolder" style="color: #2b2b2b; font-size: 9pt;line-height: 90%; text-align: left">{{ $index + 1 }}.</td>
             <td style="text-align: left">
                 <div class="tahoma" style="font-size: 9pt; line-height: 90%;">{{ $item->name }}</div>
@@ -151,15 +151,15 @@
             </td>
             <td class="tahoma bolder" style="font-size: 9pt; line-height: 90% ;vertical-align: middle;background-color:#ececec; color: #2b2b2b">{{ $item->pivot->quantity }}</td>
             <td class="opensans bolder" style="font-size: 9pt;line-height: 90%;vertical-align: middle; background-color:#ececec; color: #2b2b2b">Ком</td>
-            <td class="tahoma bolder" style="font-size: 9pt;line-height: 90%;vertical-align: middle; background-color:#ececec; color: #2b2b2b">{{ number_format($item->price, 2) }}</td>
-            <td class="tahoma bolder" style="font-size: 9pt;line-height: 90%;vertical-align: middle; background-color:#ececec; color: #2b2b2b">{{ number_format($item->price * $item->pivot->quantity, 2) }}</td>
+            <td class="tahoma bolder" style="font-size: 9pt;line-height: 90%;vertical-align: middle; background-color:#ececec; color: #2b2b2b">{{ number_format($item->pivot->custom_price, 2) }}</td>
+            <td class="tahoma bolder" style="font-size: 9pt;line-height: 90%;vertical-align: middle; background-color:#ececec; color: #2b2b2b">{{ number_format($item->pivot->custom_price * $item->pivot->quantity, 2) }}</td>
         </tr>
         @endforeach
 
         <!-- Totals -->
         @php
             $subtotal = $offer->catalogItems->sum(function($item) {
-                return $item->price * $item->pivot->quantity;
+                return $item->pivot->custom_price * $item->pivot->quantity;
             });
             $vat = $subtotal * 0.18;
             $total = $subtotal + $vat;
@@ -188,7 +188,7 @@
                 <i class="fa-solid fa-clock-rotate-left"></i>
             </td>
             <td style="vertical-align: middle;">
-                <div class="tahoma" style="font-size: 7.5pt; line-height: 90%;">Време на изработка 5-7 дена</div>
+                <div class="tahoma" style="font-size: 7.5pt; line-height: 90%;">Време на изработка {{$offer->production_time}} дена </div>
             </td>
         </tr>
         <tr>

@@ -26,6 +26,7 @@ use App\Http\Controllers\ClientPriceController;
 use App\Http\Controllers\QuantityPriceController;
 use App\Http\Controllers\OfferController;
 use App\Http\Controllers\ItemController;
+use App\Http\Controllers\PriceController;
 
 
 /*
@@ -313,6 +314,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::resource('offers', \App\Http\Controllers\OfferController::class);
     Route::get('/offers/{offer}/items', [\App\Http\Controllers\OfferController::class, 'items'])->name('offers.items');
     Route::get('/offers/{offer}/pdf', [OfferController::class, 'generateOfferPdf'])->name('offers.pdf');
+    Route::get('/calculate-price', [PriceController::class, 'calculatePrice'])->name('price.calculate');
 });
 
 // Routes for catalog edit form data
@@ -397,6 +399,7 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/offers/{offer}', [OfferController::class, 'show'])->name('offers.show');
     Route::patch('/offers/{offer}/status', [OfferController::class, 'updateStatus'])->name('offers.update-status');
     Route::get('/offers/{offer}/items', [OfferController::class, 'items'])->name('offers.items');
+    Route::get('/calculate-price', [PriceController::class, 'calculatePrice'])->name('price.calculate');
 
     Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/items/{id}', [ItemController::class, 'getAllByCertificateId']);
