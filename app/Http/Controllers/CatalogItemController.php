@@ -34,11 +34,7 @@ class CatalogItemController extends Controller
             // Start with base query
             $query = CatalogItem::with([
                 'largeMaterial', // Relation to large_material
-                'smallMaterial', // Relation to small_material
-                'articles' => function($query) {
-                    $query->select('article.id', 'name', 'code', 'purchase_price', 'in_meters', 'in_kilograms', 'in_pieces', 'in_square_meters')
-                         ->withPivot('quantity');
-                }
+                'smallMaterial' // Relation to small_material
             ]);
 
             // Add optional search functionality
@@ -74,21 +70,14 @@ class CatalogItemController extends Controller
                     'large_material_id' => $item->large_material_id,
                     'small_material_id' => $item->small_material_id,
                     'price' => $item->price,
+                    'template_file' => $item->template_file,
                     'articles' => $item->articles->map(function($article) {
                         return [
                             'id' => $article->id,
                             'name' => $article->name,
-                            'code' => $article->code,
-                            'purchase_price' => $article->purchase_price,
-                            'in_meters' => $article->in_meters,
-                            'in_kilograms' => $article->in_kilograms,
-                            'in_pieces' => $article->in_pieces,
-                            'in_square_meters' => $article->in_square_meters,
-                            'pivot' => [
-                                'quantity' => $article->pivot->quantity
-                            ]
+                            'quantity' => $article->pivot->quantity,
                         ];
-                    }),
+                    })->toArray(),
                     'actions' => collect($item->actions ?? [])->map(function($action) {
                         return [
                             'action_id' => [
@@ -441,5 +430,27 @@ class CatalogItemController extends Controller
         $catalogItem->delete();
 
         return redirect()->route('catalog.index')->with('success', 'Catalog item deleted successfully.');
+    }
+
+    public function downloadTemplate(CatalogItem $catalogItem)
+    {
+        if (!$catalogItem->template_file) {
+            return response()->json(['error' => 'No template file found'], 404);
+        }
+
+        $filePath = storage_path('app/public/templates/' . $catalogItem->template_file);
+
+        if (!file_exists($filePath)) {
+            return response()->json(['error' => 'Template file not found'], 404);
+        }
+
+        return response()->download($filePath, $this->getOriginalFileName($catalogItem->template_file));
+    }
+
+    private function getOriginalFileName($templateFile)
+    {
+        // Remove the timestamp prefix from the filename
+        $parts = explode('_template_', $templateFile, 2);
+        return count($parts) > 1 ? $parts[1] : $templateFile;
     }
 }

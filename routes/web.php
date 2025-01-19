@@ -296,6 +296,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::put('/catalog/{catalogItem}', [CatalogItemController::class, 'update'])->name('catalog.update');
     Route::delete('/catalog/{catalogItem}', [CatalogItemController::class, 'destroy'])->name('catalog.destroy');
     Route::get('/catalog_items/offer', [CatalogItemController::class, 'fetchAllForOffer'])->name('catalog.fetchAllForOffer');
+    Route::get('/catalog/{catalogItem}/download-template', [CatalogItemController::class, 'downloadTemplate'])->name('catalog.download-template');
 });
 
 Route::middleware(['auth', 'verified'])->group(function () {

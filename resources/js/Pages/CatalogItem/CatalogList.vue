@@ -29,6 +29,7 @@
                     <thead>
                     <tr class="bg-gray-700 text-white">
                         <th class="p-4">Preview</th>
+                        <th class="p-4">Template</th>
                         <th class="p-4">Name</th>
                         <th class="p-4">Machine Print</th>
                         <th class="p-4">Machine Cut</th>
@@ -59,6 +60,28 @@
                                     NO IMAGE
                                 </div>
                             </div>
+                        </td>
+                        <td class="p-4 relative">
+                            <div v-if="item.template_file" class="template-container">
+                                <span class="template-name">{{ getTemplateFileName(item.template_file) }}</span>
+                                <div class="template-actions">
+                                    <button 
+                                        @click="openTemplatePreview(item)"
+                                        class="action-button text-blue-400 hover:text-blue-300"
+                                        title="Preview Template"
+                                    >
+                                        <i class="fas fa-eye"></i>
+                                    </button>
+                                    <a 
+                                        :href="route('catalog.download-template', item.id)"
+                                        class="action-button text-green-400 hover:text-green-300 ml-2"
+                                        title="Download Template"
+                                    >
+                                        <i class="fas fa-download"></i>
+                                    </a>
+                                </div>
+                            </div>
+                            <span v-else class="text-gray-500">No template</span>
                         </td>
                         <td class="p-4">{{ item.name }}</td>
                         <td class="p-4">{{ item.machinePrint }}</td>
@@ -204,7 +227,7 @@
                                     <select v-model="editForm.large_material_id"
                                             class="w-full mt-1 rounded"
                                             :disabled="editForm.small_material_id !== null">
-                                        <option value="">Select Material</option>
+
                                         <option v-for="material in largeMaterials"
                                                 :key="material.id"
                                                 :value="material.id">
@@ -223,7 +246,6 @@
                                     <select v-model="editForm.small_material_id"
                                             class="w-full mt-1 rounded"
                                             :disabled="editForm.large_material_id !== null">
-                                        <option value="">Select Material</option>
                                         <option v-for="material in smallMaterials"
                                                 :key="material.id"
                                                 :value="material.id">
@@ -306,6 +328,44 @@
                                     </div>
                                 </div>
 
+                                <!-- Template File Section -->
+                                <div class="mt-6">
+                                    <h3 class="text-white text-lg font-semibold mb-4">Template File (PDF only)</h3>
+                                    <div
+                                        class="upload-area"
+                                        @dragover.prevent
+                                        @drop.prevent="handleTemplateDrop"
+                                        @click="triggerTemplateFileInput"
+                                    >
+                                        <input
+                                            type="file"
+                                            id="edit-template-file-input"
+                                            class="hidden"
+                                            @change="handleTemplateFileInput"
+                                            accept=".pdf"
+                                        />
+                                        <div v-if="!currentTemplateFile && !editForm.template_file" class="placeholder-content">
+                                            <div class="upload-icon">
+                                                <span class="mdi mdi-cloud-upload text-4xl"></span>
+                                            </div>
+                                            <p class="upload-text">Drag and drop template PDF here</p>
+                                            <p class="upload-text-sub">or click to browse</p>
+                                            <p class="file-types">Supported format: PDF</p>
+                                        </div>
+                                        <div v-else class="preview-container">
+                                            <div class="pdf-preview">
+                                                <span class="mdi mdi-file-pdf text-4xl"></span>
+                                                <span class="pdf-name">{{ getTemplateFileName(currentTemplateFile) }}</span>
+                                            </div>
+                                            <div class="template-actions mt-2">
+                                                <button type="button" class="text-red-500 hover:text-red-700" @click.stop="removeTemplate">
+                                                    <i class="fas fa-trash mr-1"></i> Remove Template
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
                                 <div class="grid grid-cols-2 gap-4 pt-9">
                                     <div>
                                         <input
@@ -326,66 +386,7 @@
                                         <label for="is_for_sales" class="text-white ml-2">For Sales</label>
                                     </div>
                                 </div>
-                            </div>
-                        </div>
 
-                        <!-- Articles Section -->
-                        <div class="mt-6">
-                            <h3 class="text-white text-lg font-semibold mb-4">Component Articles</h3>
-                            <div class="space-y-4">
-                                <div v-for="(article, index) in editForm.articles" :key="index"
-                                     class="flex items-center space-x-4 bg-gray-700 p-4 rounded">
-                                    <div class="flex-1">
-                                        <label class="text-white mb-2 block">Article</label>
-                                        <CatalogArticleSelect
-                                            v-model="article.id"
-                                            @article-selected="handleArticleSelected($event, index)"
-                                            class="w-full"
-                                        />
-                                    </div>
-                                    <div class="w-32">
-                                        <label class="text-white mb-2 block">Quantity{{ article.unitLabel ? ` (${article.unitLabel})` : '' }}</label>
-                                        <input
-                                            style="color: black;"
-                                            v-model="article.quantity"
-                                            type="number"
-                                            min="0.01"
-                                            step="0.01"
-                                            class="w-full rounded option"
-                                            required
-                                            @input="calculateCostPrice"
-                                        />
-                                    </div>
-                                    <div class="w-32 text-right">
-                                        <label class="text-white mb-2 block">Cost</label>
-                                        <div class="text-green-400 font-medium">
-                                            €{{ ((article.purchasePrice || 0) * (article.quantity || 0)).toFixed(2) }}
-                                        </div>
-                                    </div>
-                                    <button
-                                        type="button"
-                                        @click="removeArticle(index)"
-                                        class="text-red-500 hover:text-red-700 mt-8"
-                                    >
-                                        <span class="mdi mdi-delete"></span>
-                                    </button>
-                                </div>
-
-                                <button
-                                    type="button"
-                                    @click="addArticle"
-                                    class="text-green-500 hover:text-green-700"
-                                >
-                                    <span class="mdi mdi-plus-circle"></span> Add Article
-                                </button>
-                            </div>
-
-                            <!-- Cost Price Display -->
-                            <div v-if="editForm.articles.length > 0" class="mt-4 p-4 bg-gray-700 rounded">
-                                <div class="flex justify-between items-center">
-                                    <p class="text-white">Total Cost Price:</p>
-                                    <p class="text-green-400 text-xl font-bold">€{{ calculatedCostPrice.toFixed(2) }}</p>
-                                </div>
                             </div>
                         </div>
 
@@ -628,6 +629,23 @@
                 </div>
             </div>
         </div>
+        <!-- Template Preview Dialog -->
+        <div v-if="showTemplatePreviewDialog" class="modal-backdrop" @click="closeTemplatePreview">
+            <div class="modal-content" @click.stop>
+                <div class="modal-header">
+                    <h2 class="text-xl font-semibold">Template Preview</h2>
+                    <button @click="closeTemplatePreview" class="close-button">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <embed 
+                        :src="templatePreviewUrl"
+                        type="application/pdf"
+                        width="100%"
+                        height="600px"
+                    />
+                </div>
+            </div>
+        </div>
     </MainLayout>
 </template>
 
@@ -636,14 +654,12 @@ import MainLayout from "@/Layouts/MainLayout.vue";
 import Header from "@/Components/Header.vue";
 import { Link } from "@inertiajs/vue3";
 import { useToast } from "vue-toastification";
-import CatalogArticleSelect from '@/Components/CatalogArticleSelect.vue';
 
 export default {
     components: {
         MainLayout,
         Header,
         Link,
-        CatalogArticleSelect,
     },
     props: {
         catalogItems: Array,
@@ -673,8 +689,7 @@ export default {
                 is_for_offer: false,
                 is_for_sales: true,
                 category: '',
-                price: 0,
-                articles: []
+                price: 0
             },
             clientPriceForm: {
                 client_id: null,
@@ -709,7 +724,12 @@ export default {
                 per_page: 5,
                 last_page: 1
             },
-            calculatedCostPrice: 0,
+            hoveredItemId: null,
+            shouldShowPreviewOnTop: false,
+            currentTemplateFile: null,
+            removeTemplateFlag: false,
+            showTemplatePreviewDialog: false,
+            templatePreviewUrl: null,
         };
     },
     methods: {
@@ -747,7 +767,6 @@ export default {
         },
 
         openEditDialog(item) {
-            console.log('Opening edit dialog with item:', item); // Debug log
             this.editForm = {
                 id: item.id,
                 name: item.name,
@@ -768,21 +787,9 @@ export default {
                 })),
                 is_for_offer: item.is_for_offer,
                 is_for_sales: item.is_for_sales,
-                articles: []
+                file: null, // Will be set if user uploads new file
+                template_file: item.template_file,
             };
-
-            // Initialize articles if they exist
-            if (item.articles && item.articles.length > 0) {
-                console.log('Initializing articles:', item.articles); // Debug log
-                this.editForm.articles = item.articles.map(article => ({
-                    id: article.id,
-                    quantity: article.pivot.quantity,
-                    purchasePrice: article.purchase_price,
-                    unitLabel: this.getUnitLabel(article),
-                    name: article.name, // Add name for display
-                    code: article.code  // Add code for display
-                }));
-            }
 
             // Set file information
             this.previewUrl = null;
@@ -794,9 +801,8 @@ export default {
                 this.previewUrl = `/storage/uploads/${item.file}`;
             }
 
-            // Calculate initial cost price
-            this.calculateCostPrice();
-            console.log('Calculated cost price:', this.calculatedCostPrice); // Debug log
+            this.currentTemplateFile = item.template_file;
+            this.removeTemplateFlag = false;
 
             this.showEditDialog = true;
         },
@@ -816,8 +822,7 @@ export default {
                 is_for_offer: false,
                 is_for_sales: true,
                 category: '',
-                price: 0,
-                articles: []
+                price: 0
             };
         },
 
@@ -846,8 +851,13 @@ export default {
 
                 // Append all form fields
                 Object.entries(this.editForm).forEach(([key, value]) => {
-                    if (key !== 'actions' && key !== 'file' && key !== 'articles') {
-                        formData.append(key, value);
+                    if (key !== 'actions' && key !== 'file' && key !== 'template_file') {
+                        // Convert price to number if it's the price field
+                        if (key === 'price') {
+                            formData.append(key, Number(value));
+                        } else {
+                            formData.append(key, value);
+                        }
                     }
                 });
 
@@ -856,18 +866,21 @@ export default {
                     formData.append('file', this.editForm.file);
                 }
 
+                // Append template file if it exists
+                if (this.editForm.template_file instanceof File) {
+                    formData.append('template_file', this.editForm.template_file);
+                }
+
                 // Append actions
                 this.editForm.actions.forEach((action, index) => {
+                    const actionData = this.actions.find(a => a.id === action.selectedAction);
                     formData.append(`actions[${index}][id]`, action.selectedAction);
                     formData.append(`actions[${index}][quantity]`, action.quantity || 0);
-                    formData.append(`actions[${index}][isMaterialized]`, action.isMaterialized ? 1 : 0);
+                    formData.append(`actions[${index}][isMaterialized]`, actionData?.isMaterialized ? 1 : 0);
                 });
 
-                // Append articles
-                this.editForm.articles.forEach((article, index) => {
-                    formData.append(`articles[${index}][id]`, article.id);
-                    formData.append(`articles[${index}][quantity]`, article.quantity);
-                });
+                // Add flag for template removal
+                formData.append('remove_template', this.removeTemplateFlag ? '1' : '0');
 
                 await axios.post(`/catalog/${this.editForm.id}?_method=PUT`, formData, {
                     headers: { 'Content-Type': 'multipart/form-data' },
@@ -1156,43 +1169,49 @@ export default {
             }
         },
 
-        addArticle() {
-            this.editForm.articles.push({
-                id: null,
-                quantity: 1,
-                purchasePrice: 0
-            });
+        getTemplateFileName(path) {
+            if (!path) return '';
+            return path.split('_template_')[1] || path;
+        },
+        openTemplatePreview(item) {
+            this.templatePreviewUrl = `/storage/templates/${item.template_file}`;
+            this.showTemplatePreviewDialog = true;
+        },
+        closeTemplatePreview() {
+            this.showTemplatePreviewDialog = false;
+            this.templatePreviewUrl = null;
         },
 
-        removeArticle(index) {
-            this.editForm.articles.splice(index, 1);
-            this.calculateCostPrice();
+        handleTemplateDrop(event) {
+            const file = event.dataTransfer.files[0];
+            this.processTemplateFile(file);
         },
 
-        handleArticleSelected(article, index) {
-            this.editForm.articles[index] = {
-                ...this.editForm.articles[index],
-                id: article.id,
-                purchasePrice: article.purchase_price,
-                unitLabel: article.unitLabel,
-                quantity: this.editForm.articles[index].quantity || 1
-            };
-            this.calculateCostPrice();
+        handleTemplateFileInput(event) {
+            const file = event.target.files[0];
+            this.processTemplateFile(file);
         },
 
-        calculateCostPrice() {
-            this.calculatedCostPrice = this.editForm.articles.reduce((total, article) => {
-                return total + (article.purchasePrice || 0) * (article.quantity || 0);
-            }, 0);
+        processTemplateFile(file) {
+            if (!file) return;
+            if (file.type !== 'application/pdf') {
+                const toast = useToast();
+                toast.error('Only PDF files are allowed for templates');
+                return;
+            }
+            this.editForm.template_file = file;
+            this.currentTemplateFile = file.name;
+            this.removeTemplateFlag = false;
         },
 
-        getUnitLabel(article) {
-            if (!article) return '';
-            if (article.in_meters) return 'm';
-            if (article.in_kilograms) return 'kg';
-            if (article.in_pieces) return 'pcs';
-            if (article.in_square_meters) return 'm²';
-            return '';
+        triggerTemplateFileInput() {
+            document.getElementById("edit-template-file-input").click();
+        },
+
+        removeTemplate() {
+            this.editForm.template_file = null;
+            this.currentTemplateFile = null;
+            this.removeTemplateFlag = true;
         },
     },
     mounted() {
@@ -1467,5 +1486,35 @@ tbody td {
         position: relative;
         z-index: 1000;
     }
+}
+
+.template-container {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.template-name {
+    color: white;
+}
+
+.template-actions {
+    display: flex;
+    align-items: center;
+}
+
+.action-button {
+    padding: 4px;
+    cursor: pointer;
+    transition: transform 0.2s ease;
+
+    &:hover {
+        transform: scale(1.1);
+    }
+}
+
+.template-preview,
+.preview-top {
+    display: none;
 }
 </style>

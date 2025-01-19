@@ -169,15 +169,7 @@
                                             step="0.01"
                                             class="w-full rounded option"
                                             required
-                                            @input="calculateCostPrice"
                                         />
-
-                                    </div>
-                                    <div class="w-32 text-right">
-                                        <label class="text-white mb-2 block">Cost</label>
-                                        <div class="text-green-400 font-medium">
-                                            €{{ ((article.purchasePrice || 0) * (article.quantity || 0)).toFixed(2) }}
-                                        </div>
                                     </div>
                                     <button
                                         type="button"
@@ -196,13 +188,10 @@
                                     <span class="mdi mdi-plus-circle"></span> Add Article
                                 </button>
                             </div>
-
+                            
                             <!-- Cost Price Display -->
-                            <div v-if="form.articles.length > 0" class="mt-4 p-4 bg-gray-700 rounded">
-                                <div class="flex justify-between items-center">
-                                    <p class="text-white">Total Cost Price:</p>
-                                    <p class="text-green-400 text-xl font-bold">€{{ calculatedCostPrice.toFixed(2) }}</p>
-                                </div>
+                            <div v-if="calculatedCostPrice > 0" class="mt-4 p-4 bg-gray-700 rounded">
+                                <p class="text-white">Calculated Cost Price: €{{ calculatedCostPrice.toFixed(2) }}</p>
                             </div>
                         </div>
 
@@ -254,6 +243,39 @@
                                     rows="11"
                                     placeholder="Enter item description..."
                                 ></textarea>
+                            </div>
+                        </div>
+
+                        <!-- Template File Section -->
+                        <div class="mt-6">
+                            <h3 class="text-white text-lg font-semibold mb-4">Template File (PDF only)</h3>
+                            <div
+                                class="upload-area"
+                                @dragover.prevent
+                                @drop.prevent="handleTemplateDrop"
+                                @click="triggerTemplateFileInput"
+                            >
+                                <input
+                                    type="file"
+                                    id="template-file-input"
+                                    class="hidden"
+                                    @change="handleTemplateFileInput"
+                                    accept=".pdf"
+                                />
+                                <div v-if="!templatePreviewUrl" class="placeholder-content">
+                                    <div class="upload-icon">
+                                        <span class="mdi mdi-cloud-upload text-4xl"></span>
+                                    </div>
+                                    <p class="upload-text">Drag and drop template PDF here</p>
+                                    <p class="upload-text-sub">or click to browse</p>
+                                    <p class="file-types">Supported format: PDF</p>
+                                </div>
+                                <div v-else class="preview-container">
+                                    <div class="pdf-preview">
+                                        <span class="mdi mdi-file-pdf text-4xl"></span>
+                                        <span class="pdf-name">{{ templateFileName }}</span>
+                                    </div>
+                                </div>
                             </div>
                         </div>
 
@@ -367,12 +389,15 @@ export default {
                 category: '',
                 file: 'placeholder.jpeg',
                 price: '',
-                articles: []
+                articles: [],
+                template_file: null,
             },
             categories: ['material', 'article', 'small_format'],
             previewUrl: null, // URL for file preview
             fileName: '', // Stores the file name
-            calculatedCostPrice: 0
+            calculatedCostPrice: 0,
+            templatePreviewUrl: null,
+            templateFileName: '',
         }
     },
 
@@ -393,8 +418,7 @@ export default {
         addArticle() {
             this.form.articles.push({
                 id: null,
-                quantity: 1,
-                purchasePrice: 0
+                quantity: 1
             });
         },
 
@@ -404,19 +428,14 @@ export default {
         },
 
         handleArticleSelected(article, index) {
-            this.form.articles[index] = {
-                ...this.form.articles[index],
-                id: article.id,
-                purchasePrice: article.purchase_price,
-                unitLabel: article.unitLabel,
-                quantity: this.form.articles[index].quantity || 1
-            };
+            this.form.articles[index].id = article.id;
             this.calculateCostPrice();
         },
 
         calculateCostPrice() {
             this.calculatedCostPrice = this.form.articles.reduce((total, article) => {
-                return total + (article.purchasePrice || 0) * (article.quantity || 0);
+                const purchasePrice = article.purchasePrice || 0;
+                return total + (purchasePrice * article.quantity);
             }, 0);
         },
 
@@ -505,9 +524,35 @@ export default {
             return null;
         },
 
+        handleTemplateDrop(event) {
+            const file = event.dataTransfer.files[0];
+            this.processTemplateFile(file);
+        },
+
+        handleTemplateFileInput(event) {
+            const file = event.target.files[0];
+            this.processTemplateFile(file);
+        },
+
+        processTemplateFile(file) {
+            if (!file) return;
+            if (file.type !== 'application/pdf') {
+                const toast = useToast();
+                toast.error('Only PDF files are allowed for templates');
+                return;
+            }
+            this.form.template_file = file;
+            this.templateFileName = file.name;
+            this.templatePreviewUrl = true; // Just to show the preview container
+        },
+
+        triggerTemplateFileInput() {
+            document.getElementById("template-file-input").click();
+        },
+
         async submit() {
             const toast = useToast();
-
+            
             // Validate actions before submission
             const actionError = this.validateActions();
             if (actionError) {
@@ -519,7 +564,7 @@ export default {
 
             // Append basic fields
             Object.entries(this.form).forEach(([key, value]) => {
-                if (key !== 'actions' && key !== 'file' && key !== 'articles') {
+                if (key !== 'actions' && key !== 'file' && key !== 'articles' && key !== 'template_file') {
                     formData.append(key, value);
                 }
             });
@@ -527,6 +572,11 @@ export default {
             // Append file
             if (this.form.file instanceof File) {
                 formData.append('file', this.form.file);
+            }
+
+            // Append template file if it exists
+            if (this.form.template_file instanceof File) {
+                formData.append('template_file', this.form.template_file);
             }
 
             // Append actions
