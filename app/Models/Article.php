@@ -25,7 +25,8 @@ class Article extends Model
         'in_meters',
         'in_square_meters',
         'in_kilograms',
-        'in_pieces'
+        'in_pieces',
+        'type'
     ];
 
     public function priemnica()

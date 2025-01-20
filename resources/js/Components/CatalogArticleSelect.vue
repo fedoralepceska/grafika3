@@ -50,6 +50,11 @@ export default {
         modelValue: {
             type: [Number, String],
             default: null
+        },
+        type: {
+            type: String,
+            default: null,
+            validator: value => !value || ['product', 'service'].includes(value)
         }
     },
 
@@ -90,7 +95,10 @@ export default {
 
             try {
                 const response = await axios.get('/articles/search', {
-                    params: { query: searchQuery.value }
+                    params: { 
+                        query: searchQuery.value,
+                        type: props.type
+                    }
                 });
                 console.log('Search response:', response.data);
                 filteredArticles.value = response.data;
@@ -119,7 +127,9 @@ export default {
             console.log('Model value changed:', newValue);
             if (newValue && !selectedArticle.value) {
                 try {
-                    const response = await axios.get(`/articles/${newValue}`);
+                    const response = await axios.get(`/articles/${newValue}`, {
+                        params: { type: props.type }
+                    });
                     console.log('Fetched article:', response.data);
                     const article = response.data;
                     selectedArticle.value = article;

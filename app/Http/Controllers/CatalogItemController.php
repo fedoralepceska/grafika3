@@ -75,7 +75,13 @@ class CatalogItemController extends Controller
                         return [
                             'id' => $article->id,
                             'name' => $article->name,
+                            'type' => $article->type,
+                            'purchase_price' => $article->purchase_price,
+                            'unit_label' => $this->getUnitLabel($article),
                             'quantity' => $article->pivot->quantity,
+                            'pivot' => [
+                                'quantity' => $article->pivot->quantity
+                            ]
                         ];
                     })->toArray(),
                     'actions' => collect($item->actions ?? [])->map(function($action) {
@@ -299,25 +305,19 @@ class CatalogItemController extends Controller
     public function update(Request $request, CatalogItem $catalogItem)
     {
         try {
+            // Decode JSON strings to arrays first
+            $actions = json_decode($request->input('actions'), true);
+            $articles = json_decode($request->input('articles'), true);
+
+            // Merge the decoded data into the request
             $request->merge([
                 'is_for_offer' => filter_var($request->input('is_for_offer'), FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE),
                 'is_for_sales' => filter_var($request->input('is_for_sales'), FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE),
                 'small_material_id' => $request->input('small_material_id') === 'null' || $request->input('small_material_id') === '' ? null : $request->input('small_material_id'),
                 'large_material_id' => $request->input('large_material_id') === 'null' || $request->input('large_material_id') === '' ? null : $request->input('large_material_id'),
+                'actions' => $actions,
+                'articles' => $articles
             ]);
-
-            $actions = $request->input('actions');
-            if ($actions) {
-                $actions = array_map(function ($action) {
-                    if ($action['isMaterialized'] === '') {
-                        $action['isMaterialized'] = null;
-                    } else {
-                        $action['isMaterialized'] = filter_var($action['isMaterialized'], FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
-                    }
-                    return $action;
-                }, $actions);
-                $request->merge(['actions' => $actions]);
-            }
 
             $request->validate([
                 'name' => 'required|string|unique:catalog_items,name,' . $catalogItem->id,
@@ -329,9 +329,8 @@ class CatalogItemController extends Controller
                 'quantity' => 'required|integer|min:1',
                 'copies' => 'required|integer|min:1',
                 'actions' => 'required|array',
-                'actions.*.id' => 'required|exists:dorabotka,id',
-                'actions.*.quantity' => 'integer|min:0|required_if:actions.*.isMaterialized,true|nullable',
-                'actions.*.isMaterialized' => 'nullable',
+                'actions.*.selectedAction' => 'required|exists:dorabotka,id',
+                'actions.*.quantity' => 'integer|min:0|nullable',
                 'is_for_offer' => 'nullable|boolean',
                 'is_for_sales' => 'nullable|boolean',
                 'category' => 'nullable|string|in:' . implode(',', CatalogItem::CATEGORIES),
@@ -361,34 +360,33 @@ class CatalogItemController extends Controller
                 $catalogItem->update($request->except(['actions', 'file', 'articles']));
 
                 // Process actions and update them
-                $catalogItemActions = collect($request->actions)->map(function ($action) {
-                    $actionData = DB::table('dorabotka')->where('id', $action['id'])->first();
+                $catalogItemActions = collect($actions)->map(function ($action) {
+                    $actionData = DB::table('dorabotka')->where('id', $action['selectedAction'])->first();
 
                     if (!$actionData) {
-                        throw new \Exception("Action with ID {$action['id']} does not exist.");
+                        throw new \Exception("Action with ID {$action['selectedAction']} does not exist.");
                     }
-
-                    $isMaterialized = $action['isMaterialized'] ?? false;
 
                     return [
                         'action_id' => [
-                            'id' => $action['id'],
+                            'id' => $action['selectedAction'],
                             'name' => $actionData->name,
                         ],
                         'status' => 'Not started yet',
-                        'quantity' => $isMaterialized ? ($action['quantity'] ?? 0) : null,
+                        'quantity' => $action['quantity'] ?? null,
+                        'isMaterialized' => $actionData->isMaterialized
                     ];
                 });
 
                 $catalogItem->actions = $catalogItemActions->toArray();
 
                 // Update articles if provided
-                if ($request->has('articles')) {
+                if ($articles) {
                     // Detach all existing articles
                     $catalogItem->articles()->detach();
 
                     // Attach new articles with quantities
-                    foreach ($request->articles as $articleData) {
+                    foreach ($articles as $articleData) {
                         $catalogItem->articles()->attach($articleData['id'], [
                             'quantity' => $articleData['quantity']
                         ]);
@@ -452,5 +450,14 @@ class CatalogItemController extends Controller
         // Remove the timestamp prefix from the filename
         $parts = explode('_template_', $templateFile, 2);
         return count($parts) > 1 ? $parts[1] : $templateFile;
+    }
+
+    private function getUnitLabel($article)
+    {
+        if ($article->in_kilograms) return 'kg';
+        if ($article->in_meters) return 'm';
+        if ($article->in_square_meters) return 'm²';
+        if ($article->in_pieces) return 'pcs';
+        return '';
     }
 }

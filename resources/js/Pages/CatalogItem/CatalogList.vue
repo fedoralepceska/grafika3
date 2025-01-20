@@ -390,6 +390,124 @@
                             </div>
                         </div>
 
+                        <!-- Component Articles Section -->
+                        <div class="mt-6">
+                            <h3 class="text-white text-lg font-semibold mb-4">Component Articles</h3>
+                            
+                            <!-- Products Section -->
+                            <div class="mb-6">
+                                <div class="flex justify-between items-center mb-4">
+                                    <h4 class="text-white text-md font-medium">Products</h4>
+                                    <button
+                                        type="button"
+                                        @click="addArticle('product')"
+                                        class="text-green-500 hover:text-green-700"
+                                    >
+                                        <span class="mdi mdi-plus-circle"></span> Add Product
+                                    </button>
+                                </div>
+                                <div class="space-y-4">
+                                    <div v-for="(article, index) in productArticles" :key="index"
+                                         class="flex items-center space-x-4 light-gray p-4 rounded">
+                                        <div class="flex-1">
+                                            <label class="text-white mb-2 block">Product</label>
+                                            <CatalogArticleSelect
+                                                v-model="article.id"
+                                                :type="'product'"
+                                                @article-selected="handleArticleSelected($event, index, 'product')"
+                                                class="w-full"
+                                            />
+                                        </div>
+                                        <div class="w-32">
+                                            <label class="text-white mb-2 block">Quantity{{ article.unitLabel ? ` (${article.unitLabel})` : '' }}</label>
+                                            <input
+                                                v-model="article.quantity"
+                                                type="number"
+                                                min="0.01"
+                                                step="0.01"
+                                                class="w-full rounded option"
+                                                style="color: black;"
+                                                required
+                                            />
+                                        </div>
+                                        <button
+                                            type="button"
+                                            @click="removeArticle(index, 'product')"
+                                            class="text-red-500 hover:text-red-700 mt-8"
+                                        >
+                                            <span class="mdi mdi-delete"></span>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Services Section -->
+                            <div>
+                                <div class="flex justify-between items-center mb-4">
+                                    <h4 class="text-white text-md font-medium">Services</h4>
+                                    <button
+                                        type="button"
+                                        @click="addArticle('service')"
+                                        class="text-green-500 hover:text-green-700"
+                                    >
+                                        <span class="mdi mdi-plus-circle"></span> Add Service
+                                    </button>
+                                </div>
+                                <div class="space-y-4">
+                                    <div v-for="(article, index) in serviceArticles" :key="index"
+                                         class="flex items-center space-x-4 light-gray p-4 rounded">
+                                        <div class="flex-1">
+                                            <label class="text-white mb-2 block">Service</label>
+                                            <CatalogArticleSelect
+                                                v-model="article.id"
+                                                :type="'service'"
+                                                @article-selected="handleArticleSelected($event, index, 'service')"
+                                                class="w-full"
+                                            />
+                                        </div>
+                                        <div class="w-32">
+                                            <label class="text-white mb-2 block">Quantity{{ article.unitLabel ? ` (${article.unitLabel})` : '' }}</label>
+                                            <input
+                                                v-model="article.quantity"
+                                                type="number"
+                                                min="0.01"
+                                                step="0.01"
+                                                class="w-full rounded option"
+                                                style="color: black;"
+                                                required
+                                            />
+                                        </div>
+                                        <button
+                                            type="button"
+                                            @click="removeArticle(index, 'service')"
+                                            class="text-red-500 hover:text-red-700 mt-8"
+                                        >
+                                            <span class="mdi mdi-delete"></span>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Cost Price Display -->
+                            <div class="mt-4 p-4 bg-gray-700 rounded">
+                                <h4 class="text-white text-md font-medium mb-3">Cost Summary</h4>
+                                <div class="space-y-2">
+                                    <div class="flex justify-between items-center">
+                                        <span class="text-gray-300">Products Cost:</span>
+                                        <span class="text-white">€{{ displayProductsCost.toFixed(2) }}</span>
+                                    </div>
+                                    <div class="flex justify-between items-center">
+                                        <span class="text-gray-300">Services Cost:</span>
+                                        <span class="text-white">€{{ displayServicesCost.toFixed(2) }}</span>
+                                    </div>
+                                    <div class="flex justify-between items-center pt-2 border-t border-gray-600">
+                                        <span class="text-white font-semibold">Total Cost Price:</span>
+                                        <span class="text-white font-semibold">€{{ displayTotalCost.toFixed(2) }}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
                         <!-- Actions Section -->
                         <div class="mt-6">
                             <h3 class="text-white text-lg font-semibold mb-4">Actions</h3>
@@ -654,12 +772,14 @@ import MainLayout from "@/Layouts/MainLayout.vue";
 import Header from "@/Components/Header.vue";
 import { Link } from "@inertiajs/vue3";
 import { useToast } from "vue-toastification";
+import CatalogArticleSelect from "@/Components/CatalogArticleSelect.vue";
 
 export default {
     components: {
         MainLayout,
         Header,
         Link,
+        CatalogArticleSelect
     },
     props: {
         catalogItems: Array,
@@ -672,10 +792,28 @@ export default {
             showEditDialog: false,
             showClientPricesDialog: false,
             showQuantityPricesDialog: false,
+            showTemplatePreview: false,
+            templatePreviewUrl: null,
             selectedItemForPrices: null,
+            clients: [],
             clientPrices: [],
             quantityPrices: [],
-            clients: [], // Will be populated with available clients
+            clientPricesPagination: {
+                current_page: 1,
+                last_page: 1,
+                total: 0,
+                per_page: 10
+            },
+            clientPriceForm: {
+                client_id: null,
+                price: 0
+            },
+            quantityPriceForm: {
+                client_id: null,
+                quantity_from: null,
+                quantity_to: null,
+                price: 0
+            },
             editForm: {
                 id: null,
                 name: '',
@@ -689,35 +827,24 @@ export default {
                 is_for_offer: false,
                 is_for_sales: true,
                 category: '',
-                price: 0
+                price: 0,
+                file: null,
+                template_file: null
             },
-            clientPriceForm: {
-                client_id: null,
-                price: 0
-            },
-            quantityPriceForm: {
-                client_id: null,
-                quantity_from: null,
-                quantity_to: null,
-                price: 0
-            },
-            // New data properties for dropdowns
+            productArticles: [],
+            serviceArticles: [],
+            previewUrl: null,
+            currentTemplateFile: null,
+            removeTemplateFlag: false,
             machinesPrint: [],
             machinesCut: [],
             largeMaterials: [],
             smallMaterials: [],
-            actions: [], // Available actions from dorabotka table
-            previewUrl: null,
+            actions: [],
             fileName: '',
             currentItemFile: null,
             isImage: true,
             categories: ['material', 'article', 'small_format'],
-            clientPricesPagination: {
-                current_page: 1,
-                total: 0,
-                per_page: 5,
-                last_page: 1
-            },
             quantityPricesPagination: {
                 current_page: 1,
                 total: 0,
@@ -726,14 +853,26 @@ export default {
             },
             hoveredItemId: null,
             shouldShowPreviewOnTop: false,
-            currentTemplateFile: null,
             removeTemplateFlag: false,
             showTemplatePreviewDialog: false,
-            templatePreviewUrl: null,
         };
     },
+    computed: {
+        displayProductsCost() {
+            return this.productArticles.reduce((total, article) => {
+                return total + (article.purchase_price || 0) * (article.quantity || 0);
+            }, 0);
+        },
+        displayServicesCost() {
+            return this.serviceArticles.reduce((total, article) => {
+                return total + (article.purchase_price || 0) * (article.quantity || 0);
+            }, 0);
+        },
+        displayTotalCost() {
+            return this.displayProductsCost + this.displayServicesCost;
+        }
+    },
     methods: {
-        // Fetch catalog items when search term changes or pagination is triggered
         fetchCatalogItems() {
             this.$inertia.get(route('catalog.index'), {
                 search: this.searchQuery,
@@ -742,17 +881,14 @@ export default {
             });
         },
 
-        // Open the actions dialog for a selected item
         openActionsDialog(item) {
             this.selectedItem = item;
         },
 
-        // Close the actions dialog
         closeActionsDialog() {
             this.selectedItem = null;
         },
 
-        // Delete catalog item
         async deleteCatalogItem(id) {
             if (!confirm("Are you sure you want to delete this catalog item?")) {
                 return;
@@ -787,15 +923,32 @@ export default {
                 })),
                 is_for_offer: item.is_for_offer,
                 is_for_sales: item.is_for_sales,
-                file: null, // Will be set if user uploads new file
+                file: null,
                 template_file: item.template_file,
             };
 
-            // Set file information
-            this.previewUrl = null;
-            this.fileName = item.file || '';
-            this.currentItemFile = item.file;
-            this.isImage = item.file && !item.file.toLowerCase().endsWith('.pdf');
+            // Initialize product and service articles from existing articles
+            this.productArticles = item.articles
+                .filter(article => article.type === 'product')
+                .map(article => ({
+                    id: article.id,
+                    name: article.name,
+                    type: article.type,
+                    purchase_price: article.purchase_price,
+                    unitLabel: article.unit_label,
+                    quantity: article.quantity
+                }));
+
+            this.serviceArticles = item.articles
+                .filter(article => article.type === 'service')
+                .map(article => ({
+                    id: article.id,
+                    name: article.name,
+                    type: article.type,
+                    purchase_price: article.purchase_price,
+                    unitLabel: article.unit_label,
+                    quantity: article.quantity
+                }));
 
             if (item.file && item.file !== 'placeholder.jpeg') {
                 this.previewUrl = `/storage/uploads/${item.file}`;
@@ -822,8 +975,15 @@ export default {
                 is_for_offer: false,
                 is_for_sales: true,
                 category: '',
-                price: 0
+                price: 0,
+                file: null,
+                template_file: null
             };
+            this.productArticles = [];
+            this.serviceArticles = [];
+            this.previewUrl = null;
+            this.currentTemplateFile = null;
+            this.removeTemplateFlag = false;
         },
 
         clearLargeMaterial() {
@@ -849,6 +1009,9 @@ export default {
             try {
                 const formData = new FormData();
 
+                // Add method override for PUT request
+                formData.append('_method', 'PUT');
+
                 // Append all form fields
                 Object.entries(this.editForm).forEach(([key, value]) => {
                     if (key !== 'actions' && key !== 'file' && key !== 'template_file') {
@@ -861,8 +1024,26 @@ export default {
                     }
                 });
 
+                // Append actions as JSON
+                formData.append('actions', JSON.stringify(this.editForm.actions));
+
+                // Combine product and service articles
+                const articles = [
+                    ...this.productArticles.map(article => ({
+                        id: article.id,
+                        quantity: article.quantity
+                    })),
+                    ...this.serviceArticles.map(article => ({
+                        id: article.id,
+                        quantity: article.quantity
+                    }))
+                ];
+
+                // Append articles as JSON
+                formData.append('articles', JSON.stringify(articles));
+
                 // Append file if it exists
-                if (this.editForm.file instanceof File) {
+                if (this.editForm.file) {
                     formData.append('file', this.editForm.file);
                 }
 
@@ -871,19 +1052,15 @@ export default {
                     formData.append('template_file', this.editForm.template_file);
                 }
 
-                // Append actions
-                this.editForm.actions.forEach((action, index) => {
-                    const actionData = this.actions.find(a => a.id === action.selectedAction);
-                    formData.append(`actions[${index}][id]`, action.selectedAction);
-                    formData.append(`actions[${index}][quantity]`, action.quantity || 0);
-                    formData.append(`actions[${index}][isMaterialized]`, actionData?.isMaterialized ? 1 : 0);
-                });
+                // Handle template file removal
+                if (this.removeTemplateFlag) {
+                    formData.append('remove_template', '1');
+                }
 
-                // Add flag for template removal
-                formData.append('remove_template', this.removeTemplateFlag ? '1' : '0');
-
-                await axios.post(`/catalog/${this.editForm.id}?_method=PUT`, formData, {
-                    headers: { 'Content-Type': 'multipart/form-data' },
+                await axios.post(`/catalog/${this.editForm.id}`, formData, {
+                    headers: {
+                        'Content-Type': 'multipart/form-data'
+                    }
                 });
 
                 toast.success('Catalog item updated successfully');
@@ -1213,6 +1390,37 @@ export default {
             this.currentTemplateFile = null;
             this.removeTemplateFlag = true;
         },
+
+        addArticle(type) {
+            const article = {
+                id: null,
+                quantity: 1,
+                type: type
+            };
+            
+            if (type === 'product') {
+                this.productArticles.push(article);
+            } else {
+                this.serviceArticles.push(article);
+            }
+        },
+
+        removeArticle(index, type) {
+            if (type === 'product') {
+                this.productArticles.splice(index, 1);
+            } else {
+                this.serviceArticles.splice(index, 1);
+            }
+        },
+
+        handleArticleSelected(article, index, type) {
+            const targetArray = type === 'product' ? this.productArticles : this.serviceArticles;
+            targetArray[index] = {
+                ...targetArray[index],
+                ...article,
+                purchase_price: article.purchase_price || 0
+            };
+        },
     },
     mounted() {
         this.loadFormData();
@@ -1320,12 +1528,12 @@ tbody td {
     cursor: pointer;
 }
 
-.modal-body {
-    padding: 1rem;
-}
-
 .close-button:hover {
     color: #e53e3e;
+}
+
+.modal-body {
+    padding: 1rem;
 }
 
 .option {
@@ -1351,18 +1559,6 @@ tbody td {
     h2 {
         color: white;
         font-size: 1.5rem;
-    }
-}
-
-.close-button {
-    background: none;
-    border: none;
-    color: white;
-    font-size: 1.5rem;
-    cursor: pointer;
-
-    &:hover {
-        color: $red;
     }
 }
 

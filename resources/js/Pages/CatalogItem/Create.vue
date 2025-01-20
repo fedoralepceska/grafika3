@@ -149,49 +149,116 @@
                         <!-- Articles Section -->
                         <div class="mt-6">
                             <h3 class="text-white text-lg font-semibold mb-4">Component Articles</h3>
-                            <div class="space-y-4">
-                                <div v-for="(article, index) in form.articles" :key="index"
-                                     class="flex items-center space-x-4 light-gray p-4 rounded">
-                                    <div class="flex-1">
-                                        <label class="text-white mb-2 block">Article</label>
-                                        <CatalogArticleSelect
-                                            v-model="article.id"
-                                            @article-selected="handleArticleSelected($event, index)"
-                                            class="w-full"
-                                        />
-                                    </div>
-                                    <div class="w-32">
-                                        <label class="text-white mb-2 block">Quantity{{ article.unitLabel ? ` (${article.unitLabel})` : '' }}</label>
-                                        <input
-                                            v-model="article.quantity"
-                                            type="number"
-                                            min="0.01"
-                                            step="0.01"
-                                            class="w-full rounded option"
-                                            required
-                                        />
-                                    </div>
+                            
+                            <!-- Products Section -->
+                            <div class="mb-6">
+                                <div class="flex justify-between items-center mb-4">
+                                    <h4 class="text-white text-md font-medium">Products</h4>
                                     <button
                                         type="button"
-                                        @click="removeArticle(index)"
-                                        class="text-red-500 hover:text-red-700 mt-8"
+                                        @click="addArticle('product')"
+                                        class="text-green-500 hover:text-green-700"
                                     >
-                                        <span class="mdi mdi-delete"></span>
+                                        <span class="mdi mdi-plus-circle"></span> Add Product
                                     </button>
                                 </div>
+                                <div class="space-y-4">
+                                    <div v-for="(article, index) in productArticles" :key="index"
+                                         class="flex items-center space-x-4 light-gray p-4 rounded">
+                                        <div class="flex-1">
+                                            <label class="text-white mb-2 block">Product</label>
+                                            <CatalogArticleSelect
+                                                v-model="article.id"
+                                                :type="'product'"
+                                                @article-selected="handleArticleSelected($event, index, 'product')"
+                                                class="w-full"
+                                            />
+                                        </div>
+                                        <div class="w-32">
+                                            <label class="text-white mb-2 block">Quantity{{ article.unitLabel ? ` (${article.unitLabel})` : '' }}</label>
+                                            <input
+                                                v-model="article.quantity"
+                                                type="number"
+                                                min="0.01"
+                                                step="0.01"
+                                                class="w-full rounded option"
+                                                required
+                                            />
+                                        </div>
+                                        <button
+                                            type="button"
+                                            @click="removeArticle(index, 'product')"
+                                            class="text-red-500 hover:text-red-700 mt-8"
+                                        >
+                                            <span class="mdi mdi-delete"></span>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
 
-                                <button
-                                    type="button"
-                                    @click="addArticle"
-                                    class="text-green-500 hover:text-green-700"
-                                >
-                                    <span class="mdi mdi-plus-circle"></span> Add Article
-                                </button>
+                            <!-- Services Section -->
+                            <div>
+                                <div class="flex justify-between items-center mb-4">
+                                    <h4 class="text-white text-md font-medium">Services</h4>
+                                    <button
+                                        type="button"
+                                        @click="addArticle('service')"
+                                        class="text-green-500 hover:text-green-700"
+                                    >
+                                        <span class="mdi mdi-plus-circle"></span> Add Service
+                                    </button>
+                                </div>
+                                <div class="space-y-4">
+                                    <div v-for="(article, index) in serviceArticles" :key="index"
+                                         class="flex items-center space-x-4 light-gray p-4 rounded">
+                                        <div class="flex-1">
+                                            <label class="text-white mb-2 block">Service</label>
+                                            <CatalogArticleSelect
+                                                v-model="article.id"
+                                                :type="'service'"
+                                                @article-selected="handleArticleSelected($event, index, 'service')"
+                                                class="w-full"
+                                            />
+                                        </div>
+                                        <div class="w-32">
+                                            <label class="text-white mb-2 block">Quantity{{ article.unitLabel ? ` (${article.unitLabel})` : '' }}</label>
+                                            <input
+                                                v-model="article.quantity"
+                                                type="number"
+                                                min="0.01"
+                                                step="0.01"
+                                                class="w-full rounded option"
+                                                required
+                                            />
+                                        </div>
+                                        <button
+                                            type="button"
+                                            @click="removeArticle(index, 'service')"
+                                            class="text-red-500 hover:text-red-700 mt-8"
+                                        >
+                                            <span class="mdi mdi-delete"></span>
+                                        </button>
+                                    </div>
+                                </div>
                             </div>
                             
                             <!-- Cost Price Display -->
-                            <div v-if="calculatedCostPrice > 0" class="mt-4 p-4 bg-gray-700 rounded">
-                                <p class="text-white">Calculated Cost Price: €{{ calculatedCostPrice.toFixed(2) }}</p>
+                            <div class="mt-4 p-4 bg-gray-700 rounded">
+                                <h4 class="text-white text-md font-medium mb-3">Cost Summary</h4>
+                                <div class="space-y-2">
+                                    <div class="flex justify-between items-center">
+                                        <span class="text-gray-300">Products Cost:</span>
+                                        <span class="text-white">€{{ displayProductsCost.toFixed(2) }}</span>
+                                    </div>
+                                    <div class="flex justify-between items-center">
+                                        <span class="text-gray-300">Services Cost:</span>
+                                        <span class="text-white">€{{ displayServicesCost.toFixed(2) }}</span>
+                                    </div>
+                                    <div class="flex justify-between items-center pt-2 border-t border-gray-600">
+                                        <span class="text-white font-semibold">Total Cost Price:</span>
+                                        <span class="text-white font-semibold">€{{ displayTotalCost.toFixed(2) }}</span>
+                                    </div>
+                                </div>
                             </div>
                         </div>
 
@@ -392,10 +459,14 @@ export default {
                 articles: [],
                 template_file: null,
             },
+            productArticles: [],
+            serviceArticles: [],
             categories: ['material', 'article', 'small_format'],
-            previewUrl: null, // URL for file preview
-            fileName: '', // Stores the file name
+            previewUrl: null,
+            fileName: '',
             calculatedCostPrice: 0,
+            productsCost: 0,
+            servicesCost: 0,
             templatePreviewUrl: null,
             templateFileName: '',
         }
@@ -411,32 +482,75 @@ export default {
         },
         isImage() {
             return this.form.file && this.form.file.type?.startsWith("image/");
+        },
+        displayProductsCost() {
+            return this.productArticles.reduce((total, article) => {
+                return total + ((article.purchase_price || 0) * (article.quantity || 0));
+            }, 0);
+        },
+        displayServicesCost() {
+            return this.serviceArticles.reduce((total, article) => {
+                return total + ((article.purchase_price || 0) * (article.quantity || 0));
+            }, 0);
+        },
+        displayTotalCost() {
+            return this.displayProductsCost + this.displayServicesCost;
+        }
+    },
+
+    watch: {
+        productArticles: {
+            deep: true,
+            handler() {
+                this.calculateCostPrice();
+            }
+        },
+        serviceArticles: {
+            deep: true,
+            handler() {
+                this.calculateCostPrice();
+            }
         }
     },
 
     methods: {
-        addArticle() {
-            this.form.articles.push({
+        addArticle(type) {
+            const article = {
                 id: null,
-                quantity: 1
-            });
+                quantity: 1,
+                type: type
+            };
+            
+            if (type === 'product') {
+                this.productArticles.push(article);
+            } else {
+                this.serviceArticles.push(article);
+            }
         },
 
-        removeArticle(index) {
-            this.form.articles.splice(index, 1);
+        removeArticle(index, type) {
+            if (type === 'product') {
+                this.productArticles.splice(index, 1);
+            } else {
+                this.serviceArticles.splice(index, 1);
+            }
             this.calculateCostPrice();
         },
 
-        handleArticleSelected(article, index) {
-            this.form.articles[index].id = article.id;
+        handleArticleSelected(article, index, type) {
+            const targetArray = type === 'product' ? this.productArticles : this.serviceArticles;
+            targetArray[index] = {
+                ...targetArray[index],
+                ...article,
+                purchase_price: article.purchase_price || 0
+            };
             this.calculateCostPrice();
         },
 
         calculateCostPrice() {
-            this.calculatedCostPrice = this.form.articles.reduce((total, article) => {
-                const purchasePrice = article.purchasePrice || 0;
-                return total + (purchasePrice * article.quantity);
-            }, 0);
+            this.productsCost = this.displayProductsCost;
+            this.servicesCost = this.displayServicesCost;
+            this.calculatedCostPrice = this.displayTotalCost;
         },
 
         addAction() {
@@ -553,6 +667,18 @@ export default {
         async submit() {
             const toast = useToast();
             
+            // Combine products and services into articles array
+            this.form.articles = [
+                ...this.productArticles.map(article => ({
+                    id: article.id,
+                    quantity: article.quantity
+                })),
+                ...this.serviceArticles.map(article => ({
+                    id: article.id,
+                    quantity: article.quantity
+                }))
+            ];
+
             // Validate actions before submission
             const actionError = this.validateActions();
             if (actionError) {

@@ -122,9 +122,6 @@ class ArticleController extends Controller
         return response()->json(['message' => 'Article added successfully'], 201);
     }
 
-
-
-
     /**
      * Display the specified resource.
      */
@@ -164,17 +161,32 @@ class ArticleController extends Controller
     public function search(Request $request)
     {
         $query = $request->get('query');
+        $type = $request->get('type'); // 'product' or 'service'
 
-        return Article::where('name', 'like', "%{$query}%")
-            ->orWhere('code', 'like', "%{$query}%")
-            ->select('id', 'name', 'code', 'purchase_price', 'in_meters', 'in_kilograms', 'in_pieces', 'in_square_meters')
+        $queryBuilder = Article::where(function($q) use ($query) {
+            $q->where('name', 'like', "%{$query}%")
+              ->orWhere('code', 'like', "%{$query}%");
+        });
+
+        if ($type) {
+            $queryBuilder->where('type', $type);
+        }
+
+        return $queryBuilder->select('id', 'name', 'code', 'purchase_price', 'in_meters', 'in_kilograms', 'in_pieces', 'in_square_meters')
             ->limit(10)
             ->get();
     }
 
-    public function get($id)
+    public function get($id, Request $request)
     {
-        return Article::select('id', 'name', 'code', 'purchase_price', 'in_meters', 'in_kilograms', 'in_pieces', 'in_square_meters')
-            ->findOrFail($id);
+        $type = $request->get('type'); // 'product' or 'service'
+
+        $query = Article::select('id', 'name', 'code', 'purchase_price', 'in_meters', 'in_kilograms', 'in_pieces', 'in_square_meters');
+        
+        if ($type) {
+            $query->where('type', $type);
+        }
+
+        return $query->findOrFail($id);
     }
 }
