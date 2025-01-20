@@ -193,7 +193,7 @@ class CatalogItemController extends Controller
             'is_for_offer' => 'nullable|boolean',
             'is_for_sales' => 'nullable|boolean',
             'category' => 'nullable|string|in:' . implode(',', \App\Models\CatalogItem::CATEGORIES),
-            'file' => 'required|mimes:jpg,jpeg,png,pdf|max:20480', // 20MB max
+            'file' => 'nullable|mimes:jpg,jpeg,png,pdf|max:20480', // 20MB max
             'price' => 'required|numeric|min:0',
             'articles' => 'nullable|array',
             'articles.*.id' => 'required|exists:article,id',
@@ -205,14 +205,20 @@ class CatalogItemController extends Controller
             // Create the catalog item without actions for now
             $catalogItem = CatalogItem::create($request->except(['actions', 'articles']));
 
-            $file = $request->file('file');
-            $fileName = time() . '_' . $file->getClientOriginalName();
-            $catalogItem->file = $fileName;
-
-            try {
+            // Handle file upload if provided
+            if ($request->hasFile('file')) {
+                $file = $request->file('file');
+                $fileName = time() . '_' . $file->getClientOriginalName();
                 $file->storeAs('public/uploads', $fileName);
-            } catch (\Exception $e) {
-                throw new \Exception('Error storing file: ' . $e->getMessage());
+                $catalogItem->file = $fileName;
+            }
+
+            // Handle template file upload if provided
+            if ($request->hasFile('template_file')) {
+                $templateFile = $request->file('template_file');
+                $templateFileName = time() . '_' . $templateFile->getClientOriginalName();
+                $templateFile->storeAs('public/templates', $templateFileName);
+                $catalogItem->template_file = $templateFileName;
             }
 
             // Process actions
@@ -354,6 +360,26 @@ class CatalogItemController extends Controller
                     $fileName = time() . '_' . $file->getClientOriginalName();
                     $file->storeAs('public/uploads', $fileName);
                     $catalogItem->file = $fileName;
+                }
+
+                // Handle template file upload if provided
+                if ($request->hasFile('template_file')) {
+                    if ($catalogItem->template_file) {
+                        Storage::disk('public')->delete('templates/' . $catalogItem->template_file);
+                    }
+
+                    $templateFile = $request->file('template_file');
+                    $templateFileName = time() . '_' . $templateFile->getClientOriginalName();
+                    $templateFile->storeAs('public/templates', $templateFileName);
+                    $catalogItem->template_file = $templateFileName;
+                }
+
+                // Handle template removal if flag is set
+                if ($request->input('remove_template') === '1') {
+                    if ($catalogItem->template_file) {
+                        Storage::disk('public')->delete('templates/' . $catalogItem->template_file);
+                        $catalogItem->template_file = null;
+                    }
                 }
 
                 // Update the catalog item without actions first

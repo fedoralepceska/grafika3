@@ -37,7 +37,6 @@
                         <th class="p-4">Default Price</th>
                         <th class="p-4">Client Prices</th>
                         <th class="p-4">Quantity Prices</th>
-                        <th class="p-4 text-center">Actions</th>
                         <th class="p-4">Options</th>
                     </tr>
                     </thead>
@@ -100,14 +99,7 @@
                                 <i class="fas fa-layer-group"></i> Manage
                             </button>
                         </td>
-                        <td class="p-4 text-center">
-                            <button
-                                @click="openActionsDialog(item)"
-                                class="btn-info"
-                            >
-                                <i class="fas fa-info-circle"></i>
-                            </button>
-                        </td>
+                        
                         <td class="p-4 text-center">
                             <div class="flex space-x-2">
                                 <button @click="openEditDialog(item)" class="btn btn-secondary">
@@ -1348,7 +1340,8 @@ export default {
 
         getTemplateFileName(path) {
             if (!path) return '';
-            return path.split('_template_')[1] || path;
+            // Remove timestamp prefix (numbers followed by underscore)
+            return path.replace(/^\d+_/, '');
         },
         openTemplatePreview(item) {
             this.templatePreviewUrl = `/storage/templates/${item.template_file}`;

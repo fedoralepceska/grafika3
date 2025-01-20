@@ -454,7 +454,7 @@ export default {
                 is_for_offer: false,
                 is_for_sales: true,
                 category: '',
-                file: 'placeholder.jpeg',
+                file: null,
                 price: '',
                 articles: [],
                 template_file: null,
