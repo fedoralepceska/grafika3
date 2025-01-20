@@ -152,12 +152,22 @@ class InvoiceController extends Controller
                 ->where('invoice_id', $invoiceId)
                 ->pluck('job_id');
 
-            $jobs = Job::whereIn('id', $jobIdsForInvoice)->get();
+            $jobs = Job::whereIn('id', $jobIdsForInvoice)->with('catalogItem')->get();
+
+            $errorMessages = [];
 
             foreach ($jobs as $job) {
+                $catalogItemArticle = DB::table('catalog_item_articles')
+                    ->select()
+                    ->where('catalog_item_id', $job->catalogItem->id)
+                    ->get();
                 // Update Large Material
                 if ($job->large_material_id !== null) {
                     $large_material = LargeFormatMaterial::with('article')->find($job->large_material_id);
+                    $neededQuantity = $catalogItemArticle[0]->quantity * $job->copies;
+                    if ($neededQuantity > (int) $large_material->quantity) {
+                        $errorMessages[] = "For the catalog item {$job->catalogItem->name} with material {$large_material->name}, you need {$neededQuantity} (quantity), but you only have {$large_material->quantity} in storage.";
+                    }
                     if ($large_material?->article?->in_square_meters === 1) {
                         $large_material->quantity -= ($job->copies * ($job->width * $job->height / 1000000));
                     } else {
@@ -168,13 +178,18 @@ class InvoiceController extends Controller
                 // Update Small Material
                 if ($job->small_material_id !== null) {
                     $small_material = SmallMaterial::with('article')->find($job->small_material_id);
+                    $neededQuantity = (int) $catalogItemArticle[0]->quantity * $job->copies;
+                    if ($neededQuantity > (int) $small_material->quantity) {
+                        $errorMessages[] = "For the catalog item '{$job->catalogItem->name}', which uses the material '{$small_material->name}', you need {$neededQuantity} units, but only {$small_material->quantity} are available in storage.";
+                    }
                     if ($small_material?->article?->in_square_meters === 1) {
-                        $large_material->quantity -= ($job->copies * ($job->width * $job->height / 1000000));
+                        $small_material->quantity -= ($job->copies * ($job->width * $job->height / 1000000));
                     } else {
                         $small_material->quantity -= $job->copies;
                     }
                     $small_material->save();
                 }
+
                 if ($job->originalFile) {
                     // Define the new path for the original file
                     $newPath = $clientName . '/' . $invoice->id . '/' . basename($job->originalFile);
@@ -184,6 +199,10 @@ class InvoiceController extends Controller
                     $job->originalFile = $newPath;
                     $job->save();
                 }
+            }
+            // Check if there are any errors and throw them as a single exception
+            if (!empty($errorMessages)) {
+                throw new \Exception(implode("\n", $errorMessages));
             }
         }
 

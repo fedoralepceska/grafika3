@@ -99,8 +99,8 @@
                                         />
                                     </TabV2>
                                     <TabV2 title="From Catalog" icon="mdi mdi-book-open-variant">
-                                        <CatalogSelector 
-                                            @jobs-created="handleCatalogJobs" 
+                                        <CatalogSelector
+                                            @jobs-created="handleCatalogJobs"
                                             :clientId="invoice.client_id"
                                         />
                                     </TabV2>
@@ -302,8 +302,19 @@ export default {
                     preserveScroll: true,
                 });
             } catch (error) {
-                console.error("Failed to create invoice:", error);
-                toast.error('Error creating job');
+                let message = error?.response?.data?.message;
+                if (message) {
+                    message.split("\n").forEach((msg) => {
+                        if (msg.trim()) {
+                            toast.error(msg.trim(), {
+                                timeout: 20000 // 10 seconds
+                            });
+                        }
+                    });
+                } else {
+                    // Show a fallback toast if no message is provided
+                    toast.error("An unexpected error occurred.");
+                }
             }
         },
         updateJobs(updatedJobs) {
@@ -320,7 +331,7 @@ export default {
                     toast.error('Please select a client first');
                     return;
                 }
-                
+
                 // Add the jobs to the DragAndDrop component
                 this.$refs.dragAndDrop.handleCatalogJobs(catalogJobs);
             }

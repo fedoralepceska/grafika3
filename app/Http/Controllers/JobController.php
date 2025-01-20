@@ -174,6 +174,7 @@ class JobController extends Controller
 
                 // Reload the job with its actions for response
                 $job->load('actions');
+                $job->load('catalogItem');
 
                 return response()->json([
                     'message' => 'Job created successfully',

@@ -125,8 +125,11 @@
                         {{ $t('Shipping') }}: <strong> {{ job.shippingInfo }}</strong>
                     </td>
                     <div class="bg-gray-200 text-black bold">
-                        <div class="pt-1 pl-2 pr-2">
+                        <div class="pt-1 pl-2 pr-2 pb-2">
                             {{ $t('jobPrice') }}: <span class="bold">{{ (job.price * job.copies).toFixed(2) }} ден.</span>
+                        </div>
+                        <div class="pt-1 pl-2 pr-2">
+                            {{ $t('jobPriceCost') }}: <span class="bold">{{ job.catalog_item.cost_price }} ден.</span>
                         </div>
                     </div>
                 </div>
@@ -193,7 +196,7 @@ export default {
             // First pass: store initial values
             for (const job of mergedJobs) {
                 if (!jobMap.has(job.id)) {
-                    jobMap.set(job.id, { 
+                    jobMap.set(job.id, {
                         ...job,
                         // No need to store totalPrice as we calculate it on the fly
                     });
