@@ -16,7 +16,17 @@ class IncomingFaktura extends Model
         'comment',
         'amount',
         'tax',
-        'client_id'
+        'client_id',
+        'date'
+    ];
+
+    protected $casts = [
+        'amount' => 'float',
+        'tax' => 'float',
+        'cost_type' => 'integer',
+        'billing_type' => 'integer',
+        'client_id' => 'integer',
+        'date' => 'date'
     ];
 
     public function client()

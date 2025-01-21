@@ -121,6 +121,7 @@ Route::middleware(['auth', 'verified'])->group(function() {
     Route::delete('/clients/{client}', [ClientController::class, 'destroy'])->name('clients.destroy');
     Route::get('/api/clients', [ClientController::class, 'getClients'])->name('clients.getClients');
     Route::get('/api/clients/all', [ClientController::class, 'getAllClients']);
+    Route::get('/client-details/{id}', [ClientController::class, 'getClientDetails'])->name('clients.getDetails');
 });
 
 //Routes for Client Statements
