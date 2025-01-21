@@ -3,144 +3,102 @@
         <div class="pl-7 pr-7">
             <Header title="Offer" subtitle="Create New Offer" icon="List.png" link="offers" />
 
-            <div class="dark-gray p-2 text-white">
+            <div class="dark-gray p-2 text-white mb-10">
                 <div class="form-container p-2">
                     <h2 class="sub-title">Offer Creation</h2>
 
-                    <form @submit.prevent="submit" class="space-y-6 w-full rounded-lg">
-                    <!-- Basic Information -->
-                        <div class="grid grid-cols-1 gap-6">
-                            <!-- Client Selection, Name, Description -->
-                            <div class="grid grid-cols-2 gap-6">
-                                <div class="space-y-4">
-                                    <div>
-                                        <label class="text-white">Client</label>
-                                        <select
-                                            v-model="form.client_id"
-                                            class="w-full mt-1 rounded text-black"
-                                            required
-                                            @change="onClientSelect"
-                                        >
-                                            <option value="" disabled>Select a client</option>
-                                            <option v-for="client in clients" :key="client.id" :value="client.id">
-                                                {{ client.name }}
-                                            </option>
-                                        </select>
-                                    </div>
-                                    <div v-if="form.client_id !== ''">
-                                        <label for="contact" class="text-white">{{ $t('contact') }}:</label>
-                                        <select v-model="form.contact_id" id="contact" class="w-full mt-1 rounded text-black" required>
-                                            <option v-for="contact in selectedClient?.contacts" :key="contact?.id" :value="contact?.id">{{ contact?.name }} ({{ contact?.phone }})</option>
-                                        </select>
-                                    </div>
-
-                                    <div>
-                                        <label class="text-white">Name</label>
-                                        <input
-                                            v-model="form.name"
-                                            type="text"
-                                            class="w-full mt-1 rounded text-black"
-                                            required
-                                        />
-                                    </div>
-
-                                    <div>
-                                        <label class="text-white">Description</label>
-                                        <textarea
-                                            v-model="form.description"
-                                            class="w-full mt-1 rounded text-black"
-                                            rows="3"
-                                            placeholder="Enter offer description"
-                                        ></textarea>
-                                    </div>
+                    <!-- Progress Steps -->
+                    <div class="w-full mb-3">
+                        <div class="flex justify-between relative">
+                            <div class="progress-bar absolute top-1/2 transform -translate-y-1/2 h-1 bg-gray-600" :style="{ width: '100%' }"></div>
+                            <div class="progress-bar absolute top-1/2 transform -translate-y-1/2 h-1 bg-green transition-all duration-300" :style="{ width: progressWidth }"></div>
+                            <div v-for="(step, index) in steps" :key="index" 
+                                class="step-indicator pt-6 relative z-10 flex flex-col items-center">
+                                <div :class="['w-8 h-8 rounded-full flex items-center justify-center transition-colors duration-300', 
+                                    currentStep > index ? 'bg-green' : currentStep === index ? 'bg-green' : 'bg-gray-600']">
+                                    <span class="text-white text-sm">{{ index + 1 }}</span>
                                 </div>
-
-                                <div class="space-y-4">
-                                    <div>
-                                        <label class="text-white">Validity (Days)</label>
-                                        <input
-                                            v-model.number="form.validity_days"
-                                            type="number"
-                                            min="1"
-                                            class="w-full mt-1 rounded text-black"
-                                            required
-                                        />
-                                    </div>
-                                    <div>
-                                        <label class="text-white">{{ $t('productionTime') }}</label>
-                                        <input
-                                            v-model="form.production_time"
-                                            type="text"
-                                            class="w-full mt-1 rounded text-black"
-                                            required
-                                        />
-                                    </div>
-                                </div>
+                                <span class="mt-2 text-sm" :class="currentStep >= index ? 'text-white' : 'text-gray-400'">
+                                    {{ step }}
+                                </span>
+                            </div>
                         </div>
+                    </div>
 
-                            <!-- Selected Items Summary -->
-                            <div v-if="form.catalog_items.length > 0" class="bg-gray-800 p-4 rounded-lg">
-                                <h3 class="text-white font-medium mb-3">Selected Items ({{ form.catalog_items.length }})</h3>
-                                <div class="space-y-3">
-                                    <div v-for="item in form.catalog_items" :key="item.id" class="bg-gray-700 p-3 rounded-lg">
-                                        <div class="flex justify-between items-start">
-                                            <div class="flex-1">
-                                                <h4 class="text-white font-medium">{{ item.name }}</h4>
-                                                <div class="mt-2 space-y-2">
-                                                    <div class="flex gap-5">
-                                                        <div>
-                                                            <label class="text-gray-300 text-sm">Quantity</label>
-                                                            <div class="flex items-center space-x-2">
-                                                            <input
-                                                                v-model.number="item.quantity"
-                                                                type="number"
-                                                                min="1"
-                                                                class="w-24 mt-1 rounded text-black"
-                                                                required
-                                                                @change="updatePrice(item)"
-                                                            />
-                                                            </div>
-                                                        </div>
-                                                        <div>
-                                                            <label class="text-gray-300 text-sm">Price (мкд)</label>
-                                                            <div class="flex items-center space-x-2">
-                                                                <input
-                                                                    v-model.number="item.custom_price"
-                                                                    type="number"
-                                                                    min="0"
-                                                                    step="0.01"
-                                                                    class="w-32 mt-1 rounded text-black"
-                                                                    placeholder="Price per unit"
-                                                                />
-                                                                <span v-if="item.calculated_price" class="text-gray-300 text-xs">
-                                                                    (Calculated: {{ item.calculated_price }} ден | Per unit: {{ (item.calculated_price / item.quantity).toFixed(2) }} ден)
-                                                                </span>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                    <div>
-                                                        <label class="text-gray-300 text-sm">Custom Description</label>
-                                                        <textarea
-                                                            v-model="item.description"
-                                                            class="w-full mt-1 rounded text-black"
-                                                            rows="2"
-                                                            placeholder="Optional custom description for this item"
-                                                        ></textarea>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                            <button
-                                                @click="removeItem(item)"
-                                                class="text-red-400 hover:text-red-300 transition-colors"
-                                                title="Remove Item"
+                    <form @submit.prevent="submit" class="space-y-6 w-full rounded-lg">
+                        <!-- Step 1: Basic Information -->
+                        <div v-show="currentStep === 0">
+                            <div class="grid grid-cols-1 gap-6">
+                                <div class="grid grid-cols-2 gap-6">
+                                    <div class="space-y-4">
+                                        <div>
+                                            <label class="text-white">Client</label>
+                                            <select
+                                                v-model="form.client_id"
+                                                class="w-full mt-1 rounded text-black"
+                                                required
+                                                @change="onClientSelect"
                                             >
-                                                <i class="fas fa-times"></i>
-                                            </button>
+                                                <option value="" disabled>Select a client</option>
+                                                <option v-for="client in clients" :key="client.id" :value="client.id">
+                                                    {{ client.name }}
+                                                </option>
+                                            </select>
+                                        </div>
+                                        <div v-if="form.client_id !== ''">
+                                            <label for="contact" class="text-white">{{ $t('contact') }}:</label>
+                                            <select v-model="form.contact_id" id="contact" class="w-full mt-1 rounded text-black" required>
+                                                <option v-for="contact in selectedClient?.contacts" :key="contact?.id" :value="contact?.id">
+                                                    {{ contact?.name }} ({{ contact?.phone }})
+                                                </option>
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label class="text-white">Name</label>
+                                            <input
+                                                v-model="form.name"
+                                                type="text"
+                                                class="w-full mt-1 rounded text-black"
+                                                required
+                                            />
+                                        </div>
+                                        <div>
+                                            <label class="text-white">Description</label>
+                                            <textarea
+                                                v-model="form.description"
+                                                class="w-full mt-1 rounded text-black"
+                                                rows="3"
+                                                placeholder="Enter offer description"
+                                            ></textarea>
+                                        </div>
+                                    </div>
+                                    <div class="space-y-4">
+                                        <div>
+                                            <label class="text-white">Validity (Days)</label>
+                                            <input
+                                                v-model.number="form.validity_days"
+                                                type="number"
+                                                min="1"
+                                                class="w-full mt-1 rounded text-black"
+                                                required
+                                            />
+                                        </div>
+                                        <div>
+                                            <label class="text-white">{{ $t('productionTime') }}</label>
+                                            <input
+                                                v-model="form.production_time"
+                                                type="text"
+                                                class="w-full mt-1 rounded text-black"
+                                                required
+                                            />
                                         </div>
                                     </div>
                                 </div>
                             </div>
+                        </div>
 
+                        <!-- Step 2: Items Selection -->
+                        <div v-show="currentStep === 1">
                             <!-- Catalog Items Section -->
                             <div class="w-full">
                                 <label class="text-white">Catalog Items</label>
@@ -191,11 +149,11 @@
                                             >
                                                 <i class="fas fa-th-large"></i>
                                             </button>
-                            </div>
-                        </div>
-                    </div>
+                                        </div>
+                                    </div>
+                                </div>
 
-                                <div class="catalog-items-container">
+                                <div class="catalog-items-container mb-2">
                                     <!-- Large Format Materials Tab -->
                                     <div v-if="activeTab === 'large'" class="space-y-2">
                                         <div v-if="largeMaterialItems.length === 0" class="empty-state">
@@ -212,7 +170,9 @@
                                                 <input
                                                     type="checkbox"
                                                     :value="item.id"
-                                                    v-model="selectedItems"
+                                                    :checked="selectedItems.some(selectionId => 
+                                                        form.catalog_items.find(i => i.selection_id === selectionId && i.id === item.id)
+                                                    )"
                                                     class="h-4 w-4 rounded border-gray-300 checkbox-green"
                                                     @click.stop
                                                 />
@@ -239,7 +199,9 @@
                                                     <input
                                                         type="checkbox"
                                                         :value="item.id"
-                                                        v-model="selectedItems"
+                                                        :checked="selectedItems.some(selectionId => 
+                                                            form.catalog_items.find(i => i.selection_id === selectionId && i.id === item.id)
+                                                        )"
                                                         class="absolute top-2 left-2 h-4 w-4 rounded border-gray-300 checkbox-green z-10"
                                                         @click.stop
                                                     />
@@ -282,7 +244,9 @@
                                                 <input
                                                     type="checkbox"
                                                     :value="item.id"
-                                                    v-model="selectedItems"
+                                                    :checked="selectedItems.some(selectionId => 
+                                                        form.catalog_items.find(i => i.selection_id === selectionId && i.id === item.id)
+                                                    )"
                                                     class="h-4 w-4 rounded border-gray-300 checkbox-green"
                                                     @click.stop
                                                 />
@@ -309,7 +273,9 @@
                                                     <input
                                                         type="checkbox"
                                                         :value="item.id"
-                                                        v-model="selectedItems"
+                                                        :checked="selectedItems.some(selectionId => 
+                                                            form.catalog_items.find(i => i.selection_id === selectionId && i.id === item.id)
+                                                        )"
                                                         class="absolute top-2 left-2 h-4 w-4 rounded border-gray-300 checkbox-green z-10"
                                                         @click.stop
                                                     />
@@ -334,17 +300,112 @@
                                                 </div>
                                             </div>
                                         </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <!-- Selected Items Summary -->
+                            <div v-if="form.catalog_items.length > 0" class="bg-gray-800 p-3 rounded-lg mb-4">
+                                <div class="flex items-center justify-between mb-3">
+                                    <h3 class="text-white text-sm font-medium">Selected Items</h3>
+                                    <span class="bg-green px-2 py-0.5 rounded text-xs text-white">{{ form.catalog_items.length }} items</span>
+                                </div>
+                                <div class="divide-y divide-gray-700">
+                                    <div v-for="item in form.catalog_items" :key="item.selection_id" class="py-3">
+                                        <div class="flex items-start justify-between">
+                                            <div class="flex-1">
+                                                <div class="flex items-center justify-between mb-2">
+                                                    <h4 class="text-white text-sm font-medium flex items-center gap-2">
+                                                        {{ item.name }}
+                                                    </h4>
+                                                    <button
+                                                        @click="removeItem(item)"
+                                                        class="text-gray-400 hover:text-red-400 transition-colors"
+                                                        title="Remove Item"
+                                                    >
+                                                        <i class="fas fa-times"></i>
+                                                    </button>
+                                                </div>
+                                                <div class="grid grid-cols-2 gap-4">
+                                                    <div class="space-y-1">
+                                                        <label class="text-gray-400 text-xs block">Quantity</label>
+                                                        <div class="flex items-center">
+                                                            <div class="relative flex-1">
+                                                                <input
+                                                                    v-model.number="item.quantity"
+                                                                    type="number"
+                                                                    min="1"
+                                                                    class="w-full rounded bg-white border-gray-700 text-white text-sm py-1 px-2"
+                                                                    required
+                                                                    @change="updatePrice(item)"
+                                                                />
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                    <div class="space-y-1">
+                                                        <label class="text-gray-400 text-xs flex items-center justify-between">
+                                                            <span>Price (мкд)</span>
+                                                            <span v-if="item.calculated_price" class="text-green text-xs">
+                                                                {{ (item.calculated_price / item.quantity).toFixed(2) }} per unit
+                                                            </span>
+                                                        </label>
+                                                        <div class="flex items-center gap-2">
+                                                            <div class="relative flex-1">
+                                                                <input
+                                                                    v-model.number="item.custom_price"
+                                                                    type="number"
+                                                                    min="0"
+                                                                    step="0.01"
+                                                                    class="w-full rounded bg-white border-gray-700 text-white text-sm py-1 px-2"
+                                                                    placeholder="Price per unit"
+                                                                />
+                                                            </div>
+                                                            <div v-if="item.calculated_price" class="text-gray-400 text-xs whitespace-nowrap">
+                                                                Total: {{ item.calculated_price }} ден
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div class="mt-2">
+                                                    <label class="text-gray-400 text-xs block mb-1">Custom Description</label>
+                                                    <textarea
+                                                        v-model="item.description"
+                                                        class="w-full rounded bg-white border-gray-700 text-white text-sm py-1 px-2"
+                                                        rows="1"
+                                                        placeholder="Optional custom description for this item"
+                                                    ></textarea>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
-                    </div>
 
-                        <div class="flex justify-end space-x-4">
-                            <button type="submit" class="btn btn-primary">
-                            Create Offer
-                        </button>
-                    </div>
-                </form>
+                        <!-- Navigation Buttons -->
+                        <div class="flex justify-between space-x-4">
+                            <button 
+                                type="button" 
+                                v-if="currentStep > 0" 
+                                @click="currentStep--"
+                                class="btn btn-secondary">
+                                Previous
+                            </button>
+                            <div class="flex-grow"></div>
+                            <button 
+                                v-if="currentStep < steps.length - 1" 
+                                type="button"
+                                @click="nextStep"
+                                class="btn btn-primary bg-green">
+                                Next
+                            </button>
+                            <button 
+                                v-else 
+                                type="submit"
+                                class="btn btn-primary">
+                                Create Offer
+                            </button>
+                        </div>
+                    </form>
                 </div>
             </div>
         </div>
@@ -372,6 +433,8 @@ export default {
 
     data() {
         return {
+            currentStep: 0,
+            steps: ['Basic Information', 'Select Items'],
             selectedItems: [],
             searchQuery: '',
             form: useForm({
@@ -387,7 +450,7 @@ export default {
                 production_time: '',
             }),
             activeTab: 'large',
-            viewMode: 'list',
+            viewMode: 'grid',
             selectedClient: null,
         };
     },
@@ -408,6 +471,9 @@ export default {
         },
         smallMaterialItems() {
             return this.catalogItems.filter(item => item.small_material && !item.large_material);
+        },
+        progressWidth() {
+            return `${(this.currentStep + 1) * (100 / this.steps.length)}%`;
         }
     },
 
@@ -421,31 +487,24 @@ export default {
             return !file || file === 'placeholder.jpeg';
         },
         toggleItemSelection(item) {
-            const index = this.form.catalog_items.findIndex(i => i.id === item.id);
-            if (index === -1) {
-                this.form.catalog_items.push({
-                    id: item.id,
-                    name: item.name,
-                    quantity: 1,
-                    description: item.description || '',
-                    custom_price: null,
-                    calculated_price: null
-                });
-                this.selectedItems.push(item.id);
-                this.updatePrice(this.form.catalog_items[this.form.catalog_items.length - 1]);
-            } else {
-                this.form.catalog_items.splice(index, 1);
-                const selectedIndex = this.selectedItems.indexOf(item.id);
-                if (selectedIndex !== -1) {
-                    this.selectedItems.splice(selectedIndex, 1);
-                }
-            }
+            const uniqueId = Date.now();
+            this.form.catalog_items.push({
+                id: item.id,
+                selection_id: uniqueId,
+                name: item.name,
+                quantity: 1,
+                description: item.description || '',
+                custom_price: null,
+                calculated_price: null
+            });
+            this.selectedItems.push(uniqueId);
+            this.updatePrice(this.form.catalog_items[this.form.catalog_items.length - 1]);
         },
         removeItem(item) {
-            const index = this.form.catalog_items.findIndex(i => i.id === item.id);
+            const index = this.form.catalog_items.findIndex(i => i.selection_id === item.selection_id);
             if (index !== -1) {
                 this.form.catalog_items.splice(index, 1);
-                const selectedIndex = this.selectedItems.indexOf(item.id);
+                const selectedIndex = this.selectedItems.indexOf(item.selection_id);
                 if (selectedIndex !== -1) {
                     this.selectedItems.splice(selectedIndex, 1);
                 }
@@ -488,6 +547,17 @@ export default {
             } catch (error) {
                 console.error('Error calculating price:', error);
             }
+        },
+        nextStep() {
+            if (this.currentStep === 0) {
+                // Validate first step
+                if (!this.form.client_id || !this.form.name || !this.form.validity_days || !this.form.production_time) {
+                    const toast = useToast();
+                    toast.error('Please fill in all required fields');
+                    return;
+                }
+            }
+            this.currentStep++;
         }
     }
 };
@@ -497,7 +567,6 @@ export default {
 .form-container {
     display: flex;
     flex-wrap: wrap;
-    gap: 20px;
     justify-content: space-between;
 }
 .dark-gray {
@@ -644,5 +713,30 @@ export default {
     &:focus {
         box-shadow: 0 0 0 2px rgba($green, 0.3);
     }
+}
+
+/* Progress bar styles */
+.progress-bar {
+    left: 0;
+    transition: width 0.3s ease;
+}
+
+.step-indicator {
+    width: 120px;
+}
+
+/* Button styles */
+.btn-secondary {
+    @apply bg-gray-600 text-white hover:bg-gray-700 transition-colors duration-200;
+}
+
+.btn-primary {
+    @apply bg-green text-white  transition-colors duration-200;
+}
+.bg-green {
+    background-color: $green;
+}
+.bg-green:hover {
+    background-color: $light-green;
 }
 </style>
