@@ -310,71 +310,60 @@
                                     <span class="bg-green px-2 py-0.5 rounded text-xs text-white">{{ form.catalog_items.length }} items</span>
                                 </div>
                                 <div class="divide-y divide-gray-700">
-                                    <div v-for="item in form.catalog_items" :key="item.selection_id" class="py-3">
-                                        <div class="flex items-start justify-between">
-                                            <div class="flex-1">
-                                                <div class="flex items-center justify-between mb-2">
-                                                    <h4 class="text-white text-sm font-medium flex items-center gap-2">
-                                                        {{ item.name }}
-                                                    </h4>
-                                                    <button
-                                                        @click="removeItem(item)"
-                                                        class="text-gray-400 hover:text-red-400 transition-colors"
-                                                        title="Remove Item"
-                                                    >
-                                                        <i class="fas fa-times"></i>
-                                                    </button>
-                                                </div>
-                                                <div class="grid grid-cols-2 gap-4">
-                                                    <div class="space-y-1">
-                                                        <label class="text-gray-400 text-xs block">Quantity</label>
-                                                        <div class="flex items-center">
-                                                            <div class="relative flex-1">
-                                                                <input
-                                                                    v-model.number="item.quantity"
-                                                                    type="number"
-                                                                    min="1"
-                                                                    class="w-full rounded bg-white border-gray-700 text-white text-sm py-1 px-2"
-                                                                    required
-                                                                    @change="updatePrice(item)"
-                                                                />
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                    <div class="space-y-1">
-                                                        <label class="text-gray-400 text-xs flex items-center justify-between">
-                                                            <span>Price (мкд)</span>
-                                                            <span v-if="item.calculated_price" class="text-green text-xs">
-                                                                {{ (item.calculated_price / item.quantity).toFixed(2) }} per unit
-                                                            </span>
-                                                        </label>
-                                                        <div class="flex items-center gap-2">
-                                                            <div class="relative flex-1">
-                                                                <input
-                                                                    v-model.number="item.custom_price"
-                                                                    type="number"
-                                                                    min="0"
-                                                                    step="0.01"
-                                                                    class="w-full rounded bg-white border-gray-700 text-white text-sm py-1 px-2"
-                                                                    placeholder="Price per unit"
-                                                                />
-                                                            </div>
-                                                            <div v-if="item.calculated_price" class="text-gray-400 text-xs whitespace-nowrap">
-                                                                Total: {{ item.calculated_price }} ден
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                                <div class="mt-2">
-                                                    <label class="text-gray-400 text-xs block mb-1">Custom Description</label>
-                                                    <textarea
+                                    <div v-for="item in form.catalog_items" :key="item.selection_id" class="py-2">
+                                        <div class="flex items-center gap-4">
+                                            <!-- Name and Description -->
+                                            <div class="flex-1 min-w-0">
+                                                <div class="flex items-center gap-2">
+                                                    <h4 class="text-white text-sm font-medium truncate">{{ item.name }}</h4>
+                                                    <input
                                                         v-model="item.description"
-                                                        class="w-full rounded bg-white border-gray-700 text-white text-sm py-1 px-2"
-                                                        rows="1"
-                                                        placeholder="Optional custom description for this item"
-                                                    ></textarea>
+                                                        type="text"
+                                                        class="flex-1 rounded bg-white border-gray-700 text-white text-sm py-1 px-2"
+                                                        placeholder="Add description..."
+                                                    />
                                                 </div>
                                             </div>
+
+                                            <!-- Quantity -->
+                                            <div class="flex items-center gap-2 min-w-[120px]">
+                                                <label class="text-gray-400 text-xs whitespace-nowrap">Qty:</label>
+                                                <input
+                                                    v-model.number="item.quantity"
+                                                    type="number"
+                                                    min="1"
+                                                    class="w-20 rounded bg-white border-gray-700 text-white text-sm py-1 px-2"
+                                                    required
+                                                    @change="updatePrice(item)"
+                                                />
+                                            </div>
+
+                                            <!-- Price -->
+                                            <div class="flex items-center gap-2 min-w-[200px]">
+                                                <label class="text-gray-400 text-xs whitespace-nowrap">Price:</label>
+                                                <div class="relative flex-1">
+                                                    <input
+                                                        v-model.number="item.custom_price"
+                                                        type="number"
+                                                        min="0"
+                                                        step="0.01"
+                                                        class="w-full rounded bg-white border-gray-700 text-white text-sm py-1 px-2"
+                                                        placeholder="Price per unit"
+                                                    />
+                                                    <div v-if="item.calculated_price" class="absolute -bottom-4 left-0 text-gray-400 text-xs whitespace-nowrap">
+                                                        Total: {{ item.calculated_price }} ден ({{ (item.calculated_price / item.quantity).toFixed(2) }} per unit)
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <!-- Remove Button -->
+                                            <button
+                                                @click="removeItem(item)"
+                                                class="text-gray-400 hover:text-red-400 transition-colors p-1"
+                                                title="Remove Item"
+                                            >
+                                                <i class="fas fa-times"></i>
+                                            </button>
                                         </div>
                                     </div>
                                 </div>
@@ -382,12 +371,13 @@
                         </div>
 
                         <!-- Navigation Buttons -->
-                        <div class="flex justify-between space-x-4">
+                        <div class="flex justify-between pt-2">
                             <button 
                                 type="button" 
                                 v-if="currentStep > 0" 
                                 @click="currentStep--"
-                                class="btn btn-secondary">
+                                :disabled="isSubmitting"
+                                class="btn btn-secondary disabled:opacity-50 disabled:cursor-not-allowed">
                                 Previous
                             </button>
                             <div class="flex-grow"></div>
@@ -395,14 +385,22 @@
                                 v-if="currentStep < steps.length - 1" 
                                 type="button"
                                 @click="nextStep"
-                                class="btn btn-primary bg-green">
+                                :disabled="isSubmitting"
+                                class="btn btn-primary disabled:opacity-50 disabled:cursor-not-allowed">
                                 Next
                             </button>
                             <button 
                                 v-else 
                                 type="submit"
-                                class="btn btn-primary">
-                                Create Offer
+                                :disabled="isSubmitting"
+                                class="btn btn-primary disabled:opacity-50 disabled:cursor-not-allowed relative">
+                                <span :class="{ 'opacity-0': isSubmitting }">Create Offer</span>
+                                <div v-if="isSubmitting" class="absolute inset-0 flex items-center justify-center">
+                                    <svg class="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                    </svg>
+                                </div>
                             </button>
                         </div>
                     </form>
@@ -433,6 +431,7 @@ export default {
 
     data() {
         return {
+            isSubmitting: false,
             currentStep: 0,
             steps: ['Basic Information', 'Select Items'],
             selectedItems: [],
@@ -511,19 +510,23 @@ export default {
             }
         },
         async submit() {
+            if (this.isSubmitting) return;
+            
+            this.isSubmitting = true;
             const toast = useToast();
-            axios.post('/offers', this.form)
-                .then((response) => {
-                    toast.success('Offer created successfully!');
-
-                    setTimeout(() => {
-                        this.$inertia.visit('/offers');
-                    }, 1000);
-                })
-                .catch((error) => {
-                    console.error('Error creating offer:', error);
-                    toast.error('Failed to create offer!');
-                });
+            
+            try {
+                await axios.post('/offers', this.form);
+                toast.success('Offer created successfully!');
+                setTimeout(() => {
+                    this.$inertia.visit('/offers');
+                }, 1000);
+            } catch (error) {
+                console.error('Error creating offer:', error);
+                toast.error('Failed to create offer!');
+            } finally {
+                this.isSubmitting = false;
+            }
         },
         onClientSelect() {
             this.selectedClient = this.clients.find(c => c.id === this.form.client_id);
@@ -738,5 +741,18 @@ export default {
 }
 .bg-green:hover {
     background-color: $light-green;
+}
+
+.animate-spin {
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    from {
+        transform: rotate(0deg);
+    }
+    to {
+        transform: rotate(360deg);
+    }
 }
 </style>
