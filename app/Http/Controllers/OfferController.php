@@ -231,4 +231,103 @@ class OfferController extends Controller
 
         return $pdf->stream('GrafikaPlus-PonudaBr-' . $offer->id . '-' . date('Y') . '.pdf');
     }
+
+    public function edit(Offer $offer)
+    {
+        $offer->load(['client', 'contact', 'catalogItems.largeMaterial', 'catalogItems.smallMaterial']);
+        $clients = Client::select('id', 'name')->with('contacts')->get();
+        $catalogItems = CatalogItem::with(['largeMaterial', 'smallMaterial'])
+            ->where('is_for_offer', true)
+            ->get()
+            ->map(function ($item) {
+                return [
+                    'id' => $item->id,
+                    'name' => $item->name,
+                    'description' => $item->description,
+                    'price' => $item->price,
+                    'file' => $item->file,
+                    'large_material' => $item->largeMaterial ? [
+                        'id' => $item->largeMaterial->id,
+                        'name' => $item->largeMaterial->name
+                    ] : null,
+                    'small_material' => $item->smallMaterial ? [
+                        'id' => $item->smallMaterial->id,
+                        'name' => $item->smallMaterial->name
+                    ] : null,
+                ];
+            });
+
+        return response()->json([
+            'offer' => [
+                'id' => $offer->id,
+                'name' => $offer->name,
+                'description' => $offer->description,
+                'client_id' => $offer->client_id,
+                'contact_id' => $offer->contact_id,
+                'validity_days' => $offer->validity_days,
+                'production_time' => $offer->production_time,
+                'catalog_items' => $offer->catalogItems->map(function ($item) {
+                    return [
+                        'id' => $item->id,
+                        'selection_id' => uniqid(), // Add unique ID for frontend tracking
+                        'name' => $item->name,
+                        'description' => $item->pivot->description,
+                        'quantity' => $item->pivot->quantity,
+                        'custom_price' => $item->pivot->custom_price,
+                        'calculated_price' => null, // Will be recalculated on frontend
+                        'file' => $item->file,
+                        'large_material' => $item->largeMaterial ? [
+                            'id' => $item->largeMaterial->id,
+                            'name' => $item->largeMaterial->name
+                        ] : null,
+                        'small_material' => $item->smallMaterial ? [
+                            'id' => $item->smallMaterial->id,
+                            'name' => $item->smallMaterial->name
+                        ] : null,
+                    ];
+                })
+            ],
+            'clients' => $clients,
+            'catalogItems' => $catalogItems
+        ]);
+    }
+
+    public function update(Request $request, Offer $offer)
+    {
+        $request->validate([
+            'name' => 'required|string|max:255',
+            'description' => 'nullable|string',
+            'client_id' => 'required|exists:clients,id',
+            'contact_id' => 'required',
+            'validity_days' => 'required|integer|min:1',
+            'production_time' => 'nullable|string',
+            'catalog_items' => 'required|array|min:1',
+            'catalog_items.*.id' => 'required|exists:catalog_items,id',
+            'catalog_items.*.quantity' => 'required|integer|min:1',
+            'catalog_items.*.description' => 'nullable|string',
+            'catalog_items.*.custom_price' => 'nullable|numeric|min:0'
+        ]);
+
+        $offer->update([
+            'name' => $request->name,
+            'description' => $request->description,
+            'client_id' => $request->client_id,
+            'contact_id' => $request->contact_id,
+            'validity_days' => $request->validity_days,
+            'production_time' => $request->production_time
+        ]);
+
+        // Sync catalog items
+        $offer->catalogItems()->sync(
+            collect($request->catalog_items)->mapWithKeys(function ($item) {
+                return [$item['id'] => [
+                    'quantity' => $item['quantity'],
+                    'description' => $item['description'] ?? null,
+                    'custom_price' => $item['custom_price'] ?? null
+                ]];
+            })->all()
+        );
+
+        return response()->json(['message' => 'Offer updated successfully']);
+    }
 }

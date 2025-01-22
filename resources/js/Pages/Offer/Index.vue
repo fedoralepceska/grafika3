@@ -92,6 +92,14 @@
                                     Decline
                                     <i class="fas fa-times ml-1"></i>
                                 </button>
+
+                                <button
+                                    @click="openEditDialog(offer)"
+                                    class="px-2 py-1 rounded bg-[#0073a9] text-white"
+                                >
+                                    Edit
+                                    <i class="fas fa-edit ml-1"></i>
+                                </button>
                             </td>
                             <td v-if="currentTab === 'declined'" class="relative">
                                 <div class="flex justify-center items-center space-x-2">
@@ -309,6 +317,253 @@
                     </div>
                 </div>
             </Modal>
+
+            <!-- Edit Offer Dialog -->
+            <Modal :show="showEditDialog" @close="closeEditDialog">
+                <div class="p-4 background-color">
+                    <div class="modal-header flex justify-between items-center mb-4 pb-2">
+                        <div>
+                            <h2 class="text-lg font-semibold">Edit Offer</h2>
+                            <p class="text-sm">Client: {{ editForm.client?.name }}</p>
+                        </div>
+                        <button @click="closeEditDialog" class="text-light-gray hover:text-white">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+
+                    <div class="space-y-4 background-color">
+                        <form @submit.prevent="updateOffer" class="space-y-6">
+                            <!-- Basic Information -->
+                            <div class="grid grid-cols-2 gap-6">
+                                <div>
+                                    <label class="block text-white text-sm mb-2">Name</label>
+                                    <input
+                                        v-model="editForm.name"
+                                        type="text"
+                                        class="w-full px-3 py-2 bg-gray-600 border border-light-gray rounded-md text-white"
+                                        required
+                                    />
+                                </div>
+
+                                <div>
+                                    <label class="block text-white text-sm mb-2">Client</label>
+                                    <select
+                                        v-model="editForm.client_id"
+                                        class="w-full px-3 py-2 bg-gray-600 border border-light-gray rounded-md text-white"
+                                        required
+                                        @change="onClientSelect"
+                                    >
+                                        <option value="" disabled>Select a client</option>
+                                        <option v-for="client in clients" :key="client.id" :value="client.id">
+                                            {{ client.name }}
+                                        </option>
+                                    </select>
+                                </div>
+
+                                <div>
+                                    <label class="block text-white text-sm mb-2">Contact</label>
+                                    <select
+                                        v-model="editForm.contact_id"
+                                        class="w-full px-3 py-2 bg-gray-600 border border-light-gray rounded-md text-white"
+                                        required
+                                    >
+                                        <option value="" disabled>Select a contact</option>
+                                        <option v-for="contact in selectedClientContacts" :key="contact.id" :value="contact.id">
+                                            {{ contact.name }}
+                                        </option>
+                                    </select>
+                                </div>
+
+                                <div>
+                                    <label class="block text-white text-sm mb-2">Validity Days</label>
+                                    <input
+                                        v-model="editForm.validity_days"
+                                        type="number"
+                                        min="1"
+                                        class="w-full px-3 py-2 bg-gray-600 border border-light-gray rounded-md text-white"
+                                        required
+                                    />
+                                </div>
+
+                                <div>
+                                    <label class="block text-white text-sm mb-2">Production Time</label>
+                                    <input
+                                        v-model="editForm.production_time"
+                                        type="text"
+                                        class="w-full px-3 py-2 bg-gray-600 border border-light-gray rounded-md text-white"
+                                    />
+                                </div>
+
+                                <div>
+                                    <label class="block text-white text-sm mb-2">Description</label>
+                                    <textarea
+                                        v-model="editForm.description"
+                                        rows="3"
+                                        class="w-full px-3 py-2 bg-gray-600 border border-light-gray rounded-md text-white"
+                                    ></textarea>
+                                </div>
+                            </div>
+
+                            <!-- Catalog Items -->
+                            <div class="mt-6">
+                                <div class="flex justify-between items-center mb-4">
+                                    <h3 class="text-white text-lg font-semibold">Selected Items</h3>
+                                    <button
+                                        type="button"
+                                        @click="openItemSelection"
+                                        class="px-3 py-1 bg-green text-white rounded hover:bg-light-green"
+                                    >
+                                        <i class="fas fa-plus mr-1"></i> Add Item
+                                    </button>
+                                </div>
+
+                                <!-- Selected Items Summary -->
+                                <div v-if="editForm.catalog_items.length > 0" class="bg-gray-800 p-3 rounded-lg mb-4">
+                                    <div class="flex items-center justify-between mb-3">
+                                        <h3 class="text-white text-sm font-medium">Selected Items</h3>
+                                        <span class="bg-green px-2 py-0.5 rounded text-xs text-white">{{ editForm.catalog_items.length }} items</span>
+                                    </div>
+                                    <div class="divide-y divide-gray-700">
+                                        <div v-for="item in editForm.catalog_items" :key="item.selection_id" class="py-2">
+                                            <div class="flex items-center gap-4 pb-2">
+                                                <!-- Name and Description -->
+                                                <div class="flex-1 min-w-0">
+                                                    <div class="flex items-center gap-2">
+                                                        <h4 class="text-white text-sm font-medium truncate">{{ item.name }}</h4>
+                                                        <input
+                                                            v-model="item.description"
+                                                            type="text"
+                                                            class="flex-1 rounded bg-white border-gray-700 text-black text-sm py-1 px-2"
+                                                            placeholder="Add description..."
+                                                        />
+                                                    </div>
+                                                </div>
+
+                                                <!-- Quantity -->
+                                                <div class="flex items-center gap-2 min-w-[120px]">
+                                                    <label class="text-gray-400 text-xs whitespace-nowrap">Qty:</label>
+                                                    <input
+                                                        v-model.number="item.quantity"
+                                                        type="number"
+                                                        min="1"
+                                                        class="w-20 rounded bg-white border-gray-700 text-black text-sm py-1 px-2"
+                                                        required
+                                                        @change="updatePrice(item)"
+                                                    />
+                                                </div>
+
+                                                <!-- Price -->
+                                                <div class="flex items-center gap-2 min-w-[200px]">
+                                                    <label class="text-gray-400 text-xs whitespace-nowrap">Price:</label>
+                                                    <div class="relative flex-1">
+                                                        <input
+                                                            v-model.number="item.custom_price"
+                                                            type="number"
+                                                            min="0"
+                                                            step="0.01"
+                                                            class="w-full rounded bg-white border-gray-700 text-black text-sm py-1 px-2"
+                                                            placeholder="Price per unit"
+                                                        />
+                                                        <div v-if="item.calculated_price" class="absolute -bottom-4 left-0 text-gray-400 text-xs whitespace-nowrap">
+                                                            Total: {{ item.calculated_price }} ден ({{ (item.calculated_price / item.quantity).toFixed(2) }} per unit)
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                <!-- Remove Button -->
+                                                <button
+                                                    @click="removeItem(item)"
+                                                    class="text-gray-400 hover:text-red-400 transition-colors p-1"
+                                                    title="Remove Item"
+                                                >
+                                                    <i class="fas fa-times"></i>
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="flex justify-end space-x-4 pt-4">
+                                <button
+                                    type="button"
+                                    @click="closeEditDialog"
+                                    class="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="submit"
+                                    class="px-4 py-2 bg-green text-white rounded hover:bg-light-green"
+                                    :disabled="isSubmitting"
+                                >
+                                    <span v-if="!isSubmitting">Update Offer</span>
+                                    <span v-else class="flex items-center">
+                                        <svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                        </svg>
+                                        Updating...
+                                    </span>
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </Modal>
+
+            <!-- Item Selection Dialog -->
+            <Modal :show="showItemSelection" @close="closeItemSelection">
+                <div class="p-4 background-color">
+                    <div class="modal-header flex justify-between items-center mb-4 pb-2">
+                        <h2 class="text-lg font-semibold">Select Items</h2>
+                        <button @click="closeItemSelection" class="text-light-gray hover:text-white">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+
+                    <div class="space-y-4">
+                        <input
+                            v-model="itemSearchQuery"
+                            type="text"
+                            placeholder="Search items..."
+                            class="w-full px-3 py-2 bg-gray-600 border border-light-gray rounded-md text-white"
+                        />
+
+                        <div class="grid grid-cols-2 gap-4 max-h-96 overflow-y-auto">
+                            <div
+                                v-for="item in filteredCatalogItems"
+                                :key="item.id"
+                                class="bg-gray-700 p-4 rounded-lg cursor-pointer hover:bg-gray-600"
+                                @click="selectItem(item)"
+                            >
+                                <div class="flex items-center space-x-4">
+                                    <div class="w-12 h-12">
+                                        <img
+                                            v-if="!isPlaceholder(item.file)"
+                                            :src="getFileUrl(item.file)"
+                                            :alt="item.name"
+                                            class="w-full h-full object-cover rounded"
+                                        />
+                                        <div v-else class="w-full h-full bg-gray-800 rounded flex items-center justify-center text-gray-500 text-xs">
+                                            NO IMAGE
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <h4 class="text-white font-medium">{{ item.name }}</h4>
+                                        <p class="text-gray-400 text-sm">
+                                            {{ item.large_material ? 'Large Format' : 'Small Format' }}
+                                        </p>
+                                        <p class="text-gray-400 text-sm">
+                                            Base Price: {{ formatPrice(item.price) }}
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </Modal>
         </div>
     </MainLayout>
 </template>
@@ -319,6 +574,7 @@ import Header from '@/Components/Header.vue';
 import Modal from '@/Components/Modal.vue';
 import { Link } from '@inertiajs/vue3';
 import {useToast} from "vue-toastification";
+import axios from 'axios';
 
 export default {
     components: {
@@ -337,11 +593,28 @@ export default {
             showModal: false,
             showItemsModal: false,
             showDeclineModal: false,
+            showEditDialog: false,
+            showItemSelection: false,
             selectedOffer: null,
             itemsViewMode: 'grid',
             currentTab: 'pending',
             declineReason: '',
             isEditingDeclineReason: false,
+            itemSearchQuery: '',
+            isSubmitting: false,
+            editForm: {
+                id: null,
+                name: '',
+                description: '',
+                client_id: '',
+                contact_id: '',
+                validity_days: 30,
+                production_time: '',
+                catalog_items: []
+            },
+            clients: [],
+            catalogItems: [],
+            selectedClient: null,
             tabs: [
                 { label: 'Pending', value: 'pending' },
                 { label: 'Accepted', value: 'accepted' },
@@ -353,6 +626,17 @@ export default {
     computed: {
         filteredOffers() {
             return this.offers.filter(offer => offer.status === this.currentTab);
+        },
+        selectedClientContacts() {
+            if (!this.selectedClient) return [];
+            return this.selectedClient.contacts || [];
+        },
+        filteredCatalogItems() {
+            if (!this.itemSearchQuery) return this.catalogItems;
+            const query = this.itemSearchQuery.toLowerCase();
+            return this.catalogItems.filter(item => 
+                item.name.toLowerCase().includes(query)
+            );
         }
     },
 
@@ -472,6 +756,139 @@ export default {
                 toast.error('An unexpected error occurred.');
             }
         },
+
+        async openEditDialog(offer) {
+            try {
+                const response = await axios.get(`/offers/${offer.id}/edit`);
+                const { offer: offerData, clients, catalogItems } = response.data;
+                
+                this.clients = clients;
+                this.catalogItems = catalogItems;
+                this.editForm = {
+                    id: offerData.id,
+                    name: offerData.name,
+                    description: offerData.description,
+                    client_id: offerData.client_id,
+                    contact_id: offerData.contact_id,
+                    validity_days: offerData.validity_days,
+                    production_time: offerData.production_time,
+                    catalog_items: offerData.catalog_items
+                };
+                
+                this.selectedClient = this.clients.find(c => c.id === offerData.client_id);
+                this.showEditDialog = true;
+            } catch (error) {
+                const toast = useToast();
+                toast.error('Failed to load offer details');
+                console.error('Error loading offer:', error);
+            }
+        },
+
+        closeEditDialog() {
+            this.showEditDialog = false;
+            this.editForm = {
+                id: null,
+                name: '',
+                description: '',
+                client_id: '',
+                contact_id: '',
+                validity_days: 30,
+                production_time: '',
+                catalog_items: []
+            };
+        },
+
+        openItemSelection() {
+            this.itemSearchQuery = '';
+            this.showItemSelection = true;
+        },
+
+        closeItemSelection() {
+            this.showItemSelection = false;
+            this.itemSearchQuery = '';
+        },
+
+        selectItem(item) {
+            this.editForm.catalog_items.push({
+                id: item.id,
+                selection_id: Date.now(),
+                name: item.name,
+                quantity: 1,
+                description: item.description || '',
+                custom_price: item.price,
+                calculated_price: null,
+                file: item.file,
+                large_material: item.large_material,
+                small_material: item.small_material
+            });
+            this.closeItemSelection();
+        },
+
+        removeItem(item) {
+            const index = this.editForm.catalog_items.findIndex(i => i.selection_id === item.selection_id);
+            if (index !== -1) {
+                this.editForm.catalog_items.splice(index, 1);
+            }
+        },
+
+        onClientSelect() {
+            this.selectedClient = this.clients.find(c => c.id === this.editForm.client_id);
+            this.editForm.contact_id = '';
+            // Update prices for all selected items
+            this.editForm.catalog_items.forEach(item => this.updatePrice(item));
+        },
+
+        async updatePrice(item) {
+            if (!this.editForm.client_id || !item.quantity) return;
+            
+            try {
+                const response = await axios.get('/calculate-price', {
+                    params: {
+                        catalog_item_id: item.id,
+                        client_id: this.editForm.client_id,
+                        quantity: item.quantity
+                    }
+                });
+                item.calculated_price = response.data.price;
+                item.custom_price = response.data.price / item.quantity;
+            } catch (error) {
+                console.error('Error calculating price:', error);
+            }
+        },
+
+        async updateOffer() {
+            if (this.isSubmitting) return;
+            
+            this.isSubmitting = true;
+            const toast = useToast();
+            
+            try {
+                await axios.put(`/offers/${this.editForm.id}`, this.editForm);
+                toast.success('Offer updated successfully');
+                this.closeEditDialog();
+                this.$inertia.reload();
+            } catch (error) {
+                console.error('Error updating offer:', error);
+                if (error.response?.data?.errors) {
+                    Object.values(error.response.data.errors).forEach(errors => {
+                        errors.forEach(error => toast.error(error));
+                    });
+                } else {
+                    toast.error('Failed to update offer');
+                }
+            } finally {
+                this.isSubmitting = false;
+            }
+        },
+
+        formatPrice(price) {
+            if (!price) return '€0.00';
+            return new Intl.NumberFormat('de-DE', {
+                style: 'currency',
+                currency: 'EUR'
+            }).format(price);
+        },
+
         navigateToOfferCreate(){
             this.$inertia.visit(`/offer/create`);
         },
@@ -737,4 +1154,29 @@ table {
     }
 }
 
+.modal-backdrop {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+}
+
+.animate-spin {
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    from {
+        transform: rotate(0deg);
+    }
+    to {
+        transform: rotate(360deg);
+    }
+}
 </style>

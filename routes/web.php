@@ -399,8 +399,11 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/offers/create', [OfferController::class, 'create'])->name('offers.create');
     Route::post('/offers', [OfferController::class, 'store'])->name('offers.store');
     Route::get('/offers/{offer}', [OfferController::class, 'show'])->name('offers.show');
+    Route::get('/offers/{offer}/edit', [OfferController::class, 'edit'])->name('offers.edit');
+    Route::put('/offers/{offer}', [OfferController::class, 'update'])->name('offers.update');
     Route::patch('/offers/{offer}/status', [OfferController::class, 'updateStatus'])->name('offers.update-status');
     Route::get('/offers/{offer}/items', [OfferController::class, 'items'])->name('offers.items');
+    Route::get('/offers/{offer}/pdf', [OfferController::class, 'generateOfferPdf'])->name('offers.pdf');
     Route::get('/calculate-price', [PriceController::class, 'calculatePrice'])->name('price.calculate');
 
     Route::middleware(['auth', 'verified'])->group(function () {
