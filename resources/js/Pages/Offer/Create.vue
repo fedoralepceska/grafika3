@@ -24,6 +24,39 @@
                             </div>
                         </div>
                     </div>
+                     <!-- Navigation Buttons -->
+                     <div class="w-full flex justify-between pt-2">
+                            <button 
+                                type="button" 
+                                v-if="currentStep > 0" 
+                                @click="currentStep--"
+                                :disabled="isSubmitting"
+                                class="btn btn-secondary disabled:opacity-50 disabled:cursor-not-allowed">
+                                Previous
+                            </button>
+                            <div class="flex-grow"></div>
+                            <button 
+                                v-if="currentStep < steps.length - 1" 
+                                type="button"
+                                @click="nextStep"
+                                :disabled="isSubmitting"
+                                class="btn btn-primary disabled:opacity-50 disabled:cursor-not-allowed">
+                                Next
+                            </button>
+                            <button 
+                                v-else 
+                                type="submit"
+                                :disabled="isSubmitting"
+                                class="btn btn-primary disabled:opacity-50 disabled:cursor-not-allowed relative">
+                                <span :class="{ 'opacity-0': isSubmitting }">Create Offer</span>
+                                <div v-if="isSubmitting" class="absolute inset-0 flex items-center justify-center">
+                                    <svg class="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                    </svg>
+                                </div>
+                            </button>
+                        </div>
 
                     <form @submit.prevent="submit" class="space-y-6 w-full rounded-lg">
                         <!-- Step 1: Basic Information -->
@@ -99,8 +132,74 @@
 
                         <!-- Step 2: Items Selection -->
                         <div v-show="currentStep === 1">
-                            <!-- Catalog Items Section -->
-                            <div class="w-full">
+                            <!-- Selected Items Summary -->
+                            <div v-if="form.catalog_items.length > 0" class="bg-gray-800 p-3 rounded-lg mb-4">
+                                <div class="flex items-center justify-between mb-3">
+                                    <h3 class="text-white text-sm font-medium">Selected Items</h3>
+                                    <span class="bg-green px-2 py-0.5 rounded text-xs text-white">{{ form.catalog_items.length }} items</span>
+                                </div>
+                                <div class="divide-y divide-gray-700">
+                                    <div v-for="item in form.catalog_items" :key="item.selection_id" class="py-2">
+                                        <div class="flex items-center gap-4">
+                                            <!-- Name and Description -->
+                                            <div class="flex-1 min-w-0">
+                                                <div class="flex items-center gap-2">
+                                                    <h4 class="text-white text-sm font-medium truncate">{{ item.name }}</h4>
+                                                    <input
+                                                        v-model="item.description"
+                                                        type="text"
+                                                        class="flex-1 rounded bg-white border-gray-700 text-white text-sm py-1 px-2"
+                                                        placeholder="Add description..."
+                                                    />
+                                                </div>
+                                            </div>
+
+                                            <!-- Quantity -->
+                                            <div class="flex items-center gap-2 min-w-[120px]">
+                                                <label class="text-gray-400 text-xs whitespace-nowrap">Qty:</label>
+                                                <input
+                                                    v-model.number="item.quantity"
+                                                    type="number"
+                                                    min="1"
+                                                    class="w-20 rounded bg-white border-gray-700 text-white text-sm py-1 px-2"
+                                                    required
+                                                    @change="updatePrice(item)"
+                                                />
+                                            </div>
+
+                                            <!-- Price -->
+                                            <div class="flex items-center gap-2 min-w-[200px] pb-2">
+                                                <label class="text-gray-400 text-xs whitespace-nowrap">Price:</label>
+                                                <div class="relative flex-1">
+                                                    <input
+                                                        v-model.number="item.custom_price"
+                                                        type="number"
+                                                        min="0"
+                                                        step="0.01"
+                                                        class="w-full rounded bg-white border-gray-700 text-white text-sm py-1 px-2"
+                                                        placeholder="Price per unit"
+                                                    />
+                                                    <div v-if="item.calculated_price" class="absolute -bottom-4 left-0 text-gray-400 text-xs whitespace-nowrap">
+                                                        Total: {{ item.calculated_price }} ден ({{ (item.calculated_price / item.quantity).toFixed(2) }} per unit)
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <!-- Remove Button -->
+                                            <button
+                                                @click="removeItem(item)"
+                                                class="text-gray-400 hover:text-red-400 transition-colors p-1"
+                                                title="Remove Item"
+                                            >
+                                                <i class="fas fa-times"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                             <!-- Catalog Items Section -->
+                             <div class="w-full">
                                 <label class="text-white">Catalog Items</label>
                                 <div class="catalog-tabs">
                                     <!-- Search Input -->
@@ -303,105 +402,6 @@
                                     </div>
                                 </div>
                             </div>
-                            <!-- Selected Items Summary -->
-                            <div v-if="form.catalog_items.length > 0" class="bg-gray-800 p-3 rounded-lg mb-4">
-                                <div class="flex items-center justify-between mb-3">
-                                    <h3 class="text-white text-sm font-medium">Selected Items</h3>
-                                    <span class="bg-green px-2 py-0.5 rounded text-xs text-white">{{ form.catalog_items.length }} items</span>
-                                </div>
-                                <div class="divide-y divide-gray-700">
-                                    <div v-for="item in form.catalog_items" :key="item.selection_id" class="py-2">
-                                        <div class="flex items-center gap-4">
-                                            <!-- Name and Description -->
-                                            <div class="flex-1 min-w-0">
-                                                <div class="flex items-center gap-2">
-                                                    <h4 class="text-white text-sm font-medium truncate">{{ item.name }}</h4>
-                                                    <input
-                                                        v-model="item.description"
-                                                        type="text"
-                                                        class="flex-1 rounded bg-white border-gray-700 text-white text-sm py-1 px-2"
-                                                        placeholder="Add description..."
-                                                    />
-                                                </div>
-                                            </div>
-
-                                            <!-- Quantity -->
-                                            <div class="flex items-center gap-2 min-w-[120px]">
-                                                <label class="text-gray-400 text-xs whitespace-nowrap">Qty:</label>
-                                                <input
-                                                    v-model.number="item.quantity"
-                                                    type="number"
-                                                    min="1"
-                                                    class="w-20 rounded bg-white border-gray-700 text-white text-sm py-1 px-2"
-                                                    required
-                                                    @change="updatePrice(item)"
-                                                />
-                                            </div>
-
-                                            <!-- Price -->
-                                            <div class="flex items-center gap-2 min-w-[200px]">
-                                                <label class="text-gray-400 text-xs whitespace-nowrap">Price:</label>
-                                                <div class="relative flex-1">
-                                                    <input
-                                                        v-model.number="item.custom_price"
-                                                        type="number"
-                                                        min="0"
-                                                        step="0.01"
-                                                        class="w-full rounded bg-white border-gray-700 text-white text-sm py-1 px-2"
-                                                        placeholder="Price per unit"
-                                                    />
-                                                    <div v-if="item.calculated_price" class="absolute -bottom-4 left-0 text-gray-400 text-xs whitespace-nowrap">
-                                                        Total: {{ item.calculated_price }} ден ({{ (item.calculated_price / item.quantity).toFixed(2) }} per unit)
-                                                    </div>
-                                                </div>
-                                            </div>
-
-                                            <!-- Remove Button -->
-                                            <button
-                                                @click="removeItem(item)"
-                                                class="text-gray-400 hover:text-red-400 transition-colors p-1"
-                                                title="Remove Item"
-                                            >
-                                                <i class="fas fa-times"></i>
-                                            </button>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Navigation Buttons -->
-                        <div class="flex justify-between pt-2">
-                            <button 
-                                type="button" 
-                                v-if="currentStep > 0" 
-                                @click="currentStep--"
-                                :disabled="isSubmitting"
-                                class="btn btn-secondary disabled:opacity-50 disabled:cursor-not-allowed">
-                                Previous
-                            </button>
-                            <div class="flex-grow"></div>
-                            <button 
-                                v-if="currentStep < steps.length - 1" 
-                                type="button"
-                                @click="nextStep"
-                                :disabled="isSubmitting"
-                                class="btn btn-primary disabled:opacity-50 disabled:cursor-not-allowed">
-                                Next
-                            </button>
-                            <button 
-                                v-else 
-                                type="submit"
-                                :disabled="isSubmitting"
-                                class="btn btn-primary disabled:opacity-50 disabled:cursor-not-allowed relative">
-                                <span :class="{ 'opacity-0': isSubmitting }">Create Offer</span>
-                                <div v-if="isSubmitting" class="absolute inset-0 flex items-center justify-center">
-                                    <svg class="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                    </svg>
-                                </div>
-                            </button>
                         </div>
                     </form>
                 </div>
