@@ -129,7 +129,7 @@
                             {{ $t('jobPrice') }}: <span class="bold">{{ (job.price * job.copies).toFixed(2) }} ден.</span>
                         </div>
                         <div class="pt-1 pl-2 pr-2">
-                            {{ $t('jobPriceCost') }}: <span class="bold">{{ job.catalog_item.cost_price }} ден.</span>
+                            {{ $t('jobPriceCost') }}: <span class="bold">{{ job.catalog_item?.cost_price }} ден.</span>
                         </div>
                     </div>
                 </div>
