@@ -87,11 +87,18 @@ class CertificateController extends Controller
             'bankAccount' => 'string',
         ]);
 
+        // Calculate the id_per_bank for this bank
+        $latestIdPerBank = Certificate::where('bank', $validatedData['bank'])
+            ->max('id_per_bank');
+
+        $idPerBank = $latestIdPerBank ? $latestIdPerBank + 1 : 1;
+
         // Create a new certificate record
         $certificate = new Certificate();
         $certificate->date = $validatedData['date'];
         $certificate->bank = $validatedData['bank'];
         $certificate->bankAccount = $validatedData['bankAccount'];
+        $certificate->id_per_bank = $idPerBank;
         $certificate->created_by = auth()->id();
 
         // Save the certificate

@@ -60,7 +60,7 @@
                             <div class="flex gap-40 p-2">
                                 <div class="info">
                                     <div>Statement</div>
-                                    <div class="bold">#{{certificate.id}}</div>
+                                    <div class="bold">#{{certificate.id_per_bank}}</div>
                                 </div>
                                 <div class="info">
                                     <div>Bank</div>
