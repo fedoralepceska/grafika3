@@ -777,6 +777,8 @@ class JobController extends Controller
                 $job->copies = $validatedData['copies'];
             }
 
+            $job->load('catalogItem');
+
             // Save all changes
             $job->save();
 
