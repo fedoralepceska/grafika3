@@ -24,7 +24,7 @@
                                 <div class="flex items-center text-white">
                                     <div class="form-group">
                                         <label for="statement" class="mr-4 width100">Statement ID</label>
-                                        <input type="text" disabled id="statement" class="text-gray-700 rounded"  :placeholder="certificate.id">
+                                        <input type="text" disabled id="statement" class="text-gray-700 rounded"  :placeholder="certificate.id_per_bank">
                                     </div>
                                 </div>
                                 <div class="flex text-white">

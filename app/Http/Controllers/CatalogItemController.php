@@ -58,6 +58,7 @@ class CatalogItemController extends Controller
                 return [
                     'id' => $item->id,
                     'name' => $item->name,
+                    'description' => $item->description,
                     'machinePrint' => $item->machinePrint,
                     'machineCut' => $item->machineCut,
                     'material' => $materialDisplay,
@@ -103,9 +104,13 @@ class CatalogItemController extends Controller
                 'catalogItems' => $transformedItems,
                 'pagination' => [
                     'current_page' => $catalogItems->currentPage(),
-                    'total_pages' => $catalogItems->lastPage(),
-                    'total_items' => $catalogItems->total(),
-                    'per_page' => $catalogItems->perPage()
+                    'last_page' => $catalogItems->lastPage(),
+                    'total' => $catalogItems->total(),
+                    'per_page' => $catalogItems->perPage(),
+                    'links' => [
+                        'prev' => $catalogItems->currentPage() > 1,
+                        'next' => $catalogItems->hasMorePages()
+                    ]
                 ]
             ]);
         } catch (\Exception $e) {

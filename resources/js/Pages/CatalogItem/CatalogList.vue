@@ -117,18 +117,20 @@
                 <div class="flex w-full  justify-between items-center mt-4">
                     <button
                         :disabled="!pagination.links?.prev"
-                        @click="fetchCatalogItems(pagination.links?.prev)"
+                        @click="() => fetchCatalogItems(pagination.current_page - 1)"
                         class="btn btn-secondary"
+                        :class="{ 'opacity-50 cursor-not-allowed': !pagination.links?.prev }"
                     >
                         Previous
                     </button>
                     <span class="text-white">
-                        Page {{ pagination.current_page }} of {{ pagination.total_pages }}
+                        Page {{ pagination.current_page }} of {{ pagination.last_page }}
                     </span>
                     <button
                         :disabled="!pagination.links?.next"
-                        @click="fetchCatalogItems(pagination.links?.next)"
+                        @click="() => fetchCatalogItems(pagination.current_page + 1)"
                         class="btn btn-secondary"
+                        :class="{ 'opacity-50 cursor-not-allowed': !pagination.links?.next }"
                     >
                         Next
                     </button>
@@ -172,6 +174,16 @@
                                 <div>
                                     <label class="text-white">Name</label>
                                     <input v-model="editForm.name" type="text" class="w-full mt-1 rounded" required />
+                                </div>
+
+                                <div>
+                                    <label class="text-white">Description</label>
+                                    <textarea 
+                                        v-model="editForm.description" 
+                                        class="w-full mt-1 rounded" 
+                                        rows="3"
+                                        placeholder="Enter item description..."
+                                    ></textarea>
                                 </div>
 
                                 <div>
@@ -809,6 +821,7 @@ export default {
             editForm: {
                 id: null,
                 name: '',
+                description: '',
                 machinePrint: '',
                 machineCut: '',
                 large_material_id: null,
@@ -865,12 +878,19 @@ export default {
         }
     },
     methods: {
-        fetchCatalogItems() {
-            this.$inertia.get(route('catalog.index'), {
-                search: this.searchQuery,
-                page: this.pagination.current_page,
-                per_page: this.pagination.per_page,
-            });
+        fetchCatalogItems(page) {
+            this.$inertia.get(
+                route('catalog.index'),
+                {
+                    search: this.searchQuery,
+                    page: page || this.pagination.current_page,
+                },
+                {
+                    preserveState: true,
+                    preserveScroll: true,
+                    only: ['catalogItems', 'pagination']
+                }
+            );
         },
 
         openActionsDialog(item) {
@@ -898,6 +918,7 @@ export default {
             this.editForm = {
                 id: item.id,
                 name: item.name,
+                description: item.description,
                 machinePrint: item.machinePrint,
                 machineCut: item.machineCut,
                 large_material_id: item.large_material_id,
@@ -957,6 +978,7 @@ export default {
             this.editForm = {
                 id: null,
                 name: '',
+                description: '',
                 machinePrint: '',
                 machineCut: '',
                 large_material_id: null,

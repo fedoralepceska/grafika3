@@ -24,8 +24,10 @@
                             </div>
                         </div>
                     </div>
-                     <!-- Navigation Buttons -->
-                     <div class="w-full flex justify-between pt-2">
+
+                    <form @submit.prevent="submit" class="space-y-6 w-full rounded-lg">
+                        <!-- Navigation Buttons at the top -->
+                        <div class="w-full flex justify-between pb-4 border-b border-gray-700">
                             <button 
                                 type="button" 
                                 v-if="currentStep > 0" 
@@ -58,7 +60,6 @@
                             </button>
                         </div>
 
-                    <form @submit.prevent="submit" class="space-y-6 w-full rounded-lg">
                         <!-- Step 1: Basic Information -->
                         <div v-show="currentStep === 0">
                             <div class="grid grid-cols-1 gap-6">

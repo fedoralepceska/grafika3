@@ -50,7 +50,7 @@
                     <div v-if="certificates.data">
                         <div class="border mb-1" v-for="certificate in certificates.data" :key="certificate.id">
                             <div class="bg-white text-black flex justify-between">
-                                <div class="p-2 bold">{{certificate.id}}/{{ new Date(certificate.created_at).toLocaleDateString('en-US', { year: 'numeric' }) }}</div>
+                                <div class="p-2 bold">{{certificate.id_per_bank}}/{{ new Date(certificate.created_at).toLocaleDateString('en-US', { year: 'numeric' }) }}</div>
                                 <div class="flex">
                                     <button class="flex items-center p-1" @click="viewCertificate(certificate.id)">
                                         <i class="fa fa-eye bg-gray-300 p-2 rounded" aria-hidden="true"></i>

@@ -14,7 +14,7 @@
                     <div class="report">
                         <div class="flexed">
                             <h1>
-                                {{$t('currentReport')}} {{$t('Nr')}} {{certificate.id}} - {{certificate.date}}
+                                {{$t('currentReport')}} {{$t('Nr')}} {{certificate.id_per_bank}} - {{certificate.date}}
                             </h1>
                         </div>
                         <div class="justify-end flex gap-6 pb-5 mr-3">
@@ -41,10 +41,10 @@
                     <div class="form-container p-2 light-gray">
                         <div class="InvoiceDetails">
                             <div class="invoice-details flex gap-20 relative mb-2" >
-                                <div class="invoice-title bg-white text-black bold p-3 ">{{ certificate.id }}/{{new Date(certificate.date).toLocaleDateString('en-US', { year: 'numeric'})}}</div>
+                                <div class="invoice-title bg-white text-black bold p-3 ">{{ certificate.id_per_bank }}/{{new Date(certificate.date).toLocaleDateString('en-US', { year: 'numeric'})}}</div>
                                 <div class="info">
                                     <div>Statement</div>
-                                    <div class="bold">#{{ certificate?.id }}</div>
+                                    <div class="bold">#{{ certificate?.id_per_bank }}</div>
                                 </div>
                                 <div class="info">
                                     <div>Bank</div>
