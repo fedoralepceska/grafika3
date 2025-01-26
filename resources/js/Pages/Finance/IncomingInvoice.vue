@@ -14,6 +14,7 @@
                                     :incomingInvoice="incomingInvoice"
                                     :cost-types="$page.props.costTypes"
                                     :bill-types="$page.props.billTypes"
+                                    @invoice-added="handleInvoiceAdded"
                                 />
                     </div>
                     </div>
@@ -98,10 +99,20 @@
                     <div v-if="incomingInvoice.data" class="overflow-x-auto">
                         <div class="border mb-1" v-for="faktura in incomingInvoice.data" :key="faktura.id">
                             <div class="bg-white text-black flex justify-between">
-                                <div class="p-2 bold">Invoice #{{faktura.id}}/{{ new Date(faktura.created_at).toLocaleDateString('en-US', { year: 'numeric' }) }}</div>
-                                <div class="p-2 bold">{{ new Date(faktura.date).toLocaleDateString('en-US', { year: 'numeric', month: '2-digit', day: '2-digit' }) }}</div>
+                                <div class="p-2 bold">Invoice #{{faktura.incoming_number}}/{{ new Date(faktura.created_at).toLocaleDateString('en-US', { year: 'numeric' }) }}</div>
+                                <div class="flex items-center">
+                                    <div class="p-2 bold">{{ new Date(faktura.date).toLocaleDateString('en-US', { year: 'numeric', month: '2-digit', day: '2-digit' }) }}</div>
+                                    <EditIncomingInvoiceDialog 
+                                        :invoice="faktura"
+                                        :cost-types="$page.props.costTypes"
+                                        :bill-types="$page.props.billTypes"
+                                        :warehouses="$page.props.warehouses"
+                                        :clients="$page.props.clients"
+                                        @invoice-updated="handleInvoiceUpdated"
+                                    />
+                                </div>
                             </div>
-                            <div class="flex flex-wrap gap-4 p-2">
+                            <div class="flex flex-wrap justify-between gap-4 p-2">
                                 <div class="info">
                                     <div>Customer</div>
                                     <div class="bold">{{ faktura.client_name || 'N/A' }}</div>
@@ -146,9 +157,10 @@ import OrderJobDetails from "@/Pages/Invoice/OrderJobDetails.vue";
 import ViewLockDialog from "@/Components/ViewLockDialog.vue";
 import RedirectTabs from "@/Components/RedirectTabs.vue";
 import AddIncomingInvoiceDialog from "@/Components/AddIncomingInvoiceDialog.vue";
+import EditIncomingInvoiceDialog from "@/Components/EditIncomingInvoiceDialog.vue";
 
 export default {
-    components: {Header, MainLayout,Pagination,OrderJobDetails, ViewLockDialog, RedirectTabs,AddIncomingInvoiceDialog },
+    components: {Header, MainLayout,Pagination,OrderJobDetails, ViewLockDialog, RedirectTabs,AddIncomingInvoiceDialog, EditIncomingInvoiceDialog },
     props:{
         incomingInvoice: Object,
         costTypes: {
@@ -181,6 +193,9 @@ export default {
         this.fetchInvoices();
     },
     methods: {
+        handleInvoiceAdded() {
+            this.fetchInvoices(); // Refresh the list after adding
+        },
         calculateTotal(faktura) {
             const amount = parseFloat(faktura.amount.replace(/,/g, ''));
             const tax = parseFloat(faktura.tax.replace(/,/g, ''));
@@ -229,6 +244,9 @@ export default {
             } catch (error) {
                 console.error('Error searching invoices:', error);
             }
+        },
+        handleInvoiceUpdated(updatedInvoice) {
+            this.fetchInvoices(); // Refresh the list after update
         }
     },
 };
@@ -240,7 +258,6 @@ export default {
     display: flex;
     flex-direction: column;
     justify-content: center;
-    padding: 0.5rem;
 }
 .jobInfo{
     align-items: center;

@@ -121,7 +121,7 @@
                         </tr>
                         <tr v-for="(item, index) in items" :key="item.id">
                             <td>{{item.id}}</td>
-                            <td>{{certificate.id}}</td>
+                            <td>{{certificate.id_per_bank}}</td>
                             <td>#{{index+1}}</td>
                             <td>
                                 <div v-if="isEditMode" class="relative">

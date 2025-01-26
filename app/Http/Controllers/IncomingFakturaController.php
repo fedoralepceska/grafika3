@@ -21,7 +21,7 @@ class IncomingFakturaController extends Controller
             // Search by invoice number
             if ($request->has('searchQuery') && !empty($request->input('searchQuery'))) {
                 $searchQuery = $request->input('searchQuery');
-                $query->where('id', 'like', "%{$searchQuery}%");
+                $query->where('incoming_number', 'like', "%{$searchQuery}%");
             }
 
             // Filter by client
@@ -57,6 +57,8 @@ class IncomingFakturaController extends Controller
             $incomingInvoice->getCollection()->transform(function ($invoice) {
                 return [
                     'id' => $invoice->id,
+                    'incoming_number' => $invoice->incoming_number,
+                    'client_id' => $invoice->client_id,
                     'client_name' => $invoice->client ? $invoice->client->name : null,
                     'warehouse' => $invoice->warehouse,
                     'cost_type' => CostType::tryFrom($invoice->cost_type)?->label(),
@@ -99,6 +101,7 @@ class IncomingFakturaController extends Controller
     {
         try {
             $validatedData = $request->validate([
+                'incoming_number' => 'nullable|string',
                 'client_id' => 'nullable|integer',
                 'warehouse' => 'nullable|string',
                 'cost_type' => 'nullable|integer',
@@ -121,6 +124,39 @@ class IncomingFakturaController extends Controller
             Log::error('Error creating incoming invoice: ' . $e->getMessage());
             return response()->json([
                 'error' => 'Failed to create incoming invoice', 
+                'details' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    public function update(Request $request, $id)
+    {
+        try {
+            $validatedData = $request->validate([
+                'incoming_number' => 'nullable|string',
+                'client_id' => 'nullable|integer',
+                'warehouse' => 'nullable|string',
+                'cost_type' => 'nullable|integer',
+                'billing_type' => 'nullable|integer',
+                'description' => 'nullable|string',
+                'comment' => 'nullable|string',
+                'amount' => 'nullable|numeric',
+                'tax' => 'nullable|numeric',
+                'date' => 'nullable|date'
+            ]);
+
+            $incoming_faktura = IncomingFaktura::findOrFail($id);
+            $incoming_faktura->update($validatedData);
+
+            Log::info('Incoming invoice updated successfully', ['id' => $id]);
+            return response()->json([
+                'message' => 'Incoming invoice updated successfully',
+                'data' => $incoming_faktura
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Error updating incoming invoice: ' . $e->getMessage());
+            return response()->json([
+                'error' => 'Failed to update incoming invoice',
                 'details' => $e->getMessage()
             ], 500);
         }

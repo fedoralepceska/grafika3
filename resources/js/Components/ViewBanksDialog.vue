@@ -57,7 +57,7 @@
                                             <SecondaryButton @click="startEdit(bank)" class="blue">
                                                 Edit
                                             </SecondaryButton>
-                                            <SecondaryButton @click="deleteBank(bank)" class="red">
+                                            <SecondaryButton :disabled="bank.id" @click="deleteBank(bank)" class="red">
                                                 Delete
                                             </SecondaryButton>
                                         </template>

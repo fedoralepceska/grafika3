@@ -19,8 +19,20 @@
                     </v-card-title>
                     <v-card-text>
                         <div v-if="showAddIncomingInvoiceForm">
-                            <form>
-                                <div class="border p-1">
+                            <form @submit.prevent="addIncomingInvoice">
+                                <div class="form-grid border mt-1 p-1">
+                                    <div class="form-group">
+                                        <label class="mr-4 width100">Invoice Nr <span style="color: red;">*</span></label>
+                                        <div class="input-container">
+                                            <input 
+                                                type="text" 
+                                                v-model="newInvoice.incoming_number" 
+                                                class="text-gray-700 rounded" 
+                                                required
+                                            >
+                                            <div v-if="validationError" class="error-message">Invoice number is required</div>
+                                        </div>
+                                    </div>
                                     <div class="client">
                                         <div class="flex items-center text-white">
                                             <div class="form-group">
@@ -127,14 +139,14 @@
                                         </div>
                                     </div>
                                 </div>
+                                <div class="flexSpace gap-4 mt-4">
+                                    <v-spacer></v-spacer>
+                                    <SecondaryButton type="button" @click="closeDialog" class="red">Close</SecondaryButton>
+                                    <SecondaryButton type="submit" class="green">Save Incoming Invoice</SecondaryButton>
+                                </div>
                             </form>
                         </div>
                     </v-card-text>
-                    <v-card-actions class="flexSpace gap-4">
-                        <v-spacer></v-spacer>
-                        <SecondaryButton @click="closeDialog" class="red">Close</SecondaryButton>
-                        <SecondaryButton @click="addIncomingInvoice()" class="green">Save Incoming Invoice</SecondaryButton>
-                    </v-card-actions>
                 </v-card>
             </v-dialog>
         </v-row>
@@ -152,6 +164,7 @@ export default {
         PrimaryButton,
         SecondaryButton
     },
+    emits: ['invoice-added'],
     props: {
         incomingInvoice: Object,
         costTypes: {
@@ -169,6 +182,7 @@ export default {
         return {
             dialog: false,
             showAddIncomingInvoiceForm: false,
+            validationError: false,
             uniqueClients:[],
             warehouses: [],
             taxAmounts: {
@@ -184,6 +198,7 @@ export default {
                 taxD: 0
             },
             newInvoice:{
+                incoming_number: '',
                 client_id: null,
                 warehouse: '',
                 cost_type: null,
@@ -254,10 +269,19 @@ export default {
         openAddIncomingInvoice() {
             this.showAddIncomingInvoiceForm = true;
         },
-        async addIncomingInvoice() {
+        async addIncomingInvoice(event) {
             const toast = useToast();
+            
+            if (!this.newInvoice.incoming_number || this.newInvoice.incoming_number.trim() === '') {
+                this.validationError = true;
+                toast.error('Please enter an invoice number');
+                return;
+            }
+            
+            this.validationError = false;
             try {
                 const payload = {
+                    incoming_number: this.newInvoice.incoming_number.trim(),
                     client_id: this.newInvoice.client_id,
                     warehouse: this.newInvoice.warehouse,
                     cost_type: this.newInvoice.cost_type,
@@ -271,6 +295,7 @@ export default {
 
                 const response = await axios.post('/incomingInvoice', payload);
                 toast.success('Incoming invoice added successfully!');
+                this.$emit('invoice-added', response.data);
                 this.closeDialog();
                 this.resetForm();
             } catch (error) {
@@ -279,6 +304,7 @@ export default {
         },
         resetForm() {
             this.newInvoice = {
+                incoming_number: '',
                 client_id: null,
                 warehouse: '',
                 cost_type: null,
@@ -434,5 +460,16 @@ input {
 }
 .greenBackground{
     background-color: $green;
+}
+.input-container {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+}
+
+.error-message {
+    color: $red;
+    font-size: 0.8rem;
+    margin-top: 0.25rem;
 }
 </style>

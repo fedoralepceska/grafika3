@@ -103,7 +103,7 @@
                                 </div>
                                 <div class="form-group">
                                     <label for="reference" class="mr-4 width100 r">Reference To</label>
-                                    <input type="text" class="rounded text-black max-width" v-model="newItem.reference_to">
+                                    <input type="text" class="rounded text-black max-width" v-model="newItem.reference_to" :placeholder="newItem.reference_to">
 
                                 </div>
                                 <div class="form-group">
@@ -147,7 +147,7 @@ export default {
                 income: 0,
                 expense: 0,
                 code: '',
-                reference_to: '',
+                reference_to: '-',
                 comment: ''
             },
             rawIncome: "",

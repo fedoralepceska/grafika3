@@ -17,7 +17,8 @@ class IncomingFaktura extends Model
         'amount',
         'tax',
         'client_id',
-        'date'
+        'date',
+        'incoming_number'
     ];
 
     protected $casts = [

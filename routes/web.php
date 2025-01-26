@@ -27,6 +27,7 @@ use App\Http\Controllers\QuantityPriceController;
 use App\Http\Controllers\OfferController;
 use App\Http\Controllers\ItemController;
 use App\Http\Controllers\PriceController;
+use App\Http\Controllers\IncomingFakturaController;
 
 
 /*
@@ -93,6 +94,7 @@ Route::middleware(['auth', 'verified'])->group(function() {
     Route::post('/incomingInvoice', [\App\Http\Controllers\IncomingFakturaController::class, 'store'])->name('incomingInvoice.store');
     Route::get('/invoice-generation', [InvoiceController::class, 'generateAllInvoicesPdf'])->name('invoices.generateAllInvoicesPdf');
     Route::post('/outgoing/invoice', [InvoiceController::class, 'outgoingInvoicePdf'])->name('invoices.outgoingInvoicePdf');
+    Route::put('/incomingInvoice/{id}', [IncomingFakturaController::class, 'update'])->name('incomingInvoice.update');
 
 
 
