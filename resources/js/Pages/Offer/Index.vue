@@ -123,7 +123,7 @@
                             v-for="link in offers.links"
                             :key="link.label"
                             :href="link.url"
-                            class="px-2 py-1 border rounded"
+                            class="px-2 py-1 rounded"
                             :class="{
                                 'bg-gray-800 text-white': link.active,
                                 'text-gray-200 hover:text-white hover:bg-gray-600': !link.active,
