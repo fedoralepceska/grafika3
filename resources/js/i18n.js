@@ -299,7 +299,13 @@ const messages = {
         month: 'Month',
         day: 'Day',
         reset: 'Reset',
-        apply: 'Apply'
+        apply: 'Apply',
+        updateArticle: 'Update article',
+        close: 'Close',
+        articlesPerPage: 'Articles per page',
+        twentyPerPage: '20 per page',
+        fortyPerPage: '40 per page',
+        sixtyPerPage: '60 per page',
     },
     mk: {
         // Define your Macedonian translations here
@@ -601,7 +607,13 @@ const messages = {
         month: 'Месец',
         day: 'Ден',
         reset: 'Ресетирај',
-        apply: 'Филтрирај'
+        apply: 'Филтрирај',
+        updateArticle: 'Ажурирај го артиклот',
+        close: 'Затвори',
+        articlesPerPage: 'Артикли по страна',
+        twentyPerPage: '20 по страна',
+        fortyPerPage: '40 по страна',
+        sixtyPerPage: '60 по страна',
     },
 };
 

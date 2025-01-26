@@ -10,12 +10,12 @@
                         </h2>
                         <div class="search-container p-3 flex">
                             <input type="text" class="text-black rounded" style="width: 320px" v-model="search" @keyup="fetchArticles" placeholder="Search by Article Code or Name">
-                            <div class="centered mr-1 ml-4 ">Articles per page</div>
+                            <div class="centered mr-1 ml-4 ">{{ $t('articlesPerPage') }}</div>
                             <div class="ml-3">
                                 <select v-model="perPage" class="rounded text-black" @change="fetchArticles">
-                                    <option value="20">20 per page</option>
-                                    <option value="40">40 per page</option>
-                                    <option value="60">60 per page</option>
+                                    <option value="20">{{ $t('twentyPerPage') }}</option>
+                                    <option value="40">{{ $t('fortyPerPage') }}</option>
+                                    <option value="60">{{ $t('sixtyPerPage') }}</option>
                                 </select>
                             </div>
                         </div>
@@ -24,7 +24,7 @@
                             <tr>
                                 <th></th>
                                 <th>{{$t('Code')}}</th>
-                                <th>{{$t('Article')}}</th>
+                                <th>{{$t('article')}}</th>
                                 <th>{{$t('Unit')}}</th>
                                 <th>{{$t('fprice')}}</th>
                                 <th>{{$t('pprice')}}</th>
