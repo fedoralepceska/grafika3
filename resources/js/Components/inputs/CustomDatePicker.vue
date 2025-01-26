@@ -1,10 +1,10 @@
 <template>
     <div class="dark-gray rounded-lg p-6 max-w-md w-full ">
-        <h2 class="text-2xl font-semibold mb-4 text-white">Select Date Range</h2>
+        <h2 class="text-2xl font-semibold mb-4 text-white">{{ $t('selectDateRange') }}</h2>
         <div class="space-y-4">
             <div class="flex space-x-4">
                 <div class="flex-1">
-                    <label for="year" class="block text-sm text-white font-medium text-gray-700 mb-1">Year</label>
+                    <label for="year" class="block text-sm text-white font-medium text-gray-700 mb-1">{{ $t('year') }}</label>
                     <select
                         id="year"
                         v-model="selectedYear"
@@ -15,7 +15,7 @@
                     </select>
                 </div>
                 <div class="flex-1">
-                    <label for="month" class="block text-white text-sm font-medium mb-1">Month</label>
+                    <label for="month" class="block text-white text-sm font-medium mb-1">{{ $t('month') }}</label>
                     <select
                         id="month"
                         v-model="selectedMonth"
@@ -29,7 +29,7 @@
                 </div>
             </div>
             <div>
-                <label for="day" class="block text-sm font-medium text-white mb-1">Day</label>
+                <label for="day" class="block text-sm font-medium text-white mb-1">{{ $t('day') }}</label>
                 <select
                     id="day"
                     v-model="selectedDay"
@@ -46,14 +46,14 @@
                 @click="resetFilters"
                 class="text-sm reset rounded-md text-white bg-[#9e2c30] px-4 py-2 transition-colors duration-200"
             >
-                Reset
+                {{ $t('reset') }}
             </button>
             <button
                 @click="submitDate"
                 :disabled="!isValid"
                 class="px-4 py-2 apply text-white rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
             >
-                Apply
+                {{ $t('apply') }}
             </button>
         </div>
     </div>

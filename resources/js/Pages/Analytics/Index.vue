@@ -8,7 +8,7 @@
                 <div v-for="item in analyticsItems" :key="item.title" class="grid-item bg" @click="navigateToAnalytics(item.link)">
                     <div class="analytics">
                         <div class="analyticsTitle text-white">
-                            {{ item.title }} Analytics
+                            {{ item.title }} {{ $t('analytics') }}
                         </div>
                     </div>
                     <div class="status">

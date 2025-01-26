@@ -1,6 +1,6 @@
 <template>
     <div class="p-6 rounded-lg shadow-lg">
-        <h2 class="text-2xl font-bold text-white mb-6">Article Invoice Analytics</h2>
+        <h2 class="text-2xl font-bold text-white mb-6">{{ $t('articleAnalytics') }}</h2>
 
 
 
@@ -15,11 +15,11 @@
                 />
                 <!-- Chart Type Selection Dropdown -->
                 <div class="flex align-center justify-start p-6 items-center mb-4">
-                    <label for="chartType" class="text-white font-semibold mr-4">Select Chart Type:</label>
+                    <label for="chartType" class="text-white font-semibold mr-4">{{ $t('selectChartType') }}:</label>
                     <select v-model="selectedChartType" id="chartType" class="px-auto py-2 border rounded-md text-black">
-                        <option value="pie">Pie Chart</option>
-                        <option value="bar">Bar Chart</option>
-                        <option value="line">Line Chart</option>
+                        <option value="pie">{{ $t('pie') }}</option>
+                        <option value="bar">{{ $t('bar') }}</option>
+                        <option value="line">{{ $t('line') }}</option>
                     </select>
                 </div>
             </div>
@@ -31,7 +31,7 @@
                     <div class="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-blue-500"></div>
                 </div>
                 <div v-else-if="error" class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative" role="alert">
-                    <strong class="font-bold">Error!</strong>
+                    <strong class="font-bold">{{ $t('error') }}!</strong>
                     <span class="block sm:inline">{{ error }}</span>
                 </div>
                 <v-chart
@@ -46,14 +46,14 @@
 
         <!-- Data Table -->
         <div class="mt-8">
-            <h3 class="text-xl font-semibold text-white mb-4">Detailed Breakdown</h3>
+            <h3 class="text-xl font-semibold text-white mb-4">{{ $t('detailedBreakdown') }}</h3>
             <div class="overflow-x-auto">
                 <table class="min-w-full bg-white text-black">
                     <thead class="bg-gray-200 text-gray-700">
                     <tr>
-                        <th class="py-2 px-4 text-left">Article Name</th>
-                        <th class="py-2 px-4 text-left">Order Count</th>
-                        <th class="py-2 px-4 text-left">Percentage</th>
+                        <th class="py-2 px-4 text-left">{{ $t('articleName') }}</th>
+                        <th class="py-2 px-4 text-left">{{ $t('orderCount') }}</th>
+                        <th class="py-2 px-4 text-left">{{ $t('percentage') }}</th>
                     </tr>
                     </thead>
                     <tbody>

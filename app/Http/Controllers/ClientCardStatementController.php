@@ -112,7 +112,7 @@ class ClientCardStatementController extends Controller
 
         // Fetch relevant fakturas (isInvoiced=true and client_id matches)
         $fakturasQuery = Faktura::query()
-            ->where('isInvoiced', true)
+            ->where('isInvoiced', 1)
             ->whereHas('invoices', function ($query) use ($cardStatement) {
                 $query->where('client_id', $cardStatement->client_id);
             });
