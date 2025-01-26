@@ -2,12 +2,12 @@
     <MainLayout>
         <div class="pl-7 pr-7">
             <div class="flex justify-between align-center">
-            <Header title="Offers List" subtitle="Manage Offers" icon="List.png" />
-               <div class="flex align-center py-5">
-                <button @click="navigateToOfferCreate" class="btn create-order1">
-                    Create New Offer
-                </button>
-               </div>
+                <Header title="Offers List" subtitle="Manage Offers" icon="List.png" />
+                <div class="flex align-center py-5">
+                    <button @click="navigateToOfferCreate" class="btn create-order1">
+                        Create New Offer
+                    </button>
+                </div>
             </div>
 
             <div class="dark-gray">
@@ -17,15 +17,15 @@
                         <button
                             v-for="tab in tabs"
                             :key="tab.value"
-                            @click="currentTab = tab.value"
+                            @click="switchTab(tab.value)"
                             :class="[
                                 'tab-button',
                                 currentTab === tab.value ? 'active' : ''
                             ]"
                         >
-                            <span class="tab-label">{{ tab.label }}</span>
+                            {{ tab.label }}
                             <span :class="['tab-count', `tab-count-${tab.value}`]">
-                                {{ getOffersCount(tab.value) }}
+                                {{ counts[tab.value] }}
                             </span>
                         </button>
                     </div>
@@ -45,21 +45,14 @@
                         </tr>
                     </thead>
                     <tbody>
-                        <tr v-for="offer in filteredOffers" :key="offer.id">
-                            <!-- Client -->
+                        <tr v-for="offer in offers.data" :key="offer.id">
                             <td>{{ offer.client }}</td>
-
-                            <!-- Status -->
                             <td>
                                 <span :class="['status-badge', offer.status]">
                                     {{ offer.status }}
                                 </span>
                             </td>
-
-                            <!-- Validity days -->
                             <td>{{ offer.validity_days }} days</td>
-
-                            <!-- Items -->
                             <td>
                                 <button
                                     @click="viewItems(offer)"
@@ -69,11 +62,7 @@
                                     <i class="fas fa-eye ml-1"></i>
                                 </button>
                             </td>
-
-                            <!-- Created at -->
                             <td>{{ formatDate(offer.created_at) }}</td>
-
-                            <!-- Actions -->
                             <td class="space-x-2 flex justify-center">
                                 <button
                                     v-if="currentTab === 'pending' || currentTab === 'declined'"
@@ -126,6 +115,27 @@
                         </tr>
                     </tbody>
                 </table>
+
+                <!-- Pagination -->
+                <div class="mt-6 flex flex-col justify-between items-center">
+                    <div class="flex space-x-2">
+                        <Link
+                            v-for="link in offers.links"
+                            :key="link.label"
+                            :href="link.url"
+                            class="px-2 py-1 border rounded"
+                            :class="{
+                                'bg-gray-800 text-white': link.active,
+                                'text-gray-200 hover:text-white hover:bg-gray-600': !link.active,
+                                'opacity-50 cursor-not-allowed': !link.url
+                            }"
+                            v-html="link.label"
+                        />
+                    </div>
+                    <div class="text-xs text-gray-500 pt-1">
+                        Showing {{ offers.from }} to {{ offers.to }} of {{ offers.total }} offers
+                    </div>
+                </div>
             </div>
 
             <!-- Items Modal -->
@@ -585,7 +595,9 @@ export default {
     },
 
     props: {
-        offers: Array
+        offers: Object,
+        filters: Object,
+        counts: Object
     },
 
     data() {
@@ -597,7 +609,7 @@ export default {
             showItemSelection: false,
             selectedOffer: null,
             itemsViewMode: 'grid',
-            currentTab: 'pending',
+            currentTab: this.filters.status || 'pending',
             declineReason: '',
             isEditingDeclineReason: false,
             itemSearchQuery: '',
@@ -625,7 +637,7 @@ export default {
 
     computed: {
         filteredOffers() {
-            return this.offers.filter(offer => offer.status === this.currentTab);
+            return this.offers.data.filter(offer => offer.status === this.currentTab);
         },
         selectedClientContacts() {
             if (!this.selectedClient) return [];
@@ -634,21 +646,40 @@ export default {
         filteredCatalogItems() {
             if (!this.itemSearchQuery) return this.catalogItems;
             const query = this.itemSearchQuery.toLowerCase();
-            return this.catalogItems.filter(item => 
+            return this.catalogItems.filter(item =>
                 item.name.toLowerCase().includes(query)
             );
         }
     },
 
     methods: {
+        switchTab(status) {
+            this.$inertia.get(route('offer.index'),
+                { status },
+                {
+                    preserveState: true,
+                    preserveScroll: true,
+                    replace: true
+                }
+            );
+            this.currentTab = status;
+        },
+
         formatDate(date) {
             if (!date) return '-';
-            const d = new Date(date);
-            return d.toLocaleDateString('en-GB', {
-                day: '2-digit',
-                month: '2-digit',
-                year: 'numeric'
-            });
+            return new Date(date).toLocaleDateString();
+        },
+
+        async viewOffer(offer) {
+            this.$inertia.visit(route('offer.show', offer.id));
+        },
+
+        editOffer(offer) {
+            this.$inertia.visit(route('offer.edit', offer.id));
+        },
+
+        navigateToOfferCreate() {
+            this.$inertia.visit(route('offer.create'));
         },
 
         async viewItems(offer) {
@@ -672,7 +703,7 @@ export default {
         },
 
         getOffersCount(status) {
-            return this.offers.filter(offer => offer.status === status).length;
+            return this.offers.data.filter(offer => offer.status === status).length;
         },
 
         getTabCountClass(status) {
@@ -761,7 +792,7 @@ export default {
             try {
                 const response = await axios.get(`/offers/${offer.id}/edit`);
                 const { offer: offerData, clients, catalogItems } = response.data;
-                
+
                 this.clients = clients;
                 this.catalogItems = catalogItems;
                 this.editForm = {
@@ -774,7 +805,7 @@ export default {
                     production_time: offerData.production_time,
                     catalog_items: offerData.catalog_items
                 };
-                
+
                 this.selectedClient = this.clients.find(c => c.id === offerData.client_id);
                 this.showEditDialog = true;
             } catch (error) {
@@ -840,7 +871,7 @@ export default {
 
         async updatePrice(item) {
             if (!this.editForm.client_id || !item.quantity) return;
-            
+
             try {
                 const response = await axios.get('/calculate-price', {
                     params: {
@@ -858,10 +889,10 @@ export default {
 
         async updateOffer() {
             if (this.isSubmitting) return;
-            
+
             this.isSubmitting = true;
             const toast = useToast();
-            
+
             try {
                 await axios.put(`/offers/${this.editForm.id}`, this.editForm);
                 toast.success('Offer updated successfully');
@@ -887,10 +918,6 @@ export default {
                 style: 'currency',
                 currency: 'EUR'
             }).format(price);
-        },
-
-        navigateToOfferCreate(){
-            this.$inertia.visit(`/offer/create`);
         },
     }
 };
@@ -933,11 +960,14 @@ $orange: #a36a03;
 .btn-danger:hover {
     background-color: darken($red, 5%);
 }
+.bg-blue{
+    background-color: $blue;
+}
 .dark-gray {
     background-color: $dark-gray;
     padding: 1rem;
-    border-radius: 0.5rem;
     margin-top: 1rem;
+    margin-bottom: 1rem;
 }
 .btn {
     padding: 9px 12px;
@@ -1180,6 +1210,29 @@ table {
     }
     to {
         transform: rotate(360deg);
+    }
+}
+
+// Update pagination styles to match theme
+.pagination-link {
+    background-color: $dark-gray;
+    border-color: $light-gray;
+    color: $ultra-light-gray;
+
+    &.active {
+        background-color: $blue;
+        color: $white;
+        border-color: $blue;
+    }
+
+    &:not(.active):not(.disabled):hover {
+        background-color: lighten($dark-gray, 5%);
+        color: $white;
+    }
+
+    &.disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
     }
 }
 </style>

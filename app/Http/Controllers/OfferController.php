@@ -13,10 +13,16 @@ class OfferController extends Controller
 {
     public function index()
     {
+        $perPage = 15;
+        $status = request()->get('status', 'pending'); // Default to 'pending' if no status is provided
+        
         $offers = Offer::with(['client', 'catalogItems.largeMaterial', 'catalogItems.smallMaterial'])
+            ->when($status, function($query, $status) {
+                return $query->where('status', $status);
+            })
             ->latest()
-            ->get()
-            ->map(function ($offer) {
+            ->paginate($perPage)
+            ->through(function ($offer) {
                 return [
                     'id' => $offer->id,
                     'client' => $offer->client->name,
@@ -50,8 +56,17 @@ class OfferController extends Controller
                 ];
             });
 
+        // Get counts for each status for the tabs
+        $counts = [
+            'pending' => Offer::where('status', 'pending')->count(),
+            'accepted' => Offer::where('status', 'accepted')->count(),
+            'declined' => Offer::where('status', 'declined')->count(),
+        ];
+
         return Inertia::render('Offer/Index', [
-            'offers' => $offers
+            'offers' => $offers,
+            'filters' => request()->all(['status']),
+            'counts' => $counts
         ]);
     }
 
