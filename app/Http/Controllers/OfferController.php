@@ -317,16 +317,18 @@ class OfferController extends Controller
             'production_time' => $request->production_time
         ]);
 
-        // Sync catalog items
-        $offer->catalogItems()->sync(
-            collect($request->catalog_items)->mapWithKeys(function ($item) {
-                return [$item['id'] => [
-                    'quantity' => $item['quantity'],
-                    'description' => $item['description'] ?? null,
-                    'custom_price' => $item['custom_price'] ?? null
-                ]];
-            })->all()
-        );
+        // Prepare the sync data with proper pivot attributes
+        $syncData = [];
+        foreach ($request->catalog_items as $item) {
+            $syncData[$item['id']] = [
+                'quantity' => $item['quantity'],
+                'description' => $item['description'] ?? null,
+                'custom_price' => $item['custom_price'] ?? null
+            ];
+        }
+
+        // Sync catalog items with pivot data
+        $offer->catalogItems()->sync($syncData);
 
         return response()->json(['message' => 'Offer updated successfully']);
     }

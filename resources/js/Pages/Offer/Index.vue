@@ -326,7 +326,7 @@
                             <h2 class="text-lg font-semibold">Edit Offer</h2>
                             <p class="text-sm">Client: {{ editForm.client?.name }}</p>
                         </div>
-                        <button @click="closeEditDialog" class="text-light-gray hover:text-white">
+                        <button @click="closeEditDialog" class="text-red-700 hover:text-red-500">
                             <i class="fas fa-times"></i>
                         </button>
                     </div>
@@ -411,7 +411,7 @@
                                     <button
                                         type="button"
                                         @click="openItemSelection"
-                                        class="px-3 py-1 bg-green text-white rounded hover:bg-light-green"
+                                        class="px-3 py-1 green rounded hover:bg-light-green"
                                     >
                                         <i class="fas fa-plus mr-1"></i> Add Item
                                     </button>
@@ -517,7 +517,7 @@
                 <div class="p-4 background-color">
                     <div class="modal-header flex justify-between items-center mb-4 pb-2">
                         <h2 class="text-lg font-semibold">Select Items</h2>
-                        <button @click="closeItemSelection" class="text-light-gray hover:text-white">
+                        <button @click="closeItemSelection" class="text-red-700 hover:text-red-500">
                             <i class="fas fa-times"></i>
                         </button>
                     </div>
@@ -915,6 +915,9 @@ $orange: #a36a03;
 }
 .green {
     color: $green;
+}
+.bg-green {
+    background-color: $green;
 }
 .btn-success {
     background-color: $green;

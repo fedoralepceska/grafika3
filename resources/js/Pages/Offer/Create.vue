@@ -66,7 +66,7 @@
                                 <div class="grid grid-cols-2 gap-6">
                                     <div class="space-y-4">
                                         <div>
-                                            <label class="text-white">Client</label>
+                                            <label class="text-white">Client <span class="text-red-500">*</span></label>
                                             <select
                                                 v-model="form.client_id"
                                                 class="w-full mt-1 rounded text-black"
@@ -80,7 +80,7 @@
                                             </select>
                                         </div>
                                         <div v-if="form.client_id !== ''">
-                                            <label for="contact" class="text-white">{{ $t('contact') }}:</label>
+                                            <label for="contact" class="text-white">{{ $t('contact') }}: <span class="text-red-500">*</span></label>
                                             <select v-model="form.contact_id" id="contact" class="w-full mt-1 rounded text-black" required>
                                                 <option v-for="contact in selectedClient?.contacts" :key="contact?.id" :value="contact?.id">
                                                     {{ contact?.name }} ({{ contact?.phone }})
@@ -88,7 +88,7 @@
                                             </select>
                                         </div>
                                         <div>
-                                            <label class="text-white">Name</label>
+                                            <label class="text-white">Name <span class="text-red-500">*</span></label>
                                             <input
                                                 v-model="form.name"
                                                 type="text"
@@ -108,7 +108,7 @@
                                     </div>
                                     <div class="space-y-4">
                                         <div>
-                                            <label class="text-white">Validity (Days)</label>
+                                            <label class="text-white">Validity (Days) <span class="text-red-500">*</span></label>
                                             <input
                                                 v-model.number="form.validity_days"
                                                 type="number"
@@ -118,7 +118,7 @@
                                             />
                                         </div>
                                         <div>
-                                            <label class="text-white">{{ $t('productionTime') }}</label>
+                                            <label class="text-white">{{ $t('productionTime') }} <span class="text-red-500">*</span></label>
                                             <input
                                                 v-model="form.production_time"
                                                 type="text"
@@ -143,7 +143,7 @@
                                     <div v-for="item in form.catalog_items" :key="item.selection_id" class="py-2">
                                         <div class="flex items-center gap-4">
                                             <!-- Name and Description -->
-                                            <div class="flex-1 min-w-0">
+                                            <div class="flex-1 min-w-0 pb-2">
                                                 <div class="flex items-center gap-2">
                                                     <h4 class="text-white text-sm font-medium truncate">{{ item.name }}</h4>
                                                     <input
@@ -156,7 +156,7 @@
                                             </div>
 
                                             <!-- Quantity -->
-                                            <div class="flex items-center gap-2 min-w-[120px]">
+                                            <div class="flex items-center gap-2 min-w-[120px] pb-2">
                                                 <label class="text-gray-400 text-xs whitespace-nowrap">Qty:</label>
                                                 <input
                                                     v-model.number="item.quantity"
@@ -189,7 +189,7 @@
                                             <!-- Remove Button -->
                                             <button
                                                 @click="removeItem(item)"
-                                                class="text-gray-400 hover:text-red-400 transition-colors p-1"
+                                                class="text-gray-400 hover:text-red-400 transition-colors p-1 pb-3"
                                                 title="Remove Item"
                                             >
                                                 <i class="fas fa-times"></i>
