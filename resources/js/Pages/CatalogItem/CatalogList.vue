@@ -13,7 +13,7 @@
         <div class="dark-gray p-2 text-white">
             <div class="form-container p-2 ">
                 <div class="flex justify-between items-center mb-4">
-                    <h2 class="sub-title">Catalog Items</h2>
+                    <h2 class="sub-title">{{ $t('catalogItems') }}</h2>
                 </div>
                 <div>
                     <input
@@ -28,16 +28,16 @@
                 <table class="w-full text-left border-collapse">
                     <thead>
                     <tr class="bg-gray-700 text-white">
-                        <th class="p-4">Preview</th>
-                        <th class="p-4">Template</th>
-                        <th class="p-4">Name</th>
-                        <th class="p-4">Machine Print</th>
-                        <th class="p-4">Machine Cut</th>
-                        <th class="p-4">Material</th>
-                        <th class="p-4">Default Price</th>
-                        <th class="p-4">Client Prices</th>
-                        <th class="p-4">Quantity Prices</th>
-                        <th class="p-4">Options</th>
+                        <th class="p-4">{{ $t('preview') }}</th>
+                        <th class="p-4">{{ $t('template') }}</th>
+                        <th class="p-4">{{ $t('name') }}</th>
+                        <th class="p-4">{{ $t('machineP') }}</th>
+                        <th class="p-4">{{ $t('machineC') }}</th>
+                        <th class="p-4">{{ $t('material') }}</th>
+                        <th class="p-4">{{ $t('defaultPrice') }}</th>
+                        <th class="p-4">{{ $t('clientPrices') }}</th>
+                        <th class="p-4">{{ $t('quantityPrices') }}</th>
+                        <th class="p-4">{{ $t('options') }}</th>
                     </tr>
                     </thead>
                     <tbody>
@@ -64,14 +64,14 @@
                             <div v-if="item.template_file" class="template-container">
                                 <span class="template-name">{{ getTemplateFileName(item.template_file) }}</span>
                                 <div class="template-actions">
-                                    <button 
+                                    <button
                                         @click="openTemplatePreview(item)"
                                         class="action-button text-blue-400 hover:text-blue-300"
                                         title="Preview Template"
                                     >
                                         <i class="fas fa-eye"></i>
                                     </button>
-                                    <a 
+                                    <a
                                         :href="route('catalog.download-template', item.id)"
                                         class="action-button text-green-400 hover:text-green-300 ml-2"
                                         title="Download Template"
@@ -80,7 +80,7 @@
                                     </a>
                                 </div>
                             </div>
-                            <span v-else class="text-gray-500">No template</span>
+                            <span v-else class="text-gray-500">{{ $t('noTemplate') }}</span>
                         </td>
                         <td class="p-4">{{ item.name }}</td>
                         <td class="p-4">{{ item.machinePrint }}</td>
@@ -91,19 +91,19 @@
                         <td class="p-4">{{ formatPrice(item.price) }}</td>
                         <td class="p-4">
                             <button @click="openClientPricesDialog(item)" class="btn btn-secondary">
-                                <i class="fas fa-users"></i> Manage
+                                <i class="fas fa-users"></i> {{ $t('manage') }}
                             </button>
                         </td>
                         <td class="p-4">
                             <button @click="openQuantityPricesDialog(item)" class="btn btn-secondary">
-                                <i class="fas fa-layer-group"></i> Manage
+                                <i class="fas fa-layer-group"></i> {{ $t('manage') }}
                             </button>
                         </td>
-                        
+
                         <td class="p-4 text-center">
                             <div class="flex space-x-2">
                                 <button @click="openEditDialog(item)" class="btn btn-secondary">
-                                    <i class="fas fa-edit"></i> Edit
+                                    <i class="fas fa-edit"></i> {{ $t('Edit') }}
                                 </button>
 <!--                                <button @click="deleteCatalogItem(item.id)" class="btn btn-danger">-->
 <!--                                    <i class="fas fa-trash"></i>-->
@@ -121,10 +121,10 @@
                         class="btn btn-secondary"
                         :class="{ 'opacity-50 cursor-not-allowed': !pagination.links?.prev }"
                     >
-                        Previous
+                        {{ $t('previous') }}
                     </button>
                     <span class="text-white">
-                        Page {{ pagination.current_page }} of {{ pagination.last_page }}
+                        {{ $t('page') }} {{ pagination.current_page }} {{ $t('of') }} {{ pagination.last_page }}
                     </span>
                     <button
                         :disabled="!pagination.links?.next"
@@ -132,7 +132,7 @@
                         class="btn btn-secondary"
                         :class="{ 'opacity-50 cursor-not-allowed': !pagination.links?.next }"
                     >
-                        Next
+                        {{ $t('next') }}
                     </button>
                 </div>
             </div>
@@ -142,7 +142,7 @@
         <div v-if="selectedItem" class="modal-backdrop">
             <div class="modal">
                 <div class="modal-header">
-                    <h2>{{ selectedItem.name }} Actions</h2>
+                    <h2>{{ selectedItem.name }} {{ $t('ACTIONS') }}</h2>
                     <button @click="closeActionsDialog" class="close-button">&times;</button>
                 </div>
                 <div class="modal-body">
@@ -154,7 +154,7 @@
                         </ul>
                     </div>
                     <div v-else>
-                        <p>No actions available for this item.</p>
+                        <p>{{ $t('noActionsAvailableForThisItem') }}.</p>
                     </div>
                 </div>
             </div>
@@ -172,24 +172,24 @@
                         <div class="grid grid-cols-2 gap-6">
                             <div class="space-y-4">
                                 <div>
-                                    <label class="text-white">Name</label>
+                                    <label class="text-white">{{ $t('name') }}</label>
                                     <input v-model="editForm.name" type="text" class="w-full mt-1 rounded" required />
                                 </div>
 
                                 <div>
-                                    <label class="text-white">Description</label>
-                                    <textarea 
-                                        v-model="editForm.description" 
-                                        class="w-full mt-1 rounded" 
+                                    <label class="text-white">{{ $t('description') }}</label>
+                                    <textarea
+                                        v-model="editForm.description"
+                                        class="w-full mt-1 rounded"
                                         rows="3"
                                         placeholder="Enter item description..."
                                     ></textarea>
                                 </div>
 
                                 <div>
-                                    <label class="text-white">Machine Print</label>
+                                    <label class="text-white">{{ $t('machineP') }}</label>
                                     <select v-model="editForm.machinePrint" class="w-full mt-1 rounded">
-                                        <option value="">Select Machine</option>
+                                        <option value="">{{ $t('selectMachine') }}</option>
                                         <option v-for="machine in machinesPrint"
                                                 :key="machine.id"
                                                 :value="machine.name">
@@ -199,9 +199,9 @@
                                 </div>
 
                                 <div>
-                                    <label class="text-white">Machine Cut</label>
+                                    <label class="text-white">{{ $t('machineC') }}</label>
                                     <select v-model="editForm.machineCut" class="w-full mt-1 rounded">
-                                        <option value="">Select Machine</option>
+                                        <option value="">{{ $t('selectMachine') }}</option>
                                         <option v-for="machine in machinesCut"
                                                 :key="machine.id"
                                                 :value="machine.name">
@@ -211,12 +211,12 @@
                                 </div>
 
                                 <div>
-                                    <label class="text-white">Category</label>
+                                    <label class="text-white">{{ $t('category') }}</label>
                                     <select
                                         v-model="editForm.category"
                                         class="w-full mt-1 rounded"
                                     >
-                                        <option value="">Select Category</option>
+                                        <option value="">{{ $t('selectCategory') }}</option>
                                         <option v-for="category in categories"
                                                 :key="category"
                                                 :value="category"
@@ -227,7 +227,7 @@
                                 </div>
 
                                 <div>
-                                    <label class="text-white">Large Format Material</label>
+                                    <label class="text-white">{{ $t('materialLargeFormat') }}</label>
                                     <select v-model="editForm.large_material_id"
                                             class="w-full mt-1 rounded"
                                             :disabled="editForm.small_material_id !== null">
@@ -241,12 +241,12 @@
                                     <button v-if="editForm.large_material_id"
                                             @click.prevent="clearLargeMaterial"
                                             class="text-sm text-red-500">
-                                        Clear Selection
+                                        {{ $t('clearSelection') }}
                                     </button>
                                 </div>
 
                                 <div>
-                                    <label class="text-white">Small Format Material</label>
+                                    <label class="text-white">{{ $t('materialSmallFormat') }}</label>
                                     <select v-model="editForm.small_material_id"
                                             class="w-full mt-1 rounded"
                                             :disabled="editForm.large_material_id !== null">
@@ -259,24 +259,24 @@
                                     <button v-if="editForm.small_material_id"
                                             @click.prevent="clearSmallMaterial"
                                             class="text-sm text-red-500">
-                                        Clear Selection
+                                        {{ $t('clearSelection') }}
                                     </button>
                                 </div>
 
                                 <div class="grid grid-cols-2 gap-4">
                                     <div>
-                                        <label class="text-white">Quantity</label>
+                                        <label class="text-white">{{ $t('quantity') }}</label>
                                         <input v-model="editForm.quantity" type="number" min="1"
                                                class="w-full mt-1 rounded" required />
                                     </div>
                                     <div>
-                                        <label class="text-white">Copies</label>
+                                        <label class="text-white">{{ $t('copies') }}</label>
                                         <input v-model="editForm.copies" type="number" min="1"
                                                class="w-full mt-1 rounded" required />
                                     </div>
                                 </div>
                                 <div>
-                                    <label class="text-white">Default Price</label>
+                                    <label class="text-white">{{ $t('defaultPrice') }}</label>
                                     <input
                                         v-model="editForm.price"
                                         type="number"
@@ -292,7 +292,7 @@
                             <div class="space-y-4">
                                 <!-- File Section -->
                                 <div class="file-upload">
-                                    <h3 class="text-white text-lg font-semibold mb-4">File Upload</h3>
+                                    <h3 class="text-white text-lg font-semibold mb-4">{{ $t('fileUpload') }}</h3>
                                     <div
                                         class="upload-area"
                                         @dragover.prevent
@@ -310,9 +310,9 @@
                                             <div class="upload-icon">
                                                 <span class="mdi mdi-cloud-upload text-4xl"></span>
                                             </div>
-                                            <p class="upload-text">Drag and drop your file here</p>
-                                            <p class="upload-text-sub">or click to browse</p>
-                                            <p class="file-types">Supported formats: PDF, PNG, JPG, JPEG</p>
+                                            <p class="upload-text">{{ $t('dragAndDrop') }}</p>
+                                            <p class="upload-text-sub">{{ $t('orClickToBrowse') }}</p>
+                                            <p class="file-types">{{ $t('supportedFormats') }}: PDF, PNG, JPG, JPEG</p>
                                         </div>
                                         <div v-else class="preview-container">
                                             <img
@@ -326,7 +326,7 @@
                                                 <span class="pdf-name">{{ fileName || currentItemFile }}</span>
                                             </div>
                                             <div class="update-image-text">
-                                                <p class="text-sm text-ultra-light-gray">Click or drag to update image</p>
+                                                <p class="text-sm text-ultra-light-gray">{{ $t('clickOrDragToUpdateImage') }}</p>
                                             </div>
                                         </div>
                                     </div>
@@ -334,7 +334,7 @@
 
                                 <!-- Template File Section -->
                                 <div class="mt-6">
-                                    <h3 class="text-white text-lg font-semibold mb-4">Template File (PDF only)</h3>
+                                    <h3 class="text-white text-lg font-semibold mb-4">{{ $t('templateFilePdfOnly') }}</h3>
                                     <div
                                         class="upload-area"
                                         @dragover.prevent
@@ -352,9 +352,9 @@
                                             <div class="upload-icon">
                                                 <span class="mdi mdi-cloud-upload text-4xl"></span>
                                             </div>
-                                            <p class="upload-text">Drag and drop template PDF here</p>
-                                            <p class="upload-text-sub">or click to browse</p>
-                                            <p class="file-types">Supported format: PDF</p>
+                                            <p class="upload-text">{{ $t('dragAndDropTemplatePdfHere') }}</p>
+                                            <p class="upload-text-sub">{{ $t('orClickToBrowse') }}</p>
+                                            <p class="file-types">{{ $t('supportedFormats') }}: PDF</p>
                                         </div>
                                         <div v-else class="preview-container">
                                             <div class="pdf-preview">
@@ -363,7 +363,7 @@
                                             </div>
                                             <div class="template-actions mt-2">
                                                 <button type="button" class="text-red-500 hover:text-red-700" @click.stop="removeTemplate">
-                                                    <i class="fas fa-trash mr-1"></i> Remove Template
+                                                    <i class="fas fa-trash mr-1"></i> {{ $t('removeTemplate') }}
                                                 </button>
                                             </div>
                                         </div>
@@ -378,7 +378,7 @@
                                             v-model="editForm.is_for_offer"
                                             class="rounded border-gray-300 text-indigo-600 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
                                         />
-                                        <label for="is_for_offer" class="text-white ml-2">For Offer</label>
+                                        <label for="is_for_offer" class="text-white ml-2">{{ $t('forOffer') }}</label>
                                     </div>
                                     <div>
                                         <input
@@ -387,7 +387,7 @@
                                             v-model="editForm.is_for_sales"
                                             class="rounded border-gray-300 text-indigo-600 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
                                         />
-                                        <label for="is_for_sales" class="text-white ml-2">For Sales</label>
+                                        <label for="is_for_sales" class="text-white ml-2">{{ $t('forSales') }}</label>
                                     </div>
                                 </div>
 
@@ -396,25 +396,25 @@
 
                         <!-- Component Articles Section -->
                         <div class="mt-6">
-                            <h3 class="text-white text-lg font-semibold mb-4">Component Articles</h3>
-                            
+                            <h3 class="text-white text-lg font-semibold mb-4">{{ $t('componentArticles') }}</h3>
+
                             <!-- Products Section -->
                             <div class="mb-6">
                                 <div class="flex justify-between items-center mb-4">
-                                    <h4 class="text-white text-md font-medium">Products</h4>
+                                    <h4 class="text-white text-md font-medium">{{ $t('products') }}</h4>
                                     <button
                                         type="button"
                                         @click="addArticle('product')"
                                         class="text-green-500 hover:text-green-700"
                                     >
-                                        <span class="mdi mdi-plus-circle"></span> Add Product
+                                        <span class="mdi mdi-plus-circle"></span> {{ $t('addProduct') }}
                                     </button>
                                 </div>
                                 <div class="space-y-4">
                                     <div v-for="(article, index) in productArticles" :key="index"
                                          class="flex items-center space-x-4 light-gray p-4 rounded">
                                         <div class="flex-1">
-                                            <label class="text-white mb-2 block">Product</label>
+                                            <label class="text-white mb-2 block">{{ $t('product') }}</label>
                                             <CatalogArticleSelect
                                                 v-model="article.id"
                                                 :type="'product'"
@@ -423,7 +423,7 @@
                                             />
                                         </div>
                                         <div class="w-32">
-                                            <label class="text-white mb-2 block">Quantity{{ article.unitLabel ? ` (${article.unitLabel})` : '' }}</label>
+                                            <label class="text-white mb-2 block">{{ $t('quantity') }}{{ article.unitLabel ? ` (${article.unitLabel})` : '' }}</label>
                                             <input
                                                 v-model="article.quantity"
                                                 type="number"
@@ -448,20 +448,20 @@
                             <!-- Services Section -->
                             <div>
                                 <div class="flex justify-between items-center mb-4">
-                                    <h4 class="text-white text-md font-medium">Services</h4>
+                                    <h4 class="text-white text-md font-medium">{{ $t('services') }}</h4>
                                     <button
                                         type="button"
                                         @click="addArticle('service')"
                                         class="text-green-500 hover:text-green-700"
                                     >
-                                        <span class="mdi mdi-plus-circle"></span> Add Service
+                                        <span class="mdi mdi-plus-circle"></span> {{ $t('addService') }}
                                     </button>
                                 </div>
                                 <div class="space-y-4">
                                     <div v-for="(article, index) in serviceArticles" :key="index"
                                          class="flex items-center space-x-4 light-gray p-4 rounded">
                                         <div class="flex-1">
-                                            <label class="text-white mb-2 block">Service</label>
+                                            <label class="text-white mb-2 block">{{ $t('service') }}</label>
                                             <CatalogArticleSelect
                                                 v-model="article.id"
                                                 :type="'service'"
@@ -470,7 +470,7 @@
                                             />
                                         </div>
                                         <div class="w-32">
-                                            <label class="text-white mb-2 block">Quantity{{ article.unitLabel ? ` (${article.unitLabel})` : '' }}</label>
+                                            <label class="text-white mb-2 block">{{ $t('quantity') }}{{ article.unitLabel ? ` (${article.unitLabel})` : '' }}</label>
                                             <input
                                                 v-model="article.quantity"
                                                 type="number"
@@ -491,21 +491,21 @@
                                     </div>
                                 </div>
                             </div>
-                            
+
                             <!-- Cost Price Display -->
                             <div class="mt-4 p-4 bg-gray-700 rounded">
-                                <h4 class="text-white text-md font-medium mb-3">Cost Summary</h4>
+                                <h4 class="text-white text-md font-medium mb-3">{{ $t('costSummary') }}</h4>
                                 <div class="space-y-2">
                                     <div class="flex justify-between items-center">
-                                        <span class="text-gray-300">Products Cost:</span>
+                                        <span class="text-gray-300">{{ $t('productsCost') }}:</span>
                                         <span class="text-white">€{{ displayProductsCost.toFixed(2) }}</span>
                                     </div>
                                     <div class="flex justify-between items-center">
-                                        <span class="text-gray-300">Services Cost:</span>
+                                        <span class="text-gray-300">{{ $t('servicesCost') }}:</span>
                                         <span class="text-white">€{{ displayServicesCost.toFixed(2) }}</span>
                                     </div>
                                     <div class="flex justify-between items-center pt-2 border-t border-gray-600">
-                                        <span class="text-white font-semibold">Total Cost Price:</span>
+                                        <span class="text-white font-semibold">{{ $t('totalCostPrice') }}:</span>
                                         <span class="text-white font-semibold">€{{ displayTotalCost.toFixed(2) }}</span>
                                     </div>
                                 </div>
@@ -514,7 +514,7 @@
 
                         <!-- Actions Section -->
                         <div class="mt-6">
-                            <h3 class="text-white text-lg font-semibold mb-4">Actions</h3>
+                            <h3 class="text-white text-lg font-semibold mb-4">{{ $t('ACTIONS') }}</h3>
                             <div class="space-y-4">
                                 <div v-for="(action, index) in editForm.actions" :key="index"
                                      class="flex items-center space-x-4 bg-gray-700 p-4 rounded">
@@ -541,14 +541,14 @@
 
                                 <button type="button" @click="addAction"
                                         class="text-green-500 hover:text-green-700">
-                                    <i class="fas fa-plus-circle"></i> Add Action
+                                    <i class="fas fa-plus-circle"></i> {{ $t('addAction') }}
                                 </button>
                             </div>
                         </div>
 
                         <div class="flex justify-end space-x-4">
                             <button type="submit" class="btn btn-primary">
-                                Update Catalog Item
+                                {{ $t('updateCatalogItem') }}
                             </button>
                         </div>
                     </form>
@@ -559,7 +559,7 @@
         <div v-if="showClientPricesDialog" class="modal-backdrop">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h2>Manage Client Prices - {{ selectedItemForPrices?.name }}</h2>
+                    <h2>{{ $t('manageClientPrices') }} - {{ selectedItemForPrices?.name }}</h2>
                     <button @click="closeClientPricesDialog" class="close-button">&times;</button>
                 </div>
                 <div class="modal-body">
@@ -576,7 +576,7 @@
                                 </select>
                             </div>
                             <div>
-                                <label class="text-white">Price</label>
+                                <label class="text-white">{{ $t('price') }}</label>
                                 <input
                                     v-model="clientPriceForm.price"
                                     type="number"
@@ -588,19 +588,19 @@
                             </div>
                         </div>
                         <div class="mt-4">
-                            <button type="submit" class="btn btn-primary">Add Client Price</button>
+                            <button type="submit" class="btn btn-primary">{{ $t('addClientPrice') }}</button>
                         </div>
                     </form>
 
                     <!-- Client prices list -->
                     <div class="mt-6">
-                        <h3 class="text-white text-lg font-semibold mb-4">Current Client Prices</h3>
+                        <h3 class="text-white text-lg font-semibold mb-4">{{ $t('currentClientPrices') }}</h3>
                         <table class="w-full">
                             <thead>
                                 <tr class="bg-gray-700">
-                                    <th class="p-2 text-left text-white">Client</th>
-                                    <th class="p-2 text-left text-white">Price</th>
-                                    <th class="p-2 text-center text-white">Actions</th>
+                                    <th class="p-2 text-left text-white">{{ $t('client') }}</th>
+                                    <th class="p-2 text-left text-white">{{ $t('price') }}</th>
+                                    <th class="p-2 text-center text-white">{{ $t('ACTIONS') }}</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -622,17 +622,17 @@
                                 @click="loadClientPrices(clientPricesPagination.current_page - 1)"
                                 class="btn btn-secondary"
                             >
-                                Previous
+                                {{ $t('previous') }}
                             </button>
                             <span class="text-white">
-                                Page {{ clientPricesPagination.current_page }} of {{ clientPricesPagination.last_page }}
+                                {{ $t('page') }} {{ clientPricesPagination.current_page }} {{ $t('of') }} {{ clientPricesPagination.last_page }}
                             </span>
                             <button
                                 :disabled="clientPricesPagination.current_page === clientPricesPagination.last_page"
                                 @click="loadClientPrices(clientPricesPagination.current_page + 1)"
                                 class="btn btn-secondary"
                             >
-                                Next
+                                {{ $t('next') }}
                             </button>
                         </div>
                     </div>
@@ -644,7 +644,7 @@
         <div v-if="showQuantityPricesDialog" class="modal-backdrop">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h2>Manage Quantity Prices - {{ selectedItemForPrices?.name }}</h2>
+                    <h2>{{ $t('manageQuantityPrices') }} - {{ selectedItemForPrices?.name }}</h2>
                     <button @click="closeQuantityPricesDialog" class="close-button">&times;</button>
                 </div>
                 <div class="modal-body">
@@ -652,10 +652,10 @@
                     <form @submit.prevent="saveQuantityPrice" class="mb-6">
                         <div class="grid grid-cols-2 gap-4">
                             <div>
-                                <label class="text-white">Client</label>
-                                <select 
-                                    v-model="quantityPriceForm.client_id" 
-                                    class="w-full mt-1 rounded" 
+                                <label class="text-white">{{ $t('client') }}</label>
+                                <select
+                                    v-model="quantityPriceForm.client_id"
+                                    class="w-full mt-1 rounded"
                                     required
                                     @change="handleClientChange"
                                 >
@@ -666,7 +666,7 @@
                                 </select>
                             </div>
                             <div>
-                                <label class="text-white">Price</label>
+                                <label class="text-white">{{ $t('price') }}</label>
                                 <input
                                     v-model="quantityPriceForm.price"
                                     type="number"
@@ -677,7 +677,7 @@
                                 />
                             </div>
                             <div>
-                                <label class="text-white">Quantity From</label>
+                                <label class="text-white">{{ $t('quantityFrom') }}</label>
                                 <input
                                     v-model="quantityPriceForm.quantity_from"
                                     type="number"
@@ -686,7 +686,7 @@
                                 />
                             </div>
                             <div>
-                                <label class="text-white">Quantity To</label>
+                                <label class="text-white">{{ $t('quantityTo') }}</label>
                                 <input
                                     v-model="quantityPriceForm.quantity_to"
                                     type="number"
@@ -696,20 +696,20 @@
                             </div>
                         </div>
                         <div class="mt-4">
-                            <button type="submit" class="btn btn-primary">Add Quantity Price</button>
+                            <button type="submit" class="btn btn-primary">{{ $t('addQuantityPrice') }}</button>
                         </div>
                     </form>
 
                     <!-- Quantity prices list -->
                     <div class="mt-6">
-                        <h3 class="text-white text-lg font-semibold mb-4">Current Quantity Prices</h3>
+                        <h3 class="text-white text-lg font-semibold mb-4">{{ $t('currentQuantityPrices') }}</h3>
                         <table class="w-full">
                             <thead>
                                 <tr class="bg-gray-700">
-                                    <th class="p-2 text-left text-white">Client</th>
-                                    <th class="p-2 text-left text-white">Quantity Range</th>
-                                    <th class="p-2 text-left text-white">Price</th>
-                                    <th class="p-2 text-center text-white">Actions</th>
+                                    <th class="p-2 text-left text-white">{{ $t('client') }}</th>
+                                    <th class="p-2 text-left text-white">{{ $t('quantityRange') }}</th>
+                                    <th class="p-2 text-left text-white">{{ $t('price') }}</th>
+                                    <th class="p-2 text-center text-white">{{ $t('ACTIONS') }}</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -734,17 +734,17 @@
                                 @click="loadQuantityPrices(quantityPricesPagination.current_page - 1)"
                                 class="btn btn-secondary"
                             >
-                                Previous
+                                {{ $t('previous') }}
                             </button>
                             <span class="text-white">
-                                Page {{ quantityPricesPagination.current_page }} of {{ quantityPricesPagination.last_page }}
+                                {{ $t('page') }} {{ quantityPricesPagination.current_page }} {{ $t('of') }} {{ quantityPricesPagination.last_page }}
                             </span>
                             <button
                                 :disabled="quantityPricesPagination.current_page === quantityPricesPagination.last_page"
                                 @click="loadQuantityPrices(quantityPricesPagination.current_page + 1)"
                                 class="btn btn-secondary"
                             >
-                                Next
+                                {{ $t('next') }}
                             </button>
                         </div>
                     </div>
@@ -755,11 +755,11 @@
         <div v-if="showTemplatePreviewDialog" class="modal-backdrop" @click="closeTemplatePreview">
             <div class="modal-content" @click.stop>
                 <div class="modal-header">
-                    <h2 class="text-xl font-semibold">Template Preview</h2>
+                    <h2 class="text-xl font-semibold">{{ $t('templatePreview') }}</h2>
                     <button @click="closeTemplatePreview" class="close-button">&times;</button>
                 </div>
                 <div class="modal-body">
-                    <embed 
+                    <embed
                         :src="templatePreviewUrl"
                         type="application/pdf"
                         width="100%"
@@ -1241,7 +1241,7 @@ export default {
 
         async loadQuantityPrices(page = 1) {
             if (!this.quantityPriceForm.client_id || !this.selectedItemForPrices) return;
-            
+
             try {
                 const response = await axios.get(
                     `/catalog-items/${this.selectedItemForPrices.id}/clients/${this.quantityPriceForm.client_id}/quantity-prices`,
@@ -1332,7 +1332,7 @@ export default {
 
         async deleteClientPrice(priceId) {
             if (!confirm('Are you sure you want to delete this client price?')) return;
-            
+
             try {
                 await axios.delete(`/client-prices/${priceId}`);
                 await this.loadClientPrices(this.clientPricesPagination.current_page);
@@ -1347,7 +1347,7 @@ export default {
 
         async deleteQuantityPrice(priceId) {
             if (!confirm('Are you sure you want to delete this quantity price?')) return;
-            
+
             try {
                 await axios.delete(`/quantity-prices/${priceId}`);
                 await this.loadQuantityPrices(this.quantityPricesPagination.current_page);
@@ -1412,7 +1412,7 @@ export default {
                 quantity: 1,
                 type: type
             };
-            
+
             if (type === 'product') {
                 this.productArticles.push(article);
             } else {

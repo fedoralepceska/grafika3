@@ -5,14 +5,14 @@
 
             <div class="dark-gray p-2 text-white">
                 <div class="form-container p-2 ">
-                    <h2 class="sub-title">Catalog item Creation</h2>
+                    <h2 class="sub-title">{{ $t('catalogItemCreation') }}</h2>
 
                     <form @submit.prevent="submit" class="space-y-6 w-full rounded-lg">
                         <!-- Basic Information -->
                         <div class="grid grid-cols-2 gap-6">
                             <div class="space-y-4">
                                 <div>
-                                    <label class="text-white">Name</label>
+                                    <label class="text-white">{{ $t('name') }}</label>
                                     <input
                                         v-model="form.name"
                                         type="text"
@@ -22,12 +22,12 @@
                                 </div>
 
                                 <div>
-                                    <label class="text-white">Machine Print</label>
+                                    <label class="text-white">{{ $t('machineP') }}</label>
                                     <select
                                         v-model="form.machinePrint"
                                         class="w-full mt-1 rounded"
                                     >
-                                        <option value="">Select Machine</option>
+                                        <option value="">{{ $t('selectMachine') }}</option>
                                         <option v-for="machine in machinesPrint"
                                                 :key="machine.id"
                                                 :value="machine.name">
@@ -37,12 +37,12 @@
                                 </div>
 
                                 <div>
-                                    <label class="text-white">Machine Cut</label>
+                                    <label class="text-white">{{ $t('machineC') }}</label>
                                     <select
                                         v-model="form.machineCut"
                                         class="w-full mt-1 rounded"
                                     >
-                                        <option value="">Select Machine</option>
+                                        <option value="">{{ $t('selectMachine') }}</option>
                                         <option v-for="machine in machinesCut"
                                                 :key="machine.id"
                                                 :value="machine.name">
@@ -51,12 +51,12 @@
                                     </select>
                                 </div>
                                 <div>
-                                    <label class="text-white">Category</label>
+                                    <label class="text-white">{{ $t('category') }}</label>
                                     <select
                                         v-model="form.category"
                                         class="w-full mt-1 rounded"
                                     >
-                                        <option value="">Select Machine</option>
+                                        <option value="">{{ $t('selectCategory') }}</option>
                                         <option v-for="category in categories"
                                                 :key="category"
                                                 :value="category"
@@ -69,13 +69,13 @@
 
                             <div class="space-y-4">
                                 <div>
-                                    <label class="text-white">Large Format Material</label>
+                                    <label class="text-white">{{ $t('materialLargeFormat') }}</label>
                                     <select
                                         v-model="form.large_material_id"
                                         class="w-full mt-1 rounded"
                                         :disabled="form.small_material_id !== null"
                                     >
-                                        <option value="">Select Material</option>
+                                        <option value="">{{ $t('selectMaterial') }}</option>
                                         <option v-for="material in largeMaterials"
                                                 :key="material.id"
                                                 :value="material.id">
@@ -85,13 +85,13 @@
                                 </div>
 
                                 <div>
-                                    <label class="text-white">Small Format Material</label>
+                                    <label class="text-white">{{ $t('materialSmallFormat') }}</label>
                                     <select
                                         v-model="form.small_material_id"
                                         class="w-full mt-1 rounded"
                                         :disabled="form.large_material_id !== null"
                                     >
-                                        <option value="">Select Material</option>
+                                        <option value="">{{ $t('selectMaterial') }}</option>
                                         <option v-for="material in smallMaterials"
                                                 :key="material.id"
                                                 :value="material.id">
@@ -102,7 +102,7 @@
 
                                 <div class="grid grid-cols-2 gap-4">
                                     <div>
-                                        <label class="text-white">Quantity</label>
+                                        <label class="text-white">{{ $t('quantity') }}</label>
                                         <input
                                             v-model="form.quantity"
                                             type="number"
@@ -112,7 +112,7 @@
                                         />
                                     </div>
                                     <div>
-                                        <label class="text-white">Copies</label>
+                                        <label class="text-white">{{ $t('copies') }}</label>
                                         <input
                                             v-model="form.copies"
                                             type="number"
@@ -123,7 +123,7 @@
                                     </div>
                                 </div>
                                 <div>
-                                    <label class="text-white">Default Price</label>
+                                    <label class="text-white">{{ $t('defaultPrice') }}</label>
                                     <input
                                         v-model="form.price"
                                         type="number"
@@ -136,11 +136,11 @@
                                 <div class="grid grid-cols-2 gap-4 pt-9">
                                     <div>
                                         <Checkbox name="is_for_offer" v-model:checked="form.is_for_offer" />
-                                        <label class="text-white ml-2">For Offer</label>
+                                        <label class="text-white ml-2">{{ $t('forOffer') }}</label>
                                     </div>
                                     <div>
                                         <Checkbox name="is_for_sales" v-model:checked="form.is_for_sales" />
-                                        <label class="text-white ml-2">For Sales</label>
+                                        <label class="text-white ml-2">{{ $t('forSales') }}</label>
                                     </div>
                                 </div>
                             </div>
@@ -148,25 +148,25 @@
 
                         <!-- Articles Section -->
                         <div class="mt-6">
-                            <h3 class="text-white text-lg font-semibold mb-4">Component Articles</h3>
-                            
+                            <h3 class="text-white text-lg font-semibold mb-4">{{ $t('componentArticles') }}</h3>
+
                             <!-- Products Section -->
                             <div class="mb-6">
                                 <div class="flex justify-between items-center mb-4">
-                                    <h4 class="text-white text-md font-medium">Products</h4>
+                                    <h4 class="text-white text-md font-medium">{{ $t('products') }}</h4>
                                     <button
                                         type="button"
                                         @click="addArticle('product')"
                                         class="text-green-500 hover:text-green-700"
                                     >
-                                        <span class="mdi mdi-plus-circle"></span> Add Product
+                                        <span class="mdi mdi-plus-circle"></span> {{ $t('addProduct') }}
                                     </button>
                                 </div>
                                 <div class="space-y-4">
                                     <div v-for="(article, index) in productArticles" :key="index"
                                          class="flex items-center space-x-4 light-gray p-4 rounded">
                                         <div class="flex-1">
-                                            <label class="text-white mb-2 block">Product</label>
+                                            <label class="text-white mb-2 block">{{ $t('product') }}</label>
                                             <CatalogArticleSelect
                                                 v-model="article.id"
                                                 :type="'product'"
@@ -175,7 +175,7 @@
                                             />
                                         </div>
                                         <div class="w-32">
-                                            <label class="text-white mb-2 block">Quantity{{ article.unitLabel ? ` (${article.unitLabel})` : '' }}</label>
+                                            <label class="text-white mb-2 block">{{ $t('quantity') }}{{ article.unitLabel ? ` (${article.unitLabel})` : '' }}</label>
                                             <input
                                                 v-model="article.quantity"
                                                 type="number"
@@ -199,20 +199,20 @@
                             <!-- Services Section -->
                             <div>
                                 <div class="flex justify-between items-center mb-4">
-                                    <h4 class="text-white text-md font-medium">Services</h4>
+                                    <h4 class="text-white text-md font-medium">{{ $t('services') }}</h4>
                                     <button
                                         type="button"
                                         @click="addArticle('service')"
                                         class="text-green-500 hover:text-green-700"
                                     >
-                                        <span class="mdi mdi-plus-circle"></span> Add Service
+                                        <span class="mdi mdi-plus-circle"></span> {{ $t('addService') }}
                                     </button>
                                 </div>
                                 <div class="space-y-4">
                                     <div v-for="(article, index) in serviceArticles" :key="index"
                                          class="flex items-center space-x-4 light-gray p-4 rounded">
                                         <div class="flex-1">
-                                            <label class="text-white mb-2 block">Service</label>
+                                            <label class="text-white mb-2 block">{{ $t('service') }}</label>
                                             <CatalogArticleSelect
                                                 v-model="article.id"
                                                 :type="'service'"
@@ -221,7 +221,7 @@
                                             />
                                         </div>
                                         <div class="w-32">
-                                            <label class="text-white mb-2 block">Quantity{{ article.unitLabel ? ` (${article.unitLabel})` : '' }}</label>
+                                            <label class="text-white mb-2 block">{{ $t('quantity') }}{{ article.unitLabel ? ` (${article.unitLabel})` : '' }}</label>
                                             <input
                                                 v-model="article.quantity"
                                                 type="number"
@@ -241,21 +241,21 @@
                                     </div>
                                 </div>
                             </div>
-                            
+
                             <!-- Cost Price Display -->
                             <div class="mt-4 p-4 bg-gray-700 rounded">
-                                <h4 class="text-white text-md font-medium mb-3">Cost Summary</h4>
+                                <h4 class="text-white text-md font-medium mb-3">{{ $t('costSummary') }}</h4>
                                 <div class="space-y-2">
                                     <div class="flex justify-between items-center">
-                                        <span class="text-gray-300">Products Cost:</span>
+                                        <span class="text-gray-300">{{ $t('productsCost') }}:</span>
                                         <span class="text-white">€{{ displayProductsCost.toFixed(2) }}</span>
                                     </div>
                                     <div class="flex justify-between items-center">
-                                        <span class="text-gray-300">Services Cost:</span>
+                                        <span class="text-gray-300">{{ $t('servicesCost') }}:</span>
                                         <span class="text-white">€{{ displayServicesCost.toFixed(2) }}</span>
                                     </div>
                                     <div class="flex justify-between items-center pt-2 border-t border-gray-600">
-                                        <span class="text-white font-semibold">Total Cost Price:</span>
+                                        <span class="text-white font-semibold">{{ $t('totalCostPrice') }}:</span>
                                         <span class="text-white font-semibold">€{{ displayTotalCost.toFixed(2) }}</span>
                                     </div>
                                 </div>
@@ -265,7 +265,7 @@
                         <!-- File and Description Section -->
                         <div class="grid grid-cols-2 gap-6 mt-6">
                             <div class="file-upload">
-                                <h3 class="text-white text-lg font-semibold mb-4">File Upload</h3>
+                                <h3 class="text-white text-lg font-semibold mb-4">{{ $t('fileUpload') }}</h3>
                                 <div
                                     class="upload-area"
                                     @dragover.prevent
@@ -283,9 +283,9 @@
                                         <div class="upload-icon">
                                             <span class="mdi mdi-cloud-upload text-4xl"></span>
                                         </div>
-                                        <p class="upload-text">Drag and drop your file here</p>
-                                        <p class="upload-text-sub">or click to browse</p>
-                                        <p class="file-types">Supported formats: PDF, PNG, JPG, JPEG</p>
+                                        <p class="upload-text">{{ $t('dragAndDrop') }}</p>
+                                        <p class="upload-text-sub">{{ $t('orClickToBrowse') }}</p>
+                                        <p class="file-types">{{ $t('supportedFormats') }}: PDF, PNG, JPG, JPEG</p>
                                     </div>
                                     <div v-else class="preview-container">
                                         <img
@@ -303,7 +303,7 @@
                             </div>
 
                             <div class="description-section">
-                                <h3 class="text-white text-lg font-semibold mb-4">Description</h3>
+                                <h3 class="text-white text-lg font-semibold mb-4">{{ $t('description') }}</h3>
                                 <textarea
                                     v-model="form.description"
                                     class="w-full rounded description-textarea"
@@ -315,7 +315,7 @@
 
                         <!-- Template File Section -->
                         <div class="mt-6">
-                            <h3 class="text-white text-lg font-semibold mb-4">Template File (PDF only)</h3>
+                            <h3 class="text-white text-lg font-semibold mb-4">{{ $t('templateFilePdfOnly') }}</h3>
                             <div
                                 class="upload-area"
                                 @dragover.prevent
@@ -333,9 +333,9 @@
                                     <div class="upload-icon">
                                         <span class="mdi mdi-cloud-upload text-4xl"></span>
                                     </div>
-                                    <p class="upload-text">Drag and drop template PDF here</p>
-                                    <p class="upload-text-sub">or click to browse</p>
-                                    <p class="file-types">Supported format: PDF</p>
+                                    <p class="upload-text">{{ $t('dragAndDropTemplatePdfHere') }}</p>
+                                    <p class="upload-text-sub">{{ $t('orClickToBrowse') }}</p>
+                                    <p class="file-types">{{ $t('supportedFormats') }}: PDF</p>
                                 </div>
                                 <div v-else class="preview-container">
                                     <div class="pdf-preview">
@@ -348,7 +348,7 @@
 
                         <!-- Actions Section -->
                         <div class="mt-6">
-                            <h3 class="text-white text-lg font-semibold mb-4">Actions</h3>
+                            <h3 class="text-white text-lg font-semibold mb-4">{{ $t('ACTIONS') }}</h3>
                             <div class="space-y-4">
                                 <div v-for="(action, index) in form.actions" :key="index"
                                      class="flex items-center space-x-4 light-gray p-4 rounded">
@@ -397,14 +397,14 @@
                                     @click="addAction"
                                     class="text-green-500 hover:text-green-700"
                                 >
-                                    <span class="mdi mdi-plus-circle"></span> Add Action
+                                    <span class="mdi mdi-plus-circle"></span> {{ $t('addAction') }}
                                 </button>
                             </div>
                         </div>
 
                         <div class="flex justify-end space-x-4">
                             <button type="submit" class="btn btn-primary">
-                                Create Catalog Item
+                                {{ $t('createCatalogItem') }}
                             </button>
                         </div>
                     </form>
@@ -520,7 +520,7 @@ export default {
                 quantity: 1,
                 type: type
             };
-            
+
             if (type === 'product') {
                 this.productArticles.push(article);
             } else {
@@ -666,7 +666,7 @@ export default {
 
         async submit() {
             const toast = useToast();
-            
+
             // Combine products and services into articles array
             this.form.articles = [
                 ...this.productArticles.map(article => ({
