@@ -85,6 +85,7 @@ export default {
                 .then((response) => {
                     this.warehouses = this.warehouses.filter((w) => w.id !== warehouse.id);
                     toast.success('Warehouse deleted successfully!');
+                    this.$inertia.visit('/warehouse');
                 })
                 .catch((error) => {
                     toast.error('Failed to delete warehouse!');

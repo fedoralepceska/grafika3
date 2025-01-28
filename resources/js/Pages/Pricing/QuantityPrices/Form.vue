@@ -362,6 +362,7 @@ export default {
 
             try {
                 if (this.isEditing) {
+                    console.log(this.quantityPrice.id);
                     await this.$inertia.put(
                         route('quantity-prices.update', this.quantityPrice.id),
                         this.form
@@ -373,6 +374,7 @@ export default {
                 useToast().success(
                     `Price range${this.form.ranges.length > 1 ? 's' : ''} ${this.isEditing ? 'updated' : 'created'} successfully`
                 );
+                this.$inertia.visit('/quantity-prices');
             } catch (error) {
                 if (error.response?.data?.message) {
                     this.error = error.response.data.message;

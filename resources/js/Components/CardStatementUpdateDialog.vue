@@ -152,6 +152,7 @@ export default {
                 .post('/client_card_statement', this.data)
                 .then((response) => {
                     toast.success("Client card statement added successfully.")
+                    this.closeDialog();
                 })
                 .catch((error) => {
                     toast.error("Error adding client card statement!")

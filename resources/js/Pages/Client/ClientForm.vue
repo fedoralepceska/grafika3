@@ -85,7 +85,7 @@ export default {
                 .post('/clients', this.client)
                 .then((response) => {
                     toast.success("Client added successfully.")
-
+                    this.$inertia.visit('/clients');
                 })
                 .catch((error) => {
                     toast.error("Error adding client!")

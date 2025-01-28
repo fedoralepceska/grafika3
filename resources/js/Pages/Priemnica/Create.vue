@@ -318,10 +318,7 @@ export default {
                     this.dialog = false;
                     toast.success('Receipt created successfully!');
 
-                    setTimeout(() => {
-                        window.location.reload();
-                    }, 1000); // Adding a slight delay before reload to ensure the toast message is displayed
-
+                    this.$inertia.visit('/receipt');
                 })
 
                 .catch((error) => {

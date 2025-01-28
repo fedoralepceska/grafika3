@@ -103,6 +103,7 @@ export default {
                 .then((response) => {
                     this.fetchMachines();
                     toast.success('Machine deleted successfully!');
+                    this.closeDialog();
                 })
                 .catch((error) => {
                     toast.error('Failed to delete machine!');
