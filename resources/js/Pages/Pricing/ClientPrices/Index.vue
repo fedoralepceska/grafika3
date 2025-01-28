@@ -12,7 +12,7 @@
             <div class="dark-gray p-2 text-white">
                 <div class="form-container p-2">
                     <div class="flex justify-between items-center mb-4">
-                        <h2 class="sub-title">Client Prices</h2>
+                        <h2 class="sub-title">{{$t('clientPrices')}}</h2>
                     </div>
 
                     <!-- Search Bar -->
@@ -30,11 +30,11 @@
                     <table class="w-full text-left border-collapse">
                         <thead>
                             <tr class="bg-gray-700 text-white">
-                                <th class="p-4">Catalog Item</th>
-                                <th class="p-4">Client</th>
-                                <th class="p-4">Default Price</th>
-                                <th class="p-4">Custom Price</th>
-                                <th class="p-4">Actions</th>
+                                <th class="p-4">{{$t('catalogItem')}}</th>
+                                <th class="p-4">{{$t('client')}}</th>
+                                <th class="p-4">{{$t('defaultPrice')}}</th>
+                                <th class="p-4">{{$t('customPrice')}}</th>
+                                <th class="p-4">{{$t('ACTIONS')}}</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -53,7 +53,7 @@
                                             :href="route('client-prices.edit', price.id)"
                                             class="btn btn-secondary"
                                         >
-                                            <i class="fas fa-edit"></i> Edit
+                                            <i class="fas fa-edit"></i> {{$t('Edit')}}
                                         </Link>
                                         <button
                                             @click="confirmDelete(price)"
@@ -74,17 +74,17 @@
                             @click="changePage(prices.current_page - 1)"
                             class="btn btn-secondary"
                         >
-                            Previous
+                            {{$t('previous')}}
                         </button>
                         <span class="text-white">
-                            Page {{ prices.current_page }} of {{ prices.last_page }}
+                            {{$t('page')}} {{ prices.current_page }} {{$t('of')}} {{ prices.last_page }}
                         </span>
                         <button
                             :disabled="!prices.next_page_url"
                             @click="changePage(prices.current_page + 1)"
                             class="btn btn-secondary"
                         >
-                            Next
+                            {{$t('next')}}
                         </button>
                     </div>
                 </div>
@@ -95,17 +95,17 @@
         <div v-if="showDeleteModal" class="modal-backdrop">
             <div class="modal">
                 <div class="modal-header">
-                    <h2>Confirm Delete</h2>
+                    <h2>{{$t('confirmDelete')}}</h2>
                     <button @click="showDeleteModal = false" class="close-button">&times;</button>
                 </div>
                 <div class="modal-body">
-                    <p>Are you sure you want to delete this price?</p>
+                    <p>{{$t('areYouSureDeletePriceMessage')}}</p>
                     <div class="mt-4 flex justify-end space-x-2">
                         <button @click="showDeleteModal = false" class="btn btn-secondary">
-                            Cancel
+                            {{$t('cancel')}}
                         </button>
                         <button @click="deletePrice" class="btn btn-danger">
-                            Delete
+                            {{$t('delete')}}
                         </button>
                     </div>
                 </div>
@@ -286,4 +286,4 @@ export default {
         color: $red;
     }
 }
-</style> 
+</style>

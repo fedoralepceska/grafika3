@@ -2,8 +2,8 @@
     <MainLayout>
         <div class="pl-7 pr-7">
             <Header
-                title="Client-Specific Prices"
-                subtitle="Manage custom prices for specific clients"
+                title="clientSpecificPrices"
+                subtitle="manageCustomPrices"
                 icon="Price.png"
             />
 
@@ -23,7 +23,7 @@
                         :href="route('client-prices.create')"
                         class="btn btn-primary ml-4"
                     >
-                        Add Client Price
+                        {{$t('addClientPrice')}}
                     </Link>
                 </div>
 
@@ -32,11 +32,11 @@
                     <table class="min-w-full bg-gray-800">
                         <thead>
                             <tr class="gray">
-                                <th class="px-4 py-2 text-left">Catalog Item</th>
-                                <th class="px-4 py-2 text-left">Client</th>
-                                <th class="px-4 py-2 text-left">Default Price</th>
-                                <th class="px-4 py-2 text-left">Custom Price</th>
-                                <th class="px-4 py-2 text-left">Actions</th>
+                                <th class="px-4 py-2 text-left">{{$t('catalogItem')}}</th>
+                                <th class="px-4 py-2 text-left">{{$t('client')}}</th>
+                                <th class="px-4 py-2 text-left">{{$t('defaultPrice')}}</th>
+                                <th class="px-4 py-2 text-left">{{$t('customPrice')}}</th>
+                                <th class="px-4 py-2 text-left">{{$t('ACTIONS')}}</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -63,7 +63,7 @@
                                             :href="route('client-prices.edit', price.id)"
                                             class="btn btn-secondary text-blue-500 hover:text-blue-400"
                                         >
-                                            <i class="fas fa-edit"></i> Edit
+                                            <i class="fas fa-edit"></i> {{$t('Edit')}}
                                         </Link>
 <!--                                        <button-->
 <!--                                            @click="confirmDelete(price)"-->
@@ -76,12 +76,12 @@
                             </tr>
                             <tr v-if="clientPrices.length === 0">
                                 <td colspan="5" class="px-4 py-8 text-center text-gray-400">
-                                    No client-specific prices found.
+                                    {{$t('noClientPricesFound')}}
                                     <Link
                                         :href="route('client-prices.create')"
                                         class="text-blue-500 hover:text-blue-400 ml-2"
                                     >
-                                        Add one now
+                                        {{$t('addOneNow')}}
                                     </Link>
                                 </td>
                             </tr>
@@ -96,45 +96,45 @@
                         @click="changePage(pagination.current_page - 1)"
                         class="btn btn-secondary"
                     >
-                        Previous
+                        {{$t('previous')}}
                     </button>
                     <span class="text-white">
-                        Page {{ pagination.current_page }} of {{ pagination.total_pages }}
+                        {{$t('page')}} {{ pagination.current_page }} {{$t('of')}} {{ pagination.total_pages }}
                     </span>
                     <button
                         :disabled="pagination.current_page === pagination.total_pages"
                         @click="changePage(pagination.current_page + 1)"
                         class="btn btn-secondary"
                     >
-                        Next
+                        {{$t('next')}}
                     </button>
                 </div>
 
                 <!-- Delete Confirmation Modal -->
                 <Modal v-if="showDeleteModal" @close="showDeleteModal = false">
                     <template #title>
-                        Confirm Delete
+                        {{$t('confirmDelete')}}
                     </template>
                     <template #content>
-                        Are you sure you want to delete the custom price for
+                        {{$t('areYouSureDeletePriceMessage')}}
                         <strong>{{ selectedPrice?.catalog_item.name }}</strong>
-                        for client
+                        {{$t('forClient')}}
                         <strong>{{ selectedPrice?.client.name }}</strong>?
-                        This action cannot be undone.
+                        {{$t('thisActionCannotBeUndoneMessage')}}
                     </template>
                     <template #footer>
                         <button
                             @click="showDeleteModal = false"
                             class="btn btn-secondary mr-2"
                         >
-                            Cancel
+                            {{$t('cancel')}}
                         </button>
                         <button
                             @click="deletePrice"
                             class="btn btn-danger"
                             :disabled="isDeleting"
                         >
-                            {{ isDeleting ? 'Deleting...' : 'Delete' }}
+                            {{ isDeleting ? $t('deleting') : $t('delete') }}
                         </button>
                     </template>
                 </Modal>

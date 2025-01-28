@@ -2,8 +2,8 @@
     <MainLayout>
         <div class="pl-7 pr-7">
             <Header
-                :title="isEditing ? 'Edit Client Price' : 'Create Client Price'"
-                :subtitle="isEditing ? 'Update client-specific price' : 'Add new client-specific price'"
+                :title="isEditing ? 'editClientPrice' : 'createClientPrice'"
+                :subtitle="isEditing ? $t('updateClientSpecificPrice') : $t('addNewClientSpecificPrice')"
                 icon="Price.png"
                 link="client-prices"
             />
@@ -13,34 +13,34 @@
                     <form @submit.prevent="submit" class="space-y-6">
                         <!-- Catalog Item Selection -->
                         <div class="form-group" v-if="!isEditing">
-                            <label class="form-label">Catalog Item</label>
+                            <label class="form-label">{{$t('catalogItem')}}</label>
                             <select
                                 v-model="form.catalog_item_id"
                                 class="form-select"
                                 required
                                 :disabled="isEditing"
                             >
-                                <option value="">Select Catalog Item</option>
+                                <option value="">{{$t('selectCatalogItem')}}</option>
                                 <option
                                     v-for="item in catalogItems"
                                     :key="item.id"
                                     :value="item.id"
                                 >
-                                    {{ item.name }} (Default: {{ formatPrice(item.price) }})
+                                    {{ item.name }} ({{$t('default')}}: {{ formatPrice(item.price) }})
                                 </option>
                             </select>
                         </div>
 
                         <!-- Client Selection -->
                         <div class="form-group" v-if="!isEditing">
-                            <label class="form-label">Client</label>
+                            <label class="form-label">{{$t('client')}}</label>
                             <select
                                 v-model="form.client_id"
                                 class="form-select"
                                 required
                                 :disabled="isEditing"
                             >
-                                <option value="">Select Client</option>
+                                <option value="">{{$t('selectClient')}}</option>
                                 <option
                                     v-for="client in clients"
                                     :key="client.id"
@@ -53,7 +53,7 @@
 
                         <!-- Price Input -->
                         <div class="form-group">
-                            <label class="form-label">Client-Specific Price</label>
+                            <label class="form-label">{{$t('clientSpecificPrice')}}</label>
                             <input
                                 v-model="form.price"
                                 type="number"
@@ -63,7 +63,7 @@
                                 required
                             />
                             <small class="text-gray-400">
-                                This price will override the default price for this client
+                                {{$t('overrideDefaultPriceMessage')}}
                             </small>
                         </div>
 
@@ -75,7 +75,7 @@
                         <!-- Submit Button -->
                         <div class="flex justify-end">
                             <button type="submit" class="btn btn-primary">
-                                {{ isEditing ? 'Update' : 'Create' }} Client Price
+                                {{ isEditing ? $t('update') : $t('create') }} {{$t('clientPrice')}}
                             </button>
                         </div>
                     </form>
@@ -232,4 +232,4 @@ small {
     margin-top: 0.25rem;
     font-size: 0.875rem;
 }
-</style> 
+</style>
