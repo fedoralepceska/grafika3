@@ -10,22 +10,24 @@
         >
             <template v-slot:activator="{ props }">
                 <div v-bind="props" class="bt">
-                    <button class="white inline-flex items-center px-4 py-2 border border-transparent white-hover rounded-md font-semibold text-xs text-white uppercase tracking-widest focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition ease-in-out duration-50"  @click="openAddContactForm(client)">View Contacts</button>
+                    <button class="white inline-flex items-center px-4 py-2 border border-transparent white-hover rounded-md font-semibold text-xs text-white uppercase tracking-widest focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition ease-in-out duration-50"  @click="openAddContactForm(client)">
+                        {{ $t('viewContacts') }}
+                    </button>
                 </div>
             </template>
             <v-card class="height background">
                 <v-card-title>
-                    <span class="text-h5 text-white">Contacts for {{client.name}}</span>
+                    <span class="text-h5 text-white">{{ $t('contactsFor') }} {{client.name}}</span>
                 </v-card-title>
                 <div class="info">
                     <div v-if="showAddContactForm">
                             <table >
                                 <tr>
                                     <th></th>
-                                    <th>Name</th>
-                                    <th>Email</th>
-                                    <th>Phone</th>
-                                    <th>Delete</th>
+                                    <th>{{ $t('name') }}</th>
+                                    <th>{{ $t('email') }}</th>
+                                    <th>{{ $t('phone') }}</th>
+                                    <th>{{ $t('delete') }}</th>
                                 </tr>
                                 <tr v-for="(contact,index) in client.contacts">
                                     <td>#{{index+1}}</td>
@@ -50,7 +52,7 @@
                 <v-card-actions class="flexSpace gap-4">
                     <v-spacer></v-spacer>
                     <div class="flex btns">
-                    <SecondaryButton @click="closeDialog" class="red">Close</SecondaryButton>
+                    <SecondaryButton @click="closeDialog" class="red">{{ $t('close') }}</SecondaryButton>
                     <AddContactDialog :client="client"/>
                     </div>
                 </v-card-actions>

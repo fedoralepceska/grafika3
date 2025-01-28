@@ -303,6 +303,8 @@ const messages = {
         updateArticle: 'Update article',
         close: 'Close',
         articlesPerPage: 'Articles per page',
+        fivePerPage: '5 per page',
+        tenPerPage: '10 per page',
         twentyPerPage: '20 per page',
         fortyPerPage: '40 per page',
         sixtyPerPage: '60 per page',
@@ -359,7 +361,17 @@ const messages = {
         templatePreview: 'Template preview',
         catalogItemCreation: 'Catalog item creation',
         createCatalogItem: 'Create catalog item',
-        createNewCatalogItem: 'Create new catalog item'
+        createNewCatalogItem: 'Create new catalog item',
+        clientsPerPage: 'Clients per page',
+        showAll: 'Show all',
+        newContact: 'New contact',
+        update: 'Update',
+        cardStatement: 'Card statement',
+        viewContacts: 'View contacts',
+        delete: 'Delete',
+        contactsFor: 'Contacts for',
+        addNewContact: 'Add new contact',
+        saveContact: 'Save contact'
     },
     mk: {
         // Define your Macedonian translations here
@@ -665,6 +677,8 @@ const messages = {
         updateArticle: 'Ажурирај го артиклот',
         close: 'Затвори',
         articlesPerPage: 'Артикли по страна',
+        fivePerPage: '5 по страна',
+        tenPerPage: '10 по страна',
         twentyPerPage: '20 по страна',
         fortyPerPage: '40 по страна',
         sixtyPerPage: '60 по страна',
@@ -721,7 +735,17 @@ const messages = {
         templatePreview: 'Преглед на темплејт',
         catalogItemCreation: 'Креирање на ставка од каталог',
         createCatalogItem: 'Креирај ставка од каталог',
-        createNewCatalogItem: 'Креирај нова ставка од каталог'
+        createNewCatalogItem: 'Креирај нова ставка од каталог',
+        clientsPerPage: 'Клиенти по страна',
+        showAll: 'Покажи ги сите',
+        newContact: 'Нов контакт',
+        update: 'Ажурирај',
+        cardStatement: 'Клиентска картичка',
+        viewContacts: 'Види контакти',
+        delete: 'Избриши',
+        contactsFor: 'Контакти за',
+        addNewContact: 'Додади нов контакт',
+        saveContact: 'Зачувај контакт'
     },
 };
 

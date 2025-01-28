@@ -10,26 +10,26 @@
                         </h2>
                         <div class="search-container p-3 flex">
                             <input type="text" class="text-black rounded" v-model="search" @keyup="fetchClients" placeholder="Search by clients name">
-                            <div class="centered mr-1 ml-4 ">Clients per page</div>
+                            <div class="centered mr-1 ml-4 ">{{ $t('clientsPerPage') }}</div>
                             <div class="ml-3">
                                 <select v-model="perPage" class="rounded text-black" @change="fetchClients">
-                                    <option value="5">5 per page</option>
-                                    <option value="10">10 per page</option>
-                                    <option value="20">20 per page</option>
-                                    <option value="0">Show All</option>
+                                    <option value="5">{{ $t('fivePerPage') }}</option>
+                                    <option value="10">{{ $t('tenPerPage') }}</option>
+                                    <option value="20">{{ $t('twentyPerPage') }}</option>
+                                    <option value="0">{{ $t('showAll') }}</option>
                                 </select>
                             </div>
                         </div>
                         <table style="text-align: center">
                             <thead>
                             <tr>
-                                <th>Client Name</th>
-                                <th>Address</th>
-                                <th>City</th>
-                                <th>Contacts</th>
-                                <th>New Contact</th>
-                                <th>Update</th>
-                                <th>Card Statement</th>
+                                <th>{{ $t('company') }}</th>
+                                <th>{{ $t('address') }}</th>
+                                <th>{{ $t('city') }}</th>
+                                <th>{{ $t('contacts') }}</th>
+                                <th>{{ $t('newContact') }}</th>
+                                <th>{{ $t('update') }}</th>
+                                <th>{{ $t('cardStatement') }}</th>
                             </tr>
                             </thead>
                             <tbody>
@@ -69,8 +69,8 @@
                             </template>
                             </tbody>
                         </table>
-                        <ClientPagination 
-                            :pagination="fetchedClients" 
+                        <ClientPagination
+                            :pagination="fetchedClients"
                             @page-changed="handlePageChange"
                         />
                     </div>
@@ -129,7 +129,7 @@ export default {
                     search: this.search,
                     per_page: this.perPage,
                 };
-                
+
                 const response = await axios.get('/clients', { params });
                 this.fetchedClients = response.data;
             } catch (error) {

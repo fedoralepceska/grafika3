@@ -10,12 +10,12 @@
         >
             <template v-slot:activator="{ props }">
                 <div v-bind="props" class="bt">
-                    <PrimaryButton @click="openAddContactForm(client)">New Contact</PrimaryButton>
+                    <PrimaryButton @click="openAddContactForm(client)">{{ $t('newContact') }}</PrimaryButton>
                 </div>
             </template>
             <v-card class="height background">
                 <v-card-title>
-                    <span class="text-h5 text-white">Add new contact</span>
+                    <span class="text-h5 text-white">{{ $t('addNewContact') }}</span>
                 </v-card-title>
                 <v-card-text>
                     <div v-if="showAddContactForm">
@@ -28,8 +28,8 @@
                 </v-card-text>
                 <v-card-actions class="flexSpace gap-4">
                     <v-spacer></v-spacer>
-                    <SecondaryButton @click="closeDialog" class="red ">Close</SecondaryButton>
-                    <SecondaryButton @click="saveContact()" class="green">Save Contact</SecondaryButton>
+                    <SecondaryButton @click="closeDialog" class="red ">{{ $t('close') }}</SecondaryButton>
+                    <SecondaryButton @click="saveContact()" class="green">{{ $t('saveContact') }}</SecondaryButton>
                 </v-card-actions>
             </v-card>
         </v-dialog>
