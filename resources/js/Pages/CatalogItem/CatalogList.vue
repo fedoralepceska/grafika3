@@ -1,14 +1,20 @@
 <template>
     <MainLayout>
         <div class="pl-7 pr-7">
-            <Header
-                title="Catalog"
-                subtitle="All Catalog Items"
-                icon="List.png"
-                link="catalog"
-                buttonText="Create New Item"
-            />
-
+            <div class="flex justify-between align-center">
+                <Header
+                    title="Catalog"
+                    subtitle="All Catalog Items"
+                    icon="List.png"
+                    link="catalog"
+                    buttonText="Create New Item"
+                />
+                <div class="flex align-center py-5">
+                    <button @click="navigateToCatalogCreate" class="btn create-order2">
+                        Create New Item
+                    </button>
+                </div>
+            </div>
 
         <div class="dark-gray p-2 text-white">
             <div class="form-container p-2 ">
@@ -1436,6 +1442,9 @@ export default {
                 purchase_price: article.purchase_price || 0
             };
         },
+        navigateToCatalogCreate() {
+            this.$inertia.visit(route('catalog.create'));
+        },
     },
     mounted() {
         this.loadFormData();
@@ -1451,6 +1460,10 @@ export default {
     font-weight: bold;
     border-radius: 2px;
     background-color: $green;
+    color: white;
+}
+.create-order2 {
+    background-color: $blue;
     color: white;
 }
 .form-container {

@@ -204,7 +204,7 @@
                                             <span>Quantity: {{ item.quantity }}</span>
                                         </div>
                                         <div>
-                                            <span>{{ item.price ? `€${item.price}` : '-' }}</span>
+                                            <span>{{ item.custom_price ? `€${item.custom_price}` : '-' }}</span>
                                         </div>
                                     </div>
 
@@ -459,6 +459,8 @@
                                                         class="w-20 rounded bg-white border-gray-700 text-black text-sm py-1 px-2"
                                                         required
                                                         @change="updatePrice(item)"
+                                                        @keydown.enter.prevent="updatePrice(item)"
+                                                        @keydown.right.enter.prevent="updatePrice(item)"
                                                     />
                                                 </div>
 
@@ -473,6 +475,8 @@
                                                             step="0.01"
                                                             class="w-full rounded bg-white border-gray-700 text-black text-sm py-1 px-2"
                                                             placeholder="Price per unit"
+                                                            @keydown.enter.prevent="updatePrice(item)"
+                                                            @keydown.right.enter.prevent="updatePrice(item)"
                                                         />
                                                         <div v-if="item.calculated_price" class="absolute -bottom-4 left-0 text-gray-400 text-xs whitespace-nowrap">
                                                             Total: {{ item.calculated_price }} ден ({{ (item.calculated_price / item.quantity).toFixed(2) }} per unit)
@@ -877,11 +881,19 @@ export default {
                     params: {
                         catalog_item_id: item.id,
                         client_id: this.editForm.client_id,
-                        quantity: item.quantity
+                        quantity: item.quantity,
+                        custom_price: item.custom_price
                     }
                 });
-                item.calculated_price = response.data.price;
-                item.custom_price = response.data.price / item.quantity;
+                
+                if (item.custom_price) {
+                    // If custom price is set, calculate total based on custom price
+                    item.calculated_price = item.custom_price * item.quantity;
+                } else {
+                    // Otherwise use the calculated price from the server
+                    item.calculated_price = response.data.price;
+                    item.custom_price = response.data.price / item.quantity;
+                }
             } catch (error) {
                 console.error('Error calculating price:', error);
             }
