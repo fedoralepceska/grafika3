@@ -415,4 +415,7 @@ Route::middleware(['auth'])->group(function () {
 
     });
 });
+
+Route::get('/api/next-faktura-counter', [IncomingFakturaController::class, 'getNextFakturaCounter']);
+
 require __DIR__.'/auth.php';

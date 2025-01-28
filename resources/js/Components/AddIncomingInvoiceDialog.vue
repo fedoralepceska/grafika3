@@ -24,10 +24,10 @@
                                     <div class="form-group">
                                         <label class="mr-4 width100">Invoice Nr <span style="color: red;">*</span></label>
                                         <div class="input-container">
-                                            <input 
-                                                type="text" 
-                                                v-model="newInvoice.incoming_number" 
-                                                class="text-gray-700 rounded" 
+                                            <input
+                                                type="text"
+                                                v-model="newInvoice.incoming_number"
+                                                class="text-gray-700 rounded"
                                                 required
                                             >
                                             <div v-if="validationError" class="error-message">Invoice number is required</div>
@@ -75,10 +75,16 @@
                                             </div>
                                             <div class="form-group">
                                                 <label for="cost" class="pl-8 mr-4">Bill Type</label>
-                                                <select v-model="newInvoice.billing_type">
-                                                    <option value="">Select Bill Type</option>
-                                                    <option v-for="type in billTypes" :key="type.id" :value="type.id">{{ type.name }}</option>
-                                                </select>
+                                                <div class="flex flex-col relative">
+                                                    <select v-model="newInvoice.billing_type" class="w-full">
+                                                        <option value="">Select Bill Type</option>
+                                                        <option v-for="type in billTypes" :key="type.id" :value="type.id">{{ type.name }}</option>
+                                                    </select>
+                                                    <div v-if="newInvoice.billing_type === 2" 
+                                                         class="text-white mt-2 bg-gray-700 p-2 rounded absolute top-full left-0 w-full z-10">
+                                                        <span class="font-semibold">Фактура бр: {{ nextFakturaCounter }}</span>
+                                                    </div>
+                                                </div>
                                             </div>
                                         </div>
                                         <div class="flex items-center text-white">
@@ -185,6 +191,7 @@ export default {
             validationError: false,
             uniqueClients:[],
             warehouses: [],
+            nextFakturaCounter: null,
             taxAmounts: {
                 taxA: 0,
                 taxB: 0,
@@ -226,6 +233,20 @@ export default {
         }
     },
     watch: {
+        'newInvoice.billing_type': {
+            async handler(newValue) {
+                if (newValue === 2) { // When bill type is фактура
+                    try {
+                        const response = await axios.get('/api/next-faktura-counter');
+                        this.nextFakturaCounter = response.data.counter;
+                    } catch (error) {
+                        console.error('Error fetching next faktura counter:', error);
+                    }
+                } else {
+                    this.nextFakturaCounter = null;
+                }
+            }
+        },
         'newInvoice.client_id': {
             async handler(newClientId) {
                 if (newClientId) {
@@ -245,7 +266,7 @@ export default {
                     const rate = this.taxRates[key] / 100;
                     return sum + ((amount || 0) * rate);
                 }, 0);
-                
+
                 this.newInvoice.amount = amount;
                 this.newInvoice.tax = tax;
                 this.newInvoice.total = amount + tax;
@@ -271,13 +292,13 @@ export default {
         },
         async addIncomingInvoice(event) {
             const toast = useToast();
-            
+
             if (!this.newInvoice.incoming_number || this.newInvoice.incoming_number.trim() === '') {
                 this.validationError = true;
                 toast.error('Please enter an invoice number');
                 return;
             }
-            
+
             this.validationError = false;
             try {
                 const payload = {

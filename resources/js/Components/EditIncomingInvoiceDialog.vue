@@ -8,6 +8,7 @@
             <div class="modal-content background" @click.stop>
                 <div class="modal-header">
                     <span class="text-h5 text-white">Edit Invoice #{{ invoice.incoming_number }}</span>
+                    <span v-if="invoice.billing_type === 'фактура'" class="text-white">Archive #{{ invoice.faktura_counter }}</span>
                     <button @click="closeDialog" class="close-btn">&times;</button>
                 </div>
                 <div class="modal-body">
@@ -75,11 +76,22 @@
                                     </div>
                                     <div class="form-group">
                                         <label class="mr-4 width100">Billing Type</label>
-                                        <select v-model="form.billing_type" class="form-input">
-                                            <option v-for="type in billTypes" :key="type.id" :value="type.id">
-                                                {{ type.name }}
-                                            </option>
-                                        </select>
+                                        <div class="flex flex-col relative w-full">
+                                            <select v-model="form.billing_type" class="form-input">
+                                                <option v-for="type in billTypes" :key="type.id" :value="type.id">
+                                                    {{ type.name }}
+                                                </option>
+                                            </select>
+                                            <div v-if="form.billing_type === 2" 
+                                                 class="text-white mt-2 bg-gray-700 p-2 rounded absolute top-full left-0 w-full z-10">
+                                                <span v-if="invoice.billing_type === 2" class="font-semibold">
+                                                    Current фактура number: {{ invoice.faktura_counter }}
+                                                </span>
+                                                <span v-else class="font-semibold">
+                                                    Next available фактура number: {{ nextFakturaCounter }}
+                                                </span>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -182,6 +194,7 @@ export default {
     setup(props, { emit }) {
         const isOpen = ref(false)
         const loading = ref(false)
+        const nextFakturaCounter = ref(null)
         const form = ref({
             incoming_number: '',
             client_id: null,
@@ -344,10 +357,22 @@ export default {
             }
         }
 
+        watch(() => form.value.billing_type, async (newValue, oldValue) => {
+            if (newValue === 2 && oldValue !== 2) {
+                try {
+                    const response = await axios.get('/api/next-faktura-counter');
+                    nextFakturaCounter.value = response.data.counter;
+                } catch (error) {
+                    console.error('Error fetching next faktura counter:', error);
+                }
+            }
+        });
+
         return {
             isOpen,
             loading,
             form,
+            nextFakturaCounter,
             openDialog,
             closeDialog,
             updateInvoice,

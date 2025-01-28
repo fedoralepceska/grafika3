@@ -99,9 +99,16 @@
                     <div v-if="incomingInvoice.data" class="overflow-x-auto">
                         <div class="border mb-1" v-for="faktura in incomingInvoice.data" :key="faktura.id">
                             <div class="bg-white text-black flex justify-between">
-                                <div class="p-2 bold">Invoice #{{faktura.incoming_number}}/{{ new Date(faktura.created_at).toLocaleDateString('en-US', { year: 'numeric' }) }}</div>
+                                <div class="p-2 bold flex justify-between w-full">
+                                    <div>
+                                        Invoice #{{faktura.incoming_number}}/{{ new Date(faktura.created_at).toLocaleDateString('en-US', { year: 'numeric' }) }}
+                                    </div>
+                                    <div v-if="faktura.billing_type === 'фактура'">
+                                        Archive #{{ faktura.faktura_counter }}
+                                    </div>
+                                </div>
                                 <div class="flex items-center">
-                                    <div class="p-2 bold">{{ new Date(faktura.date).toLocaleDateString('en-US', { year: 'numeric', month: '2-digit', day: '2-digit' }) }}</div>
+                                    <div class="p-2 bold text-gray-500">{{ new Date(faktura.date).toLocaleDateString('en-US', { year: 'numeric', month: '2-digit', day: '2-digit' }) }}</div>
                                     <EditIncomingInvoiceDialog 
                                         :invoice="faktura"
                                         :cost-types="$page.props.costTypes"
@@ -141,7 +148,17 @@
                         </div>
                     </div>
                 </div>
-                <Pagination :pagination="incomingInvoice"/>
+                <AdvancedPagination 
+                    :pagination="incomingInvoice"
+                    :preserve-params="{
+                        searchQuery: searchQuery,
+                        filterClient: filterClient,
+                        filterWarehouse: filterWarehouse,
+                        filterCostType: filterCostType,
+                        filterBillType: filterBillType,
+                        sortOrder: sortOrder
+                    }"
+                />
             </div>
         </div>
     </MainLayout>
@@ -150,8 +167,8 @@
 <script>
 import MainLayout from "@/Layouts/MainLayout.vue";
 import Header from "@/Components/Header.vue";
-import Pagination from "@/Components/Pagination.vue"
-import axios from 'axios';
+import AdvancedPagination from "@/Components/AdvancedPagination.vue"
+import { router } from '@inertiajs/vue3'
 import {reactive} from "vue";
 import OrderJobDetails from "@/Pages/Invoice/OrderJobDetails.vue";
 import ViewLockDialog from "@/Components/ViewLockDialog.vue";
@@ -160,7 +177,16 @@ import AddIncomingInvoiceDialog from "@/Components/AddIncomingInvoiceDialog.vue"
 import EditIncomingInvoiceDialog from "@/Components/EditIncomingInvoiceDialog.vue";
 
 export default {
-    components: {Header, MainLayout,Pagination,OrderJobDetails, ViewLockDialog, RedirectTabs,AddIncomingInvoiceDialog, EditIncomingInvoiceDialog },
+    components: {
+        Header, 
+        MainLayout,
+        AdvancedPagination,
+        OrderJobDetails, 
+        ViewLockDialog, 
+        RedirectTabs,
+        AddIncomingInvoiceDialog, 
+        EditIncomingInvoiceDialog 
+    },
     props:{
         incomingInvoice: Object,
         costTypes: {
@@ -178,7 +204,6 @@ export default {
     },
     data() {
         return {
-            incomingInvoice: [],
             searchQuery: '',
             filterClient: 'All',
             filterWarehouse: '',
@@ -190,63 +215,63 @@ export default {
         };
     },
     created() {
-        this.fetchInvoices();
+        // Initialize filters from URL if they exist
+        const url = new URL(window.location.href);
+        this.searchQuery = url.searchParams.get('searchQuery') || '';
+        this.filterClient = url.searchParams.get('filterClient') || 'All';
+        this.filterWarehouse = url.searchParams.get('filterWarehouse') || '';
+        this.filterCostType = url.searchParams.get('filterCostType') || '';
+        this.filterBillType = url.searchParams.get('filterBillType') || '';
+        this.sortOrder = url.searchParams.get('sortOrder') || 'desc';
     },
     methods: {
         handleInvoiceAdded() {
-            this.fetchInvoices(); // Refresh the list after adding
+            this.visitWithFilters(); // Refresh the list after adding
         },
         calculateTotal(faktura) {
             const amount = parseFloat(faktura.amount.replace(/,/g, ''));
             const tax = parseFloat(faktura.tax.replace(/,/g, ''));
             return (amount + tax).toFixed(2);
         },
-        async fetchInvoices() {
-            this.loading = true;
-            try {
-                const response = await axios.get('/incomingInvoice');
-                this.incomingInvoice = response.data;
-            } catch (error) {
-                this.error = 'Error fetching invoices: ' + error.message;
-                console.error('Error fetching invoices:', error);
-            } finally {
-                this.loading = false;
+        visitWithFilters(resetPage = false) {
+            const params = {
+                searchQuery: this.searchQuery,
+                filterClient: this.filterClient,
+                filterWarehouse: this.filterWarehouse,
+                filterCostType: this.filterCostType,
+                filterBillType: this.filterBillType,
+                sortOrder: this.sortOrder
+            };
+
+            // Only include page parameter if not resetting
+            if (!resetPage) {
+                const currentPage = new URL(window.location.href).searchParams.get('page');
+                if (currentPage) {
+                    params.page = currentPage;
+                }
             }
-        },
-        toggleSortOrder() {
-            this.sortOrder = this.sortOrder === 'asc' ? 'desc' : 'asc';
-            this.applyFilter();
+
+            // Remove empty params
+            Object.keys(params).forEach(key => {
+                if (params[key] === '' || params[key] === null || params[key] === undefined) {
+                    delete params[key];
+                }
+            });
+
+            router.get('/incomingInvoice', params, {
+                preserveState: true,
+                preserveScroll: true,
+                replace: true
+            });
         },
         async applyFilter() {
-            try {
-                const response = await axios.get('/incomingInvoice', {
-                    params: {
-                        filterClient: this.filterClient,
-                        filterWarehouse: this.filterWarehouse,
-                        filterCostType: this.filterCostType,
-                        filterBillType: this.filterBillType,
-                        sortOrder: this.sortOrder
-                    }
-                });
-                this.incomingInvoice = response.data;
-            } catch (error) {
-                console.error('Error applying filters:', error);
-            }
+            this.visitWithFilters(true); // Reset to page 1 when applying filters
         },
         async searchInvoices() {
-            try {
-                const response = await axios.get('/incomingInvoice', {
-                    params: {
-                        searchQuery: this.searchQuery
-                    }
-                });
-                this.incomingInvoice = response.data;
-            } catch (error) {
-                console.error('Error searching invoices:', error);
-            }
+            this.visitWithFilters(true); // Reset to page 1 when searching
         },
-        handleInvoiceUpdated(updatedInvoice) {
-            this.fetchInvoices(); // Refresh the list after update
+        handleInvoiceUpdated() {
+            this.visitWithFilters(); // Refresh the list after update
         }
     },
 };

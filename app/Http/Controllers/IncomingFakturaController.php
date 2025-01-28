@@ -71,7 +71,8 @@ class IncomingFakturaController extends Controller
                     'tax' => number_format($invoice->tax, 2),
                     'date' => $invoice->date,
                     'created_at' => $invoice->created_at,
-                    'updated_at' => $invoice->updated_at
+                    'updated_at' => $invoice->updated_at,
+                    'faktura_counter' => $invoice->faktura_counter
                 ];
             });
 
@@ -97,36 +98,36 @@ class IncomingFakturaController extends Controller
             return response()->json(['error' => 'Internal Server Error'], 500);
         }
     }
+
+    public function getNextFakturaCounter()
+    {
+        $counter = IncomingFaktura::getNextFakturaCounter();
+        return response()->json(['counter' => $counter]);
+    }
+
     public function store(Request $request)
     {
-        try {
-            $validatedData = $request->validate([
-                'incoming_number' => 'nullable|string',
-                'client_id' => 'nullable|integer',
-                'warehouse' => 'nullable|string',
-                'cost_type' => 'nullable|integer',
-                'billing_type' => 'nullable|integer',
-                'description' => 'nullable|string',
-                'comment' => 'nullable|string',
-                'amount' => 'nullable|numeric',
-                'tax' => 'nullable|numeric',
-                'date' => 'nullable|date'
-            ]);
+        $data = $request->validate([
+            'incoming_number' => 'required|string',
+            'client_id' => 'nullable|exists:clients,id',
+            'warehouse' => 'nullable|string',
+            'cost_type' => 'nullable|integer',
+            'billing_type' => 'nullable|integer',
+            'description' => 'nullable|string',
+            'comment' => 'nullable|string',
+            'amount' => 'required|numeric',
+            'tax' => 'required|numeric',
+            'date' => 'nullable|date'
+        ]);
 
-            $incoming_faktura = IncomingFaktura::create($validatedData);
-
-            Log::info('Incoming invoice created successfully', ['id' => $incoming_faktura->id]);
-            return response()->json([
-                'message' => 'Incoming invoice added successfully',
-                'data' => $incoming_faktura
-            ], 201);
-        } catch (\Exception $e) {
-            Log::error('Error creating incoming invoice: ' . $e->getMessage());
-            return response()->json([
-                'error' => 'Failed to create incoming invoice', 
-                'details' => $e->getMessage()
-            ], 500);
+        // If billing type is фактура (2), get and set the counter
+        if ($request->billing_type === 2) {
+            $data['faktura_counter'] = IncomingFaktura::getNextFakturaCounter();
         }
+
+        $incomingFaktura = IncomingFaktura::create($data);
+
+        return response()->json($incomingFaktura);
     }
 
     public function update(Request $request, $id)
@@ -146,6 +147,17 @@ class IncomingFakturaController extends Controller
             ]);
 
             $incoming_faktura = IncomingFaktura::findOrFail($id);
+            
+            // Case 1: If changing from billing_type 2 to something else, remove the counter
+            if ($incoming_faktura->billing_type === 2 && $request->billing_type !== 2) {
+                $validatedData['faktura_counter'] = null;
+            }
+            
+            // Case 2: If changing to billing_type 2, assign a new counter
+            if ($incoming_faktura->billing_type !== 2 && $request->billing_type === 2) {
+                $validatedData['faktura_counter'] = IncomingFaktura::getNextFakturaCounter();
+            }
+
             $incoming_faktura->update($validatedData);
 
             Log::info('Incoming invoice updated successfully', ['id' => $id]);
