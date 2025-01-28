@@ -12,11 +12,11 @@
                             <div class=" flex gap-4">
                                 <div class="search flex gap-2">
                                     <input v-model="searchQuery" placeholder="Enter material name" class="text-black" style="width: 50vh; border-radius: 3px" @keyup.enter="searchMaterials" />
-                                    <button class="btn create-order1" @click="searchMaterials">Search</button>
+                                    <button class="btn create-order1" @click="searchMaterials">{{ $t('search') }}</button>
                                 </div>
                                 <div class="flex gap-2">
                                     <div class="status">
-                                        <label class="pr-3">Per page</label>
+                                        <label class="pr-3">{{ $t('perPage') }}</label>
                                         <select v-model="filterStatus" class="text-black rounded" @change="fetchLargeMaterials" style="width: 80px" >
                                             <option value="20">20</option>
                                             <option value="40">40</option>
@@ -27,10 +27,10 @@
                             </div>
                             <div class="button flex gap-3">
                                 <button @click="printMaterials" class="btn create-order">
-                                    Print Materials <i class="fa-solid fa-print"></i>
+                                    {{ $t('printMaterials') }} <i class="fa-solid fa-print"></i>
                                 </button>
                                 <button @click="printAllMaterials" class="btn create-order2">
-                                    Print All Materials <i class="fa-solid fa-print"></i>
+                                    {{ $t('printAllMaterials') }} <i class="fa-solid fa-print"></i>
                                 </button>
                             </div>
                         </div>

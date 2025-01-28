@@ -3,7 +3,7 @@
         <Header title="material" subtitle="LargeFormatMaterials" icon="Materials.png" link="materials-large"/>
         <div class="button">
             <button @click="navigateToAddLargeMaterial" class="btn add-material">
-                Add New Material <i class="fa fa-plus"></i>
+                {{ $t('addNewMaterial') }} <i class="fa fa-plus"></i>
             </button>
         </div>
     </div>
@@ -14,18 +14,18 @@
             </h2>
 
             <div class="flex justify-end">
-                <button @click="toggleEditMode" class="bg-white rounded text-black py-2 px-5 m-1 ">{{ editMode ? 'Exit Edit Mode' : 'Edit Mode' }}</button>
-                <button @click="saveChanges()" v-if="editMode" class="blue rounded text-white py-2 px-5 m-1">Save Changes<v-icon class="mdi mdi-check"></v-icon></button>
+                <button @click="toggleEditMode" class="bg-white rounded text-black py-2 px-5 m-1 ">{{ editMode ? $t('exitEditMode') : $t('editMode') }}</button>
+                <button @click="saveChanges()" v-if="editMode" class="blue rounded text-white py-2 px-5 m-1">{{ $t('save') }}<v-icon class="mdi mdi-check"></v-icon></button>
             </div>
 
             <table>
                 <thead>
                 <tr>
-                    <th>Name</th>
-                    <th>Width(m)</th>
-                    <th>Height(m)</th>
-                    <th >Quantity</th>
-                    <th>Price Per Unit</th>
+                    <th>{{ $t('name') }}</th>
+                    <th>{{ $t('width') }}(m)</th>
+                    <th>{{ $t('height') }}(m)</th>
+                    <th>{{ $t('quantity') }}</th>
+                    <th>{{ $t('pricePerUnit') }}</th>
                     <th></th>
                 </tr>
                 </thead>
@@ -47,7 +47,7 @@
                         {{material.price_per_unit}}
                     </td>
                     <td class="centered">
-                        <SecondaryButton @click="deleteMaterial(material)" class="delete">Delete</SecondaryButton>
+                        <SecondaryButton @click="deleteMaterial(material)" class="delete">{{ $t('delete') }}</SecondaryButton>
                     </td>
                 </tr>
                 </tbody>

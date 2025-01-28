@@ -371,7 +371,15 @@ const messages = {
         delete: 'Delete',
         contactsFor: 'Contacts for',
         addNewContact: 'Add new contact',
-        saveContact: 'Save contact'
+        saveContact: 'Save contact',
+        addNewMaterial: 'Add new material',
+        exitEditMode: 'Exit edit mode',
+        editMode: 'Edit mode',
+        save: 'Save',
+        search: 'Search',
+        perPage: 'Per page',
+        printMaterials: 'Print materials',
+        printAllMaterials: 'Print all materials'
     },
     mk: {
         // Define your Macedonian translations here
@@ -745,7 +753,15 @@ const messages = {
         delete: 'Избриши',
         contactsFor: 'Контакти за',
         addNewContact: 'Додади нов контакт',
-        saveContact: 'Зачувај контакт'
+        saveContact: 'Зачувај контакт',
+        addNewMaterial: 'Додади нов материјал',
+        exitEditMode: 'Излези од модот за промени',
+        editMode: 'Промени',
+        save: 'Зачувај',
+        search: 'Пребарај',
+        perPage: 'По страна',
+        printMaterials: 'Испечати материјали',
+        printAllMaterials: 'Испечати ги сите материјали'
     },
 };
 
