@@ -28,6 +28,7 @@ use App\Http\Controllers\OfferController;
 use App\Http\Controllers\ItemController;
 use App\Http\Controllers\PriceController;
 use App\Http\Controllers\IncomingFakturaController;
+use App\Http\Controllers\SubcategoryController;
 
 
 /*
@@ -163,6 +164,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('/jobs-with-prices', [JobController::class, 'getJobsWithPrices'])->name('jobs.getJobsWithPrices');
     Route::post('/sync-jobs-with-machine', [JobController::class, 'syncAllJobsWithMachines'])->name('jobs.syncAllJobsWithMachines');
     Route::delete('/jobs/{id}', [JobController::class, 'destroy'])->name('jobs.destroy');
+
+    // Subcategory routes
+    Route::get('/api/subcategories', [SubcategoryController::class, 'index'])->name('subcategories.index');
+    Route::post('/api/subcategories', [SubcategoryController::class, 'store'])->name('subcategories.store');
+    Route::put('/api/subcategories/{subcategory}', [SubcategoryController::class, 'update'])->name('subcategories.update');
+    Route::delete('/api/subcategories/{subcategory}', [SubcategoryController::class, 'destroy'])->name('subcategories.destroy');
 });
 
 //Routes For Small Format Materials

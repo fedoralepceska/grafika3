@@ -26,7 +26,8 @@ class CatalogItem extends Model
         'category',
         'file',
         'price',
-        'cost_price'
+        'cost_price',
+        'subcategory_id'
     ];
 
     protected $casts = [
@@ -190,5 +191,11 @@ class CatalogItem extends Model
         $this->save();
 
         return $totalCost;
+    }
+
+    // Add this new relationship method
+    public function subcategory(): BelongsTo
+    {
+        return $this->belongsTo(Subcategory::class);
     }
 }

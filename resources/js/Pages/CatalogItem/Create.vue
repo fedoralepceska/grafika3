@@ -1,10 +1,23 @@
 <template>
     <MainLayout>
         <div class="pl-7 pr-7">
-            <Header title="Catalog" subtitle="createNewCatalogItem" icon="List.png" link="catalog"/>
+            <div class="flex justify-between items-center mb-4">
+                <Header title="Catalog" subtitle="createNewCatalogItem" icon="List.png" link="catalog"/>
+                <div class="flex gap-2">
+                    <button class="btn btn-secondary">   
+                        <CreateSubcategoryDialog @created="handleSubcategoryCreated" />
+                    </button>
+                    <button class="btn btn-primary">
+                        <ViewSubcategoriesDialog 
+                            @updated="handleSubcategoryUpdated"
+                            @deleted="handleSubcategoryDeleted"
+                        />
+                    </button>
+                </div>
+            </div>
 
             <div class="dark-gray p-2 text-white">
-                <div class="form-container p-2 ">
+                <div class="form-container p-2">
                     <h2 class="sub-title">{{ $t('catalogItemCreation') }}</h2>
 
                     <form @submit.prevent="submit" class="space-y-6 w-full rounded-lg">
@@ -51,17 +64,18 @@
                                     </select>
                                 </div>
                                 <div>
-                                    <label class="text-white">{{ $t('category') }}</label>
+                                    <label class="text-white">{{ $t('subcategory') }}</label>
                                     <select
-                                        v-model="form.category"
+                                        v-model="form.subcategory_id"
                                         class="w-full mt-1 rounded"
                                     >
-                                        <option value="">{{ $t('selectCategory') }}</option>
-                                        <option v-for="category in categories"
-                                                :key="category"
-                                                :value="category"
+                                        <option value="">{{ $t('selectSubcategory') }}</option>
+                                        <option
+                                            v-for="subcategory in subcategories"
+                                            :key="subcategory.id"
+                                            :value="subcategory.id"
                                         >
-                                            {{ category.replace('_', ' ').split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ') }}
+                                            {{ subcategory.name }}
                                         </option>
                                     </select>
                                 </div>
@@ -100,7 +114,7 @@
                                     </select>
                                 </div>
 
-                                <div class="grid grid-cols-2 gap-4">
+                                <!-- <div class="grid grid-cols-2 gap-4">
                                     <div>
                                         <label class="text-white">{{ $t('quantity') }}</label>
                                         <input
@@ -121,6 +135,21 @@
                                             required
                                         />
                                     </div>
+                                </div> -->
+                                <div>
+                                    <label class="text-white">{{ $t('category') }}</label>
+                                    <select
+                                        v-model="form.category"
+                                        class="w-full mt-1 rounded"
+                                    >
+                                        <option value="">{{ $t('selectCategory') }}</option>
+                                        <option v-for="category in categories"
+                                                :key="category"
+                                                :value="category"
+                                        >
+                                            {{ category.replace('_', ' ').split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ') }}
+                                        </option>
+                                    </select>
                                 </div>
                                 <div>
                                     <label class="text-white">{{ $t('defaultPrice') }}</label>
@@ -421,6 +450,8 @@ import { Link } from '@inertiajs/vue3';
 import { useToast } from 'vue-toastification';
 import Checkbox from '@/Components/inputs/Checkbox.vue';
 import CatalogArticleSelect from '@/Components/CatalogArticleSelect.vue';
+import CreateSubcategoryDialog from '@/Components/CreateSubcategoryDialog.vue';
+import ViewSubcategoriesDialog from '@/Components/ViewSubcategoriesDialog.vue';
 
 export default {
     components: {
@@ -428,7 +459,9 @@ export default {
         Header,
         Link,
         Checkbox,
-        CatalogArticleSelect
+        CatalogArticleSelect,
+        CreateSubcategoryDialog,
+        ViewSubcategoriesDialog
     },
 
     props: {
@@ -458,6 +491,7 @@ export default {
                 price: '',
                 articles: [],
                 template_file: null,
+                subcategory_id: null
             },
             productArticles: [],
             serviceArticles: [],
@@ -469,6 +503,7 @@ export default {
             servicesCost: 0,
             templatePreviewUrl: null,
             templateFileName: '',
+            subcategories: []
         }
     },
 
@@ -739,10 +774,39 @@ export default {
         triggerFileInput() {
             document.getElementById("file-input").click();
         },
+
+        async fetchSubcategories() {
+            try {
+                const response = await axios.get(route('subcategories.index'));
+                this.subcategories = response.data;
+            } catch (error) {
+                const toast = useToast();
+                toast.error(this.$t('errorFetchingSubcategories'));
+            }
+        },
+
+        handleSubcategoryCreated(subcategory) {
+            this.subcategories.push(subcategory);
+        },
+
+        handleSubcategoryUpdated(subcategory) {
+            const index = this.subcategories.findIndex(s => s.id === subcategory.id);
+            if (index !== -1) {
+                this.subcategories[index] = subcategory;
+            }
+        },
+
+        handleSubcategoryDeleted(subcategoryId) {
+            this.subcategories = this.subcategories.filter(s => s.id !== subcategoryId);
+            if (this.form.subcategory_id === subcategoryId) {
+                this.form.subcategory_id = null;
+            }
+        },
     },
 
     mounted() {
         this.addAction(); // Add first action row by default
+        this.fetchSubcategories();
     }
 }
 </script>

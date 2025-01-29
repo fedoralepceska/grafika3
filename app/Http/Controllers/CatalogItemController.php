@@ -30,16 +30,35 @@ class CatalogItemController extends Controller
             $page = $request->input('page', 1);
             $perPage = $request->input('per_page', 10);
             $searchTerm = $request->input('search', '');
+            $category = $request->input('category', '');
+            $subcategoryId = $request->input('subcategory_id');
 
             // Start with base query
             $query = CatalogItem::with([
-                'largeMaterial', // Relation to large_material
-                'smallMaterial' // Relation to small_material
+                'largeMaterial',
+                'smallMaterial',
+                'subcategory'
             ]);
 
-            // Add optional search functionality
+            // Add search functionality
             if (!empty($searchTerm)) {
-                $query->where('name', 'like', "%{$searchTerm}%");
+                $query->where(function($q) use ($searchTerm) {
+                    $q->where('name', 'like', "%{$searchTerm}%")
+                      ->orWhere('description', 'like', "%{$searchTerm}%")
+                      ->orWhereHas('subcategory', function($q) use ($searchTerm) {
+                          $q->where('name', 'like', "%{$searchTerm}%");
+                      });
+                });
+            }
+
+            // Add category filter
+            if (!empty($category)) {
+                $query->where('category', $category);
+            }
+
+            // Add subcategory filter
+            if (!empty($subcategoryId)) {
+                $query->where('subcategory_id', $subcategoryId);
             }
 
             // Paginate the results
@@ -72,6 +91,10 @@ class CatalogItemController extends Controller
                     'small_material_id' => $item->small_material_id,
                     'price' => $item->price,
                     'template_file' => $item->template_file,
+                    'subcategory' => $item->subcategory ? [
+                        'id' => $item->subcategory->id,
+                        'name' => $item->subcategory->name
+                    ] : null,
                     'articles' => $item->articles->map(function($article) {
                         return [
                             'id' => $article->id,
@@ -96,6 +119,8 @@ class CatalogItemController extends Controller
                             'isMaterialized' => $action['isMaterialized'] ?? false
                         ];
                     })->toArray(),
+                    'subcategory_id' => $item->subcategory_id,
+                    'subcategory_name' => $item->subcategory ? $item->subcategory->name : null
                 ];
             });
 
@@ -203,6 +228,7 @@ class CatalogItemController extends Controller
             'articles' => 'nullable|array',
             'articles.*.id' => 'required|exists:article,id',
             'articles.*.quantity' => 'required|numeric|min:0.01',
+            'subcategory_id' => 'nullable|exists:subcategories,id'
         ]);
 
         DB::beginTransaction();
@@ -350,6 +376,7 @@ class CatalogItemController extends Controller
                 'articles' => 'nullable|array',
                 'articles.*.id' => 'required|exists:article,id',
                 'articles.*.quantity' => 'required|numeric|min:0.01',
+                'subcategory_id' => 'nullable|exists:subcategories,id'
             ]);
 
             DB::beginTransaction();

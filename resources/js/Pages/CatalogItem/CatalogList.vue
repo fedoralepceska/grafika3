@@ -21,14 +21,52 @@
                 <div class="flex justify-between items-center mb-4">
                     <h2 class="sub-title">{{ $t('catalogItems') }}</h2>
                 </div>
-                <div>
-                    <input
-                        v-model="searchQuery"
-                        type="text"
-                        placeholder="Search by name..."
-                        class="rounded p-2 bg-gray-700 text-white"
-                        @input="fetchCatalogItems"
-                    />
+                <div class="flex gap-4 mb-4">
+                    <div class="flex-1">
+                        <input
+                            v-model="searchQuery"
+                            type="text"
+                            placeholder="Search by name, description or subcategory..."
+                            class="rounded p-2 bg-gray-700 text-white w-full"
+                        />
+                    </div>
+                    <div class="w-48">
+                        <select
+                            v-model="filters.category"
+                            class="rounded p-2 bg-gray-700 text-white w-full"
+                        >
+                            <option value="">{{ $t('allCategories') }}</option>
+                            <option v-for="category in categories"
+                                    :key="category"
+                                    :value="category"
+                            >
+                                {{ category.replace('_', ' ').split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ') }}
+                            </option>
+                        </select>
+                    </div>
+                    <div class="w-48">
+                        <select
+                            v-model="filters.subcategory_id"
+                            class="rounded p-2 bg-gray-700 text-white w-full"
+                        >
+                            <option value="">{{ $t('allSubcategories') }}</option>
+                            <option
+                                v-for="subcategory in subcategories"
+                                :key="subcategory.id"
+                                :value="subcategory.id"
+                            >
+                                {{ subcategory.name }}
+                            </option>
+                        </select>
+                    </div>
+                    <div>
+                        <button 
+                            @click="applyFilters"
+                            class="btn btn-secondary px-4 "
+                        >
+                            {{ $t('applyFilters') }}
+                        </button>
+                    </div>
                 </div>
 
                 <table class="w-full text-left border-collapse">
@@ -36,7 +74,7 @@
                     <tr class="bg-gray-700 text-white">
                         <th class="p-4">{{ $t('preview') }}</th>
                         <th class="p-4">{{ $t('template') }}</th>
-                        <th class="p-4">{{ $t('name') }}</th>
+                        <th class="p-4">{{ $t('subcategory') }}</th>
                         <th class="p-4">{{ $t('machineP') }}</th>
                         <th class="p-4">{{ $t('machineC') }}</th>
                         <th class="p-4">{{ $t('material') }}</th>
@@ -88,7 +126,7 @@
                             </div>
                             <span v-else class="text-gray-500">{{ $t('noTemplate') }}</span>
                         </td>
-                        <td class="p-4">{{ item.name }}</td>
+                        <td class="p-4">{{ item.subcategory_name || 'N/A' }}</td>
                         <td class="p-4">{{ item.machinePrint }}</td>
                         <td class="p-4">{{ item.machineCut }}</td>
                         <td class="p-4">
@@ -228,6 +266,23 @@
                                                 :value="category"
                                         >
                                             {{ category.replace('_', ' ').split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ') }}
+                                        </option>
+                                    </select>
+                                </div>
+
+                                <div>
+                                    <label class="text-white">{{ $t('subcategory') }}</label>
+                                    <select
+                                        v-model="editForm.subcategory_id"
+                                        class="w-full mt-1 rounded"
+                                    >
+                                        <option value="">{{ $t('selectSubcategory') }}</option>
+                                        <option
+                                            v-for="subcategory in subcategories"
+                                            :key="subcategory.id"
+                                            :value="subcategory.id"
+                                        >
+                                            {{ subcategory.name }}
                                         </option>
                                     </select>
                                 </div>
@@ -783,6 +838,7 @@ import Header from "@/Components/Header.vue";
 import { Link } from "@inertiajs/vue3";
 import { useToast } from "vue-toastification";
 import CatalogArticleSelect from "@/Components/CatalogArticleSelect.vue";
+import debounce from 'lodash.debounce';     
 
 export default {
     components: {
@@ -840,7 +896,8 @@ export default {
                 category: '',
                 price: 0,
                 file: null,
-                template_file: null
+                template_file: null,
+                subcategory_id: null
             },
             productArticles: [],
             serviceArticles: [],
@@ -866,6 +923,11 @@ export default {
             shouldShowPreviewOnTop: false,
             removeTemplateFlag: false,
             showTemplatePreviewDialog: false,
+            subcategories: [],
+            filters: {
+                category: '',
+                subcategory_id: ''
+            },
         };
     },
     computed: {
@@ -890,6 +952,8 @@ export default {
                 {
                     search: this.searchQuery,
                     page: page || this.pagination.current_page,
+                    category: this.filters.category,
+                    subcategory_id: this.filters.subcategory_id
                 },
                 {
                     preserveState: true,
@@ -944,6 +1008,7 @@ export default {
                 is_for_sales: item.is_for_sales,
                 file: null,
                 template_file: item.template_file,
+                subcategory_id: item.subcategory_id
             };
 
             // Initialize product and service articles from existing articles
@@ -997,7 +1062,8 @@ export default {
                 category: '',
                 price: 0,
                 file: null,
-                template_file: null
+                template_file: null,
+                subcategory_id: null
             };
             this.productArticles = [];
             this.serviceArticles = [];
@@ -1099,12 +1165,13 @@ export default {
 
         async loadFormData() {
             try {
-                // Fetch machines, materials, and actions data
-                const [machinesPrintRes, machinesCutRes, materialsRes, actionsRes] = await Promise.all([
+                // Fetch machines, materials, actions, and subcategories data
+                const [machinesPrintRes, machinesCutRes, materialsRes, actionsRes, subcategoriesRes] = await Promise.all([
                     axios.get('/get-machines-print'),
                     axios.get('/get-machines-cut'),
                     axios.get('/get-materials'),
-                    axios.get('/get-actions')
+                    axios.get('/get-actions'),
+                    axios.get(route('subcategories.index'))
                 ]);
 
                 this.machinesPrint = machinesPrintRes.data;
@@ -1112,6 +1179,7 @@ export default {
                 this.largeMaterials = materialsRes.data.largeMaterials;
                 this.smallMaterials = materialsRes.data.smallMaterials;
                 this.actions = actionsRes.data;
+                this.subcategories = subcategoriesRes.data;
             } catch (error) {
                 console.error('Error loading form data:', error);
                 const toast = useToast();
@@ -1444,6 +1512,9 @@ export default {
         },
         navigateToCatalogCreate() {
             this.$inertia.visit(route('catalog.create'));
+        },
+        applyFilters() {
+            this.fetchCatalogItems(1);
         },
     },
     mounted() {
