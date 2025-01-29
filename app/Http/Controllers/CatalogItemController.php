@@ -195,6 +195,7 @@ class CatalogItemController extends Controller
             'is_for_sales' => filter_var($request->input('is_for_sales'), FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE),
             'small_material_id' => $request->input('small_material_id') === 'null' || $request->input('small_material_id') === '' ? null : $request->input('small_material_id'),
             'large_material_id' => $request->input('large_material_id') === 'null' || $request->input('large_material_id') === '' ? null : $request->input('large_material_id'),
+            'subcategory_id' => $request->input('subcategory_id') === 'null' || $request->input('subcategory_id') === '' ? null : $request->input('subcategory_id'),
         ]);
         $actions = $request->input('actions');
         $actions = array_map(function ($action) {
@@ -346,12 +347,19 @@ class CatalogItemController extends Controller
             $actions = json_decode($request->input('actions'), true);
             $articles = json_decode($request->input('articles'), true);
 
+            // Handle subcategory_id before merging other data
+            $subcategoryId = $request->input('subcategory_id');
+            if ($subcategoryId === 'null' || $subcategoryId === '' || $subcategoryId === null) {
+                $subcategoryId = null;
+            }
+
             // Merge the decoded data into the request
             $request->merge([
                 'is_for_offer' => filter_var($request->input('is_for_offer'), FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE),
                 'is_for_sales' => filter_var($request->input('is_for_sales'), FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE),
                 'small_material_id' => $request->input('small_material_id') === 'null' || $request->input('small_material_id') === '' ? null : $request->input('small_material_id'),
                 'large_material_id' => $request->input('large_material_id') === 'null' || $request->input('large_material_id') === '' ? null : $request->input('large_material_id'),
+                'subcategory_id' => $subcategoryId,
                 'actions' => $actions,
                 'articles' => $articles
             ]);

@@ -28,7 +28,8 @@
                             type="text"
                             placeholder="Search by name, description or subcategory..."
                             class="rounded p-2 bg-gray-700 text-white w-full"
-                        />
+                            style="width: 420px;"
+                            />
                     </div>
                     <div class="w-48">
                         <select
@@ -62,9 +63,17 @@
                     <div>
                         <button 
                             @click="applyFilters"
-                            class="btn btn-secondary px-4 "
+                            class="btn btn-secondary px-4 hover:bg-gray-900"
                         >
                             {{ $t('applyFilters') }}
+                        </button>
+                    </div>
+                    <div>
+                        <button 
+                            @click="clearFilters"
+                            class="btn btn-clear px-4 "
+                        >
+                            {{ $t('clearFilters') }}
                         </button>
                     </div>
                 </div>
@@ -559,15 +568,15 @@
                                 <div class="space-y-2">
                                     <div class="flex justify-between items-center">
                                         <span class="text-gray-300">{{ $t('productsCost') }}:</span>
-                                        <span class="text-white">€{{ displayProductsCost.toFixed(2) }}</span>
+                                        <span class="text-white">{{ displayProductsCost.toFixed(2) }} ден</span>
                                     </div>
                                     <div class="flex justify-between items-center">
                                         <span class="text-gray-300">{{ $t('servicesCost') }}:</span>
-                                        <span class="text-white">€{{ displayServicesCost.toFixed(2) }}</span>
+                                        <span class="text-white">{{ displayServicesCost.toFixed(2) }} ден</span>
                                     </div>
                                     <div class="flex justify-between items-center pt-2 border-t border-gray-600">
                                         <span class="text-white font-semibold">{{ $t('totalCostPrice') }}:</span>
-                                        <span class="text-white font-semibold">€{{ displayTotalCost.toFixed(2) }}</span>
+                                        <span class="text-white font-semibold">{{ displayTotalCost.toFixed(2) }} ден</span>
                                     </div>
                                 </div>
                             </div>
@@ -1257,10 +1266,10 @@ export default {
         },
 
         formatPrice(price) {
-            if (!price) return '€0.00';
-            return new Intl.NumberFormat('de-DE', {
+            if (!price) return '0.00 ден';
+            return new Intl.NumberFormat('mk-MK', {
                 style: 'currency',
-                currency: 'EUR'
+                currency: 'MKD'
             }).format(price);
         },
 
@@ -1516,6 +1525,13 @@ export default {
         applyFilters() {
             this.fetchCatalogItems(1);
         },
+        clearFilters() {
+            this.filters = {
+                category: '',
+                subcategory_id: ''
+            };
+            this.fetchCatalogItems(1);
+        },
     },
     mounted() {
         this.loadFormData();
@@ -1580,6 +1596,13 @@ tbody td {
 .btn-secondary {
     background-color: #4a5568;
     color: white;
+}
+.btn-clear{
+    background-color: $light-gray;
+    color: white;
+}
+.btn-clear:hover{
+    background-color: $gray;
 }
 .btn-secondary:disabled {
     background-color: #2d3748;

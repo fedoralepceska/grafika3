@@ -3,17 +3,7 @@
         <div class="pl-7 pr-7">
             <div class="flex justify-between items-center mb-4">
                 <Header title="Catalog" subtitle="createNewCatalogItem" icon="List.png" link="catalog"/>
-                <div class="flex gap-2">
-                    <button class="btn btn-secondary">   
-                        <CreateSubcategoryDialog @created="handleSubcategoryCreated" />
-                    </button>
-                    <button class="btn btn-primary">
-                        <ViewSubcategoriesDialog 
-                            @updated="handleSubcategoryUpdated"
-                            @deleted="handleSubcategoryDeleted"
-                        />
-                    </button>
-                </div>
+            
             </div>
 
             <div class="dark-gray p-2 text-white">
@@ -65,19 +55,33 @@
                                 </div>
                                 <div>
                                     <label class="text-white">{{ $t('subcategory') }}</label>
-                                    <select
-                                        v-model="form.subcategory_id"
-                                        class="w-full mt-1 rounded"
-                                    >
-                                        <option value="">{{ $t('selectSubcategory') }}</option>
-                                        <option
-                                            v-for="subcategory in subcategories"
-                                            :key="subcategory.id"
-                                            :value="subcategory.id"
+                                    <div class="flex items-center gap-2">
+                                        <select
+                                            v-model="form.subcategory_id"
+                                            class="w-full mt-1 rounded"
                                         >
-                                            {{ subcategory.name }}
-                                        </option>
-                                    </select>
+                                            <option value="">{{ $t('selectSubcategory') }}</option>
+                                            <option
+                                                v-for="subcategory in subcategories"
+                                                :key="subcategory.id"
+                                                :value="subcategory.id"
+                                            >
+                                                {{ subcategory.name }}
+                                            </option>
+                                        </select>
+                                    
+                                        <div class="flex flex-row items-center gap-5">
+                                            <div class="p-2">
+                                                <CreateSubcategoryDialog @created="handleSubcategoryCreated" />
+                                            </div>
+                                            <div>
+                                                <ViewSubcategoriesDialog 
+                                                    @updated="handleSubcategoryUpdated"
+                                                    @deleted="handleSubcategoryDeleted"
+                                                />
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
 
@@ -114,28 +118,6 @@
                                     </select>
                                 </div>
 
-                                <!-- <div class="grid grid-cols-2 gap-4">
-                                    <div>
-                                        <label class="text-white">{{ $t('quantity') }}</label>
-                                        <input
-                                            v-model="form.quantity"
-                                            type="number"
-                                            min="1"
-                                            class="w-full mt-1 rounded"
-                                            required
-                                        />
-                                    </div>
-                                    <div>
-                                        <label class="text-white">{{ $t('copies') }}</label>
-                                        <input
-                                            v-model="form.copies"
-                                            type="number"
-                                            min="1"
-                                            class="w-full mt-1 rounded"
-                                            required
-                                        />
-                                    </div>
-                                </div> -->
                                 <div>
                                     <label class="text-white">{{ $t('category') }}</label>
                                     <select
@@ -277,15 +259,15 @@
                                 <div class="space-y-2">
                                     <div class="flex justify-between items-center">
                                         <span class="text-gray-300">{{ $t('productsCost') }}:</span>
-                                        <span class="text-white">€{{ displayProductsCost.toFixed(2) }}</span>
+                                        <span class="text-white">{{ displayProductsCost.toFixed(2) }} ден</span>
                                     </div>
                                     <div class="flex justify-between items-center">
                                         <span class="text-gray-300">{{ $t('servicesCost') }}:</span>
-                                        <span class="text-white">€{{ displayServicesCost.toFixed(2) }}</span>
+                                        <span class="text-white">{{ displayServicesCost.toFixed(2) }} ден</span>
                                     </div>
                                     <div class="flex justify-between items-center pt-2 border-t border-gray-600">
                                         <span class="text-white font-semibold">{{ $t('totalCostPrice') }}:</span>
-                                        <span class="text-white font-semibold">€{{ displayTotalCost.toFixed(2) }}</span>
+                                        <span class="text-white font-semibold">{{ displayTotalCost.toFixed(2) }} ден</span>
                                     </div>
                                 </div>
                             </div>

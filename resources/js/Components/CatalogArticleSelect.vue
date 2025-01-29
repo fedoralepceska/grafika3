@@ -24,7 +24,7 @@
                         </div>
                     </div>
                     <div class="text-sm text-green-400">
-                        €{{ article.purchase_price }}
+                        {{ article.purchase_price }} ден
                     </div>
                 </div>
             </div>

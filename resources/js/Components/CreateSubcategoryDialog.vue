@@ -8,7 +8,15 @@
             @keydown.esc="closeDialog"
         >
             <template v-slot:activator="{ props }">
-                <button v-bind="props" class="btn btn-secondary">{{ $t('createNewSubcategory') }}</button>
+                <!-- <button v-bind="props" class="btn btn-secondary">{{ $t('createNewSubcategory') }}</button> -->
+                <button 
+                    v-bind="props" 
+                    class="px-2 py-1 text-green-500"
+                    type="button"
+                    @click.stop
+                > 
+                    <span class="fa fa-plus"></span> 
+                </button>
             </template>
             <v-card class="height background">
                 <v-card-title>

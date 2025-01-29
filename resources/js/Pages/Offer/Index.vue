@@ -204,7 +204,7 @@
                                             <span>Quantity: {{ item.quantity }}</span>
                                         </div>
                                         <div>
-                                            <span>{{ item.custom_price ? `€${item.custom_price}` : '-' }}</span>
+                                            <span>{{ item.custom_price ? `${item.custom_price} ден` : '-' }}</span>
                                         </div>
                                     </div>
 
@@ -255,7 +255,7 @@
                                                     <span>Quantity: {{ item.quantity }}</span>
                                                 </p>
                                                 <p>
-                                                    <span>{{ item.price ? `€${item.price}` : '-' }}</span>
+                                                    <span>{{ item.price ? `${item.price} ден` : '-' }}</span>
                                                 </p>
                                             </div>
                                         </div>
@@ -925,7 +925,7 @@ export default {
         },
 
         formatPrice(price) {
-            if (!price) return '€0.00';
+            if (!price) return '0.00 ден';
             return new Intl.NumberFormat('de-DE', {
                 style: 'currency',
                 currency: 'EUR'

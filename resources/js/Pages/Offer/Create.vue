@@ -287,7 +287,7 @@
                                                     </div>
                                                 </div>
                                                 <div class="catalog-item-price">
-                                                    {{ item.price ? `€${item.price}` : 'Price not set' }}
+                                                    {{ item.price ? `${item.price} ден` : 'Price not set' }}
                                                 </div>
                                             </div>
                                         </div>
@@ -325,7 +325,7 @@
                                                         Material: {{ item.large_material?.name || 'N/A' }}
                                                     </p>
                                                     <div class="text-xs font-medium text-gray-900">
-                                                        {{ item.price ? `€${item.price}` : 'Price not set' }}
+                                                        {{ item.price ? `${item.price} ден` : 'Price not set' }}
                                                     </div>
                                                 </div>
                                             </div>
@@ -361,7 +361,7 @@
                                                     </div>
                                                 </div>
                                                 <div class="catalog-item-price">
-                                                    {{ item.price ? `€${item.price}` : 'Price not set' }}
+                                                    {{ item.price ? `${item.price} ден` : 'Price not set' }}
                                                 </div>
                                             </div>
                                         </div>
@@ -399,7 +399,7 @@
                                                         Material: {{ item.small_material?.name || 'N/A' }}
                                                     </p>
                                                     <div class="text-xs font-medium text-gray-900">
-                                                        {{ item.price ? `€${item.price}` : 'Price not set' }}
+                                                        {{ item.price ? `${item.price} ден` : 'Price not set' }}
                                                     </div>
                                                 </div>
                                             </div>
