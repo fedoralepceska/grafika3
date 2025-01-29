@@ -17,10 +17,10 @@
                             {{ $t('wItems') }}
                         </h2>
                             <div class="pb-3">
-                                <label class="pr-3">Filter Warehouse</label>
+                                <label class="pr-3">{{ $t('filterWarehouse') }}</label>
                                 <select class="text-black rounded " v-model="selectedWarehouse" @change="fetchPriemnica">
-                                    <option value="All" hidden>Warehouse</option>
-                                    <option value="All">All Warehouses</option>
+                                    <option value="All" hidden>{{ $t('warehouse') }}</option>
+                                    <option value="All">{{ $t('allWarehouses') }}</option>
                                     <option v-for="warehouse in warehouses" :key="warehouse.id" :value="warehouse.id">
                                         {{ warehouse.name }}
                                     </option>

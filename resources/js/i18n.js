@@ -413,7 +413,13 @@ const messages = {
         thisActionCannotBeUndoneMessage: 'This action cannot be undone.',
         deleting: 'Deleting...',
         manageCustomPrices: 'Manage custom prices for specific clients',
-        clientSpecificPrices: 'Client-Specific Prices'
+        clientSpecificPrices: 'Client-Specific Prices',
+        filterWarehouse: 'Filter warehouse',
+        allWarehouses: 'All warehouse',
+        viewWarehouses: 'View warehouses',
+        listOfAllTheWarehouses: 'List of all the warehouses',
+        addWarehouse: 'Add warehouse',
+        addNewWarehouse: 'Add new warehouse'
     },
     mk: {
         // Define your Macedonian translations here
@@ -829,7 +835,13 @@ const messages = {
         thisActionCannotBeUndoneMessage: 'Откако еднаш ќе се изврши, оваа акција не може да се откаже',
         deleting: 'Бришење...',
         manageCustomPrices: 'Менаџирање со цените за клиент',
-        clientSpecificPrices: 'Цени за клиент'
+        clientSpecificPrices: 'Цени за клиент',
+        filterWarehouse: 'Филтрирај магацини',
+        allWarehouses: 'Сите магацини',
+        viewWarehouses: 'Види магацини',
+        listOfAllTheWarehouses: 'Листа на сите магацини',
+        addWarehouse: 'Додади магацин',
+        addNewWarehouse: 'Додади нов магацин'
     },
 };
 

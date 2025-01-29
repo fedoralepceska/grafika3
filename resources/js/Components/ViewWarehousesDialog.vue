@@ -8,11 +8,11 @@
             @keydown.esc="closeDialog"
         >
             <template v-slot:activator="{ props }">
-                <button v-bind="props" class="btn lock-order">View Warehouses</button>
+                <button v-bind="props" class="btn lock-order">{{ $t('viewWarehouses') }}</button>
             </template>
             <v-card class="height background">
                 <v-card-title>
-                    <span class="text-h5 text-white">List of all the Warehouses</span>
+                    <span class="text-h5 text-white">{{ $t('listOfAllTheWarehouses') }}</span>
                 </v-card-title>
                 <v-card-text>
                     <div>
@@ -20,10 +20,10 @@
                             <thead>
                             <tr>
                                 <td>{{$t('Nr')}}</td>
-                                <td>Name</td>
-                                <td>Address</td>
-                                <td>Phone</td>
-                                <td>Delete</td>
+                                <td>{{ $t('name') }}</td>
+                                <td>{{ $t('address') }}</td>
+                                <td>{{ $t('phone') }}</td>
+                                <td>{{ $t('delete') }}</td>
                             </tr>
                             </thead>
                             <tbody>
@@ -33,7 +33,7 @@
                                 <td>{{warehouse.address}}</td>
                                 <td>{{ warehouse.phone }}</td>
                                 <td><SecondaryButton @click="deleteWarehouse(warehouse)" class="red">
-                                    Delete
+                                    {{ $t('delete') }}
                                 </SecondaryButton></td>
                             </tr>
                             </tbody>
@@ -44,7 +44,7 @@
                 <v-card-actions class="flexSpace gap-4">
                     <v-spacer></v-spacer>
                     <SecondaryButton @click="closeDialog" class="red">
-                        Close
+                        {{ $t('close') }}
                     </SecondaryButton>
                 </v-card-actions>
             </v-card>
