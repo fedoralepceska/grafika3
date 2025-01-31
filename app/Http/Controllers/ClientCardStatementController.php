@@ -120,7 +120,8 @@ class ClientCardStatementController extends Controller
 
         // Fetch relevant incoming fakturas (client_id matches)
         $incomingFakturasQuery = IncomingFaktura::query()
-            ->where('client_id', $cardStatement->client_id);
+            ->where('client_id', $cardStatement->client_id)
+            ->whereYear('created_at', now()->year);
 
         $totalIncomingFromFaktura = $incomingFakturasQuery->get()->sum('amount');
 
