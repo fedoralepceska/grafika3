@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\ClientCardStatement;
 use App\Models\Faktura;
+use App\Models\IncomingFaktura;
 use App\Models\Item;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
@@ -117,6 +118,12 @@ class ClientCardStatementController extends Controller
                 $query->where('client_id', $cardStatement->client_id);
             });
 
+        // Fetch relevant incoming fakturas (client_id matches)
+        $incomingFakturasQuery = IncomingFaktura::query()
+            ->where('client_id', $cardStatement->client_id);
+
+        $totalIncomingFromFaktura = $incomingFakturasQuery->get()->sum('amount');
+
         if ($fromDate) {
             $fakturasQuery->whereDate('created_at', '>=', $fromDate);
         }
@@ -128,16 +135,17 @@ class ClientCardStatementController extends Controller
         $fakturas = $fakturasQuery->get();
 
         // Format data for items
-        $formattedItems = $items->map(function ($item) {
+        $formattedItems = $items->map(function ($item) use ($cardStatement, $totalIncomingFromFaktura) {
             $document = $item->income ? 'Statement Income' : 'Statement Expense';
             $number = sprintf('%03d/%d', $item->id, $item->created_at->format('Y'));
             $statementValue = $item->income ?: $item->expense;
+            $incomingInvoice = $cardStatement->initial_cash + $totalIncomingFromFaktura;
 
             return [
                 'date' => $item->created_at->format('Y-m-d'),
                 'document' => $document,
                 'number' => $number,
-                'incoming_invoice' => 0,
+                'incoming_invoice' => $incomingInvoice,
                 'output_invoice' => 0,
                 'statement_income' => $item->income,
                 'statement_expense' => $item->expense, // Expense only if not income
