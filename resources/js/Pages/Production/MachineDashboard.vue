@@ -17,18 +17,18 @@
                             {{ item.name }}
                         </div>
                         <div class="machineInfo">
-                            <div>Total active jobs: {{item.total}}</div>
-                            <div>Total pending jobs: {{item.secondaryCount}}</div>
-                            <div>Total jobs ON HOLD: {{item.onHoldCount}}</div>
-                            <div v-if="item.onRushCount" class="red blinking">High priority jobs: {{item.onRushCount}}</div>
+                            <div>{{ $t('totalActiveJobs') }}: {{item.total}}</div>
+                            <div>{{ $t('totalPendingJobs') }}: {{item.secondaryCount}}</div>
+                            <div>{{ $t('totalJobsOnHold') }}: {{item.onHoldCount}}</div>
+                            <div v-if="item.onRushCount" class="red blinking">{{ $t('highPriorityJobs') }}: {{item.onRushCount}}</div>
                         </div>
                     </div>
                     <div class="status">
                         <div v-if="item.total > 0" class="status-circle" style="background-color: #408a0b;">
-                            Online
+                            {{ $t('online') }}
                         </div>
                         <div v-else class="status-circle" style="background-color: #9e2c30;">
-                            Offline
+                            {{ $t('offline') }}
                         </div>
                     </div>
                 </div>

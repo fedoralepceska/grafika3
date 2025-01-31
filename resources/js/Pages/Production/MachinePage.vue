@@ -6,11 +6,11 @@
                 <div :class="['container', 'flex', 'gap-20', 'relative', 'p-2', { 'red': invoice.onHold }]">
                     <div class="order bg-white text-black bold p-3" style="min-width: 20vh" @click="navigateToOrder(invoice.id)"><strong>{{invoice.invoice_title}}</strong></div>
                     <div class="info">
-                        <div>Order</div>
+                        <div>{{$t('order')}}</div>
                         <div class="bold">#{{ invoice.id }}</div>
                     </div>
                     <div class="info">
-                        <div>Customer</div>
+                        <div>{{$t('customer')}}</div>
                         <div class="bold">{{invoice.client_name}}</div>
                         <!--
                                             The Clients name should be fetched #TODO
@@ -21,14 +21,14 @@
                         <div class="bold">{{ invoice?.end_date }}</div>
                     </div>
                     <div class="info">
-                        <div>Created By</div>
+                        <div>{{$t('createdBy')}}</div>
                         <div class="bold">{{ invoice.user_name }}</div>
                         <!--
                                             The users name should be fetched #TODO
                         -->
                     </div>
                     <div class="info">
-                        <div>Current Step</div>
+                        <div>{{$t('currentStep')}}</div>
                         <div class="bold">{{ machineId }}</div>
                     </div>
                     <div class="btns">
@@ -43,19 +43,19 @@
                         }]" v-if="invoice.onHold">
                             <td colspan="9">
                                 <i class="fa-solid fa-ban"></i>
-                                THIS ORDER IS ON HOLD
+                                {{$t('thisOrderIsOnHold')}}
                                 <i class="fa-solid fa-ban"></i></td> <!-- Adjust colspan based on the number of columns in your table -->
                         </tr>
                         <tr>
-                            <th>LN</th>
-                            <th>Img</th>
-                            <th>Qty</th>
-                            <th>Copies</th>
-                            <th>Height</th>
-                            <th>Width</th>
-                            <th>Print</th>
-                            <th>Cut</th>
-                            <th>Action</th>
+                            <th>{{$t('ln')}}</th>
+                            <th>{{$t('img')}}</th>
+                            <th>{{$t('qty')}}</th>
+                            <th>{{$t('copies')}}</th>
+                            <th>{{$t('height')}}</th>
+                            <th>{{$t('width')}}</th>
+                            <th>{{$t('print')}}</th>
+                            <th>{{$t('cut')}}</th>
+                            <th>{{$t('action')}}</th>
                         </tr>
                         </thead>
                         <tbody v-for="(job, jobIndex) in invoice.jobs" :key="jobIndex">
@@ -66,7 +66,7 @@
                             <td colspan="9" class="orange">
                                 <button @click="openModal">
                                     <i class="fa-solid fa-arrow-down"></i>
-                                    Read Notes before you can process this
+                                    {{$t('readNotes')}}
                                     <i class="fa-solid fa-arrow-down"></i>
                                 </button>
                             </td>
@@ -93,8 +93,8 @@
                             <td>{{ job.machinePrint }}</td>
                             <td>{{ job.machineCut }}</td>
                             <td>
-                                <button class="bg-white text-black p-2 rounded mr-2" @click="startJob(job)"><strong>Start job <i class="fa-regular fa-clock"></i>0min </strong></button>
-                                <button class="red p-2 rounded" @click="endJob(job)"><strong>End job</strong></button>
+                                <button class="bg-white text-black p-2 rounded mr-2" @click="startJob(job)"><strong>{{$t('startJob')}} <i class="fa-regular fa-clock"></i>0min </strong></button>
+                                <button class="red p-2 rounded" @click="endJob(job)"><strong>{{$t('endJob')}}</strong></button>
                             </td>
                         </tr>
 

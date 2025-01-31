@@ -8,26 +8,26 @@
             @keydown.esc="closeDialog"
         >
             <template v-slot:activator="{ props }">
-                <button v-bind="props" class="btn lock-order">Add Machine</button>
+                <button v-bind="props" class="btn lock-order">{{ $t('addMachine') }}</button>
             </template>
             <v-card class="height background">
                 <v-card-title>
-                    <span class="text-h5 text-white">Add New Machine</span>
+                    <span class="text-h5 text-white">{{ $t('addNewMachine') }}</span>
                 </v-card-title>
                 <v-card-text>
                     <div>
                         <div class="form-group">
-                            <label for="name" class="text-white width100">Name</label>
+                            <label for="name" class="text-white width100">{{ $t('name') }}</label>
                             <input type="text" id="name" class="rounded text-black" v-model="newMachine.name">
                         </div>
                         <div class="form-group">
-                            <label class="text-white width100">Type</label>
+                            <label class="text-white width100">{{ $t('type') }}</label>
                             <div class="mr-8">
-                                <label for="type" class="text-white width100 mr-2">Print</label>
+                                <label for="type" class="text-white width100 mr-2">{{ $t('print') }}</label>
                                 <Checkbox name="print" v-model:checked="newMachine.print" />
                             </div>
                             <div>
-                                <label for="type" class="text-white width100 mr-2">Cut</label>
+                                <label for="type" class="text-white width100 mr-2">{{ $t('cut') }}</label>
                                 <Checkbox name="cut" v-model:checked="newMachine.cut" />
                             </div>
                         </div>
@@ -36,10 +36,10 @@
                 <v-card-actions class="flexSpace gap-4">
                     <v-spacer></v-spacer>
                     <SecondaryButton @click="closeDialog" class="red">
-                        Close
+                        {{ $t('close') }}
                     </SecondaryButton>
                     <SecondaryButton @click="saveData" class="green">
-                        Add
+                        {{ $t('add') }}
                     </SecondaryButton>
                 </v-card-actions>
             </v-card>

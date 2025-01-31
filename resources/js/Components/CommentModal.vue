@@ -3,7 +3,7 @@
         <div class="modal-content">
             <div class="note pb-1">
                 <div class="flex">
-                <p>Read Note</p>
+                <p>{{ $t('readNote') }}</p>
                     <button @click="closeModal" class="bg-white pr-2 pl-2 rounded bg" ><i class="fa-solid fa-xmark"></i></button>
                 </div>
             </div>
@@ -11,8 +11,8 @@
                 <p>{{ comment }}</p>
             </div>
             <div class="flex pt-16">
-            <button class="bt1" @click="closeModal"><i class="fa-solid fa-xmark"></i> Close</button>
-            <button class="bt2" @click="acknowledge">Acknowledge <i class="fa-solid fa-check"></i></button>
+            <button class="bt1" @click="closeModal"><i class="fa-solid fa-xmark"></i> {{ $t('close') }}</button>
+            <button class="bt2" @click="acknowledge">{{ $t('acknowledge') }} <i class="fa-solid fa-check"></i></button>
             </div>
         </div>
     </div>

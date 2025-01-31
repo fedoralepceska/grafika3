@@ -8,21 +8,21 @@
             @keydown.esc="closeDialog"
         >
             <template v-slot:activator="{ props }">
-                <button v-bind="props" class="btn lock-order">View Machines</button>
+                <button v-bind="props" class="btn lock-order">{{ $t('viewMachines') }}</button>
             </template>
             <v-card class="height background">
                 <v-card-title>
-                    <span class="text-h5 text-white">List of all the Machines</span>
+                    <span class="text-h5 text-white">{{ $t('listOfAllTheMachines') }}</span>
                 </v-card-title>
                 <v-card-text>
                     <div class="mb-6">
-                        <span class="text-h5 text-white">Machines - Cut</span>
+                        <span class="text-h5 text-white">{{ $t('machineC') }}</span>
                         <table class="excel-table">
                             <thead>
                             <tr>
                                 <td>{{$t('Nr')}}</td>
-                                <td>Name</td>
-                                <td>Actions</td>
+                                <td>{{ $t('name') }}</td>
+                                <td>{{ $t('ACTIONS') }}</td>
                             </tr>
                             </thead>
                             <tbody>
@@ -30,20 +30,20 @@
                                 <td>{{index+1}}</td>
                                 <td class="w-3/4">{{machineCut.name}}</td>
                                 <td><SecondaryButton @click="deleteMachine(machineCut)" class="red">
-                                    Delete
+                                    {{ $t('delete') }}
                                 </SecondaryButton></td>
                             </tr>
                             </tbody>
                         </table>
                     </div>
                     <div>
-                        <span class="text-h5 text-white">Machines - Print</span>
+                        <span class="text-h5 text-white">{{ $t('machineP') }}</span>
                         <table class="excel-table">
                             <thead>
                             <tr>
                                 <td>{{$t('Nr')}}</td>
-                                <td>Name</td>
-                                <td>Actions</td>
+                                <td>{{ $t('name') }}</td>
+                                <td>{{ $t('ACTIONS') }}</td>
                             </tr>
                             </thead>
                             <tbody>
@@ -51,7 +51,7 @@
                                 <td>{{index+1}}</td>
                                 <td class="w-3/4">{{machinePrint.name}}</td>
                                 <td><SecondaryButton @click="deleteMachine(machinePrint)" class="red">
-                                    Delete
+                                    {{ $t('delete') }}
                                 </SecondaryButton></td>
                             </tr>
                             </tbody>
@@ -61,7 +61,7 @@
                 <v-card-actions class="flexSpace gap-4">
                     <v-spacer></v-spacer>
                     <SecondaryButton @click="closeDialog" class="red">
-                        Close
+                        {{ $t('close') }}
                     </SecondaryButton>
                 </v-card-actions>
             </v-card>

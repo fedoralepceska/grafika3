@@ -9,11 +9,11 @@
                             <strong>{{ invoice.invoice_title }}</strong>
                         </div>
                         <div class="info">
-                            <div>Order</div>
+                            <div>{{ $t('order') }}</div>
                             <div class="bold">#{{ invoice.id }}</div>
                         </div>
                         <div class="info">
-                            <div>Customer</div>
+                            <div>{{ $t('customer') }}</div>
                             <div class="bold">{{ invoice.client_name }}</div>
                         </div>
                         <div class="info">
@@ -21,11 +21,11 @@
                             <div class="bold">{{ invoice?.end_date }}</div>
                         </div>
                         <div class="info">
-                            <div>Created By</div>
+                            <div>{{ $t('createdBy') }}</div>
                             <div class="bold">{{ invoice.user_name }}</div>
                         </div>
                         <div class="info">
-                            <div>Current Step</div>
+                            <div>{{ $t('currentStep') }}</div>
                             <div class="bold">{{ actionId.startsWith('Machine') ? $t(`machinePrint.${actionId}`) : actionId }}</div>
                         </div>
                     </div>
@@ -41,22 +41,22 @@
                         }]" v-if="invoice.onHold">
                             <td :colspan="9 + (hasWaitingJobs ? 1 : 0) + (hasNextSteps ? 1 : 0)">
                                 <i class="fa-solid fa-ban"></i>
-                                THIS ORDER IS ON HOLD
+                                {{ $t('thisOrderIsOnHold') }}
                                 <i class="fa-solid fa-ban"></i>
                             </td>
                         </tr>
                         <tr>
-                                <th>LN</th>
-                                <th>Img</th>
-                                <th>Qty</th>
-                                <th>Copies</th>
-                                <th>Height</th>
-                                <th>Width</th>
-                                <th>Print</th>
-                                <th>Cut</th>
-                                <th>Action</th>
-                                <th v-if="hasWaitingJobs">Waiting Status</th>
-                                <th v-if="hasNextSteps">Next Step</th>
+                                <th>{{ $t('ln') }}</th>
+                                <th>{{ $t('img') }}</th>
+                                <th>{{ $t('qty') }}</th>
+                                <th>{{ $t('copies') }}</th>
+                                <th>{{ $t('height') }}</th>
+                                <th>{{ $t('width') }}</th>
+                                <th>{{ $t('print') }}</th>
+                                <th>{{ $t('cut') }}</th>
+                                <th>{{ $t('action') }}</th>
+                                <th v-if="hasWaitingJobs">{{ $t('waitingStatus') }}</th>
+                                <th v-if="hasNextSteps">{{ $t('nextStep') }}</th>
                             </tr>
                         </thead>
                         <tbody v-for="(job, jobIndex) in invoice.jobs" :key="jobIndex">
@@ -64,7 +64,7 @@
                                 <td :colspan="9 + (hasWaitingJobs ? 1 : 0) + (hasNextSteps ? 1 : 0)" class="orange">
                                     <button @click="openModal">
                                     <i class="fa-solid fa-arrow-down"></i>
-                                    Read Notes before you can process this
+                                        {{ $t('readNotes') }}
                                     <i class="fa-solid fa-arrow-down"></i>
                                     </button>
                                 </td>
@@ -94,55 +94,55 @@
                                 <td>
                                     <template v-if="job.actions.find(a => a.name === actionId)?.status === 'Completed'">
                                         <div class="completed-status">
-                                            <i class="fa-solid fa-check"></i> COMPLETED
+                                            <i class="fa-solid fa-check"></i> {{ $t('completed') }}
                                         </div>
                                     </template>
                                     <template v-else>
-                                        <button 
-                                            style="min-width: 230px; max-width: 230px" 
+                                        <button
+                                            style="min-width: 230px; max-width: 230px"
                                             :class="[
-                                                'bg-white', 
-                                                'text-black', 
-                                                'p-2', 
-                                                'rounded', 
-                                                'mr-2', 
-                                                { 
-                                                    'disabled': invoice.onHold || 
-                                                               jobDisabledStatus[getActionId(job).id] || 
+                                                'bg-white',
+                                                'text-black',
+                                                'p-2',
+                                                'rounded',
+                                                'mr-2',
+                                                {
+                                                    'disabled': invoice.onHold ||
+                                                               jobDisabledStatus[getActionId(job).id] ||
                                                                !isPreviousActionCompleted(job)
                                                 }
-                                            ]" 
-                                            @click="startJob(job)" 
-                                            :disabled="invoice.onHold || 
-                                                               jobDisabledStatus[getActionId(job).id] || 
+                                            ]"
+                                            @click="startJob(job)"
+                                            :disabled="invoice.onHold ||
+                                                               jobDisabledStatus[getActionId(job).id] ||
                                                                !isPreviousActionCompleted(job)"
                                         >
                                             <strong>
-                                                Start job 
+                                                {{ $t('startJob') }}
                                                 <i class="fa-regular fa-clock"></i>
                                                 <span>{{ elapsedTimes[getActionId(job).id] }}</span>
                                             </strong>
                                         </button>
-                                        <button 
-                                            v-if="canEndJob(job)" 
-                                            :class="['red', 'p-2', 'rounded', { 'disabled' : invoice.onHold }]" 
-                                            @click="endJob(job)" 
+                                        <button
+                                            v-if="canEndJob(job)"
+                                            :class="['red', 'p-2', 'rounded', { 'disabled' : invoice.onHold }]"
+                                            @click="endJob(job)"
                                             :disabled="invoice.onHold"
                                         >
-                                            <strong>End job</strong>
+                                            <strong>{{ $t('endJob') }}</strong>
                                         </button>
                                     </template>
                                 </td>
                                 <td v-if="hasWaitingJobs" class="waiting-status-cell">
                                     <template v-if="!isPreviousActionCompleted(job)">
                                         <div class="waiting-status">
-                                            <a 
+                                            <a
                                                 :href="`/actions/${job.actions[getActionId(job).index - 1].name}`"
                                                 class="action-link"
                                                 :style="{ color: getActionStatus(job, getActionId(job).index - 1).color }"
                                             >
                                                 {{ job.actions[getActionId(job).index - 1].name }}
-                                                <span class="status-badge" 
+                                                <span class="status-badge"
                                                       :style="{ backgroundColor: getActionStatus(job, getActionId(job).index - 1).color }">
                                                     {{ getActionStatus(job, getActionId(job).index - 1).text }}
                                                 </span>
@@ -153,7 +153,7 @@
                                 <td v-if="hasNextSteps" class="next-action">
                                     <template v-if="getActionId(job).index < job.actions.length - 1">
                                         <div class="next-step">
-                                            <a 
+                                            <a
                                                 :href="`/actions/${job.actions[getActionId(job).index + 1].name}`"
                                                 class="next-action-link"
                                             >
@@ -242,17 +242,17 @@ export default {
         },
         hasWaitingJobs() {
             let hasWaiting = false;
-            
+
             for (const invoice of this.invoices) {
                 for (const job of invoice.jobs) {
                     const { index } = this.getActionId(job);
                     const action = job.actions.find(a => a.name === this.actionId);
                     const previousAction = job.actions[index - 1];
-                    
+
                     // Check if this specific job is waiting
-                    if (index > 0 && 
-                        previousAction && 
-                        previousAction.status !== 'Completed' && 
+                    if (index > 0 &&
+                        previousAction &&
+                        previousAction.status !== 'Completed' &&
                         action?.status !== 'Completed') {
                         hasWaiting = true;
                         break;
@@ -260,11 +260,11 @@ export default {
                 }
                 if (hasWaiting) break;
             }
-            
+
             return hasWaiting;
         },
         hasNextSteps() {
-            return this.invoices.some(invoice => 
+            return this.invoices.some(invoice =>
                 invoice.jobs.some(job => {
                     const { index } = this.getActionId(job);
                     return index < job.actions.length - 1;
@@ -285,7 +285,7 @@ export default {
         isPreviousActionCompleted(job) {
             const { index } = this.getActionId(job);
             if (index <= 0) return true; // First action is always enabled
-            
+
             const previousAction = job.actions[index - 1];
             return previousAction?.status === 'Completed';
         },
@@ -364,7 +364,7 @@ export default {
             }
 
             const { id: actionId } = this.getActionId(job);
-            
+
             // Check if job is already started
             if (this.jobDisabledStatus[actionId]) {
                 return;
@@ -387,7 +387,7 @@ export default {
                 });
 
                 // Find the invoice that contains this job
-                const invoiceWithJob = this.invoices.find(invoice => 
+                const invoiceWithJob = this.invoices.find(invoice =>
                     invoice.jobs.some(j => j.id === job.id)
                 );
 
@@ -443,7 +443,7 @@ export default {
         async endJob(job) {
             try {
                 const { id: actionId, index: currentIndex } = this.getActionId(job);
-                
+
                 // Store the elapsed time before clearing
                 const finalTime = this.elapsedTimes[actionId];
 
@@ -508,7 +508,7 @@ export default {
                     onClose: () => {
                         // Check if there's a next action and if it exists in the job's actions
                         const hasNextAction = currentIndex < job.actions.length - 1 && job.actions[currentIndex + 1];
-                        
+
                         if (hasNextAction) {
                             // Redirect to next action
                             const nextAction = job.actions[currentIndex + 1];
@@ -524,7 +524,7 @@ export default {
                 console.error('Error ending job:', error);
                 const toast = useToast();
                 toast.error("Error ending job");
-                
+
                 // Revert the status if the API call failed
                 const action = job.actions.find(a => a.name === this.actionId);
                 if (action) {
@@ -745,7 +745,7 @@ td{
     gap: 0.25rem;
     text-decoration: underline;
     cursor: pointer;
-    
+
     &:hover {
         opacity: 0.8;
     }
@@ -767,7 +767,7 @@ td{
     color: #ffffff;
     text-decoration: underline;
     cursor: pointer;
-    
+
     &:hover {
         color: #ffffffdd;
     }
@@ -789,7 +789,7 @@ td{
     align-items: center;
     justify-content: center;
     gap: 8px;
-    
+
     i {
         font-size: 1.2em;
     }
