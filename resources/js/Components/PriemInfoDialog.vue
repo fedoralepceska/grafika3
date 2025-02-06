@@ -111,12 +111,14 @@ export default {
             }
         },
         taxTypePercentage(taxType) {
-            switch (taxType) {
-                case 1:
+            // Convert to string for comparison since it's coming from varchar
+            const type = String(taxType);
+            switch (type) {
+                case '1':
                     return 18;
-                case 2:
+                case '2':
                     return 5;
-                case 3:
+                case '3':
                     return 10;
                 default:
                     return 0;
@@ -131,8 +133,8 @@ export default {
             return this.formatNumber(vatAmount);
         },
         priceWithVAT(purchasePrice, taxType) {
-            const vatAmount = this.calculateVAT(purchasePrice, taxType);
-            const totalPrice = parseFloat(purchasePrice) + parseFloat(vatAmount);
+            const vatAmount = parseFloat(this.calculateVAT(purchasePrice, taxType).replace(/,/g, ''));
+            const totalPrice = parseFloat(purchasePrice) + vatAmount;
             return this.formatNumber(totalPrice);
         },
         calculateAmount(quantity, purchasePrice) {

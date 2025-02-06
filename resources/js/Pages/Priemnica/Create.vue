@@ -263,21 +263,27 @@ export default {
         },
         updateRowValues(index) {
             let row = this.rows[index];
-            row.priceWithVAT = row.purchase_price + (row.purchase_price * this.taxTypePercentage(row.tax_type) / 100);
+            console.log('Calculating VAT for row:', row); // Debug log
+            const vatPercentage = this.taxTypePercentage(row.tax_type);
+            console.log('VAT percentage:', vatPercentage); // Debug log
+            row.priceWithVAT = row.purchase_price + (row.purchase_price * vatPercentage / 100);
             row.amount = row.quantity * row.purchase_price;
-            row.tax = row.amount * this.taxTypePercentage(row.tax_type) / 100;
+            row.tax = row.amount * vatPercentage / 100;
             row.total = row.amount + row.tax;
-
         },
         taxTypePercentage(taxType) {
-            switch (taxType) {
-                case 1:
+            console.log('Tax type received:', taxType, 'Type:', typeof taxType); // Debug log
+            // Convert to string for comparison since it's coming from varchar
+            const type = String(taxType);
+            switch (type) {
+                case '1':
                     return 18;
-                case 2:
+                case '2':
                     return 5;
-                case 3:
+                case '3':
                     return 10;
                 default:
+                    console.log('No matching tax type found for:', type); // Debug log
                     return 0;
             }
         },
@@ -326,10 +332,16 @@ export default {
                 });
         },
         handleArticleSelected(article, index) {
+            console.log('Selected article:', article); // Debug log
             this.rows[index] = {
                 ...this.rows[index],
-                ...article,
+                code: article.code,
+                name: article.name,
+                purchase_price: article.purchase_price,
+                tax_type: article.tax_type,
+                quantity: 1,
             };
+            console.log('Updated row:', this.rows[index]); // Debug log
             this.updateRowValues(index);
             this.addRow();
         },

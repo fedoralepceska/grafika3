@@ -27,4 +27,35 @@ class Priemnica extends Model
     {
         return $this->belongsToMany(Article::class, 'priemnica_articles')->withPivot('quantity');
     }
+
+    public static function calculateVatPercentage($vatType)
+    {
+        return match ($vatType) {
+            '1' => 18,
+            '2' => 5,
+            '3' => 10,
+            default => 0,
+        };
+    }
+
+    public function getCalculatedTotals()
+    {
+        $totals = [
+            'subtotal' => 0,
+            'vat_amount' => 0,
+            'total' => 0
+        ];
+
+        foreach ($this->articles as $article) {
+            $price = $article->purchase_price * $article->pivot->quantity;
+            $vatPercentage = self::calculateVatPercentage($article->vat);
+            $vatAmount = $price * ($vatPercentage / 100);
+
+            $totals['subtotal'] += $price;
+            $totals['vat_amount'] += $vatAmount;
+            $totals['total'] += $price + $vatAmount;
+        }
+
+        return $totals;
+    }
 }

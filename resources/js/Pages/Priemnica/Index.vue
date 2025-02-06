@@ -64,7 +64,8 @@
                                 <th>{{$t('warehouse')}}<div class="resizer" @mousedown="initResize($event, 2)"></div></th>
                                 <th>{{$t('client')}}<div class="resizer" @mousedown="initResize($event, 3)"></div></th>
                                 <th>{{$t('price')}} (.ден)<div class="resizer" @mousedown="initResize($event, 4)"></div></th>
-                                <th>{{$t('comment')}}<div class="resizer" @mousedown="initResize($event, 5)"></div></th>
+                                <th>{{$t('price')}} + {{$t('VAT')}} (.ден)<div class="resizer" @mousedown="initResize($event, 5)"></div></th>
+                                <th>{{$t('comment')}}<div class="resizer" @mousedown="initResize($event, 6)"></div></th>
                                 <th></th>
                             </tr>
                             </thead>
@@ -75,7 +76,8 @@
                                 <th>{{ new Date(receipt.created_at).toLocaleDateString('en-GB') }}</th>
                                 <th>{{receipt.warehouse_name}}</th>
                                 <th>{{receipt.client.name}}</th>
-                                <th>{{ calculateTotalPrice(receipt.articles) }}</th>
+                                <th>{{ formatNumber(calculateTotalPrice(receipt.articles)) }}</th>
+                                <th>{{ formatNumber(calculateTotalPriceWithVAT(receipt.articles)) }}</th>
                                 <th>{{receipt.comment ? receipt.comment: '/'}}</th>
                                 <th>
                                     <div class="centered">
@@ -127,10 +129,34 @@ export default {
         };
     },
     methods: {
+        taxTypePercentage(taxType) {
+            const type = String(taxType);
+            switch (type) {
+                case '1':
+                    return 18;
+                case '2':
+                    return 5;
+                case '3':
+                    return 10;
+                default:
+                    return 0;
+            }
+        },
+        formatNumber(number) {
+            return Number(number).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        },
         calculateTotalPrice(articles) {
             return articles.reduce((total, article) => {
                 const articleTotal = (article.purchase_price || 0) * (article.pivot.quantity || 0);
                 return total + articleTotal;
+            }, 0);
+        },
+        calculateTotalPriceWithVAT(articles) {
+            return articles.reduce((total, article) => {
+                const basePrice = (article.purchase_price || 0) * (article.pivot.quantity || 0);
+                const vatPercentage = this.taxTypePercentage(article.tax_type);
+                const vatAmount = basePrice * (vatPercentage / 100);
+                return total + basePrice + vatAmount;
             }, 0);
         },
         applyFilter() {
