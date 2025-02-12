@@ -140,13 +140,12 @@ class ClientCardStatementController extends Controller
             $document = $item->income ? 'Statement Income' : 'Statement Expense';
             $number = sprintf('%03d/%d', $item->id, $item->created_at->format('Y'));
             $statementValue = $item->income ?: $item->expense;
-            $incomingInvoice = $cardStatement->initial_cash + $totalIncomingFromFaktura;
 
             return [
                 'date' => $item->created_at->format('Y-m-d'),
                 'document' => $document,
                 'number' => $number,
-                'incoming_invoice' => $incomingInvoice,
+                'incoming_invoice' => $totalIncomingFromFaktura,
                 'output_invoice' => 0,
                 'statement_income' => $item->income,
                 'statement_expense' => $item->expense, // Expense only if not income
@@ -212,6 +211,12 @@ class ClientCardStatementController extends Controller
 
         // Calculate total amount requested (income)
         $requests = $totalStatementIncome + $totalIncomingInvoice;
+
+        if ($cardStatement->initial_cash < 0) {
+            $owes += $cardStatement->initial_cash;
+        } else {
+            $requests += $cardStatement->initial_cash;
+        }
 
         $totalBalance = $owes > $requests ? $owes - $requests : $requests - $owes;
 
