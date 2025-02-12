@@ -727,6 +727,11 @@ class JobController extends Controller
                 'copies' => 'sometimes|required|numeric',
                 'catalog_item_id' => 'sometimes|exists:catalog_items,id',
                 'client_id' => 'sometimes|exists:clients,id',
+                'width' => 'sometimes|required|numeric',
+                'height' => 'sometimes|required|numeric',
+                'file' => 'sometimes|required',
+                'status' => 'sometimes|required',
+                'salePrice' => 'sometimes|required', // Keep the original salePrice validation
             ]);
 
             // If quantity is being updated, recalculate the price
@@ -769,12 +774,27 @@ class JobController extends Controller
                 $job->client_id = $validatedData['client_id'];
             }
 
-            // Update quantity and copies from validated data
+            // Update other fields from validated data
             if (isset($validatedData['quantity'])) {
                 $job->quantity = $validatedData['quantity'];
             }
             if (isset($validatedData['copies'])) {
                 $job->copies = $validatedData['copies'];
+            }
+            if (isset($validatedData['salePrice'])) {
+                $job->salePrice = $validatedData['salePrice'];
+            }
+            if (isset($validatedData['width'])) {
+                $job->width = $validatedData['width'];
+            }
+            if (isset($validatedData['height'])) {
+                $job->height = $validatedData['height'];
+            }
+            if (isset($validatedData['file'])) {
+                $job->file = $validatedData['file'];
+            }
+            if (isset($validatedData['status'])) {
+                $job->status = $validatedData['status'];
             }
 
             $job->load('catalogItem');

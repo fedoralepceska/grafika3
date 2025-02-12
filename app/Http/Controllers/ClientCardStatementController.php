@@ -135,39 +135,66 @@ class ClientCardStatementController extends Controller
 
         $fakturas = $fakturasQuery->get();
 
-        // Format data for items
-        $formattedItems = $items->map(function ($item) use ($cardStatement, $totalIncomingFromFaktura) {
-            $document = $item->income ? 'Statement Income' : 'Statement Expense';
+        $formattedItems = $items->flatMap(function ($item) use ($totalIncomingFromFaktura) {
             $number = sprintf('%03d/%d', $item->id, $item->created_at->format('Y'));
-            $statementValue = $item->income ?: $item->expense;
 
-            return [
-                'date' => $item->created_at->format('Y-m-d'),
-                'document' => $document,
-                'number' => $number,
-                'incoming_invoice' => $totalIncomingFromFaktura,
-                'output_invoice' => 0,
-                'statement_income' => $item->income,
-                'statement_expense' => $item->expense, // Expense only if not income
-                'comment' => $item->comment,
-            ];
+            $rows = [];
+
+            if ($totalIncomingFromFaktura > 0) {
+                $rows[] = [
+                    'date' => $item->created_at->format('Y-m-d'),
+                    'document' => 'Incoming Invoice',
+                    'number' => $number,
+                    'incoming_invoice' => $totalIncomingFromFaktura,
+                    'output_invoice' => 0,
+                    'statement_income' => 0,
+                    'statement_expense' => 0,
+                    'comment' => $item->comment,
+                ];
+            }
+
+            if ($item->income > 0) {
+                $rows[] = [
+                    'date' => $item->created_at->format('Y-m-d'),
+                    'document' => 'Statement Income',
+                    'number' => $number,
+                    'incoming_invoice' => 0,
+                    'output_invoice' => 0,
+                    'statement_income' => $item->income,
+                    'statement_expense' => 0,
+                    'comment' => $item->comment,
+                ];
+            }
+
+            if ($item->expense > 0) {
+                $rows[] = [
+                    'date' => $item->created_at->format('Y-m-d'),
+                    'document' => 'Statement Expense',
+                    'number' => $number,
+                    'incoming_invoice' => 0,
+                    'output_invoice' => 0,
+                    'statement_income' => 0,
+                    'statement_expense' => $item->expense,
+                    'comment' => $item->comment,
+                ];
+            }
+
+            return $rows;
         })->toArray();
 
         // Format data for fakturas
         $formattedFakturas = $fakturas->map(function ($faktura) use ($cardStatement) {
             $invoice = $faktura->invoices->first();
             if (!$invoice || $invoice->client_id !== $cardStatement->client_id) {
-                return null; // Skip fakturas without a matching client in the first invoice
+                return null;
             }
 
-            // Eager load jobs for efficient access
-            $invoice->load('jobs'); // Load jobs relationship for the current invoice
-
-            $invoiceTotal = $invoice->jobs->sum('salePrice'); // Sum salePrice from loaded jobs
+            $invoice->load('jobs');
+            $invoiceTotal = $invoice->jobs->sum('salePrice');
 
             return [
                 'date' => $faktura->created_at->format('Y-m-d'),
-                'document' => 'Output invoice',
+                'document' => 'Output Invoice',
                 'number' => sprintf('%03d/%d', $faktura->id, $faktura->created_at->format('Y')),
                 'incoming_invoice' => 0,
                 'output_invoice' => $invoiceTotal,
@@ -175,15 +202,10 @@ class ClientCardStatementController extends Controller
                 'statement_expense' => 0,
                 'comment' => $faktura->comment,
             ];
-        })->filter()->toArray(); // Filter out any null values
+        })->filter()->toArray();
 
-        // Merge formatted data for both sources
         $tableData = array_merge($formattedItems, $formattedFakturas);
-
-        // Sort data by date (ascending)
-        usort($tableData, function ($a, $b) {
-            return strtotime($a['date']) <=> strtotime($b['date']);
-        });
+        usort($tableData, fn ($a, $b) => strtotime($a['date']) <=> strtotime($b['date']));
 
         // Paginate table data
         $page = $request->query('page', 1);
