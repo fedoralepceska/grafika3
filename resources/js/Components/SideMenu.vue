@@ -222,6 +222,21 @@ export default {
                         },
                     ],
                 },
+                {
+                    href: '',
+                    title: 'User Management',
+                    icon: 'fa-solid fa-user-gear',
+                    child: [
+                        {
+                            href: '/user-management',
+                            title: 'User Management',
+                        },
+                        {
+                            href: '/user-roles',
+                            title: 'User Roles',
+                        },
+                    ],
+                },
             ],
         }
     },

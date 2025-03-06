@@ -29,6 +29,8 @@ use App\Http\Controllers\ItemController;
 use App\Http\Controllers\PriceController;
 use App\Http\Controllers\IncomingFakturaController;
 use App\Http\Controllers\SubcategoryController;
+use App\Http\Controllers\UserRoleController;
+use App\Http\Controllers\UserController;
 
 
 /*
@@ -424,5 +426,39 @@ Route::middleware(['auth'])->group(function () {
 });
 
 Route::get('/api/next-faktura-counter', [IncomingFakturaController::class, 'getNextFakturaCounter']);
+
+//Routes For User Roles
+Route::middleware(['auth', 'verified'])->group(function () {
+    Route::get('/user-roles', function () {
+        return Inertia::render('UserRoles/Index');
+    })->name('user-roles.index');
+
+    Route::prefix('api')->group(function () {
+        Route::get('/user-roles', [UserRoleController::class, 'index']);
+        Route::post('/user-roles', [UserRoleController::class, 'store']);
+        Route::put('/user-roles/{userRole}', [UserRoleController::class, 'update']);
+        Route::delete('/user-roles/{userRole}', [UserRoleController::class, 'destroy']);
+    });
+});
+
+// User Roles API Routes
+Route::middleware(['auth'])->prefix('api')->group(function () {
+    Route::get('/user-roles', [UserRoleController::class, 'index']);
+    Route::post('/user-roles', [UserRoleController::class, 'store']);
+    Route::put('/user-roles/{userRole}', [UserRoleController::class, 'update']);
+    Route::delete('/user-roles/{userRole}', [UserRoleController::class, 'destroy']);
+});
+
+//Routes For User Management
+Route::middleware(['auth', 'verified'])->group(function () {
+    Route::get('/user-management', function () {
+        return Inertia::render('UserManagement/Index');
+    })->name('user-management.index');
+
+    Route::prefix('api')->group(function () {
+        Route::get('/users', [UserController::class, 'index']);
+        Route::put('/users/{user}/role', [UserController::class, 'updateRole']);
+    });
+});
 
 require __DIR__.'/auth.php';
