@@ -99,13 +99,13 @@
             <td style="width: auto; padding-left: 0">
                 <table style="width: auto; margin-right: 10px">
                     <tr style="border-bottom: 1px solid #073e87;height: 150px; border-left: 1px solid #073e87; margin-right: 10px;">
-                        <td class="tahoma bolder" style="font-size: 11.5pt; line-height: 90%; padding-left: 0; padding-top: 15px">
+                        <td class="tahoma bolder" style="font-size: 10.5pt; line-height: 90%; padding-left: 0; padding-top: 15px">
                             <i class="fa-solid fa-play" style="color:#073e87"></i> ДО:
                         </td>
                         <td style="padding-top: 15px;">
-                            <div class="tahoma bolder" style="font-size: 11.5pt;line-height: 90%;  margin: 0; border-spacing: 0;"> {{ $offer->client->name }}</div>
-                            <div class="tahoma" style="color: #2b2b2b; font-size: 11.5pt; line-height: 90%; margin-top: 10px">Контакт: {{ $offer->contact->name }}</div>
-                            <div class="tahoma" style="color: #2b2b2b; font-size: 11.5pt; line-height: 90%; margin-right: 10px">Тел. {{ $offer->contact->phone }}</div>
+                            <div class="tahoma bolder" style="font-size: 10.5pt;line-height: 90%;  margin: 0; border-spacing: 0;"> {{ $offer->client->name }}</div>
+                            <div class="tahoma" style="color: #2b2b2b; font-size: 10.5pt; line-height: 90%; margin-top: 10px">Контакт: {{ $offer->contact->name }}</div>
+                            <div class="tahoma" style="color: #2b2b2b; font-size: 10.5pt; line-height: 90%; margin-right: 10px">Тел. {{ $offer->contact->phone }}</div>
                         </td>
                     </tr>
                 </table>
@@ -115,10 +115,10 @@
             <td style="width: auto; padding-top: 10px; padding-right: 0; text-align: right;">
                 <table style="background-color: #ececec; width: auto;padding: 5px 70px 0 3px;  border-radius: 7px; float: right;">
                     <tr style="padding: 0; margin: 0">
-                        <td class="tahoma bolder" style="font-size: 11.5pt; line-height: 90%;">ПОНУДА: <span class="opensans">бр.</span></td>
+                        <td class="tahoma bolder" style="font-size: 10.5pt; line-height: 90%;">ПОНУДА: <span class="opensans">бр.</span></td>
                         <td >
-                            <div class="opensans" style="font-size: 11.5pt; line-height: 90%;"> {{ $offer->id }}/{{ date('Y', strtotime($offer->created_at)) }}</div>
-                            <div class="opensans" style="font-size: 11.5pt; line-height: 90%; margin-bottom: 5px"><span class="tahoma bolder">Дата:</span> {{ date('d/m/Y', strtotime($offer->created_at)) }}</div>
+                            <div class="opensans" style="font-size: 10.5pt; line-height: 90%;"> {{ $offer->id }}/{{ date('Y', strtotime($offer->created_at)) }}</div>
+                            <div class="opensans" style="font-size: 10.5pt; line-height: 90%; margin-bottom: 5px"><span class="tahoma bolder">Дата:</span> {{ date('d/m/Y', strtotime($offer->created_at)) }}</div>
                             <div class="tahoma " style="font-size: 8.5pt; line-height: 90%; ">Понудата важи: <span class="opensans bolder">{{ $offer->validity_days }}</span> дена</div>
                         </td>
                     </tr>
@@ -146,7 +146,7 @@
         <tr style="border-bottom: 1px solid #cccccc" >
             <td class="opensans bolder" style="color: #2b2b2b; font-size: 9pt;line-height: 90%; text-align: left">{{ $index + 1 }}.</td>
             <td style="text-align: left">
-                <div class="tahoma" style="font-size: 9pt; line-height: 90%;">{{ $item->name }}</div>
+                <div class="tahoma bolder" style="font-size: 9pt; line-height: 90%;">{{ $item->name }}</div>
                 <div class="tahoma" style="font-size: 7pt; line-height: 90%;">{{ $item->pivot->description ?: $item->description }}</div>
             </td>
             <td class="tahoma bolder" style="font-size: 9pt; line-height: 90% ;vertical-align: middle;background-color:#ececec; color: #2b2b2b">{{ $item->pivot->quantity }}</td>
