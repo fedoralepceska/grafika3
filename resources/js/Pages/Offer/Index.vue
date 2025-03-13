@@ -469,7 +469,7 @@
                                                     <label class="text-gray-400 text-xs whitespace-nowrap">Price:</label>
                                                     <div class="relative flex-1">
                                                         <input
-                                                            v-model.number="item.custom_price"
+ q                                                            :value="calculatedPrice(item)"
                                                             type="number"
                                                             min="0"
                                                             step="0.01"
@@ -653,7 +653,7 @@ export default {
             return this.catalogItems.filter(item =>
                 item.name.toLowerCase().includes(query)
             );
-        }
+        },
     },
 
     methods: {
@@ -885,7 +885,7 @@ export default {
                         custom_price: item.custom_price
                     }
                 });
-                
+
                 if (item.custom_price) {
                     // If custom price is set, calculate total based on custom price
                     item.calculated_price = item.custom_price * item.quantity;
@@ -931,6 +931,10 @@ export default {
                 currency: 'EUR'
             }).format(price);
         },
+
+        calculatedPrice(item) {
+            return item.calculated_price ?? item.custom_price;
+        }
     }
 };
 </script>

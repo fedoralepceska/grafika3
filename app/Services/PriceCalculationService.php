@@ -104,7 +104,7 @@ class PriceCalculationService
         // 3. Use catalog item's default price
         $catalogItem = CatalogItem::find($catalogItemId);
         $totalPrice = $catalogItem ? $catalogItem->price * $quantity : null;
-        
+
         Log::info('Using default catalog price', [
             'catalog_item_id' => $catalogItemId,
             'unit_price' => $catalogItem ? $catalogItem->price : null,

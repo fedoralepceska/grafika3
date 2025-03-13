@@ -5,17 +5,26 @@ namespace App\Http\Controllers;
 use App\Models\Offer;
 use App\Models\Client;
 use App\Models\CatalogItem;
+use App\Services\PriceCalculationService;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Barryvdh\DomPDF\Facade\Pdf;
 
 class OfferController extends Controller
 {
+    function getPrice($clientId, $item) {
+        $priceCalculationService = app()->make(PriceCalculationService::class);
+        return $priceCalculationService->calculateEffectivePrice(
+            $item->id,
+            $clientId,
+            $item->pivot->quantity
+        );
+    }
     public function index()
     {
         $perPage = 15;
         $status = request()->get('status', 'pending'); // Default to 'pending' if no status is provided
-        
+
         $offers = Offer::with(['client', 'catalogItems.largeMaterial', 'catalogItems.smallMaterial'])
             ->when($status, function($query, $status) {
                 return $query->where('status', $status);
@@ -33,7 +42,7 @@ class OfferController extends Controller
                     'decline_reason' => $offer->decline_reason,
                     'created_at' => $offer->created_at->format('Y-m-d H:i:s'),
                     'items_count' => $offer->catalogItems->count(),
-                    'catalog_items' => $offer->catalogItems->map(function ($item) {
+                    'catalog_items' => $offer->catalogItems->map(function ($item) use ($offer) {
                         return [
                             'id' => $item->id,
                             'name' => $item->name,
@@ -42,6 +51,7 @@ class OfferController extends Controller
                             'price' => $item->price,
                             'quantity' => $item->pivot->quantity,
                             'custom_description' => $item->pivot->description,
+                            'calculated_price' => $this->getPrice($offer->client->id, $item),
                             'custom_price' => $item->pivot->custom_price,
                             'large_material' => $item->largeMaterial ? [
                                 'id' => $item->largeMaterial->id,
@@ -236,6 +246,11 @@ class OfferController extends Controller
         $offer = Offer::with(['client', 'contact', 'catalogItems.largeMaterial', 'catalogItems.smallMaterial'])
             ->findOrFail($offerId);
 
+        $offer->catalogItems->transform(function ($item) use ($offer) {
+            $item->calculated_price = $this->getPrice($offer->client->id, $item);
+            return $item;
+        });
+
         // Load the view and pass data
         $pdf = Pdf::loadView('offers.pdf', compact('offer'), [
             'isHtml5ParserEnabled' => true,
@@ -251,15 +266,15 @@ class OfferController extends Controller
     {
         $offer->load(['client', 'contact', 'catalogItems.largeMaterial', 'catalogItems.smallMaterial']);
         $clients = Client::select('id', 'name')->with('contacts')->get();
-        $catalogItems = CatalogItem::with(['largeMaterial', 'smallMaterial'])
-            ->where('is_for_offer', true)
-            ->get()
-            ->map(function ($item) {
+        $catalogItems = $offer->catalogItems
+            ->filter(fn($item) => $item->is_for_offer)
+            ->map(function ($item) use ($offer) {
                 return [
                     'id' => $item->id,
                     'name' => $item->name,
                     'description' => $item->description,
                     'price' => $item->price,
+                    'calculatedPrice' => $this->getPrice($offer->client->id, $item),
                     'file' => $item->file,
                     'large_material' => $item->largeMaterial ? [
                         'id' => $item->largeMaterial->id,
@@ -281,7 +296,7 @@ class OfferController extends Controller
                 'contact_id' => $offer->contact_id,
                 'validity_days' => $offer->validity_days,
                 'production_time' => $offer->production_time,
-                'catalog_items' => $offer->catalogItems->map(function ($item) {
+                'catalog_items' => $offer->catalogItems->map(function ($item) use ($offer) {
                     return [
                         'id' => $item->id,
                         'selection_id' => uniqid(), // Add unique ID for frontend tracking
@@ -289,7 +304,7 @@ class OfferController extends Controller
                         'description' => $item->pivot->description,
                         'quantity' => $item->pivot->quantity,
                         'custom_price' => $item->pivot->custom_price,
-                        'calculated_price' => null, // Will be recalculated on frontend
+                        'calculated_price' => $this->getPrice($offer->client->id, $item),
                         'file' => $item->file,
                         'large_material' => $item->largeMaterial ? [
                             'id' => $item->largeMaterial->id,
