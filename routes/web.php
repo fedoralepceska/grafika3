@@ -391,15 +391,19 @@ Route::middleware(['auth'])->group(function () {
     Route::put('/client-prices/{clientPrice}', [ClientPriceController::class, 'update'])->name('client-prices.update');
     Route::delete('/client-prices/{clientPrice}', [ClientPriceController::class, 'destroy'])->name('client-prices.destroy');
 });
-
 // Quantity-based prices routes
 Route::middleware(['auth'])->group(function () {
+    // Routes for QuantityPriceController (multiple ranges)
     Route::get('/quantity-prices', [QuantityPriceController::class, 'index'])->name('quantity-prices.index');
     Route::get('/quantity-prices/create', [QuantityPriceController::class, 'create'])->name('quantity-prices.create');
     Route::post('/quantity-prices', [QuantityPriceController::class, 'store'])->name('quantity-prices.store');
-    Route::get('/quantity-prices/{quantityPrice}/edit', [QuantityPriceController::class, 'edit'])->name('quantity-prices.edit');
-    Route::put('/quantity-prices/{quantityPrice}', [QuantityPriceController::class, 'update'])->name('quantity-prices.update');
-    Route::delete('/quantity-prices/{quantityPrice}', [QuantityPriceController::class, 'destroy'])->name('quantity-prices.destroy');
+    
+    // Routes for PricePerQuantityController (single ranges)
+    Route::post('/quantity-prices/single', [PricePerQuantityController::class, 'store'])->name('quantity-prices.store.single');
+    Route::get('/price-per-quantity/{quantityPrice}/edit', [PricePerQuantityController::class, 'edit'])->name('price-per-quantity.edit');
+    Route::post('/price-per-quantity/{quantityPrice}', [PricePerQuantityController::class, 'update'])->name('price-per-quantity.update');
+    Route::delete('/price-per-quantity/{quantityPrice}', [PricePerQuantityController::class, 'destroy'])->name('price-per-quantity.destroy');
+    Route::get('/catalog-items/{catalogItem}/clients/{client}/quantity-prices', [PricePerQuantityController::class, 'getQuantityPrices'])->name('quantity-prices.get');
 });
 
 // Offer Routes

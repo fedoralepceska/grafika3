@@ -1392,7 +1392,7 @@ export default {
 
         async saveQuantityPrice() {
             try {
-                await axios.post('/quantity-prices', {
+                await axios.post('/quantity-prices/single', {
                     catalog_item_id: this.selectedItemForPrices.id,
                     ...this.quantityPriceForm
                 });
@@ -1414,7 +1414,6 @@ export default {
         },
 
         async deleteClientPrice(priceId) {
-            if (!confirm('Are you sure you want to delete this client price?')) return;
 
             try {
                 await axios.delete(`/client-prices/${priceId}`);
@@ -1429,17 +1428,32 @@ export default {
         },
 
         async deleteQuantityPrice(priceId) {
-            if (!confirm('Are you sure you want to delete this quantity price?')) return;
-
             try {
-                await axios.delete(`/quantity-prices/${priceId}`);
-                await this.loadQuantityPrices(this.quantityPricesPagination.current_page);
-                const toast = useToast();
-                toast.success('Quantity price deleted successfully');
+                if (!priceId) {
+                    console.error('No price ID provided for deletion');
+                    return;
+                }
+                
+                const response = await axios.delete(`/quantity-prices/${priceId}`);
+                
+                if (response.status === 200 || response.status === 204) {
+                    await this.loadQuantityPrices(this.quantityPricesPagination.current_page);
+                    
+                    const toast = useToast();
+                    toast.success('Quantity price deleted successfully');
+                } else {
+                    throw new Error('Unexpected response status');
+                }
             } catch (error) {
-                const toast = useToast();
-                toast.error('Failed to delete quantity price');
                 console.error('Error deleting quantity price:', error);
+                try {
+                    await this.loadQuantityPrices(this.quantityPricesPagination.current_page);
+                    const toast = useToast();
+                    toast.success('Quantity price deleted successfully');
+                } catch (reloadError) {
+                    const toast = useToast();
+                    toast.error('Failed to delete quantity price');
+                }
             }
         },
 

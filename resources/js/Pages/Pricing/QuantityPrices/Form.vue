@@ -196,6 +196,7 @@
 import MainLayout from '@/Layouts/MainLayout.vue';
 import Header from '@/Components/Header.vue';
 import { useToast } from 'vue-toastification';
+import axios from 'axios';
 
 export default {
     components: {
@@ -355,36 +356,51 @@ export default {
         },
 
         async submit() {
-            this.validateRanges();
-            if (this.error) {
-                return;
-            }
+    try {
+        this.validateRanges();
+        if (this.error) {
+            return;
+        }
 
-            try {
-                if (this.isEditing) {
-                    console.log(this.quantityPrice.id);
-                    await this.$inertia.put(
-                        route('quantity-prices.update', this.quantityPrice.id),
-                        this.form
-                    );
-                } else {
-                    await this.$inertia.post(route('quantity-prices.store'), this.form);
-                }
-
-                useToast().success(
-                    `Price range${this.form.ranges.length > 1 ? 's' : ''} ${this.isEditing ? 'updated' : 'created'} successfully`
-                );
-                this.$inertia.visit('/quantity-prices');
-            } catch (error) {
-                if (error.response?.data?.message) {
-                    this.error = error.response.data.message;
-                } else {
-                    useToast().error(
-                        `Failed to ${this.isEditing ? 'update' : 'create'} price range${this.form.ranges.length > 1 ? 's' : ''}`
-                    );
-                }
-            }
-        },
+        if (this.isEditing) {
+            // For editing a single price range
+            const formData = {
+                quantity_from: this.form.ranges[0].quantity_from || null,
+                quantity_to: this.form.ranges[0].quantity_to || null,
+                price: parseFloat(this.form.ranges[0].price)
+            };
+            
+            await axios.post(`/price-per-quantity/${this.quantityPrice.id}`, formData);
+            useToast().success('Price range updated successfully');
+            window.location.href = '/quantity-prices';
+        } else {
+            // For creating multiple price ranges
+            const formData = {
+                catalog_item_id: this.form.catalog_item_id,
+                client_id: this.form.client_id,
+                ranges: this.form.ranges.map(range => ({
+                    quantity_from: range.quantity_from || null,
+                    quantity_to: range.quantity_to || null,
+                    price: parseFloat(range.price)
+                }))
+            };
+            
+            await axios.post('/quantity-prices', formData);
+            useToast().success(`Price range${this.form.ranges.length > 1 ? 's' : ''} created successfully`);
+            window.location.href = '/quantity-prices';
+        }
+    } catch (error) {
+        if (error.response?.data?.errors) {
+            const messages = Object.values(error.response.data.errors).flat();
+            this.error = messages[0];
+        } else if (error.response?.data?.message) {
+            this.error = error.response.data.message;
+        } else {
+            this.error = 'An unexpected error occurred';
+        }
+        useToast().error(this.error);
+    }
+},
 
         getRangeBarStyle(range, index) {
             const max = this.maxQuantity;

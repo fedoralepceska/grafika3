@@ -49,64 +49,99 @@ class QuantityPriceController extends Controller
 
     public function store(Request $request)
     {
-        $validated = $request->validate([
-            'catalog_item_id' => 'required|exists:catalog_items,id',
-            'client_id' => 'required|exists:clients,id',
-            'ranges' => 'required|array|min:1',
-            'ranges.*.quantity_from' => 'nullable|integer|min:0',
-            'ranges.*.quantity_to' => 'nullable|integer|min:0',
-            'ranges.*.price' => 'required|numeric|min:0',
-        ]);
+        try {
+        
+            
+            $validated = $request->validate([
+                'catalog_item_id' => 'required|exists:catalog_items,id',
+                'client_id' => 'required|exists:clients,id',
+                'ranges' => 'required|array|min:1',
+                'ranges.*.quantity_from' => 'nullable|integer|min:0',
+                'ranges.*.quantity_to' => 'nullable|integer|min:0',
+                'ranges.*.price' => 'required|numeric|min:0',
+            ]);
 
-        // Sort ranges by quantity_from to check for overlaps
-        $ranges = collect($validated['ranges'])->sortBy(function ($range) {
-            return $range['quantity_from'] ?? 0;
-        })->values()->all();
+            \DB::beginTransaction();
 
-        // Validate ranges
-        foreach ($ranges as $index => $range) {
-            // Ensure at least one boundary is set
-            if (empty($range['quantity_from']) && empty($range['quantity_to'])) {
-                return back()->withErrors([
-                    'message' => 'At least one quantity boundary must be set for each range.',
-                ]);
-            }
+            try {
+                // Sort ranges by quantity_from
+                $ranges = collect($validated['ranges'])->sortBy(function ($range) {
+                    return $range['quantity_from'] ?? 0;
+                })->values()->all();
 
-            // If both boundaries are set, ensure from is less than to
-            if (!empty($range['quantity_from']) && !empty($range['quantity_to'])) {
-                if ($range['quantity_from'] >= $range['quantity_to']) {
-                    return back()->withErrors([
-                        'message' => 'The "from" quantity must be less than the "to" quantity.',
+                foreach ($ranges as $index => $range) {
+                    // Ensure at least one boundary is set
+                    if (empty($range['quantity_from']) && empty($range['quantity_to'])) {
+                        throw new \Exception('At least one quantity boundary must be set for each range.');
+                    }
+
+                    // Validate range logic
+                    if (!empty($range['quantity_from']) && !empty($range['quantity_to'])) {
+                        if ($range['quantity_from'] >= $range['quantity_to']) {
+                            throw new \Exception('The "from" quantity must be less than the "to" quantity.');
+                        }
+                    }
+
+                    // Check for overlap with next range
+                    if (isset($ranges[$index + 1])) {
+                        $nextRange = $ranges[$index + 1];
+                        if (!empty($range['quantity_to']) && !empty($nextRange['quantity_from'])) {
+                            if ($range['quantity_to'] >= $nextRange['quantity_from']) {
+                                throw new \Exception('Ranges cannot overlap.');
+                            }
+                        }
+                    }
+
+                    // Check for overlapping ranges in database
+                    $overlapping = $this->checkOverlappingRanges(
+                        $validated['catalog_item_id'],
+                        $validated['client_id'],
+                        $range['quantity_from'],
+                        $range['quantity_to']
+                    );
+
+                    if ($overlapping) {
+                        throw new \Exception('One or more ranges overlap with existing price ranges.');
+                    }
+
+                    // Create the price record
+                    $result = PricePerQuantity::create([
+                        'catalog_item_id' => $validated['catalog_item_id'],
+                        'client_id' => $validated['client_id'],
+                        'quantity_from' => $range['quantity_from'],
+                        'quantity_to' => $range['quantity_to'],
+                        'price' => $range['price'],
+                    ]);
+                    
+                }
+
+                \DB::commit();
+                
+                if ($request->wantsJson() || $request->ajax()) {
+                    return response()->json([
+                        'success' => true,
+                        'message' => 'Quantity prices created successfully'
                     ]);
                 }
+
+                return redirect()->route('quantity-prices.index')
+                    ->with('success', count($ranges) > 1 ? 'Quantity prices created successfully.' : 'Quantity price created successfully.');
+
+            } catch (\Exception $e) {
+                \DB::rollBack();
+                throw $e;
             }
-
-            // Check for overlap with next range
-            if (isset($ranges[$index + 1])) {
-                $nextRange = $ranges[$index + 1];
-                if (!empty($range['quantity_to']) && !empty($nextRange['quantity_from'])) {
-                    if ($range['quantity_to'] >= $nextRange['quantity_from']) {
-                        return back()->withErrors([
-                            'message' => 'Ranges cannot overlap.',
-                        ]);
-                    }
-                }
+        } catch (\Exception $e) {
+            
+            if ($request->wantsJson() || $request->ajax()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => $e->getMessage()
+                ], 422);
             }
+            
+            return back()->withErrors(['message' => $e->getMessage()]);
         }
-
-        // Create all ranges
-        foreach ($ranges as $range) {
-            PricePerQuantity::create([
-                'catalog_item_id' => $validated['catalog_item_id'],
-                'client_id' => $validated['client_id'],
-                'quantity_from' => $range['quantity_from'],
-                'quantity_to' => $range['quantity_to'],
-                'price' => $range['price'],
-            ]);
-        }
-
-        return redirect()->route('quantity-prices.index')
-            ->with('success', count($ranges) > 1 ? 'Quantity prices created successfully.' : 'Quantity price created successfully.');
     }
 
     public function edit(PricePerQuantity $quantityPrice)

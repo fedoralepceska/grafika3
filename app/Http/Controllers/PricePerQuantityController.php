@@ -90,7 +90,7 @@ class PricePerQuantityController extends Controller
         $catalogItems = CatalogItem::select('id', 'name', 'price')->get();
         $clients = Client::select('id', 'name')->get();
 
-        return Inertia::render('Pricing/QuantityPrices/Edit', [
+        return Inertia::render('Pricing/QuantityPrices/Form', [
             'quantityPrice' => $quantityPrice,
             'catalogItems' => $catalogItems,
             'clients' => $clients
