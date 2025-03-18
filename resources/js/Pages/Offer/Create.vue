@@ -180,12 +180,15 @@
                                                         min="0"
                                                         step="0.01"
                                                         class="w-full rounded bg-white border-gray-700 text-white text-sm py-1 px-2"
+                                                        :class="{'border-green-500': item.isCustomPrice}"
                                                         placeholder="Price per unit"
+                                                        @input="handleCustomPriceChange(item)"
                                                         @keydown.enter.prevent="updatePrice(item)"
-                                                        @keydown.right.enter.prevent="updatePrice(item)"
                                                     />
                                                     <div v-if="item.calculated_price" class="absolute -bottom-4 left-0 text-gray-400 text-xs whitespace-nowrap">
-                                                        Total: {{ item.calculated_price }} ден ({{ (item.calculated_price / item.quantity).toFixed(2) }} per unit)
+                                                        Total: {{ item.calculated_price }} ден 
+                                                        <span v-if="item.isCustomPrice" class="text-green-500">(Manual)</span>
+                                                        <span v-else>({{ (item.calculated_price / item.quantity).toFixed(2) }} per unit)</span>
                                                     </div>
                                                 </div>
                                             </div>
@@ -499,7 +502,8 @@ export default {
                 quantity: 1,
                 description: item.description || '',
                 custom_price: null,
-                calculated_price: null
+                calculated_price: null,
+                isCustomPrice: false
             });
             this.selectedItems.push(uniqueId);
             this.updatePrice(this.form.catalog_items[this.form.catalog_items.length - 1]);
@@ -546,21 +550,21 @@ export default {
                     params: {
                         catalog_item_id: item.id,
                         client_id: this.form.client_id,
-                        quantity: item.quantity,
-                        custom_price: item.custom_price
+                        quantity: item.quantity
                     }
                 });
                 
-                if (item.custom_price) {
-                    // If custom price is set, calculate total based on custom price
-                    item.calculated_price = item.custom_price * item.quantity;
-                } else {
-                    // Otherwise use the calculated price from the server
-                    item.calculated_price = response.data.price;
-                    item.custom_price = response.data.price / item.quantity;
-                }
+                item.calculated_price = response.data.price;
+                item.custom_price = response.data.price / item.quantity;
+                item.isCustomPrice = false;
             } catch (error) {
                 console.error('Error calculating price:', error);
+            }
+        },
+        handleCustomPriceChange(item) {
+            if (item.custom_price !== null) {
+                item.isCustomPrice = true;
+                item.calculated_price = item.custom_price * item.quantity;
             }
         },
         nextStep() {

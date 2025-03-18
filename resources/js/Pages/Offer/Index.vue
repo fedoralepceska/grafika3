@@ -42,6 +42,7 @@
                             <th class="flex justify-center">Actions</th>
                             <th v-if="currentTab === 'declined'">Decline Reason</th>
                             <th>PDF</th>
+                            <th></th>
                         </tr>
                     </thead>
                     <tbody>
@@ -111,6 +112,14 @@
                                 >
                                     <i class="fas fa-file-pdf " style="font-size: 25px"></i>
                                 </a>
+                            </td>
+                            <td class="px-4 py-2 text-center hover:text-black">
+                                <button
+                                    @click="openDeleteDialog(offer)"
+                                    class="text-red-500 hover:text-red-700"
+                                >
+                                    <i class="fas fa-trash"></i>
+                                </button>
                             </td>
                         </tr>
                     </tbody>
@@ -469,7 +478,7 @@
                                                     <label class="text-gray-400 text-xs whitespace-nowrap">Price:</label>
                                                     <div class="relative flex-1">
                                                         <input
- q                                                            :value="calculatedPrice(item)"
+                                                            :value="calculatedPrice(item)"
                                                             type="number"
                                                             min="0"
                                                             step="0.01"
@@ -578,6 +587,88 @@
                     </div>
                 </div>
             </Modal>
+
+            <!-- Delete Verification Dialog -->
+            <Modal :show="showDeleteDialog" @close="closeDeleteDialog">
+                <div class="p-4 background-color">
+                    <div class="modal-header flex justify-between items-center mb-4 pb-2">
+                        <div>
+                            <h2 class="text-lg font-semibold">Delete Offer</h2>
+                            <p class="text-sm">Client: {{ selectedOffer?.client }}</p>
+                        </div>
+                        <button @click="closeDeleteDialog" class="text-red-500 hover:text-red-700">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+
+                    <div class="space-y-4 background-color">
+                        <div>
+                            <p class="text-white mb-4 text-center">
+                                Please enter the 4-digit security code to confirm deletion.
+                            </p>
+                            
+                            <!-- PIN Input Boxes -->
+                            <div class="flex justify-center space-x-2 mb-4">
+                                <input 
+                                    ref="pin1"
+                                    v-model="pin.digit1" 
+                                    type="text" 
+                                    maxlength="1"
+                                    class="w-12 h-12 text-center text-xl bg-gray-600 border border-light-gray rounded-md text-white"
+                                    @input="onPinInput(0)"
+                                    @keydown="handleKeyDown($event, 0)"
+                                />
+                                <input 
+                                    ref="pin2"
+                                    v-model="pin.digit2" 
+                                    type="text" 
+                                    maxlength="1"
+                                    class="w-12 h-12 text-center text-xl bg-gray-600 border border-light-gray rounded-md text-white"
+                                    @input="onPinInput(1)"
+                                    @keydown="handleKeyDown($event, 1)"
+                                />
+                                <input 
+                                    ref="pin3"
+                                    v-model="pin.digit3" 
+                                    type="text" 
+                                    maxlength="1"
+                                    class="w-12 h-12 text-center text-xl bg-gray-600 border border-light-gray rounded-md text-white"
+                                    @input="onPinInput(2)"
+                                    @keydown="handleKeyDown($event, 2)"
+                                />
+                                <input 
+                                    ref="pin4"
+                                    v-model="pin.digit4" 
+                                    type="text" 
+                                    maxlength="1"
+                                    class="w-12 h-12 text-center text-xl bg-gray-600 border border-light-gray rounded-md text-white"
+                                    @input="onPinInput(3)"
+                                    @keydown="handleKeyDown($event, 3)"
+                                />
+                            </div>
+                            
+                            <p v-if="deleteCodeError" class="text-red-500 text-sm mt-2 text-center">
+                                {{ deleteCodeError }}
+                            </p>
+                        </div>
+
+                        <div class="flex justify-end space-x-2">
+                            <button
+                                @click="closeDeleteDialog"
+                                class="px-4 py-2 btn-secondary text-white"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                @click="confirmDelete"
+                                class="px-4 py-2 btn-danger text-white"
+                            >
+                                Delete Offer
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </Modal>
         </div>
     </MainLayout>
 </template>
@@ -611,6 +702,7 @@ export default {
             showDeclineModal: false,
             showEditDialog: false,
             showItemSelection: false,
+            showDeleteDialog: false,
             selectedOffer: null,
             itemsViewMode: 'grid',
             currentTab: this.filters.status || 'pending',
@@ -635,7 +727,14 @@ export default {
                 { label: 'Pending', value: 'pending' },
                 { label: 'Accepted', value: 'accepted' },
                 { label: 'Declined', value: 'declined' }
-            ]
+            ],
+            deleteCodeError: '',
+            pin: {
+                digit1: '',
+                digit2: '',
+                digit3: '',
+                digit4: ''
+            },
         };
     },
 
@@ -934,7 +1033,108 @@ export default {
 
         calculatedPrice(item) {
             return item.calculated_price ?? item.custom_price;
-        }
+        },
+
+        openDeleteDialog(offer) {
+            this.selectedOffer = offer;
+            this.deleteCodeError = '';
+            this.resetPin();
+            this.showDeleteDialog = true;
+            // Focus the first input after the dialog is shown
+            this.$nextTick(() => {
+                this.$refs.pin1.focus();
+            });
+        },
+
+        closeDeleteDialog() {
+            this.showDeleteDialog = false;
+            this.selectedOffer = null;
+            this.deleteCodeError = '';
+            this.resetPin();
+        },
+
+        resetPin() {
+            this.pin = {
+                digit1: '',
+                digit2: '',
+                digit3: '',
+                digit4: ''
+            };
+        },
+
+        onPinInput(index) {
+            const pinRefs = [this.$refs.pin1, this.$refs.pin2, this.$refs.pin3, this.$refs.pin4];
+            
+            // Move to next input if current input has a value
+            if (index < 3 && pinRefs[index].value) {
+                pinRefs[index + 1].focus();
+            }
+            
+            // Clear error when user starts typing again
+            this.deleteCodeError = '';
+        },
+
+        handleKeyDown(event, index) {
+            const pinRefs = [this.$refs.pin1, this.$refs.pin2, this.$refs.pin3, this.$refs.pin4];
+            
+            // Handle backspace to go to previous input
+            if (event.key === 'Backspace') {
+                if (index > 0 && !pinRefs[index].value) {
+                    pinRefs[index - 1].focus();
+                }
+            }
+            
+            // Handle delete key
+            if (event.key === 'Delete') {
+                pinRefs[index].value = '';
+            }
+            
+            // Handle arrow keys
+            if (event.key === 'ArrowLeft' && index > 0) {
+                pinRefs[index - 1].focus();
+            }
+            if (event.key === 'ArrowRight' && index < 3) {
+                pinRefs[index + 1].focus();
+            }
+        },
+
+        confirmDelete() {
+            // Combine the PIN digits
+            const enteredPin = `${this.pin.digit1}${this.pin.digit2}${this.pin.digit3}${this.pin.digit4}`;
+            
+            // Check if the verification code is correct (7412)
+            if (enteredPin !== '7412') {
+                this.deleteCodeError = 'Incorrect security code. Please try again.';
+                this.resetPin();
+                // Focus the first input after error
+                this.$nextTick(() => {
+                    this.$refs.pin1.focus();
+                });
+                return;
+            }
+            
+            // If code is correct, proceed with deletion
+            this.deleteOffer();
+        },
+
+        async deleteOffer() {
+            const toast = useToast();
+            
+            if (!this.selectedOffer) return;
+            
+            try {
+                await axios.delete(route('offer.destroy', this.selectedOffer.id));
+                
+                toast.success('Offer deleted successfully.');
+                this.closeDeleteDialog();
+                
+                // Refresh the page to update the offers list
+                this.$inertia.reload();
+            } catch (error) {
+                console.error('Error deleting offer:', error);
+                toast.error('Failed to delete the offer. Please try again.');
+            }
+        },
     }
 };
 </script>
@@ -1250,5 +1450,29 @@ table {
         opacity: 0.5;
         cursor: not-allowed;
     }
+}
+
+.w-12 {
+    width: 3rem;
+}
+
+.h-12 {
+    height: 3rem;
+}
+
+input:focus {
+    outline: none;
+    border-color: #81c950;
+    box-shadow: 0 0 0 2px rgba(129, 201, 80, 0.3);
+}
+
+/* Style for the active/focused input */
+input:focus {
+    border-color: #81c950;
+}
+
+/* Style for filled inputs */
+input:not(:placeholder-shown) {
+    border-color: #81c950;
 }
 </style>

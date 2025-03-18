@@ -362,4 +362,14 @@ class OfferController extends Controller
 
         return response()->json(['message' => 'Offer updated successfully']);
     }
+    public function destroy(Offer $offer)
+    {
+        try {
+            $offer->delete();
+            return response()->json(['message' => 'Offer deleted successfully']);
+        } catch (\Exception $e) {
+            return response()->json(['message' => 'Failed to delete offer'], 500);
+        }
+    }
+
 }

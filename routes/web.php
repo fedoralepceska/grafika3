@@ -418,7 +418,7 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/offers/{offer}/items', [OfferController::class, 'items'])->name('offers.items');
     Route::get('/offers/{offer}/pdf', [OfferController::class, 'generateOfferPdf'])->name('offers.pdf');
     Route::get('/calculate-price', [PriceController::class, 'calculatePrice'])->name('price.calculate');
-
+    Route::delete('/offers/{offer}', [OfferController::class, 'destroy'])->name('offers.destroy');
     Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/items/{id}', [ItemController::class, 'getAllByCertificateId']);
         Route::put('/items/{item}', [ItemController::class, 'update']);

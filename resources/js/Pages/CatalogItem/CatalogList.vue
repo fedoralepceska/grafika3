@@ -82,10 +82,9 @@
                     <thead>
                     <tr class="bg-gray-700 text-white">
                         <th class="p-4">{{ $t('preview') }}</th>
+                        <th class="p-4">{{ $t('name') }}</th>
                         <th class="p-4">{{ $t('template') }}</th>
                         <th class="p-4">{{ $t('subcategory') }}</th>
-                        <th class="p-4">{{ $t('machineP') }}</th>
-                        <th class="p-4">{{ $t('machineC') }}</th>
                         <th class="p-4">{{ $t('material') }}</th>
                         <th class="p-4">{{ $t('defaultPrice') }}</th>
                         <th class="p-4">{{ $t('clientPrices') }}</th>
@@ -113,6 +112,8 @@
                                 </div>
                             </div>
                         </td>
+                        <td class="p-4">{{ item.name || 'N/A' }}</td>
+
                         <td class="p-4 relative">
                             <div v-if="item.template_file" class="template-container">
                                 <span class="template-name">{{ getTemplateFileName(item.template_file) }}</span>
@@ -136,8 +137,6 @@
                             <span v-else class="text-gray-500">{{ $t('noTemplate') }}</span>
                         </td>
                         <td class="p-4">{{ item.subcategory_name || 'N/A' }}</td>
-                        <td class="p-4">{{ item.machinePrint }}</td>
-                        <td class="p-4">{{ item.machineCut }}</td>
                         <td class="p-4">
                             {{ item.material || 'N/A' }}
                         </td>
