@@ -149,10 +149,10 @@
                 <div class="tahoma bolder" style="font-size: 9pt; line-height: 90%;">{{ $item->name }}</div>
                 <div class="tahoma" style="font-size: 7pt; line-height: 90%;">{{ $item->pivot->description ?: $item->description }}</div>
             </td>
-            <td class="tahoma " style="font-size: 9pt; line-height: 90% ;vertical-align: middle;background-color:#ececec; color: #2b2b2b">{{ $item->pivot->quantity }}</td>
-            <td class="tahoma " style="font-size: 9pt;line-height: 90%;vertical-align: middle; background-color:#ececec; color: #2b2b2b">Ком</td>
-            <td class="tahoma " style="font-size: 9pt;line-height: 90%;vertical-align: middle; background-color:#ececec; color: #2b2b2b">{{ number_format($item->pivot->custom_price, 2) }}</td>
-            <td class="tahoma " style="font-size: 9pt;line-height: 90%;vertical-align: middle; background-color:#ececec; color: #2b2b2b">{{ number_format($item->pivot->custom_price * $item->pivot->quantity, 2) }}</td>
+            <td class="tahoma" style="font-size: 9pt;line-height: 90% ;vertical-align: middle;background-color:#ececec; color: #2b2b2b">{{ $item->pivot->quantity }}</td>
+            <td class="tahoma" style="font-size: 9pt;line-height: 90%;vertical-align: middle; background-color:#ececec; color: #2b2b2b">Ком</td>
+            <td class="tahoma" style="font-size: 9pt;line-height: 90%;vertical-align: middle; background-color:#ececec; color: #2b2b2b">{{ number_format($item->pivot->custom_price, 2) }}</td>
+            <td class="tahoma" style="font-size: 9pt;line-height: 90%;vertical-align: middle; background-color:#ececec; color: #2b2b2b">{{ number_format($item->pivot->custom_price * $item->pivot->quantity, 2) }}</td>
         </tr>
         @endforeach
 
@@ -167,17 +167,17 @@
         <tr style=" border-bottom: 1px solid white">
             <td colspan="2"></td>
             <td colspan="4" class="tahoma" style="font-size: 8.5pt; line-height: 90%; background-color:#ececec;">Вкупно без ДДВ:
-                <span class="bolder opensans" style="font-size: 11pt; line-height: 90%;">{{ number_format($subtotal, 2) }}</span></td>
+                <span class="bolder opensans" style="font-size: 9.5pt; line-height: 90%;">{{ number_format($subtotal, 2) }}</span></td>
         </tr>
         <tr style=" border-bottom: 1px solid white">
             <td colspan="2"></td>
             <td colspan="4" class="tahoma" style="font-size: 8.5pt;line-height: 90%; background-color:#ececec">ДДВ (18%):
-                <span class="bolder opensans" style="font-size: 11pt;line-height: 90%;">{{ number_format($vat, 2) }}</span></td>
+                <span class="bolder opensans" style="font-size: 9.5pt;line-height: 90%;">{{ number_format($vat, 2) }}</span></td>
         </tr>
         <tr class="total-row">
             <td colspan="2"></td>
             <td colspan="4" class="tahoma" style="font-size: 8.5pt; line-height: 90%; background-color:#ececec">Вкупно со ДДВ:
-                <span class="bolder opensans" style="font-size: 11pt; line-height: 90%;">{{ number_format($total, 2) }}</span></td>
+                <span class="bolder opensans" style="font-size: 9.5pt; line-height: 90%;">{{ number_format($total, 2) }}</span></td>
         </tr>
     </table>
 
