@@ -20,21 +20,47 @@ class OfferController extends Controller
             $item->pivot->quantity
         );
     }
-    public function index()
+    public function index(Request $request)
     {
         $perPage = 15;
-        $status = request()->get('status', 'pending'); // Default to 'pending' if no status is provided
-
-        $offers = Offer::with(['client', 'catalogItems.largeMaterial', 'catalogItems.smallMaterial'])
-            ->when($status, function($query, $status) {
-                return $query->where('status', $status);
-            })
-            ->latest()
-            ->paginate($perPage)
+        $status = $request->get('status', 'pending'); // Default to 'pending' if no status is provided
+        
+        $query = Offer::with(['client', 'catalogItems.largeMaterial', 'catalogItems.smallMaterial']);
+        
+        // Apply status filter (keep existing functionality)
+        if ($status) {
+            $query->where('status', $status);
+        }
+        
+        // Apply search by offer ID only
+        if ($request->has('searchQuery') && !empty($request->input('searchQuery'))) {
+            $searchQuery = $request->input('searchQuery');
+            $query->where('id', 'like', "%{$searchQuery}%");
+        }
+        
+        // Filter by client
+        if ($request->has('filterClient') && !empty($request->input('filterClient'))) {
+            $clientId = $request->input('filterClient');
+            $query->where('client_id', $clientId);
+        }
+        
+        // Filter by validity days (exact match)
+        if ($request->has('filterValidityDays') && !empty($request->input('filterValidityDays'))) {
+            $validityDays = $request->input('filterValidityDays');
+            $query->where('validity_days', $validityDays);
+        }
+        
+        // Sort by date
+        $sortOrder = $request->input('sortOrder', 'desc');
+        $query->orderBy('created_at', $sortOrder);
+        
+        $offers = $query->paginate($perPage)
             ->through(function ($offer) {
                 return [
                     'id' => $offer->id,
+                    'name' => $offer->name,
                     'client' => $offer->client->name,
+                    'client_id' => $offer->client_id,
                     'validity_days' => $offer->validity_days,
                     'production_start_date' => $offer->production_start_date,
                     'production_end_date' => $offer->production_end_date,
@@ -72,11 +98,23 @@ class OfferController extends Controller
             'accepted' => Offer::where('status', 'accepted')->count(),
             'declined' => Offer::where('status', 'declined')->count(),
         ];
+        
+        // Get all clients for the filter dropdown
+        $clients = Client::select('id', 'name')->orderBy('name')->get();
+        
+        // Get unique validity days values for the filter dropdown
+        $validityDaysOptions = Offer::select('validity_days')
+            ->distinct()
+            ->orderBy('validity_days')
+            ->pluck('validity_days')
+            ->toArray();
 
         return Inertia::render('Offer/Index', [
             'offers' => $offers,
-            'filters' => request()->all(['status']),
-            'counts' => $counts
+            'filters' => $request->only(['status', 'searchQuery', 'filterClient', 'filterValidityDays', 'sortOrder']),
+            'counts' => $counts,
+            'clients' => $clients,
+            'validityDaysOptions' => $validityDaysOptions
         ]);
     }
 

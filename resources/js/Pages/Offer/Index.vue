@@ -30,10 +30,98 @@
                         </button>
                     </div>
                 </div>
+                
+                <!-- Search and Filter Section -->
+                <div class="filter-container mb-6">
+                    <!-- Search Section -->
+                    <div class="search-section mb-4">
+                        <div class="flex items-center gap-2">
+                            <div class="flex-1">
+                                <input 
+                                    v-model="searchQuery" 
+                                    placeholder="Search by offer ID..." 
+                                    class="w-full text-black px-4 py-2 rounded border border-gray-300 focus:outline-none focus:border-blue-500" 
+                                    @keyup.enter="searchOffers"
+                                />
+                            </div>
+                            <button class="btn create-order1 px-6" @click="searchOffers">
+                                <i class="fa fa-search mr-2"></i>Search
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Filters Section -->
+                    <div class="filters-section bg-gray-800 p-4 rounded mb-4">
+                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                            <!-- Client Filter with Dropdown Search -->
+                            <div class="filter-group">
+                                <label class="block text-sm mb-2">Client</label>
+                                <div class="relative client-dropdown-container">
+                                    <input
+                                        type="text"
+                                        v-model="clientSearch"
+                                        @focus="showClientDropdown = true"
+                                        @input="filterClients"
+                                        placeholder="Search client..."
+                                        class="w-full text-black px-2 py-1.5 rounded"
+                                        @click.stop="showClientDropdown = true"
+                                    />
+                                    <div v-if="showClientDropdown"
+                                         class="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-auto"
+                                         @click.stop>
+                                        <div
+                                            v-for="client in filteredClients"
+                                            :key="client.id"
+                                            @click.stop="selectClient(client)"
+                                            class="px-4 py-2 hover:bg-gray-100 cursor-pointer text-gray-700"
+                                            :class="{'bg-gray-200': filterClient === client.id}"
+                                        >
+                                            {{ client.name }}
+                                        </div>
+                                        <div v-if="filteredClients.length === 0" class="px-4 py-2 text-gray-500">
+                                            No clients found
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Validity Days Filter -->
+                            <div class="filter-group">
+                                <label class="block text-sm mb-2">Validity Days</label>
+                                <input 
+                                    type="number" 
+                                    v-model="filterValidityDays" 
+                                    placeholder="Enter validity days" 
+                                    class="w-full text-black px-2 py-1.5 rounded"
+                                    min="1"
+                                />
+                            </div>
+
+                            <!-- Date Order Filter -->
+                            <div class="filter-group">
+                                <label class="block text-sm mb-2">Date Order</label>
+                                <select v-model="sortOrder" class="w-full text-black px-2 py-1.5 rounded">
+                                    <option value="desc">Newest to Oldest</option>
+                                    <option value="asc">Oldest to Newest</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="flex justify-between items-center mt-4">
+                            <button @click="clearFilters" class="btn bg-gray-600 text-white px-6 hover:bg-gray-700">
+                                <i class="fa fa-times mr-2"></i>Clear Filters
+                            </button>
+                            <button @click="applyFilter" class="btn create-order1 px-6">
+                                <i class="fa fa-filter mr-2"></i>Apply Filters
+                            </button>
+                        </div>
+                    </div>
+                </div>
 
                 <table class="w-full">
                     <thead>
                         <tr>
+                            <th>ID</th>
                             <th>Client</th>
                             <th>Status</th>
                             <th>Validity Days</th>
@@ -47,6 +135,7 @@
                     </thead>
                     <tbody>
                         <tr v-for="offer in offers.data" :key="offer.id">
+                            <td>{{ offer.id }}</td>
                             <td>{{ offer.client }}</td>
                             <td>
                                 <span :class="['status-badge', offer.status]">
@@ -692,7 +781,7 @@ export default {
     props: {
         offers: Object,
         filters: Object,
-        counts: Object
+        counts: Object,
     },
 
     data() {
@@ -705,7 +794,7 @@ export default {
             showDeleteDialog: false,
             selectedOffer: null,
             itemsViewMode: 'grid',
-            currentTab: this.filters.status || 'pending',
+            currentTab: this.filters?.status || 'pending',
             declineReason: '',
             isEditingDeclineReason: false,
             itemSearchQuery: '',
@@ -720,8 +809,6 @@ export default {
                 production_time: '',
                 catalog_items: []
             },
-            clients: [],
-            catalogItems: [],
             selectedClient: null,
             tabs: [
                 { label: 'Pending', value: 'pending' },
@@ -735,6 +822,19 @@ export default {
                 digit3: '',
                 digit4: ''
             },
+            
+            // Updated properties for search and filtering
+            searchQuery: this.filters?.searchQuery || '',
+            filterClient: this.filters?.filterClient || '',
+            filterValidityDays: this.filters?.filterValidityDays || '',
+            sortOrder: this.filters?.sortOrder || 'desc',
+            
+            // New properties for client search dropdown
+            clientSearch: '',
+            showClientDropdown: false,
+            clients: [],
+            filteredClients: [],
+            selectedClientName: '',
         };
     },
 
@@ -757,15 +857,8 @@ export default {
 
     methods: {
         switchTab(status) {
-            this.$inertia.get(route('offer.index'),
-                { status },
-                {
-                    preserveState: true,
-                    preserveScroll: true,
-                    replace: true
-                }
-            );
             this.currentTab = status;
+            this.visitWithFilters(true);
         },
 
         formatDate(date) {
@@ -1135,7 +1228,117 @@ export default {
                 toast.error('Failed to delete the offer. Please try again.');
             }
         },
-    }
+        
+        // Add these new methods for search and filtering
+        async fetchClients() {
+            try {
+                const response = await axios.get('/api/clients/all');
+                this.clients = response.data;
+                this.filteredClients = [...this.clients];
+                
+                // Set initial client name if exists
+                if (this.filterClient) {
+                    const selectedClient = this.clients.find(c => c.id === parseInt(this.filterClient));
+                    if (selectedClient) {
+                        this.selectedClientName = selectedClient.name;
+                        this.clientSearch = selectedClient.name;
+                    }
+                }
+            } catch (error) {
+                console.error("Failed to fetch clients:", error);
+                const toast = useToast();
+                toast.error('Error fetching clients');
+            }
+        },
+        
+        filterClients() {
+            if (!this.clientSearch) {
+                this.filteredClients = [...this.clients];
+                return;
+            }
+
+            this.filteredClients = this.clients.filter(client =>
+                client.name.toLowerCase().includes(this.clientSearch.toLowerCase())
+            );
+        },
+        
+        selectClient(client) {
+            this.filterClient = client.id;
+            this.clientSearch = client.name;
+            this.selectedClientName = client.name;
+            this.showClientDropdown = false;
+        },
+        
+        handleClickOutside(event) {
+            // Get the dropdown element
+            const dropdown = this.$el.querySelector('.client-dropdown-container');
+            // Only close if click is outside the dropdown
+            if (dropdown && !dropdown.contains(event.target)) {
+                this.showClientDropdown = false;
+            }
+        },
+        
+        visitWithFilters(resetPage = false) {
+            const params = {
+                status: this.currentTab,
+                searchQuery: this.searchQuery,
+                filterClient: this.filterClient,
+                filterValidityDays: this.filterValidityDays,
+                sortOrder: this.sortOrder
+            };
+
+            // Only include page parameter if not resetting
+            if (!resetPage) {
+                const currentPage = new URL(window.location.href).searchParams.get('page');
+                if (currentPage) {
+                    params.page = currentPage;
+                }
+            }
+
+            // Remove empty params
+            Object.keys(params).forEach(key => {
+                if (params[key] === '' || params[key] === null || params[key] === undefined) {
+                    delete params[key];
+                }
+            });
+
+            this.$inertia.get(route('offer.index'), params, {
+                preserveState: true,
+                preserveScroll: true,
+                replace: true
+            });
+        },
+        
+        applyFilter() {
+            this.visitWithFilters(true); // Reset to page 1 when applying filters
+        },
+        
+        searchOffers() {
+            this.visitWithFilters(true); // Reset to page 1 when searching
+        },
+        
+        clearFilters() {
+            this.searchQuery = '';
+            this.filterClient = '';
+            this.filterValidityDays = '';
+            this.sortOrder = 'desc';
+            this.clientSearch = '';
+            this.selectedClientName = '';
+            this.visitWithFilters(true);
+        },
+    },
+
+    mounted() {
+        this.fetchClients();
+        
+        // Add event listener for clicks outside the dropdown
+        document.addEventListener('click', this.handleClickOutside);
+    },
+    
+    beforeUnmount() {
+        // Remove event listener when component is destroyed
+        document.removeEventListener('click', this.handleClickOutside);
+    },
 };
 </script>
 
@@ -1474,5 +1677,89 @@ input:focus {
 /* Style for filled inputs */
 input:not(:placeholder-shown) {
     border-color: #81c950;
+}
+
+.filter-container {
+    margin-bottom: 1.5rem;
+}
+
+.search-section input {
+    background-color: $white;
+    border: 1px solid $light-gray;
+    
+    &:focus {
+        border-color: $blue;
+        box-shadow: 0 0 0 2px rgba($blue, 0.3);
+    }
+}
+
+.filters-section {
+    background-color: rgba($dark-gray, 0.5);
+    border: 1px solid rgba($light-gray, 0.1);
+    
+    label {
+        color: $ultra-light-gray;
+    }
+    
+    select {
+        background-color: $white;
+        border: 1px solid $light-gray;
+        
+        &:focus {
+            border-color: $blue;
+            outline: none;
+        }
+    }
+}
+
+.filter-group {
+    margin-bottom: 0.5rem;
+}
+
+.relative {
+    position: relative;
+}
+
+.absolute {
+    position: absolute;
+    z-index: 10;
+}
+
+.max-h-60 {
+    max-height: 15rem;
+}
+
+.overflow-auto {
+    overflow: auto;
+}
+
+.hover\:bg-gray-100:hover {
+    background-color: #f3f4f6;
+}
+
+.bg-gray-200 {
+    background-color: #e5e7eb;
+}
+
+.cursor-pointer {
+    cursor: pointer;
+}
+
+/* Scrollbar styling */
+.overflow-auto::-webkit-scrollbar {
+    width: 8px;
+}
+
+.overflow-auto::-webkit-scrollbar-track {
+    background: #f1f1f1;
+}
+
+.overflow-auto::-webkit-scrollbar-thumb {
+    background: #888;
+    border-radius: 4px;
+}
+
+.overflow-auto::-webkit-scrollbar-thumb:hover {
+    background: #555;
 }
 </style>
