@@ -572,12 +572,16 @@
                                                             min="0"
                                                             step="0.01"
                                                             class="w-full rounded bg-white border-gray-700 text-black text-sm py-1 px-2"
+                                                            :class="{'border-green-500': item.isCustomPrice}"
                                                             placeholder="Price per unit"
+                                                            @input="e => { item.custom_price = parseFloat(e.target.value); handleCustomPriceChange(item); }"
                                                             @keydown.enter.prevent="updatePrice(item)"
                                                             @keydown.right.enter.prevent="updatePrice(item)"
                                                         />
                                                         <div v-if="item.calculated_price" class="absolute -bottom-4 left-0 text-gray-400 text-xs whitespace-nowrap">
-                                                            Total: {{ item.calculated_price }} ден ({{ (item.calculated_price / item.quantity).toFixed(2) }} per unit)
+                                                            Total: {{ item.calculated_price }} ден 
+                                                            <span v-if="item.isCustomPrice" class="text-green-500">(Manual)</span>
+                                                            <span v-else>({{ (item.calculated_price / item.quantity).toFixed(2) }} per unit)</span>
                                                         </div>
                                                     </div>
                                                 </div>
@@ -1044,11 +1048,15 @@ export default {
                 description: item.description || '',
                 custom_price: item.price,
                 calculated_price: null,
+                isCustomPrice: false,
                 file: item.file,
                 large_material: item.large_material,
                 small_material: item.small_material
             });
             this.closeItemSelection();
+            // Calculate the price for the newly added item
+            const newItem = this.editForm.catalog_items[this.editForm.catalog_items.length - 1];
+            this.updatePrice(newItem);
         },
 
         removeItem(item) {
@@ -1069,22 +1077,23 @@ export default {
             if (!this.editForm.client_id || !item.quantity) return;
 
             try {
-                const response = await axios.get('/calculate-price', {
-                    params: {
-                        catalog_item_id: item.id,
-                        client_id: this.editForm.client_id,
-                        quantity: item.quantity,
-                        custom_price: item.custom_price
-                    }
-                });
-
-                if (item.custom_price) {
-                    // If custom price is set, calculate total based on custom price
-                    item.calculated_price = item.custom_price * item.quantity;
-                } else {
-                    // Otherwise use the calculated price from the server
+                // Only calculate using API if there's no custom price 
+                // or if the isCustomPrice flag is not set to true
+                if (!item.isCustomPrice) {
+                    const response = await axios.get('/calculate-price', {
+                        params: {
+                            catalog_item_id: item.id,
+                            client_id: this.editForm.client_id,
+                            quantity: item.quantity
+                        }
+                    });
+                    
+                    // Update with calculated price from server
                     item.calculated_price = response.data.price;
                     item.custom_price = response.data.price / item.quantity;
+                } else {
+                    // If custom price is set, just multiply by quantity
+                    item.calculated_price = item.custom_price * item.quantity;
                 }
             } catch (error) {
                 console.error('Error calculating price:', error);
@@ -1126,6 +1135,13 @@ export default {
 
         calculatedPrice(item) {
             return item.calculated_price ?? item.custom_price;
+        },
+
+        handleCustomPriceChange(item) {
+            if (item.custom_price !== null) {
+                item.isCustomPrice = true;
+                item.calculated_price = item.custom_price * item.quantity;
+            }
         },
 
         openDeleteDialog(offer) {
