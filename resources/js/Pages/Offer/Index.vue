@@ -639,43 +639,240 @@
                     </div>
 
                     <div class="space-y-4">
-                        <input
-                            v-model="itemSearchQuery"
-                            type="text"
-                            placeholder="Search items..."
-                            class="w-full px-3 py-2 bg-gray-600 border border-light-gray rounded-md text-white"
-                        />
+                        <!-- Search Input -->
+                        <div class="px-4 py-2 border-b border-gray-700">
+                            <div class="relative">
+                                <input
+                                    v-model="itemSearchQuery"
+                                    type="text"
+                                    placeholder="Search items..."
+                                    class="w-full px-3 py-2 pl-10 bg-gray-600 border border-gray-600 rounded text-white placeholder-gray-400 focus:border-green-500 focus:outline-none"
+                                />
+                                <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i>
+                            </div>
+                        </div>
+                        
+                        <!-- Tabs and View Toggle -->
+                        <div class="flex justify-between border-b border-gray-700 item-selection-tabs">
+                            <div class="flex">
+                                <button
+                                    type="button"
+                                    @click="activeTab = 'large'"
+                                    :class="['tab-button', activeTab === 'large' ? 'active' : '']"
+                                >
+                                    Large Format Materials
+                                </button>
+                                <button
+                                    type="button"
+                                    @click="activeTab = 'small'"
+                                    :class="['tab-button', activeTab === 'small' ? 'active' : '']"
+                                >
+                                    Small Format Materials
+                                </button>
+                            </div>
+                            <div class="flex items-center mr-4 space-x-2">
+                                <button
+                                    type="button"
+                                    @click="viewMode = 'list'"
+                                    :class="['view-toggle-btn', viewMode === 'list' ? 'active' : '']"
+                                    title="List View"
+                                >
+                                    <i class="fas fa-list"></i>
+                                </button>
+                                <button
+                                    type="button"
+                                    @click="viewMode = 'card'"
+                                    :class="['view-toggle-btn', viewMode === 'card' ? 'active' : '']"
+                                    title="Card View"
+                                >
+                                    <i class="fas fa-th-large"></i>
+                                </button>
+                            </div>
+                        </div>
 
-                        <div class="grid grid-cols-2 gap-4 max-h-96 overflow-y-auto">
-                            <div
-                                v-for="item in filteredCatalogItems"
-                                :key="item.id"
-                                class="bg-gray-700 p-4 rounded-lg cursor-pointer hover:bg-gray-600"
-                                @click="selectItem(item)"
-                            >
-                                <div class="flex items-center space-x-4">
-                                    <div class="w-12 h-12">
-                                        <img
-                                            v-if="!isPlaceholder(item.file)"
-                                            :src="getFileUrl(item.file)"
-                                            :alt="item.name"
-                                            class="w-full h-full object-cover rounded"
+                        <!-- Catalog Items Container -->
+                        <div class="catalog-items-container mb-2 bg-white">
+                            <!-- Large Format Materials Tab -->
+                            <div v-if="activeTab === 'large'" class="space-y-2">
+                                <div v-if="filteredLargeMaterialItems.length === 0" class="empty-state">
+                                    No large format materials available
+                                </div>
+
+                                <!-- List View -->
+                                <div v-if="viewMode === 'list'" class="space-y-2">
+                                    <div v-for="item in filteredLargeMaterialItems"
+                                        :key="item.id"
+                                        :class="[
+                                            'catalog-item', 
+                                            { 'disabled-item': isItemAlreadyAssigned(item.id) }
+                                        ]"
+                                        @click="toggleItemSelection(item)"
+                                    >
+                                        <input
+                                            type="checkbox"
+                                            :value="item.id"
+                                            :checked="isItemSelected(item.id)"
+                                            :disabled="isItemAlreadyAssigned(item.id)"
+                                            class="h-4 w-4 rounded border-gray-300 checkbox-green"
+                                            @click.stop
                                         />
-                                        <div v-else class="w-full h-full bg-gray-800 rounded flex items-center justify-center text-gray-500 text-xs">
-                                            NO IMAGE
+                                        <div class="catalog-item-details">
+                                            <div class="catalog-item-name">{{ item.name }}</div>
+                                            <div class="catalog-item-material">
+                                                Material: {{ item.large_material?.name || 'N/A' }}
+                                            </div>
+                                            <div v-if="isItemAlreadyAssigned(item.id)" class="already-assigned text-orange-600 text-xs">
+                                                Already assigned to this offer
+                                            </div>
+                                        </div>
+                                        <div class="catalog-item-price">
+                                            {{ item.price ? `${item.price} ден` : 'Price not set' }}
                                         </div>
                                     </div>
-                                    <div>
-                                        <h4 class="text-white font-medium">{{ item.name }}</h4>
-                                        <p class="text-gray-400 text-sm">
-                                            {{ item.large_material ? 'Large Format' : 'Small Format' }}
-                                        </p>
-                                        <p class="text-gray-400 text-sm">
-                                            Base Price: {{ formatPrice(item.price) }}
-                                        </p>
+                                </div>
+
+                                <!-- Card View -->
+                                <div v-else class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+                                    <div v-for="item in filteredLargeMaterialItems"
+                                        :key="item.id"
+                                        :class="[
+                                            'catalog-card', 
+                                            { 'disabled-card': isItemAlreadyAssigned(item.id) }
+                                        ]"
+                                        @click="toggleItemSelection(item)"
+                                    >
+                                        <div class="catalog-card-image">
+                                            <input
+                                                type="checkbox"
+                                                :value="item.id"
+                                                :checked="isItemSelected(item.id)"
+                                                :disabled="isItemAlreadyAssigned(item.id)"
+                                                class="absolute top-2 left-2 h-4 w-4 rounded border-gray-300 checkbox-green z-10"
+                                                @click.stop
+                                            />
+                                            <div v-if="isPlaceholder(item.file)" class="w-full h-full no-image">
+                                                NO IMAGE
+                                            </div>
+                                            <img
+                                                v-else
+                                                :src="getFileUrl(item.file)"
+                                                :alt="item.name"
+                                                class="w-full h-full object-cover"
+                                            />
+                                        </div>
+                                        <div class="p-2">
+                                            <h3 class="font-medium text-gray-900 text-sm mb-1 truncate">{{ item.name }}</h3>
+                                            <p class="text-xs text-gray-500 mb-1 truncate">
+                                                Material: {{ item.large_material?.name || 'N/A' }}
+                                            </p>
+                                            <div class="text-xs font-medium text-gray-900">
+                                                {{ item.price ? `${item.price} ден` : 'Price not set' }}
+                                            </div>
+                                            <div v-if="isItemAlreadyAssigned(item.id)" class="already-assigned text-orange-600 text-xs">
+                                                Already assigned
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
+
+                            <!-- Small Format Materials Tab -->
+                            <div v-if="activeTab === 'small'" class="space-y-2">
+                                <div v-if="filteredSmallMaterialItems.length === 0" class="empty-state">
+                                    No small format materials available
+                                </div>
+
+                                <!-- List View -->
+                                <div v-if="viewMode === 'list'" class="space-y-2">
+                                    <div v-for="item in filteredSmallMaterialItems"
+                                        :key="item.id"
+                                        :class="[
+                                            'catalog-item', 
+                                            { 'disabled-item': isItemAlreadyAssigned(item.id) }
+                                        ]"
+                                        @click="toggleItemSelection(item)"
+                                    >
+                                        <input
+                                            type="checkbox"
+                                            :value="item.id"
+                                            :checked="isItemSelected(item.id)"
+                                            :disabled="isItemAlreadyAssigned(item.id)"
+                                            class="h-4 w-4 rounded border-gray-300 checkbox-green"
+                                            @click.stop
+                                        />
+                                        <div class="catalog-item-details">
+                                            <div class="catalog-item-name">{{ item.name }}</div>
+                                            <div class="catalog-item-material">
+                                                Material: {{ item.small_material?.name || 'N/A' }}
+                                            </div>
+                                            <div v-if="isItemAlreadyAssigned(item.id)" class="already-assigned text-orange-600 text-xs">
+                                                Already assigned to this offer
+                                            </div>
+                                        </div>
+                                        <div class="catalog-item-price">
+                                            {{ item.price ? `${item.price} ден` : 'Price not set' }}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Card View -->
+                                <div v-else class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+                                    <div v-for="item in filteredSmallMaterialItems"
+                                        :key="item.id"
+                                        :class="[
+                                            'catalog-card', 
+                                            { 'disabled-card': isItemAlreadyAssigned(item.id) }
+                                        ]"
+                                        @click="toggleItemSelection(item)"
+                                    >
+                                        <div class="catalog-card-image">
+                                            <input
+                                                type="checkbox"
+                                                :value="item.id"
+                                                :checked="isItemSelected(item.id)"
+                                                :disabled="isItemAlreadyAssigned(item.id)"
+                                                class="absolute top-2 left-2 h-4 w-4 rounded border-gray-300 checkbox-green z-10"
+                                                @click.stop
+                                            />
+                                            <div v-if="isPlaceholder(item.file)" class="w-full h-full no-image">
+                                                NO IMAGE
+                                            </div>
+                                            <img
+                                                v-else
+                                                :src="getFileUrl(item.file)"
+                                                :alt="item.name"
+                                                class="w-full h-full object-cover"
+                                            />
+                                        </div>
+                                        <div class="p-2">
+                                            <h3 class="font-medium text-gray-900 text-sm mb-1 truncate">{{ item.name }}</h3>
+                                            <p class="text-xs text-gray-500 mb-1 truncate">
+                                                Material: {{ item.small_material?.name || 'N/A' }}
+                                            </p>
+                                            <div class="text-xs font-medium text-gray-900">
+                                                {{ item.price ? `${item.price} ден` : 'Price not set' }}
+                                            </div>
+                                            <div v-if="isItemAlreadyAssigned(item.id)" class="already-assigned text-orange-600 text-xs">
+                                                Already assigned
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Action buttons -->
+                        <div class="flex justify-end space-x-2 pt-2 border-t border-gray-700">
+                            <button @click="closeItemSelection" class="btn bg-gray-600 text-white">
+                                Cancel
+                            </button>
+                            <button 
+                                @click="assignSelectedItems" 
+                                class="btn btn-success text-white" 
+                                :disabled="selectedItems.length === 0"
+                            >
+                                Assign {{ selectedItems.length }} Item{{ selectedItems.length !== 1 ? 's' : '' }} to Offer
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -839,6 +1036,12 @@ export default {
             clients: [],
             filteredClients: [],
             selectedClientName: '',
+
+            // New properties for enhanced item selection (similar to Create.vue)
+            selectedItems: [],
+            activeTab: 'large',
+            viewMode: 'grid',
+            catalogItems: [],
         };
     },
 
@@ -855,6 +1058,23 @@ export default {
             const query = this.itemSearchQuery.toLowerCase();
             return this.catalogItems.filter(item =>
                 item.name.toLowerCase().includes(query)
+            );
+        },
+        // New computed properties for large/small material filtering
+        largeMaterialItems() {
+            return this.catalogItems.filter(item => item.large_material && !item.small_material);
+        },
+        smallMaterialItems() {
+            return this.catalogItems.filter(item => item.small_material && !item.large_material);
+        },
+        filteredLargeMaterialItems() {
+            return this.largeMaterialItems.filter(item =>
+                item.name.toLowerCase().includes(this.itemSearchQuery.toLowerCase())
+            );
+        },
+        filteredSmallMaterialItems() {
+            return this.smallMaterialItems.filter(item =>
+                item.name.toLowerCase().includes(this.itemSearchQuery.toLowerCase())
             );
         },
     },
@@ -1031,12 +1251,20 @@ export default {
 
         openItemSelection() {
             this.itemSearchQuery = '';
-            this.showItemSelection = true;
+            this.selectedItems = [];
+            this.activeTab = 'large';
+            this.viewMode = 'grid';
+            
+            // Fetch all catalog items when opening the selection dialog
+            this.fetchAllCatalogItems().then(() => {
+                this.showItemSelection = true;
+            });
         },
 
         closeItemSelection() {
             this.showItemSelection = false;
             this.itemSearchQuery = '';
+            this.selectedItems = []; // Clear selections when closing
         },
 
         selectItem(item) {
@@ -1057,6 +1285,23 @@ export default {
             // Calculate the price for the newly added item
             const newItem = this.editForm.catalog_items[this.editForm.catalog_items.length - 1];
             this.updatePrice(newItem);
+        },
+
+        // New method to toggle item selection - similar to Create.vue
+        toggleItemSelection(item) {
+            const index = this.selectedItems.findIndex(i => i.id === item.id);
+            if (index === -1) {
+                // Check if item is already assigned to the offer
+                const isAlreadyAssigned = this.editForm.catalog_items.some(i => i.id === item.id);
+                if (isAlreadyAssigned) {
+                    const toast = useToast();
+                    toast.info('This item is already assigned to the offer');
+                    return;
+                }
+                this.selectedItems.push(item);
+            } else {
+                this.selectedItems.splice(index, 1);
+            }
         },
 
         removeItem(item) {
@@ -1342,10 +1587,66 @@ export default {
             this.selectedClientName = '';
             this.visitWithFilters(true);
         },
+
+        // Add a new method to fetch all catalog items
+        async fetchAllCatalogItems() {
+            try {
+                const response = await axios.get('/catalog_items/offer'); // Use the existing endpoint
+                this.catalogItems = response.data;
+            } catch (error) {
+                console.error('Error fetching catalog items:', error);
+                const toast = useToast();
+                toast.error('Failed to load catalog items');
+            }
+        },
+
+        // Add new method to assign selected items to the offer
+        assignSelectedItems() {
+            if (this.selectedItems.length === 0) {
+                const toast = useToast();
+                toast.warning('Please select at least one item');
+                return;
+            }
+
+            this.selectedItems.forEach(item => {
+                const newItem = {
+                    id: item.id,
+                    selection_id: Date.now() + Math.floor(Math.random() * 1000), // Ensure unique ID
+                    name: item.name,
+                    quantity: 1,
+                    description: item.description || '',
+                    custom_price: item.price,
+                    calculated_price: null,
+                    isCustomPrice: false,
+                    file: item.file,
+                    large_material: item.large_material,
+                    small_material: item.small_material
+                };
+                
+                this.editForm.catalog_items.push(newItem);
+                
+                // Calculate price for the new item
+                this.updatePrice(newItem);
+            });
+            
+            // Close the dialog and clear selections
+            const toast = useToast();
+            toast.success(`${this.selectedItems.length} item(s) added to the offer`);
+            this.closeItemSelection();
+        },
+
+        isItemSelected(itemId) {
+            return this.selectedItems.some(item => item.id === itemId);
+        },
+
+        isItemAlreadyAssigned(itemId) {
+            return this.editForm.catalog_items.some(item => item.id === itemId);
+        },
     },
 
     mounted() {
         this.fetchClients();
+        this.fetchAllCatalogItems(); // Prefetch catalog items
         
         // Add event listener for clicks outside the dropdown
         document.addEventListener('click', this.handleClickOutside);
@@ -1778,4 +2079,133 @@ input:not(:placeholder-shown) {
 .overflow-auto::-webkit-scrollbar-thumb:hover {
     background: #555;
 }
+
+/* Catalog browser specific styles for item selection */
+.item-selection-tabs .tab-button {
+    @apply px-4 py-2 text-sm font-medium transition-colors duration-200;
+    &.active {
+        @apply text-green-500 border-b-2 border-green-500;
+    }
+    &:not(.active) {
+        @apply text-gray-400 hover:text-white;
+    }
+}
+
+.catalog-items-container {
+    @apply rounded-b-lg p-3 overflow-y-auto;
+    min-height: 400px;
+    max-height: calc(100vh - 400px);
+    width: 100%;
+
+    .grid {
+        @apply gap-3;
+        width: 100%;
+    }
+}
+
+.catalog-item {
+    @apply flex items-center space-x-3 p-2 hover:bg-gray-50 rounded transition-colors duration-200 cursor-pointer;
+
+    &:hover {
+        @apply bg-gray-50;
+    }
+}
+
+.catalog-item-details {
+    @apply flex-1;
+}
+
+.catalog-item-name {
+    @apply font-medium text-gray-900;
+}
+
+.catalog-item-material {
+    @apply text-sm text-gray-500;
+}
+
+.catalog-item-price {
+    @apply text-sm text-gray-500 font-medium;
+}
+
+.empty-state {
+    @apply text-center py-8 text-gray-500;
+}
+
+/* View toggle buttons */
+.view-toggle-btn {
+    @apply px-2 py-1 text-sm rounded-md transition-colors duration-200;
+    &.active {
+        @apply bg-green text-white;
+    }
+    &:not(.active) {
+        @apply text-gray-400 hover:text-white hover:bg-gray-700;
+    }
+}
+
+/* Card styles */
+.catalog-card {
+    @apply bg-white rounded-lg shadow-sm overflow-hidden border border-gray-200 transition-all duration-200 cursor-pointer;
+
+    &:hover {
+        @apply shadow-lg transform scale-[1.02];
+    }
+
+    .catalog-card-image {
+        @apply relative w-full overflow-hidden bg-gray-100;
+        aspect-ratio: 4/3;
+
+        img {
+            @apply w-full h-full object-contain transition-transform duration-200;
+            background-color: white;
+        }
+
+        &:hover img {
+            @apply transform scale-110;
+        }
+
+        .no-image {
+            @apply flex items-center justify-center text-gray-400 text-xs;
+        }
+    }
+}
+
+/* Checkbox styles */
+.checkbox-green {
+    &:checked {
+        background-color: $green;
+        border-color: $green;
+    }
+    &:focus {
+        box-shadow: 0 0 0 2px rgba($green, 0.3);
+    }
+}
+
+.disabled-item {
+    opacity: 0.6;
+    cursor: not-allowed;
+    pointer-events: none;
+    background-color: #f0f0f0;
+}
+
+.disabled-card {
+    opacity: 0.6;
+    cursor: not-allowed;
+    pointer-events: none;
+    background-color: #f0f0f0;
+}
+
+.already-assigned {
+    font-style: italic;
+    font-size: 0.8rem;
+    color: #e57c23;
+}
+
+.catalog-item.disabled-item .catalog-item-name {
+    text-decoration: line-through;
+}
+
+.catalog-card.disabled-card h3 {
+    text-decoration: line-through;
+}
 </style>
+

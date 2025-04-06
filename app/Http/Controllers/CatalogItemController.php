@@ -18,9 +18,27 @@ class CatalogItemController extends Controller
 {
     public function fetchAllForOffer()
     {
-        $catalogItems = CatalogItem::all()->where('is_for_offer', true);
+        $catalogItems = CatalogItem::with(['largeMaterial', 'smallMaterial'])
+            ->where('is_for_offer', true)
+            ->get()
+            ->map(function ($item) {
+                return [
+                    'id' => $item->id,
+                    'name' => $item->name,
+                    'description' => $item->description,
+                    'price' => $item->price,
+                    'file' => $item->file,
+                    'large_material' => $item->largeMaterial ? [
+                        'id' => $item->largeMaterial->id,
+                        'name' => $item->largeMaterial->name
+                    ] : null,
+                    'small_material' => $item->smallMaterial ? [
+                        'id' => $item->smallMaterial->id,
+                        'name' => $item->smallMaterial->name
+                    ] : null,
+                ];
+            });
         return response()->json($catalogItems);
-
     }
 
     public function index(Request $request)
