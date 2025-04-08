@@ -556,32 +556,39 @@
                                                         min="1"
                                                         class="w-20 rounded bg-white border-gray-700 text-black text-sm py-1 px-2"
                                                         required
-                                                        @change="updatePrice(item)"
-                                                        @keydown.enter.prevent="updatePrice(item)"
-                                                        @keydown.right.enter.prevent="updatePrice(item)"
+                                                        @change="onQuantityChange(item)"
+                                                        @keydown.enter.prevent="onQuantityChange(item)"
                                                     />
                                                 </div>
 
                                                 <!-- Price -->
                                                 <div class="flex items-center gap-2 min-w-[200px]">
-                                                    <label class="text-gray-400 text-xs whitespace-nowrap">Price:</label>
+                                                    <label class="text-gray-400 text-xs whitespace-nowrap">
+                                                        Price:
+                                                        <span v-if="item.isCustomPrice" class="text-green-500 text-xxs">(Manual)</span>
+                                                    </label>
                                                     <div class="relative flex-1">
                                                         <input
-                                                            :value="calculatedPrice(item)"
+                                                            v-model.number="item.custom_price"
                                                             type="number"
                                                             min="0"
                                                             step="0.01"
                                                             class="w-full rounded bg-white border-gray-700 text-black text-sm py-1 px-2"
                                                             :class="{'border-green-500': item.isCustomPrice}"
                                                             placeholder="Price per unit"
-                                                            @input="e => { item.custom_price = parseFloat(e.target.value); handleCustomPriceChange(item); }"
+                                                            @focus="onPriceFocus(item)"
+                                                            @change="handlePriceChange(item)"
                                                             @keydown.enter.prevent="updatePrice(item)"
                                                             @keydown.right.enter.prevent="updatePrice(item)"
                                                         />
                                                         <div v-if="item.calculated_price" class="absolute -bottom-4 left-0 text-gray-400 text-xs whitespace-nowrap">
                                                             Total: {{ item.calculated_price }} ден 
-                                                            <span v-if="item.isCustomPrice" class="text-green-500">(Manual)</span>
-                                                            <span v-else>({{ (item.calculated_price / item.quantity).toFixed(2) }} per unit)</span>
+                                                            <span v-if="item.isCustomPrice" class="text-green-500">
+                                                                (Manual {{ isNaN(item.custom_price) ? '0.00' : item.custom_price.toFixed(2) }} per unit)
+                                                            </span>
+                                                            <span v-else>
+                                                                ({{ isNaN(item.calculated_price/item.quantity) ? '0.00' : (item.calculated_price/item.quantity).toFixed(2) }} per unit)
+                                                            </span>
                                                         </div>
                                                     </div>
                                                 </div>
@@ -632,7 +639,12 @@
             <Modal :show="showItemSelection" @close="closeItemSelection">
                 <div class="p-4 background-color">
                     <div class="modal-header flex justify-between items-center mb-4 pb-2">
-                        <h2 class="text-lg font-semibold">Select Items</h2>
+                        <div>
+                            <h2 class="text-lg font-semibold">Select Items</h2>
+                            <p class="text-sm text-gray-400">
+                                You can add the same item multiple times with different quantities and descriptions.
+                            </p>
+                        </div>
                         <button @click="closeItemSelection" class="text-red-700 hover:text-red-500">
                             <i class="fas fa-times"></i>
                         </button>
@@ -1215,6 +1227,14 @@ export default {
 
                 this.clients = clients;
                 this.catalogItems = catalogItems;
+                
+                // By default, assume all prices are from the calculation service
+                const processedCatalogItems = offerData.catalog_items.map(item => {
+                    // Start with isCustomPrice = false for all items
+                    item.isCustomPrice = false;
+                    return item;
+                });
+                
                 this.editForm = {
                     id: offerData.id,
                     name: offerData.name,
@@ -1223,7 +1243,7 @@ export default {
                     contact_id: offerData.contact_id,
                     validity_days: offerData.validity_days,
                     production_time: offerData.production_time,
-                    catalog_items: offerData.catalog_items
+                    catalog_items: processedCatalogItems
                 };
 
                 this.selectedClient = this.clients.find(c => c.id === offerData.client_id);
@@ -1268,22 +1288,24 @@ export default {
         },
 
         selectItem(item) {
-            this.editForm.catalog_items.push({
+            const newItem = {
                 id: item.id,
                 selection_id: Date.now(),
                 name: item.name,
                 quantity: 1,
                 description: item.description || '',
-                custom_price: item.price,
-                calculated_price: null,
+                custom_price: item.price || 0,
+                calculated_price: (item.price || 0),
                 isCustomPrice: false,
+                _originalPrice: item.price || 0,
                 file: item.file,
                 large_material: item.large_material,
                 small_material: item.small_material
-            });
+            };
+            
+            this.editForm.catalog_items.push(newItem);
             this.closeItemSelection();
             // Calculate the price for the newly added item
-            const newItem = this.editForm.catalog_items[this.editForm.catalog_items.length - 1];
             this.updatePrice(newItem);
         },
 
@@ -1291,13 +1313,7 @@ export default {
         toggleItemSelection(item) {
             const index = this.selectedItems.findIndex(i => i.id === item.id);
             if (index === -1) {
-                // Check if item is already assigned to the offer
-                const isAlreadyAssigned = this.editForm.catalog_items.some(i => i.id === item.id);
-                if (isAlreadyAssigned) {
-                    const toast = useToast();
-                    toast.info('This item is already assigned to the offer');
-                    return;
-                }
+                // Add item to selected items (no need to check if already assigned)
                 this.selectedItems.push(item);
             } else {
                 this.selectedItems.splice(index, 1);
@@ -1334,11 +1350,22 @@ export default {
                     });
                     
                     // Update with calculated price from server
-                    item.calculated_price = response.data.price;
-                    item.custom_price = response.data.price / item.quantity;
+                    const totalPrice = response.data.price;
+                    item.calculated_price = totalPrice;
+                    // Calculate per-unit price
+                    const perUnitPrice = totalPrice / item.quantity;
+                    item.custom_price = perUnitPrice;
+                    
+                    // Store the original price for comparison
+                    item._originalPrice = perUnitPrice;
+                    
+                    console.log(`Auto-calculated price: ${perUnitPrice.toFixed(2)} per unit, total: ${totalPrice}`);
                 } else {
                     // If custom price is set, just multiply by quantity
-                    item.calculated_price = item.custom_price * item.quantity;
+                    if (item.custom_price && item.quantity) {
+                        item.calculated_price = item.custom_price * item.quantity;
+                    }
+                    console.log(`Using manual price: ${item.custom_price} per unit, total: ${item.calculated_price}`);
                 }
             } catch (error) {
                 console.error('Error calculating price:', error);
@@ -1382,10 +1409,44 @@ export default {
             return item.calculated_price ?? item.custom_price;
         },
 
-        handleCustomPriceChange(item) {
-            if (item.custom_price !== null) {
+        // Store original price when focusing the price input
+        onPriceFocus(item) {
+            // Store the original price to detect changes
+            if (!item._originalPrice) {
+                item._originalPrice = item.custom_price;
+            }
+        },
+        
+        // Handle price changes
+        handlePriceChange(item) {
+            // If price has been changed from original, mark as custom
+            if (item._originalPrice !== item.custom_price) {
                 item.isCustomPrice = true;
+                
+                // Calculate the total price based on custom price
+                if (item.custom_price && item.quantity) {
+                    item.calculated_price = item.custom_price * item.quantity;
+                }
+                
+                console.log(`Manual price set: ${item.custom_price} per unit, total: ${item.calculated_price}`);
+            } else {
+                // Reset to auto-calculated if user reverts to original price
+                item.isCustomPrice = false;
+                this.updatePrice(item);
+            }
+        },
+        
+        // Existing handleCustomPriceChange method can be removed or kept as a fallback
+        handleCustomPriceChange(item) {
+            if (item.custom_price !== null && item.custom_price !== undefined) {
+                // Mark as custom price
+                item.isCustomPrice = true;
+                
+                // Calculate the total price by multiplying the custom price per unit by quantity
                 item.calculated_price = item.custom_price * item.quantity;
+                
+                // Add a flag in console for debugging
+                console.log(`Manual price set: ${item.custom_price} per unit, total: ${item.calculated_price}`);
             }
         },
 
@@ -1609,15 +1670,17 @@ export default {
             }
 
             this.selectedItems.forEach(item => {
+                // Always create a new item with a unique selection ID
                 const newItem = {
                     id: item.id,
                     selection_id: Date.now() + Math.floor(Math.random() * 1000), // Ensure unique ID
                     name: item.name,
                     quantity: 1,
                     description: item.description || '',
-                    custom_price: item.price,
-                    calculated_price: null,
-                    isCustomPrice: false,
+                    custom_price: item.price || 0,
+                    calculated_price: (item.price || 0) * 1, // Initial calculation based on price * quantity
+                    isCustomPrice: false, // Start with automatic price calculation
+                    _originalPrice: item.price || 0, // Store original price for comparison
                     file: item.file,
                     large_material: item.large_material,
                     small_material: item.small_material
@@ -1636,11 +1699,27 @@ export default {
         },
 
         isItemSelected(itemId) {
+            // We're allowing multiple selections of the same item now
+            // This method is used for checkbox selection states
             return this.selectedItems.some(item => item.id === itemId);
         },
 
         isItemAlreadyAssigned(itemId) {
-            return this.editForm.catalog_items.some(item => item.id === itemId);
+            // Always return false to allow multiple uses of the same item
+            return false;
+        },
+
+        onQuantityChange(item) {
+            if (item.isCustomPrice) {
+                // For manual prices, just recalculate the total based on the custom unit price
+                if (item.custom_price && item.quantity) {
+                    item.calculated_price = item.custom_price * item.quantity;
+                }
+                console.log(`Quantity changed with manual price: ${item.custom_price} per unit, total: ${item.calculated_price}`);
+            } else {
+                // For automatic prices, get a new calculation from the API
+                this.updatePrice(item);
+            }
         },
     },
 
@@ -1672,6 +1751,10 @@ $light-green: #81c950;
 $blue: #0073a9;
 $red: #9e2c30;
 $orange: #a36a03;
+
+.text-xxs {
+    font-size: 0.65rem;
+}
 
 .background-color {
     background-color: $background-color;

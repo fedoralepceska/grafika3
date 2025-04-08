@@ -209,6 +209,9 @@
                              <!-- Catalog Items Section -->
                              <div class="w-full">
                                 <label class="text-white">Catalog Items</label>
+                                <p class="text-sm text-gray-400 mb-2">
+                                    You can add the same item multiple times with different quantities and descriptions.
+                                </p>
                                 <div class="catalog-tabs">
                                     <!-- Search Input -->
                                     <div class="px-4 py-2 border-b border-gray-700">
@@ -494,7 +497,10 @@ export default {
             return !file || file === 'placeholder.jpeg';
         },
         toggleItemSelection(item) {
-            const uniqueId = Date.now();
+            // Create a unique ID for this selection
+            const uniqueId = Date.now() + Math.floor(Math.random() * 1000);
+            
+            // Always create a new item entry with a unique selection ID
             this.form.catalog_items.push({
                 id: item.id,
                 selection_id: uniqueId,
@@ -503,10 +509,21 @@ export default {
                 description: item.description || '',
                 custom_price: null,
                 calculated_price: null,
-                isCustomPrice: false
+                isCustomPrice: false,
+                file: item.file,
+                large_material: item.large_material,
+                small_material: item.small_material
             });
+            
+            // Add the unique selection ID to track this particular selection
             this.selectedItems.push(uniqueId);
+            
+            // Calculate price for the newly added item
             this.updatePrice(this.form.catalog_items[this.form.catalog_items.length - 1]);
+            
+            // Show success message
+            const toast = useToast();
+            toast.success(`${item.name} added to your selection`);
         },
         removeItem(item) {
             const index = this.form.catalog_items.findIndex(i => i.selection_id === item.selection_id);

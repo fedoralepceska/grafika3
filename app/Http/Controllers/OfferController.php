@@ -385,18 +385,17 @@ class OfferController extends Controller
             'production_time' => $request->production_time
         ]);
 
-        // Prepare the sync data with proper pivot attributes
-        $syncData = [];
+        // First, detach all existing items
+        $offer->catalogItems()->detach();
+        
+        // Then attach each item individually
         foreach ($request->catalog_items as $item) {
-            $syncData[$item['id']] = [
+            $offer->catalogItems()->attach($item['id'], [
                 'quantity' => $item['quantity'],
                 'description' => $item['description'] ?? null,
                 'custom_price' => $item['custom_price'] ?? null
-            ];
+            ]);
         }
-
-        // Sync catalog items with pivot data
-        $offer->catalogItems()->sync($syncData);
 
         return response()->json(['message' => 'Offer updated successfully']);
     }
