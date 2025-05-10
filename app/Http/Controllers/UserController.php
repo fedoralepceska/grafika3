@@ -4,24 +4,33 @@ namespace App\Http\Controllers;
 
 use App\Models\User;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Hash;
+use Inertia\Inertia;
 
 class UserController extends Controller
 {
+    /**
+     * Get all users
+     */
     public function index()
     {
-        return User::with('role')->get();
+        $users = User::all();
+        return response()->json($users);
     }
 
-    public function updateRole(Request $request, User $user)
+    /**
+     * Update user role
+     */
+    public function updateRole(Request $request, $id)
     {
-        $validated = $request->validate([
-            'role_id' => 'nullable|exists:user_roles,id'
+        $request->validate([
+            'role_id' => 'nullable|exists:user_roles,id',
         ]);
 
-        $user->update([
-            'role_id' => $validated['role_id']
-        ]);
+        $user = User::findOrFail($id);
+        $user->role_id = $request->role_id;
+        $user->save();
 
-        return response()->json(['message' => 'Role updated successfully']);
+        return response()->json(['message' => 'User role updated successfully']);
     }
 } 

@@ -1,7 +1,7 @@
 <template>
     <MainLayout>
         <div class="pl-7 pr-7">
-            <Header title="userRoles" subtitle="allRoles" icon="UserLogo.png" link="user-roles"/>
+            <Header title="User Roles" subtitle="All Roles" icon="UserLogo.png" link="user-roles"/>
             <div class="dark-gray p-5 text-white">
                 <div class="form-container p-2 light-gray">
                     <h2 class="sub-title">All Roles</h2>
@@ -13,15 +13,14 @@
                     <table class="min-w-full">
                         <thead class="bg-gray-200 text-gray-700">
                             <tr>
-                                <th class="px-6 py-3">Name</th>
-                                <th class="px-6 py-3">Actions</th>
+                                <th class="px-2 py-2">Name</th>
+                                <th class="px-2 py-2">Actions</th>
                             </tr>
                         </thead>
                         <tbody>
                             <tr v-for="role in roles" :key="role.id" class="border-b">
-                                <td class="px-6 py-4">{{ role.name }}</td>
-                                <td class="px-6 py-4">
-                            
+                                <td class="px-2 py-2">{{ role.name }}</td>
+                                <td class="px-2 py-2 text-center">
                                     <button @click="confirmDelete(role)" class="py-2 px-4 rounded delete-btn">
                                         Delete
                                     </button>
@@ -104,8 +103,6 @@ table {
 }
 
 table td, table th {
-    padding: 10px;
-    text-align: center;
     border-right: 1px solid #ddd;
     border-left: 1px solid #ddd;
 }

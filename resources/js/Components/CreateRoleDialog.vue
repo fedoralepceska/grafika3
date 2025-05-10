@@ -1,7 +1,7 @@
 <template>
     <div>
         <button class="btn create-order" @click="openDialog">
-            {{ $t('createNewRole') }} <i class="fa fa-plus"></i>
+            Create New Role <i class="fa fa-plus"></i>
         </button>
 
         <!-- Dialog Overlay -->
@@ -9,19 +9,19 @@
             <!-- Dialog Content -->
             <div class="dialog-content background" @click.stop>
                 <div class="dialog-header">
-                    <span class="text-h5 text-white">{{ $t('createNewRole') }}</span>
+                    <span class="text-h5 text-white">Create New Role</span>
                 </div>
                 
                 <div class="dialog-body">
                     <form @submit.prevent="saveRole">
                         <div class="form-group">
-                            <label for="name" class="text-white">{{ $t('name') }}</label>
+                            <label for="name" class="text-white">Role Name</label>
                             <input 
                                 type="text" 
                                 id="name"
                                 v-model="form.name"
                                 class="rounded text-black"
-                                :placeholder="$t('enterRoleName')"
+                                placeholder="Enter Role Name"
                                 required
                             >
                             <p v-if="form.errors.name" class="error-text">{{ form.errors.name }}</p>
@@ -46,6 +46,7 @@
 import { useForm } from '@inertiajs/vue3';
 import { useToast } from "vue-toastification";
 import axios from 'axios';
+
 
 export default {
     emits: ['roleCreated'],

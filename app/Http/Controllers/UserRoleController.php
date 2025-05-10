@@ -7,25 +7,34 @@ use Illuminate\Http\Request;
 
 class UserRoleController extends Controller
 {
+    /**
+     * Get all user roles
+     */
     public function index()
     {
         $roles = UserRole::all();
         return response()->json($roles);
     }
 
-    public function create()
-    {
-        return view('user-roles.create');
-    }
-
+    /**
+     * Create a new role
+     */
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'name' => 'required|unique:user_roles,name|max:255',
+            'name' => 'required|string|max:255|unique:user_roles',
         ]);
 
-        $role = UserRole::create($validated);
+        $role = UserRole::create([
+            'name' => $validated['name'],
+        ]);
+
         return response()->json($role, 201);
+    }
+
+    public function create()
+    {
+        return view('user-roles.create');
     }
 
     public function edit(UserRole $userRole)

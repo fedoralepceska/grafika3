@@ -5,20 +5,25 @@
             <div class="dark-gray p-5 text-white">
                 <div class="form-container p-2 light-gray">
                     <h2 class="sub-title">All Users</h2>
-
+                    <div class="flex justify-end mb-4 space-x-4">
+                        <CreateRoleDialog @role-created="fetchRoles" />
+                        <Link :href="route('account-creation')" class="btn create-order">
+                            Create New User <i class="fa fa-user-plus"></i>
+                        </Link>
+                    </div>
                     <table class="min-w-full">
                         <thead class="bg-gray-200 text-gray-700">
                             <tr>
-                                <th class="px-6 py-3">Name</th>
-                                <th class="px-6 py-3">Email</th>
-                                <th class="px-6 py-3">Role</th>
+                                <th class="px-2 py-2 text-left">Name</th>
+                                <th class="px-2 py-2 text-center">Email</th>
+                                <th class="px-2 py-2 text-center">Role</th>
                             </tr>
                         </thead>
                         <tbody>
                             <tr v-for="user in users" :key="user.id" class="border-b">
-                                <td class="px-6 py-4">{{ user.name }}</td>
-                                <td class="px-6 py-4">{{ user.email }}</td>
-                                <td class="px-6 py-4">
+                                <td class="px-2 py-2">{{ user.name }}</td>
+                                <td class="px-2 py-2 text-center">{{ user.email }}</td>
+                                <td class="px-2 py-2 text-center">
                                     <select 
                                         v-model="user.role_id" 
                                         @change="updateUserRole(user)"
@@ -49,6 +54,8 @@ import MainLayout from '@/Layouts/MainLayout.vue';
 import Header from '@/Components/Header.vue';
 import { useToast } from "vue-toastification";
 import axios from 'axios';
+import CreateRoleDialog from '@/Components/CreateRoleDialog.vue';
+import { Link } from '@inertiajs/vue3';
 
 const users = ref([]);
 const roles = ref([]);
@@ -129,8 +136,6 @@ table {
 }
 
 table td, table th {
-    padding: 10px;
-    text-align: center;
     border-right: 1px solid #ddd;
     border-left: 1px solid #ddd;
 }
@@ -142,6 +147,16 @@ table td, table th {
     display: flex;
     align-items: center;
     color: $white;
+}
+
+.btn {
+    padding: 8px 12px;
+    border: none;
+    cursor: pointer;
+    font-weight: bold;
+    border-radius: 3px;
+    background-color: $green;
+    color: white;
 }
 
 select {
