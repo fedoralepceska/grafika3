@@ -147,7 +147,7 @@
                                                 </div>
                                             </div>
                                         </div>
-                                        <div class="jobPriceInfo absolute right-0 bottom-0 bg-white text-black bold">
+                                        <div v-if="canViewPrice" class="jobPriceInfo absolute right-0 bottom-0 bg-white text-black bold">
                                             <div class="p-2">
                                                 {{$t('jobPrice')}}: <span class="bold" v-if="job.price !== null">{{Number(job.price).toFixed(2)}} ден.</span>
                                             </div>
@@ -157,7 +157,7 @@
                             </div>
                         </div>
                         <div class="flex justify-center" v-else>
-                            <OrderSpreadsheet :invoice="invoice"/>
+                            <OrderSpreadsheet :invoice="invoice" :canViewPrice="canViewPrice" />
                         </div>
                     </div>
                 </div>
@@ -176,9 +176,20 @@ import Header from "@/Components/Header.vue";
 import OrderHistory from "@/Pages/Invoice/OrderHistory.vue";
 import AddNoteDialog from "@/Components/AddNoteDialog.vue";
 import AddLockNoteDialog from "@/Components/AddLockNoteDialog.vue";
+import useRoleCheck from '@/Composables/useRoleCheck';
+import { computed } from 'vue';
 
 
 export default {
+    setup() {
+        const { isRabotnik } = useRoleCheck();
+        
+        const isRabotnikComputed = computed(() => isRabotnik.value);
+        
+        return {
+            isRabotnikComputed
+        };
+    },
     components: {
         AddNoteDialog,
         AddLockNoteDialog,
@@ -189,6 +200,7 @@ export default {
         Header },
     props: {
         invoice: Object,
+        canViewPrice: Boolean
     },
     data() {
         return {
@@ -295,6 +307,9 @@ export default {
                 });
             }
         },
+        shouldShowPrice() {
+            return !this.isRabotnikComputed;
+        }
     },
     methods: {
         getImageUrl(id) {
@@ -702,5 +717,9 @@ table th {
     border-bottom: 1px solid #ddd;
     background-color: $ultra-light-gray;
 
+}
+
+[v-cloak] {
+    display: none;
 }
 </style>

@@ -332,7 +332,7 @@
                                     </button>
                                 </div>
 
-                                <div class="grid grid-cols-2 gap-4">
+                                <!-- <div class="grid grid-cols-2 gap-4">
                                     <div>
                                         <label class="text-white">{{ $t('quantity') }}</label>
                                         <input v-model="editForm.quantity" type="number" min="1"
@@ -343,8 +343,8 @@
                                         <input v-model="editForm.copies" type="number" min="1"
                                                class="w-full mt-1 rounded" required />
                                     </div>
-                                </div>
-                                <div>
+                                </div> -->
+                                <div v-if="!isRabotnikComputed">
                                     <label class="text-white">{{ $t('defaultPrice') }}</label>
                                     <input
                                         v-model="editForm.price"
@@ -562,7 +562,7 @@
                             </div>
 
                             <!-- Cost Price Display -->
-                            <div class="mt-4 p-4 bg-gray-700 rounded">
+                            <div v-if="!isRabotnikComputed" class="mt-4 p-4 bg-gray-700 rounded">
                                 <h4 class="text-white text-md font-medium mb-3">{{ $t('costSummary') }}</h4>
                                 <div class="space-y-2">
                                     <div class="flex justify-between items-center">
@@ -847,8 +847,21 @@ import { Link } from "@inertiajs/vue3";
 import { useToast } from "vue-toastification";
 import CatalogArticleSelect from "@/Components/CatalogArticleSelect.vue";
 import debounce from 'lodash.debounce';     
+import useRoleCheck from '@/Composables/useRoleCheck';
+import { computed } from 'vue';
 
 export default {
+    
+    setup() {
+        const { isRabotnik } = useRoleCheck();
+        
+        const isRabotnikComputed = computed(() => isRabotnik.value);
+        
+        return {
+            isRabotnikComputed
+        };
+    },
+
     components: {
         MainLayout,
         Header,

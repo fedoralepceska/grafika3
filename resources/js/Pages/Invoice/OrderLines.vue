@@ -124,7 +124,7 @@
                         <img src="/images/shipping.png" class="w-8 h-8 pr-1" alt="Shipping">
                         {{ $t('Shipping') }}: <strong> {{ job.shippingInfo }}</strong>
                     </td>
-                    <div class="bg-gray-200 text-black bold">
+                    <div v-if="!isRabotnikComputed" class="bg-gray-200 text-black bold">
                         <div class="pt-1 pl-2 pr-2 pb-2">
                             {{ $t('jobPrice') }}: <span class="bold">{{ (job.price * job.copies).toFixed(2) }} ден.</span>
                         </div>
@@ -163,9 +163,20 @@
 <script>
 import { useToast } from "vue-toastification";
 import axios from "axios";
+import useRoleCheck from '@/Composables/useRoleCheck';
+import { computed } from 'vue';
 
 export default {
     name: "OrderLines",
+    setup() {
+        const { isRabotnik } = useRoleCheck();
+        
+        const isRabotnikComputed = computed(() => isRabotnik.value);
+        
+        return {
+            isRabotnikComputed
+        };
+    },
 
     props: {
         jobs: Array,

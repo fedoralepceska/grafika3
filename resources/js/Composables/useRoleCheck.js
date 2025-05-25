@@ -32,6 +32,7 @@ export default function useRoleCheck() {
     const isAdmin = computed(() => hasRole('Admin'));
     const isWorker = computed(() => hasRole('Worker'));
     const isAccountant = computed(() => hasRole('Accountant'));
+    const isRabotnik = computed(() => hasRole('Rabotnik'));
     
     const fetchRoles = async () => {
         try {
@@ -55,6 +56,7 @@ export default function useRoleCheck() {
         hasRoleId,
         isAdmin,
         isWorker,
-        isAccountant
+        isAccountant,
+        isRabotnik
     };
 } 

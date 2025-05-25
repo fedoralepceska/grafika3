@@ -215,12 +215,15 @@ class InvoiceController extends Controller
     {
         $invoice = Invoice::with(['jobs.small_material.smallFormatMaterial', 'historyLogs', 'user', 'client', 'jobs.actions', 'jobs.large_material'])->findOrFail($id);
 
-        // Append the totalPrice attribute to each job
-        $invoice->jobs->each(function ($job) {
-            $job->append('totalPrice');
-        });
+        if (!auth()->user()->hasRole('Rabotnik')) {
+            $invoice->jobs->each(function ($job) {
+                $job->append('totalPrice');
+            });
+        }
+
         return Inertia::render('Invoice/InvoiceDetails', [
             'invoice' => $invoice,
+            'canViewPrice' => !auth()->user()->hasRole('Rabotnik')
         ]);
     }
     public function update(Request $request, $id)

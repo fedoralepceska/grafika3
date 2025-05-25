@@ -142,6 +142,8 @@
                                         min="0"
                                         class="w-full mt-1 rounded"
                                         required
+                                        :disabled="isRabotnikComputed"
+                                        :class="{ 'bg-gray-200 cursor-not-allowed': isRabotnikComputed }"
                                     />
                                 </div>
                                 <div class="grid grid-cols-2 gap-4 pt-9">
@@ -254,7 +256,7 @@
                             </div>
 
                             <!-- Cost Price Display -->
-                            <div class="mt-4 p-4 bg-gray-700 rounded">
+                            <div v-if="!isRabotnikComputed" class="mt-4 p-4 bg-gray-700 rounded">
                                 <h4 class="text-white text-md font-medium mb-3">{{ $t('costSummary') }}</h4>
                                 <div class="space-y-2">
                                     <div class="flex justify-between items-center">
@@ -434,6 +436,8 @@ import Checkbox from '@/Components/inputs/Checkbox.vue';
 import CatalogArticleSelect from '@/Components/CatalogArticleSelect.vue';
 import CreateSubcategoryDialog from '@/Components/CreateSubcategoryDialog.vue';
 import ViewSubcategoriesDialog from '@/Components/ViewSubcategoriesDialog.vue';
+import useRoleCheck from '@/Composables/useRoleCheck';
+import { computed } from 'vue';
 
 export default {
     components: {
@@ -444,6 +448,16 @@ export default {
         CatalogArticleSelect,
         CreateSubcategoryDialog,
         ViewSubcategoriesDialog
+    },
+
+    setup() {
+        const { isRabotnik } = useRoleCheck();
+        
+        const isRabotnikComputed = computed(() => isRabotnik.value);
+        
+        return {
+            isRabotnikComputed
+        };
     },
 
     props: {
@@ -470,7 +484,7 @@ export default {
                 is_for_sales: true,
                 category: '',
                 file: null,
-                price: '',
+                price: '0',
                 articles: [],
                 template_file: null,
                 subcategory_id: null
