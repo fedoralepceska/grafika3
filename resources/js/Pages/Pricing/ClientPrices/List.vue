@@ -91,23 +91,45 @@
 
                 <!-- Pagination -->
                 <div class="mt-4 flex justify-between items-center" v-if="pagination">
-                    <button
-                        :disabled="pagination.current_page === 1"
-                        @click="changePage(pagination.current_page - 1)"
-                        class="btn btn-secondary"
-                    >
-                        {{$t('previous')}}
-                    </button>
+                    <div class="flex gap-2">
+                        <button
+                            :disabled="pagination.current_page === 1"
+                            @click="changePage(1)"
+                            class="btn btn-secondary"
+                            :class="{ 'opacity-50 cursor-not-allowed': pagination.current_page === 1 }"
+                        >
+                            <i class="fas fa-angle-double-left"></i>
+                        </button>
+                        <button
+                            :disabled="pagination.current_page === 1"
+                            @click="changePage(pagination.current_page - 1)"
+                            class="btn btn-secondary"
+                            :class="{ 'opacity-50 cursor-not-allowed': pagination.current_page === 1 }"
+                        >
+                            {{$t('previous')}}
+                        </button>
+                    </div>
                     <span class="text-white">
                         {{$t('page')}} {{ pagination.current_page }} {{$t('of')}} {{ pagination.total_pages }}
                     </span>
-                    <button
-                        :disabled="pagination.current_page === pagination.total_pages"
-                        @click="changePage(pagination.current_page + 1)"
-                        class="btn btn-secondary"
-                    >
-                        {{$t('next')}}
-                    </button>
+                    <div class="flex gap-2">
+                        <button
+                            :disabled="pagination.current_page === pagination.total_pages"
+                            @click="changePage(pagination.current_page + 1)"
+                            class="btn btn-secondary"
+                            :class="{ 'opacity-50 cursor-not-allowed': pagination.current_page === pagination.total_pages }"
+                        >
+                            {{$t('next')}}
+                        </button>
+                        <button
+                            :disabled="pagination.current_page === pagination.total_pages"
+                            @click="changePage(pagination.total_pages)"
+                            class="btn btn-secondary"
+                            :class="{ 'opacity-50 cursor-not-allowed': pagination.current_page === pagination.total_pages }"
+                        >
+                            <i class="fas fa-angle-double-right"></i>
+                        </button>
+                    </div>
                 </div>
 
                 <!-- Delete Confirmation Modal -->

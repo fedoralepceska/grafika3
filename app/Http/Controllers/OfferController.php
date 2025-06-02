@@ -304,15 +304,15 @@ class OfferController extends Controller
     {
         $offer->load(['client', 'contact', 'catalogItems.largeMaterial', 'catalogItems.smallMaterial']);
         $clients = Client::select('id', 'name')->with('contacts')->get();
-        $catalogItems = $offer->catalogItems
-            ->filter(fn($item) => $item->is_for_offer)
-            ->map(function ($item) use ($offer) {
+        $catalogItems = CatalogItem::with(['largeMaterial', 'smallMaterial'])
+            ->where('is_for_offer', true)
+            ->get()
+            ->map(function ($item) {
                 return [
                     'id' => $item->id,
                     'name' => $item->name,
                     'description' => $item->description,
                     'price' => $item->price,
-                    'calculatedPrice' => $this->getPrice($offer->client->id, $item),
                     'file' => $item->file,
                     'large_material' => $item->largeMaterial ? [
                         'id' => $item->largeMaterial->id,
@@ -325,7 +325,7 @@ class OfferController extends Controller
                 ];
             });
 
-        return response()->json([
+        return Inertia::render('Offer/Edit', [
             'offer' => [
                 'id' => $offer->id,
                 'name' => $offer->name,
@@ -337,7 +337,7 @@ class OfferController extends Controller
                 'catalog_items' => $offer->catalogItems->map(function ($item) use ($offer) {
                     return [
                         'id' => $item->id,
-                        'selection_id' => uniqid(), // Add unique ID for frontend tracking
+                        'selection_id' => uniqid(),
                         'name' => $item->name,
                         'description' => $item->pivot->description,
                         'quantity' => $item->pivot->quantity,

@@ -167,25 +167,45 @@
                 </table>
 
                 <div class="flex w-full  justify-between items-center mt-4">
-                    <button
-                        :disabled="!pagination.links?.prev"
-                        @click="() => fetchCatalogItems(pagination.current_page - 1)"
-                        class="btn btn-secondary"
-                        :class="{ 'opacity-50 cursor-not-allowed': !pagination.links?.prev }"
-                    >
-                        {{ $t('previous') }}
-                    </button>
+                    <div class="flex gap-2">
+                        <button
+                            :disabled="!pagination.links?.prev"
+                            @click="() => fetchCatalogItems(1)"
+                            class="btn btn-secondary"
+                            :class="{ 'opacity-50 cursor-not-allowed': !pagination.links?.prev }"
+                        >
+                        <i class="fas fa-angle-double-left"></i>
+                        </button>
+                        <button
+                            :disabled="!pagination.links?.prev"
+                            @click="() => fetchCatalogItems(pagination.current_page - 1)"
+                            class="btn btn-secondary"
+                            :class="{ 'opacity-50 cursor-not-allowed': !pagination.links?.prev }"
+                        >
+                            {{ $t('previous') }}
+                        </button>
+                    </div>
                     <span class="text-white">
                         {{ $t('page') }} {{ pagination.current_page }} {{ $t('of') }} {{ pagination.last_page }}
                     </span>
-                    <button
-                        :disabled="!pagination.links?.next"
-                        @click="() => fetchCatalogItems(pagination.current_page + 1)"
-                        class="btn btn-secondary"
-                        :class="{ 'opacity-50 cursor-not-allowed': !pagination.links?.next }"
-                    >
-                        {{ $t('next') }}
-                    </button>
+                    <div class="flex gap-2">
+                        <button
+                            :disabled="!pagination.links?.next"
+                            @click="() => fetchCatalogItems(pagination.current_page + 1)"
+                            class="btn btn-secondary"
+                            :class="{ 'opacity-50 cursor-not-allowed': !pagination.links?.next }"
+                        >
+                            {{ $t('next') }}
+                        </button>
+                        <button
+                            :disabled="!pagination.links?.next"
+                            @click="() => fetchCatalogItems(pagination.last_page)"
+                            class="btn btn-secondary"
+                            :class="{ 'opacity-50 cursor-not-allowed': !pagination.links?.next }"
+                        >
+                            <i class="fas fa-angle-double-right"></i>
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
