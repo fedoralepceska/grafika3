@@ -85,6 +85,14 @@
         .bolder {
             font-weight: bold;
         }
+        .footer {
+            position: running(footer);
+        }
+        @page :last {
+            @bottom-center {
+                content: element(footer);
+            }
+        }
     </style>
 </head>
 <body>
@@ -208,7 +216,7 @@
             </td>
         </tr>
     </table>
-    <div style="position: fixed; bottom: 0; left: 0; right: 0; padding-bottom: 15px; padding-right: 35px; padding-left: 35px" >
+    <div class="footer" style="position: fixed; bottom: 0; left: 0; right: 0; padding-bottom: 15px; padding-right: 35px; padding-left: 35px">
         <img src="{{ public_path('offer-footer.png') }}" alt="header" style="width: 100%;">
     </div>
 </body>
