@@ -13,6 +13,7 @@
             background-color: white;
             margin: -10px;
             font-size: 14px;
+            margin-bottom: 100px;
         }
         @font-face {
             font-family: 'Tahoma';
@@ -61,6 +62,7 @@
         }
         .items-table {
             margin-top: 15px;
+            page-break-inside: auto;
         }
         .items-table th, .items-table td {
 
@@ -86,12 +88,36 @@
             font-weight: bold;
         }
         .footer {
-            position: running(footer);
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            padding-bottom: 15px;
+            padding-right: 35px;
+            padding-left: 35px;
+            display: none; /* Hide by default */
         }
+        
+        /* Show footer only on the last page */
+        .footer:last-of-type {
+            display: block;
+            page-break-before: avoid;
+            page-break-after: avoid;
+        }
+
+        /* Ensure content doesn't overlap with footer */
+        body {
+            margin-bottom: 100px;
+        }
+
+        /* Force page breaks where needed */
+        .items-table tr {
+            page-break-inside: avoid;
+        }
+
+        /* Ensure the last page has proper spacing */
         @page :last {
-            @bottom-center {
-                content: element(footer);
-            }
+            margin-bottom: 100px;
         }
     </style>
 </head>
@@ -216,8 +242,11 @@
             </td>
         </tr>
     </table>
-    <div class="footer" style="position: fixed; bottom: 0; left: 0; right: 0; padding-bottom: 15px; padding-right: 35px; padding-left: 35px">
-        <img src="{{ public_path('offer-footer.png') }}" alt="header" style="width: 100%;">
+    <!-- Add a page break before footer if needed -->
+    <div style="page-break-before: avoid;">
+        <div class="footer">
+            <img src="{{ public_path('offer-footer.png') }}" alt="header" style="width: 100%;">
+        </div>
     </div>
 </body>
 </html>
