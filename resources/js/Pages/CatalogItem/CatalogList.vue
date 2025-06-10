@@ -86,9 +86,9 @@
                         <th class="p-4">{{ $t('template') }}</th>
                         <th class="p-4">{{ $t('subcategory') }}</th>
                         <th class="p-4">{{ $t('material') }}</th>
-                        <th class="p-4">{{ $t('defaultPrice') }}</th>
-                        <th class="p-4">{{ $t('clientPrices') }}</th>
-                        <th class="p-4">{{ $t('quantityPrices') }}</th>
+                        <th v-if="canViewPrice" class="p-4">{{ $t('defaultPrice') }}</th>
+                        <th v-if="canViewPrice" class="p-4">{{ $t('clientPrices') }}</th>
+                        <th v-if="canViewPrice" class="p-4">{{ $t('quantityPrices') }}</th>
                         <th class="p-4">{{ $t('options') }}</th>
                     </tr>
                     </thead>
@@ -140,13 +140,13 @@
                         <td class="p-4">
                             {{ item.material || 'N/A' }}
                         </td>
-                        <td class="p-4">{{ formatPrice(item.price) }}</td>
-                        <td class="p-4">
+                        <td v-if="canViewPrice" class="p-4">{{ formatPrice(item.price) }}</td>
+                        <td v-if="canViewPrice" class="p-4">
                             <button @click="openClientPricesDialog(item)" class="btn btn-secondary">
                                 <i class="fas fa-users"></i> {{ $t('manage') }}
                             </button>
                         </td>
-                        <td class="p-4">
+                        <td v-if="canViewPrice" class="p-4">
                             <button @click="openQuantityPricesDialog(item)" class="btn btn-secondary">
                                 <i class="fas fa-layer-group"></i> {{ $t('manage') }}
                             </button>
@@ -364,7 +364,7 @@
                                                class="w-full mt-1 rounded" required />
                                     </div>
                                 </div> -->
-                                <div v-if="!isRabotnikComputed">
+                                <div v-if="canViewPrice">
                                     <label class="text-white">{{ $t('defaultPrice') }}</label>
                                     <input
                                         v-model="editForm.price"
@@ -582,7 +582,7 @@
                             </div>
 
                             <!-- Cost Price Display -->
-                            <div v-if="!isRabotnikComputed" class="mt-4 p-4 bg-gray-700 rounded">
+                            <div v-if="canViewPrice" class="mt-4 p-4 bg-gray-700 rounded">
                                 <h4 class="text-white text-md font-medium mb-3">{{ $t('costSummary') }}</h4>
                                 <div class="space-y-2">
                                     <div class="flex justify-between items-center">
@@ -867,21 +867,9 @@ import { Link } from "@inertiajs/vue3";
 import { useToast } from "vue-toastification";
 import CatalogArticleSelect from "@/Components/CatalogArticleSelect.vue";
 import debounce from 'lodash.debounce';     
-import useRoleCheck from '@/Composables/useRoleCheck';
 import { computed } from 'vue';
 
 export default {
-    
-    setup() {
-        const { isRabotnik } = useRoleCheck();
-        
-        const isRabotnikComputed = computed(() => isRabotnik.value);
-        
-        return {
-            isRabotnikComputed
-        };
-    },
-
     components: {
         MainLayout,
         Header,
@@ -891,6 +879,7 @@ export default {
     props: {
         catalogItems: Array,
         pagination: Object,
+        canViewPrice: Boolean,
     },
     data() {
         return {
@@ -984,7 +973,7 @@ export default {
         },
         displayTotalCost() {
             return this.displayProductsCost + this.displayServicesCost;
-        }
+        },
     },
     methods: {
         fetchCatalogItems(page) {

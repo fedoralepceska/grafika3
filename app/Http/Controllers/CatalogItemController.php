@@ -154,7 +154,8 @@ class CatalogItemController extends Controller
                         'prev' => $catalogItems->currentPage() > 1,
                         'next' => $catalogItems->hasMorePages()
                     ]
-                ]
+                ],
+                'canViewPrice' => !auth()->user()->hasRole('Rabotnik')
             ]);
         } catch (\Exception $e) {
             \Log::error('Error in getCatalogItems:', [
