@@ -13,7 +13,6 @@
             background-color: white;
             margin: -10px;
             font-size: 14px;
-            margin-bottom: 100px;
         }
         @font-face {
             font-family: 'Tahoma';
@@ -96,6 +95,7 @@
             padding-right: 35px;
             padding-left: 35px;
             display: none; /* Hide by default */
+            height: 30px; /* Set explicit height for the footer */
         }
         
         /* Show footer only on the last page */
@@ -105,19 +105,20 @@
             page-break-after: avoid;
         }
 
-        /* Ensure content doesn't overlap with footer */
-        body {
-            margin-bottom: 100px;
+        /* Remove the fixed margin-bottom from body */
+        /* Instead, add padding to the last page content */
+        @page :last {
+            margin-bottom: 0;
         }
 
-        /* Force page breaks where needed */
-        .items-table tr {
-            page-break-inside: avoid;
+        /* Add padding to the last content element before footer */
+        .footer:last-of-type {
+            margin-top: 10px; /* Add some spacing between content and footer */
         }
 
         /* Ensure the last page has proper spacing */
         @page :last {
-            margin-bottom: 100px;
+            margin-bottom: 0;
         }
     </style>
 </head>
