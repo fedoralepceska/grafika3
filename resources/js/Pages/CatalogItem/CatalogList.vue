@@ -381,7 +381,7 @@
                             <div class="space-y-4">
                                 <!-- File Section -->
                                 <div class="file-upload">
-                                    <h3 class="text-white text-lg font-semibold mb-4">{{ $t('fileUpload') }}</h3>
+                                    <h3 class="text-white text-lg font-semibold mb-4">{{ $t('fileUpload') }} (PNG, JPG, JPEG)</h3>
                                     <div
                                         class="upload-area"
                                         @dragover.prevent
@@ -401,7 +401,7 @@
                                             </div>
                                             <p class="upload-text">{{ $t('dragAndDrop') }}</p>
                                             <p class="upload-text-sub">{{ $t('orClickToBrowse') }}</p>
-                                            <p class="file-types">{{ $t('supportedFormats') }}: PDF, PNG, JPG, JPEG</p>
+                                            <p class="file-types">{{ $t('supportedFormats') }}: PNG, JPG, JPEG</p>
                                         </div>
                                         <div v-else class="preview-container">
                                             <img
@@ -1260,15 +1260,26 @@ export default {
         processFile(file) {
             if (!file) return;
 
+            const maxSize = 20 * 1024 * 1024;
+            if (file.size > maxSize) {
+                const toast = useToast();
+                toast.error('File size must be less than 20MB');
+                return;
+            }
+
+            const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png'];
+            if (!allowedTypes.includes(file.type)) {
+                const toast = useToast();
+                toast.error('Only JPG, JPEG, and PNG files are allowed');
+                return;
+            }
+
             this.editForm.file = file;
             this.fileName = file.name;
 
             if (file.type.startsWith("image/")) {
                 this.isImage = true;
                 this.previewUrl = URL.createObjectURL(file);
-            } else if (file.type === "application/pdf") {
-                this.isImage = false;
-                this.previewUrl = "/storage/uploads/placeholder.jpeg";
             }
         },
 
@@ -1504,11 +1515,22 @@ export default {
 
         processTemplateFile(file) {
             if (!file) return;
+
+            // Check file size (20MB = 20 * 1024 * 1024 bytes)
+            const maxSize = 20 * 1024 * 1024;
+            if (file.size > maxSize) {
+                const toast = useToast();
+                toast.error('Template file size must be less than 20MB');
+                return;
+            }
+
+            // Check file type
             if (file.type !== 'application/pdf') {
                 const toast = useToast();
                 toast.error('Only PDF files are allowed for templates');
                 return;
             }
+
             this.editForm.template_file = file;
             this.currentTemplateFile = file.name;
             this.removeTemplateFlag = false;

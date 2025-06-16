@@ -140,11 +140,12 @@
                                     <span class="bg-green px-2 py-0.5 rounded text-xs text-white">{{ form.catalog_items.length }} items</span>
                                 </div>
                                 <div class="divide-y divide-gray-700">
-                                    <div v-for="item in form.catalog_items" :key="item.selection_id" class="py-2">
+                                    <div v-for="(item, index) in form.catalog_items" :key="item.selection_id" class="py-2">
                                         <div class="flex items-center gap-4">
                                             <!-- Name and Description -->
                                             <div class="flex-1 min-w-0 pb-2">
                                                 <div class="flex items-center gap-2">
+                                                    <span class="text-white text-sm font-medium">{{ index + 1 }}.</span>
                                                     <h4 class="text-white text-sm font-medium truncate">{{ item.name }}</h4>
                                                     <input
                                                         v-model="item.description"
