@@ -292,7 +292,7 @@ export default {
     right: 0;
     padding: 0;
 }
-.comment-order,{
+.comment-order{
     background-color: $blue;
     color: white;
 }

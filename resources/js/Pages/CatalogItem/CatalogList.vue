@@ -478,6 +478,15 @@
                                         />
                                         <label for="is_for_sales" class="text-white ml-2">{{ $t('forSales') }}</label>
                                     </div>
+                                    <div class="col-span-2 mt-2">
+                                        <input
+                                            type="checkbox"
+                                            id="should_ask_questions"
+                                            v-model="editForm.should_ask_questions"
+                                            class="rounded border-gray-300 text-indigo-600 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
+                                        />
+                                        <label for="should_ask_questions" class="text-white ml-2">Ask questions before production</label>
+                                    </div>
                                 </div>
 
                             </div>
@@ -927,7 +936,8 @@ export default {
                 price: 0,
                 file: null,
                 template_file: null,
-                subcategory_id: null
+                subcategory_id: null,
+                should_ask_questions: false
             },
             productArticles: [],
             serviceArticles: [],
@@ -1038,7 +1048,8 @@ export default {
                 is_for_sales: item.is_for_sales,
                 file: null,
                 template_file: item.template_file,
-                subcategory_id: item.subcategory_id
+                subcategory_id: item.subcategory_id,
+                should_ask_questions: Boolean(item.should_ask_questions)
             };
 
             // Initialize product and service articles from existing articles
@@ -1093,7 +1104,8 @@ export default {
                 price: 0,
                 file: null,
                 template_file: null,
-                subcategory_id: null
+                subcategory_id: null,
+                should_ask_questions: false
             };
             this.productArticles = [];
             this.serviceArticles = [];
@@ -1130,7 +1142,7 @@ export default {
 
                 // Append all form fields
                 Object.entries(this.editForm).forEach(([key, value]) => {
-                    if (key !== 'actions' && key !== 'file' && key !== 'template_file') {
+                    if (key !== 'actions' && key !== 'file' && key !== 'template_file' && key !== 'should_ask_questions') {
                         // Convert price to number if it's the price field
                         if (key === 'price') {
                             formData.append(key, Number(value));
@@ -1139,6 +1151,9 @@ export default {
                         }
                     }
                 });
+
+                // Append should_ask_questions as integer
+                formData.append('should_ask_questions', this.editForm.should_ask_questions ? 1 : 0);
 
                 // Append actions as JSON
                 formData.append('actions', JSON.stringify(this.editForm.actions));

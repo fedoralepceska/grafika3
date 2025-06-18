@@ -138,7 +138,8 @@ class CatalogItemController extends Controller
                         ];
                     })->toArray(),
                     'subcategory_id' => $item->subcategory_id,
-                    'subcategory_name' => $item->subcategory ? $item->subcategory->name : null
+                    'subcategory_name' => $item->subcategory ? $item->subcategory->name : null,
+                    'should_ask_questions' => (bool)$item->should_ask_questions,
                 ];
             });
 

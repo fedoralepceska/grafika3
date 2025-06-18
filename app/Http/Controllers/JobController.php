@@ -67,6 +67,11 @@ class JobController extends Controller
                 $job->catalog_item_id = $request->input('catalog_item_id');
                 $job->client_id = $request->input('client_id');
 
+                // Save question answers if provided
+                if ($request->has('question_answers')) {
+                    $job->question_answers = $request->input('question_answers');
+                }
+
                 // Calculate unit price based on hierarchy
                 $unitPrice = $priceCalculationService->calculateEffectivePrice(
                     $request->input('catalog_item_id'),
@@ -1226,5 +1231,33 @@ class JobController extends Controller
                 'error' => $e->getMessage()
             ], 500);
         }
+    }
+
+    /**
+     * Check if any selected catalog items require questions, and return questions if so.
+     */
+    public function getQuestionsForCatalogItems(Request $request)
+    {
+        $catalogItemIds = $request->input('catalog_item_ids', []);
+        $catalogItems = \App\Models\CatalogItem::whereIn('id', $catalogItemIds)->get();
+
+        $shouldAsk = $catalogItems->where('should_ask_questions', true)->isNotEmpty();
+
+        if (!$shouldAsk) {
+            return response()->json(['shouldAsk' => false]);
+        }
+
+        $activeQuestions = \App\Models\Question::active()->get();
+        $questionsByCatalogItem = [];
+        foreach ($catalogItems as $item) {
+            if ($item->should_ask_questions) {
+                $questionsByCatalogItem[$item->id] = $activeQuestions;
+            }
+        }
+
+        return response()->json([
+            'shouldAsk' => true,
+            'questionsByCatalogItem' => $questionsByCatalogItem,
+        ]);
     }
 }

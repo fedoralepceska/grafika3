@@ -31,6 +31,7 @@ use App\Http\Controllers\IncomingFakturaController;
 use App\Http\Controllers\SubcategoryController;
 use App\Http\Controllers\UserRoleController;
 use App\Http\Controllers\UserController;
+use App\Http\Controllers\QuestionController;
 
 
 /*
@@ -172,6 +173,19 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('/api/subcategories', [SubcategoryController::class, 'store'])->name('subcategories.store');
     Route::put('/api/subcategories/{subcategory}', [SubcategoryController::class, 'update'])->name('subcategories.update');
     Route::delete('/api/subcategories/{subcategory}', [SubcategoryController::class, 'destroy'])->name('subcategories.destroy');
+
+    // Questions routes
+    Route::get('/questions', [\App\Http\Controllers\QuestionController::class, 'index']);
+    Route::post('/questions', [\App\Http\Controllers\QuestionController::class, 'store']);
+    Route::put('/questions/{question}', [\App\Http\Controllers\QuestionController::class, 'update']);
+    Route::delete('/questions/{question}', [\App\Http\Controllers\QuestionController::class, 'destroy']);
+    Route::post('/questions/{question}/enable', [\App\Http\Controllers\QuestionController::class, 'enable']);
+    Route::post('/questions/{question}/disable', [\App\Http\Controllers\QuestionController::class, 'disable']);
+    Route::post('/questions/reorder', [\App\Http\Controllers\QuestionController::class, 'reorder']);
+    Route::get('/questions/active', [\App\Http\Controllers\QuestionController::class, 'active']);
+    Route::get('/admin/questions', function () {
+        return Inertia::render('Questions/QuestionsManager');
+    })->name('admin.questions');
 });
 
 //Routes For Small Format Materials
@@ -464,5 +478,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::put('/users/{user}/role', [UserController::class, 'updateRole']);
     });
 });
+
+Route::post('/jobs/questions-for-catalog-items', [\App\Http\Controllers\JobController::class, 'getQuestionsForCatalogItems']);
 
 require __DIR__.'/auth.php';

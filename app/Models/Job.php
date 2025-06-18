@@ -55,6 +55,10 @@ class Job extends Model
         'status' => InvoiceStatus::class,
     ];
 
+    protected $casts = [
+        'question_answers' => 'array',
+    ];
+
     public function getEffectiveCatalogItemIdAttribute()
     {
         return $this->catalog_item_id ?? $this->invoice?->catalog_item_id;

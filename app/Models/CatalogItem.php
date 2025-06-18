@@ -27,7 +27,8 @@ class CatalogItem extends Model
         'file',
         'price',
         'cost_price',
-        'subcategory_id'
+        'subcategory_id',
+        'should_ask_questions'
     ];
 
     protected $casts = [

@@ -209,6 +209,15 @@
                 />
             </div>
         </div>
+
+        <QuestionsModal
+          :visible="questionsModalVisible"
+          :questionsByCatalogItem="questionsModalData.questionsByCatalogItem"
+          :catalogItems="questionsModalData.catalogItems"
+          :isCreatingJobs="isCreatingJobs"
+          @submit-answers="handleQuestionsSubmit"
+          @close="questionsModalVisible = false"
+        />
     </div>
 </template>
 
@@ -217,10 +226,11 @@ import axios from 'axios';
 import { useToast } from "vue-toastification";
 import TabV2 from "@/Components/tabs/TabV2.vue";
 import TabsWrapperSwitch from "@/Components/tabs/TabsWrapperSwitch.vue";
+import QuestionsModal from './QuestionsModal.vue';
 
 export default {
     name: "CatalogSelector",
-    components: { TabV2, TabsWrapperSwitch },
+    components: { TabV2, TabsWrapperSwitch, QuestionsModal },
     props: {
         clientId: {
             type: [Number, String],
@@ -239,6 +249,10 @@ export default {
             totalPages: 0,
             showImageModal: false,
             selectedImageUrl: null,
+            questionsModalVisible: false,
+            questionsModalData: { questionsByCatalogItem: {}, catalogItems: [] },
+            questionsModalAnswers: null,
+            isCreatingJobs: false,
         }
     },
 
@@ -294,6 +308,26 @@ export default {
                 this.selectedItems.includes(item.id)
             );
 
+            // Check if any selected catalog items require questions
+            const catalogItemIds = selectedCatalogItems.map(item => item.id);
+            try {
+                const questionsResponse = await axios.post('/jobs/questions-for-catalog-items', {
+                    catalog_item_ids: catalogItemIds
+                });
+                if (questionsResponse.data.shouldAsk) {
+                    // Show questions modal
+                    this.questionsModalData = {
+                        questionsByCatalogItem: questionsResponse.data.questionsByCatalogItem,
+                        catalogItems: selectedCatalogItems
+                    };
+                    this.questionsModalVisible = true;
+                    return;
+                }
+            } catch (error) {
+                toast.error('Failed to check questions requirement');
+                return;
+            }
+
             try {
                 const jobs = await Promise.all(selectedCatalogItems.map(async (item) => {
                     const formattedActions = item.actions.map(action => ({
@@ -326,6 +360,54 @@ export default {
             } catch (error) {
                 console.error('Error creating jobs:', error.response?.data || error);
                 toast.error(error.response?.data?.error || 'Failed to create jobs');
+            }
+        },
+
+        async handleQuestionsSubmit(answers) {
+            // answers is now { [catalogItemId]: { [questionId]: answerText } }
+            this.questionsModalVisible = false;
+            this.questionsModalAnswers = answers;
+            const toast = useToast();
+            const allCatalogItems = [...this.catalogItemsSmall, ...this.catalogItemsLarge];
+            const selectedCatalogItems = allCatalogItems.filter(item =>
+                this.selectedItems.includes(item.id)
+            );
+            this.isCreatingJobs = true;
+            try {
+                const jobs = await Promise.all(selectedCatalogItems.map(async (item) => {
+                    const formattedActions = item.actions.map(action => ({
+                        id: action.action_id.id,
+                        name: action.action_id.name,
+                        status: action.status,
+                        quantity: action.quantity
+                    }));
+                    const payload = {
+                        fromCatalog: true,
+                        machinePrint: item.machinePrint,
+                        machineCut: item.machineCut,
+                        large_material_id: item.largeMaterial,
+                        small_material_id: item.smallMaterial,
+                        name: item.name,
+                        quantity: item.quantity || 1,
+                        copies: item.copies || 1,
+                        actions: formattedActions,
+                        client_id: this.clientId,
+                        catalog_item_id: item.id
+                    };
+                    if (this.questionsModalAnswers && this.questionsModalAnswers[item.id]) {
+                        payload.question_answers = this.questionsModalAnswers[item.id];
+                    }
+                    const response = await axios.post('/jobs', payload);
+                    return response.data.job;
+                }));
+                this.$emit('jobs-created', jobs);
+                toast.success('Jobs created from catalog');
+                this.selectedItems = [];
+            } catch (error) {
+                console.error('Error creating jobs:', error.response?.data || error);
+                toast.error(error.response?.data?.error || 'Failed to create jobs');
+            } finally {
+                this.isCreatingJobs = false;
             }
         },
 

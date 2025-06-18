@@ -330,6 +330,17 @@ class MenuService
                         ],
                     ],
                 ],
+                [
+                    'href' => '',
+                    'title' => 'Questions',
+                    'icon' => 'fa-solid fa-question',
+                    'child' => [
+                        [
+                            'href' => '/admin/questions',
+                            'title' => 'Production Questions',
+                        ],
+                    ],
+                ],
             ]);
         }
 

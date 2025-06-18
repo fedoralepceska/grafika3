@@ -155,6 +155,10 @@
                                         <Checkbox name="is_for_sales" v-model:checked="form.is_for_sales" />
                                         <label class="text-white ml-2">{{ $t('forSales') }}</label>
                                     </div>
+                                    <div class="col-span-2 mt-2">
+                                        <Checkbox name="should_ask_questions" v-model:checked="form.should_ask_questions" />
+                                        <label class="text-white ml-2">Ask questions before production</label>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -487,7 +491,8 @@ export default {
                 price: '0',
                 articles: [],
                 template_file: null,
-                subcategory_id: null
+                subcategory_id: null,
+                should_ask_questions: false
             },
             productArticles: [],
             serviceArticles: [],
@@ -721,10 +726,13 @@ export default {
 
             // Append basic fields
             Object.entries(this.form).forEach(([key, value]) => {
-                if (key !== 'actions' && key !== 'file' && key !== 'articles' && key !== 'template_file') {
+                if (key !== 'actions' && key !== 'file' && key !== 'articles' && key !== 'template_file' && key !== 'should_ask_questions') {
                     formData.append(key, value);
                 }
             });
+
+            // Append should_ask_questions as integer
+            formData.append('should_ask_questions', this.form.should_ask_questions ? 1 : 0);
 
             // Append file
             if (this.form.file instanceof File) {
