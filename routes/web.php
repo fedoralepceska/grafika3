@@ -12,6 +12,7 @@ use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\SmallFormatMaterialController;
 use App\Http\Controllers\SmallMaterialController;
 use App\Http\Controllers\ArticleController;
+use App\Http\Controllers\ArticleCategoryController;
 use App\Http\Controllers\AnalyticsController;
 use App\Http\Controllers\CatalogItemController;
 use Illuminate\Support\Facades\Auth;
@@ -262,6 +263,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/articles/{id}', [\App\Http\Controllers\ArticleController::class, 'get'])->name('api.articles.get');
 });
 
+//Routes For Article Categories
+Route::middleware(['auth', 'verified'])->group(function () {
+    Route::resource('article-categories', ArticleCategoryController::class);
+    Route::get('/api/article-categories', [ArticleCategoryController::class, 'getCategories'])->name('api.article-categories.index');
+});
+
 //Routes for Priemnici
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/receipt', [\App\Http\Controllers\PriemnicaController::class, 'index'])->name('priemnica.index');
@@ -480,5 +487,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
 });
 
 Route::post('/jobs/questions-for-catalog-items', [\App\Http\Controllers\JobController::class, 'getQuestionsForCatalogItems']);
+
+// Material dropdown API endpoints
+Route::get('/api/materials/large-dropdown', [LargeFormatMaterialController::class, 'largeDropdown']);
+Route::get('/api/materials/small-dropdown', [SmallMaterialController::class, 'smallDropdown']);
 
 require __DIR__.'/auth.php';

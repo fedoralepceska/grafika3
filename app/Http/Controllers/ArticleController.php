@@ -80,6 +80,8 @@ class ArticleController extends Controller
             'fprice' => 'nullable|numeric',
             'pprice' => 'nullable|numeric',
             'price' => 'nullable|numeric',
+            'categories' => 'nullable|array',
+            'categories.*' => 'exists:article_categories,id',
         ]);
 
         // Map the selectedOption to its corresponding integer value
@@ -118,6 +120,11 @@ class ArticleController extends Controller
         // Save the article to the database
         $article->save();
 
+        // Assign categories if provided
+        if (!empty($validatedData['categories'])) {
+            $article->categories()->sync($validatedData['categories']);
+        }
+
         // Return a JSON response
         return response()->json(['message' => 'Article added successfully'], 201);
     }
@@ -143,7 +150,36 @@ class ArticleController extends Controller
      */
     public function update(Request $request, Article $article)
     {
-        $article->update($request->all());
+        $validatedData = $request->validate([
+            'code' => 'sometimes|required|numeric',
+            'name' => 'sometimes|required|string|max:255',
+            'tax_type' => 'sometimes|required',
+            'type' => 'sometimes|required|string|max:255',
+            'barcode' => 'nullable|string|max:255',
+            'comment' => 'nullable|string|max:255',
+            'height' => 'nullable|numeric',
+            'width' => 'nullable|numeric',
+            'length' => 'nullable|numeric',
+            'weight' => 'nullable|numeric',
+            'color' => 'nullable|string|max:255',
+            'format_type' => 'sometimes|required',
+            'factory_price' => 'nullable|numeric',
+            'purchase_price' => 'nullable|numeric',
+            'price_1' => 'nullable|numeric',
+            'in_meters' => 'nullable',
+            'in_kilograms' => 'nullable',
+            'in_pieces' => 'nullable',
+            'in_square_meters' => 'nullable',
+            'categories' => 'nullable|array',
+            'categories.*' => 'exists:article_categories,id',
+        ]);
+
+        $article->update($validatedData);
+
+        // Update categories if provided
+        if (isset($validatedData['categories'])) {
+            $article->categories()->sync($validatedData['categories']);
+        }
 
         return response()->json(['message' => 'Article updated successfully', 'article' => $article]);
     }
@@ -181,12 +217,24 @@ class ArticleController extends Controller
     {
         $type = $request->get('type'); // 'product' or 'service'
 
-        $query = Article::select('id', 'name', 'code', 'purchase_price', 'in_meters', 'in_kilograms', 'in_pieces', 'in_square_meters');
+        $query = Article::with('categories');
         
         if ($type) {
             $query->where('type', $type);
         }
 
-        return $query->findOrFail($id);
+        $article = $query->findOrFail($id);
+        
+        // Convert format_type to string to match frontend expectations
+        if ($article->format_type) {
+            $article->format_type = (string) $article->format_type;
+        }
+        
+        // Ensure tax_type is properly handled
+        if ($article->tax_type) {
+            $article->tax_type = (string) $article->tax_type;
+        }
+
+        return $article;
     }
 }

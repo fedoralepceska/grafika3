@@ -18,6 +18,8 @@ class CatalogItem extends Model
         'machineCut',
         'large_material_id',
         'small_material_id',
+        'large_material_category_id',
+        'small_material_category_id',
         'quantity',
         'copies',
         'actions',
@@ -59,6 +61,17 @@ class CatalogItem extends Model
     public function smallMaterial()
     {
         return $this->belongsTo(SmallMaterial::class, 'small_material_id');
+    }
+
+    // New category relationships
+    public function largeMaterialCategory()
+    {
+        return $this->belongsTo(ArticleCategory::class, 'large_material_category_id');
+    }
+
+    public function smallMaterialCategory()
+    {
+        return $this->belongsTo(ArticleCategory::class, 'small_material_category_id');
     }
 
     public function offers()

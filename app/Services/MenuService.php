@@ -113,6 +113,10 @@ class MenuService
                             'href' => '/articles/create',
                             'title' => 'Add new article',
                         ],
+                        [
+                            'href' => '/article-categories',
+                            'title' => 'Article Categories',
+                        ],
                     ],
                 ],
                 [
@@ -211,6 +215,10 @@ class MenuService
                         [
                             'href' => '/articles/create',
                             'title' => 'Add new article',
+                        ],
+                        [
+                            'href' => '/article-categories',
+                            'title' => 'Article Categories',
                         ],
                     ],
                 ],

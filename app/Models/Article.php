@@ -3,6 +3,8 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use App\Models\LargeFormatMaterial;
+use App\Models\SmallMaterial;
 
 class Article extends Model
 {
@@ -26,11 +28,27 @@ class Article extends Model
         'in_square_meters',
         'in_kilograms',
         'in_pieces',
-        'type'
+        'type',
+        'format_type',
     ];
 
     public function priemnica()
     {
         return $this->belongsTo(Priemnica::class); // Using the bridge table (optional)
+    }
+
+    public function categories()
+    {
+        return $this->belongsToMany(ArticleCategory::class, 'article_category_article');
+    }
+
+    public function largeFormatMaterial()
+    {
+        return $this->hasOne(LargeFormatMaterial::class, 'article_id');
+    }
+
+    public function smallMaterial()
+    {
+        return $this->hasOne(SmallMaterial::class, 'article_id');
     }
 }

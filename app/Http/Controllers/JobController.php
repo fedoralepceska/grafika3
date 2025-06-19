@@ -56,8 +56,38 @@ class JobController extends Controller
                 $job = new Job();
                 $job->machinePrint = $request->input('machinePrint');
                 $job->machineCut = $request->input('machineCut');
-                $job->large_material_id = $request->input('large_material_id');
-                $job->small_material_id = $request->input('small_material_id');
+                
+                // Handle category resolution for materials
+                $catalogItem = CatalogItem::find($request->input('catalog_item_id'));
+                $largeMaterialId = null;
+                $smallMaterialId = null;
+                
+                // Resolve large material or category
+                if ($catalogItem->large_material_category_id) {
+                    // This catalog item uses a category, select next available material
+                    $largeMaterialId = $this->getNextAvailableMaterial($catalogItem->large_material_category_id, 'large', $request->input('copies'));
+                    if (!$largeMaterialId) {
+                        throw new \Exception("No available materials in the selected large material category.");
+                    }
+                } elseif ($catalogItem->large_material_id) {
+                    // This catalog item uses a specific material
+                    $largeMaterialId = $catalogItem->large_material_id;
+                }
+                
+                // Resolve small material or category
+                if ($catalogItem->small_material_category_id) {
+                    // This catalog item uses a category, select next available material
+                    $smallMaterialId = $this->getNextAvailableMaterial($catalogItem->small_material_category_id, 'small', $request->input('copies'));
+                    if (!$smallMaterialId) {
+                        throw new \Exception("No available materials in the selected small material category.");
+                    }
+                } elseif ($catalogItem->small_material_id) {
+                    // This catalog item uses a specific material
+                    $smallMaterialId = $catalogItem->small_material_id;
+                }
+                
+                $job->large_material_id = $largeMaterialId;
+                $job->small_material_id = $smallMaterialId;
                 $job->name = $request->input('name');
                 $job->quantity = $request->input('quantity');
                 $job->copies = $request->input('copies');
@@ -122,6 +152,27 @@ class JobController extends Controller
                     if ($small_material->quantity - $request->input('copies') < 0) {
                         throw new \Exception("Insufficient small material quantity.");
                     }
+                }
+
+                // Check material availability and deduct quantities
+                if ($largeMaterialId) {
+                    $large_material = LargeFormatMaterial::find($largeMaterialId);
+                    if ($large_material->quantity - $request->input('copies') < 0) {
+                        throw new \Exception("Insufficient large material quantity.");
+                    }
+                    // Deduct the material quantity
+                    $large_material->quantity -= $request->input('copies');
+                    $large_material->save();
+                }
+
+                if ($smallMaterialId) {
+                    $small_material = SmallMaterial::find($smallMaterialId);
+                    if ($small_material->quantity - $request->input('copies') < 0) {
+                        throw new \Exception("Insufficient small material quantity.");
+                    }
+                    // Deduct the material quantity
+                    $small_material->quantity -= $request->input('copies');
+                    $small_material->save();
                 }
 
                 $job->save();
@@ -1259,5 +1310,45 @@ class JobController extends Controller
             'shouldAsk' => true,
             'questionsByCatalogItem' => $questionsByCatalogItem,
         ]);
+    }
+
+    /**
+     * Get the next available material from a category with sufficient stock
+     */
+    private function getNextAvailableMaterial($categoryId, $type, $requiredQuantity)
+    {
+        $category = \App\Models\ArticleCategory::with([
+            'articles.largeFormatMaterial', 
+            'articles.smallMaterial'
+        ])->find($categoryId);
+        
+        if (!$category) {
+            return null;
+        }
+
+        // Get all materials in the category and sort by creation date (oldest first, FIFO)
+        $availableMaterials = [];
+        
+        foreach ($category->articles as $article) {
+            if ($type === 'large' && $article->largeFormatMaterial) {
+                $material = $article->largeFormatMaterial;
+                if ($material->quantity >= $requiredQuantity) {
+                    $availableMaterials[] = $material;
+                }
+            } elseif ($type === 'small' && $article->smallMaterial) {
+                $material = $article->smallMaterial;
+                if ($material->quantity >= $requiredQuantity) {
+                    $availableMaterials[] = $material;
+                }
+            }
+        }
+
+        // Sort by creation date (oldest first for FIFO)
+        usort($availableMaterials, function($a, $b) {
+            return $a->created_at <=> $b->created_at;
+        });
+
+        // Return the ID of the first (oldest) available material
+        return !empty($availableMaterials) ? $availableMaterials[0]->id : null;
     }
 }

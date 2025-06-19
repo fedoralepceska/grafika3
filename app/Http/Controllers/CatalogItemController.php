@@ -84,13 +84,26 @@ class CatalogItemController extends Controller
 
             // Transform the paginated items
             $transformedItems = $catalogItems->getCollection()->map(function($item) {
-                $largeMaterialName = $item->largeMaterial ? $item->largeMaterial->name : null;
-                $smallMaterialName = $item->smallMaterial ? $item->smallMaterial->name : null;
-
-                // Determine which material to show
-                $materialDisplay = $largeMaterialName
-                    ? "{$largeMaterialName} (Large)"
-                    : ($smallMaterialName ? "{$smallMaterialName} (Small)" : 'N/A');
+                // Handle material display for both individual materials and categories
+                $materialDisplay = 'N/A';
+                
+                if ($item->large_material_category_id) {
+                    // This is a category
+                    $category = \App\Models\ArticleCategory::find($item->large_material_category_id);
+                    $materialDisplay = $category ? "[Category] {$category->name} (Large)" : 'N/A';
+                } elseif ($item->large_material_id) {
+                    // This is an individual material
+                    $largeMaterialName = $item->largeMaterial ? $item->largeMaterial->name : null;
+                    $materialDisplay = $largeMaterialName ? "{$largeMaterialName} (Large)" : 'N/A';
+                } elseif ($item->small_material_category_id) {
+                    // This is a category
+                    $category = \App\Models\ArticleCategory::find($item->small_material_category_id);
+                    $materialDisplay = $category ? "[Category] {$category->name} (Small)" : 'N/A';
+                } elseif ($item->small_material_id) {
+                    // This is an individual material
+                    $smallMaterialName = $item->smallMaterial ? $item->smallMaterial->name : null;
+                    $materialDisplay = $smallMaterialName ? "{$smallMaterialName} (Small)" : 'N/A';
+                }
 
                 return [
                     'id' => $item->id,
@@ -105,8 +118,8 @@ class CatalogItemController extends Controller
                     'category' => $item->category,
                     'is_for_offer' => (bool)$item->is_for_offer,
                     'is_for_sales' => (bool)$item->is_for_sales,
-                    'large_material_id' => $item->large_material_id,
-                    'small_material_id' => $item->small_material_id,
+                    'large_material_id' => $item->large_material_category_id ? 'cat_' . $item->large_material_category_id : ($item->large_material_id ? (string)$item->large_material_id : null),
+                    'small_material_id' => $item->small_material_category_id ? 'cat_' . $item->small_material_category_id : ($item->small_material_id ? (string)$item->small_material_id : null),
                     'price' => $item->price,
                     'template_file' => $item->template_file,
                     'subcategory' => $item->subcategory ? [
@@ -213,8 +226,6 @@ class CatalogItemController extends Controller
         $request->merge([
             'is_for_offer' => filter_var($request->input('is_for_offer'), FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE),
             'is_for_sales' => filter_var($request->input('is_for_sales'), FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE),
-            'small_material_id' => $request->input('small_material_id') === 'null' || $request->input('small_material_id') === '' ? null : $request->input('small_material_id'),
-            'large_material_id' => $request->input('large_material_id') === 'null' || $request->input('large_material_id') === '' ? null : $request->input('large_material_id'),
             'subcategory_id' => $request->input('subcategory_id') === 'null' || $request->input('subcategory_id') === '' ? null : $request->input('subcategory_id'),
         ]);
         $actions = $request->input('actions');
@@ -228,13 +239,40 @@ class CatalogItemController extends Controller
         }, $actions);
         $request->merge(['actions' => $actions]);
 
+        // Before saving, determine if a category or material is selected for large and small materials
+        $largeMaterialId = $request->input('large_material_id');
+        $smallMaterialId = $request->input('small_material_id');
+
+        if ($largeMaterialId && str_starts_with($largeMaterialId, 'cat_')) {
+            $request->merge([
+                'large_material_category_id' => intval(str_replace('cat_', '', $largeMaterialId)),
+                'large_material_id' => null
+            ]);
+        } else {
+            $request->merge([
+                'large_material_category_id' => null,
+                'large_material_id' => $largeMaterialId ?: null
+            ]);
+        }
+        if ($smallMaterialId && str_starts_with($smallMaterialId, 'cat_')) {
+            $request->merge([
+                'small_material_category_id' => intval(str_replace('cat_', '', $smallMaterialId)),
+                'small_material_id' => null
+            ]);
+        } else {
+            $request->merge([
+                'small_material_category_id' => null,
+                'small_material_id' => $smallMaterialId ?: null
+            ]);
+        }
+
         $request->validate([
             'name' => 'required|string|unique:catalog_items',
             'description' => 'nullable|string',
             'machinePrint' => 'nullable|string',
             'machineCut' => 'nullable|string',
-            'large_material_id' => 'nullable|exists:large_format_materials,id',
-            'small_material_id' => 'nullable|exists:small_material,id',
+            'large_material_id' => 'nullable',
+            'small_material_id' => 'nullable',
             'quantity' => 'required|integer|min:1',
             'copies' => 'required|integer|min:1',
             'actions' => 'required|array',
@@ -374,12 +412,13 @@ class CatalogItemController extends Controller
                 $subcategoryId = null;
             }
 
+            // The frontend already processes category vs material logic and sends the correct field names
+            // So we don't need to do the 'cat_' prefix processing here like in the store method
+            
             // Merge the decoded data into the request
             $request->merge([
                 'is_for_offer' => filter_var($request->input('is_for_offer'), FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE),
                 'is_for_sales' => filter_var($request->input('is_for_sales'), FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE),
-                'small_material_id' => $request->input('small_material_id') === 'null' || $request->input('small_material_id') === '' ? null : $request->input('small_material_id'),
-                'large_material_id' => $request->input('large_material_id') === 'null' || $request->input('large_material_id') === '' ? null : $request->input('large_material_id'),
                 'subcategory_id' => $subcategoryId,
                 'actions' => $actions,
                 'articles' => $articles
@@ -390,8 +429,10 @@ class CatalogItemController extends Controller
                 'description' => 'nullable|string',
                 'machinePrint' => 'nullable|string',
                 'machineCut' => 'nullable|string',
-                'large_material_id' => 'nullable|exists:large_format_materials,id',
-                'small_material_id' => 'nullable|exists:small_material,id',
+                'large_material_id' => 'nullable',
+                'small_material_id' => 'nullable',
+                'large_material_category_id' => 'nullable|integer',
+                'small_material_category_id' => 'nullable|integer',
                 'quantity' => 'required|integer|min:1',
                 'copies' => 'required|integer|min:1',
                 'actions' => 'required|array',
@@ -445,7 +486,15 @@ class CatalogItemController extends Controller
                 }
 
                 // Update the catalog item without actions first
-                $catalogItem->update($request->except(['actions', 'file', 'articles']));
+                $updateData = $request->except(['actions', 'file', 'articles']);
+                
+                // Handle empty strings as null for material/category fields
+                $updateData['large_material_id'] = $request->input('large_material_id') ?: null;
+                $updateData['small_material_id'] = $request->input('small_material_id') ?: null;
+                $updateData['large_material_category_id'] = $request->input('large_material_category_id') ?: null;
+                $updateData['small_material_category_id'] = $request->input('small_material_category_id') ?: null;
+                
+                $catalogItem->update($updateData);
 
                 // Process actions and update them
                 $catalogItemActions = collect($actions)->map(function ($action) {

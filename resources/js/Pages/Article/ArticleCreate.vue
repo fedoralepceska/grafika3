@@ -7,7 +7,7 @@
                     <h2 class="sub-title">
                         {{ $t('articleDetails') }}
                     </h2>
-                    <form @submit.prevent="createArticle" class="flex gap-3 justify-center">
+                    <form @submit.prevent="createArticle" class="form-wrapper flex gap-3 justify-center">
                         <fieldset>
                             <legend>{{ $t('GeneralInfo') }}</legend>
                             <div class="form-group gap-4">
@@ -67,7 +67,7 @@
                             </div>
                             <div class="form-group gap-4">
                                 <label for="unit" class="mr-12">{{ $t('Format') }}:</label>
-                                <select v-model="form.format_type" class="text-gray-700 rounded" >
+                                <select v-model="form.format_type" class="text-gray-700 rounded" @change="filterCategories">
                                     <option value="2">{{ $t('Large') }}</option>
                                     <option value="1">{{ $t('Small') }}</option>
                                     <option value="3">{{ $t('Other') }}</option>
@@ -81,6 +81,92 @@
                                     <option value="meters">{{ $t('M') }}</option>
                                     <option value="square_meters">{{ $t('square_meters') }}</option>
                                 </select>
+                            </div>
+                            <!-- Category selection -->
+                            <div class="form-group gap-4">
+                                <label>Categories:</label>
+                                <div class="category-dropdown-container">
+                                    <!-- Dropdown trigger -->
+                                    <div 
+                                        @click="toggleCategoryDropdown" 
+                                        class="dropdown-trigger"
+                                    >
+                                        <span v-if="selectedCategoryNames.length === 0" class="placeholder-text">
+                                            Select categories...
+                                        </span>
+                                        <span v-else class="selected-text">
+                                            {{ selectedCategoryNames.length }} categories selected
+                                        </span>
+                                        <svg class="dropdown-arrow" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                                        </svg>
+                                    </div>
+                                    
+                                    <!-- Dropdown content -->
+                                    <div 
+                                        v-show="showCategoryDropdown" 
+                                        class="dropdown-content"
+                                    >
+                                        <!-- Search input -->
+                                        <div class="search-container">
+                                            <input 
+                                                type="text" 
+                                                v-model="categorySearchQuery"
+                                                placeholder="Search categories..."
+                                                class="search-input"
+                                                @click.stop
+                                            >
+                                        </div>
+                                        
+                                        <!-- Categories list -->
+                                        <div class="categories-list">
+                                            <div v-if="filteredCategories.length === 0" class="no-categories">
+                                                No categories found
+                                            </div>
+                                            <div 
+                                                v-for="category in filteredCategories" 
+                                                :key="category.id" 
+                                                class="category-item"
+                                                @click="toggleCategorySelection(category.id)"
+                                            >
+                                                <input 
+                                                    type="checkbox" 
+                                                    :checked="form.categories.includes(category.id)"
+                                                    class="category-checkbox"
+                                                    @click.stop
+                                                    @change="toggleCategorySelection(category.id)"
+                                                >
+                                                <label class="category-label">
+                                                    <span v-if="category.icon" class="category-icon">
+                                                        <img :src="`/storage/icons/${category.icon}`" alt="icon" />
+                                                    </span>
+                                                    {{ category.name }} 
+                                                    <span class="category-type">({{ category.type }})</span>
+                                                </label>
+                                            </div>
+                                        </div>
+                                        
+                                        <!-- Selected categories summary -->
+                                        <div v-if="selectedCategoryNames.length > 0" class="selected-summary">
+                                            <div class="summary-title">Selected:</div>
+                                            <div class="selected-tags">
+                                                <span 
+                                                    v-for="name in selectedCategoryNames.slice(0, 3)" 
+                                                    :key="name"
+                                                    class="selected-tag"
+                                                >
+                                                    {{ name }}
+                                                </span>
+                                                <span 
+                                                    v-if="selectedCategoryNames.length > 3"
+                                                    class="more-tag"
+                                                >
+                                                    +{{ selectedCategoryNames.length - 3 }} more
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         </fieldset>
                         <fieldset>
@@ -132,16 +218,21 @@ export default {
                 length: '',
                 weight: '',
                 color: '',
-                format_type:'small',
+                format_type: '2',
                 in_meters:'',
                 in_square_meters: '',
                 in_kilograms:'',
                 in_pieces:'',
-                unit: 'm',
+                unit: 'meters',
                 fprice: '',
                 pprice: '',
-                price: ''
-            }
+                price: '',
+                categories: []
+            },
+            allCategories: [],
+            availableCategories: [],
+            showCategoryDropdown: false,
+            categorySearchQuery: ''
         }
     },
     computed: {
@@ -156,17 +247,72 @@ export default {
                 default:
                     return "";
             }
+        },
+        filteredCategories() {
+            return this.availableCategories.filter(category => 
+                category.name.toLowerCase().includes(this.categorySearchQuery.toLowerCase())
+            );
+        },
+        selectedCategoryNames() {
+            return this.availableCategories
+                .filter(cat => this.form.categories.includes(cat.id))
+                .map(cat => cat.name);
         }
     },
-    beforeMount() {
-        this.fetchArticleCount();
+    async mounted() {
+        await this.fetchArticleCount();
+        await this.fetchCategories();
+        this.filterCategories();
+        // Add click outside listener
+        document.addEventListener('click', this.handleClickOutside);
+    },
+    beforeUnmount() {
+        // Remove click outside listener
+        document.removeEventListener('click', this.handleClickOutside);
     },
     methods: {
         async fetchArticleCount() {
-            const response = await axios.get('/articles/count');
-            if (response.data) {
-                this.form.code = response.data.count + 1;
+            try {
+                const response = await axios.get('/articles/count');
+                if (response.data) {
+                    this.form.code = response.data.count + 1;
+                }
+            } catch (error) {
+                console.error('Error fetching article count:', error);
             }
+        },
+        async fetchCategories() {
+            try {
+                const response = await axios.get('/api/article-categories');
+                this.allCategories = response.data;
+                this.filterCategories();
+            } catch (error) {
+                console.error('Error fetching categories:', error);
+            }
+        },
+        filterCategories() {
+            // Map format_type to category type
+            const formatTypeMap = {
+                '1': 'small',
+                '2': 'large'
+            };
+            
+            const categoryType = formatTypeMap[this.form.format_type];
+            
+            // Filter categories based on format type
+            if (categoryType) {
+                this.availableCategories = this.allCategories.filter(cat => 
+                    cat.type === categoryType
+                );
+            } else {
+                // For 'other' format type (3), show both large and small categories
+                this.availableCategories = this.allCategories;
+            }
+            
+            // Clear selected categories if they don't match current format type
+            this.form.categories = this.form.categories.filter(categoryId => 
+                this.availableCategories.some(cat => cat.id === categoryId)
+            );
         },
         async createArticle() {
             try {
@@ -188,7 +334,7 @@ export default {
                         break;
                     }
                     default: {
-                        return;
+                        break;
                     }
                 }
                 const response = await axios.post('/articles/create', this.form);
@@ -211,15 +357,61 @@ export default {
                     in_kilograms:'',
                     in_pieces:'',
                     in_square_meters: '',
-                    format_type:'small',
+                    format_type: '2',
                     fprice: '',
                     pprice: '',
-                    price: ''
+                    price: '',
+                    categories: []
                 };
+                await this.fetchArticleCount();
                 this.$inertia.visit(`/articles`);
             } catch (error) {
                 console.error(error);
-                this.toast.error('Failed to add article');
+                const toast = useToast();
+                toast.error('Failed to add article');
+            }
+        },
+        toggleCategoryDropdown() {
+            this.showCategoryDropdown = !this.showCategoryDropdown;
+            if (!this.showCategoryDropdown) {
+                this.categorySearchQuery = '';
+            } else {
+                // Adjust dropdown position if needed
+                this.$nextTick(() => {
+                    const dropdown = document.querySelector('.dropdown-content');
+                    const trigger = document.querySelector('.dropdown-trigger');
+                    if (dropdown && trigger) {
+                        const triggerRect = trigger.getBoundingClientRect();
+                        const viewportHeight = window.innerHeight;
+                        const dropdownHeight = 200; // max-height
+                        
+                        // Check if there's enough space below
+                        if (triggerRect.bottom + dropdownHeight > viewportHeight) {
+                            dropdown.style.top = 'auto';
+                            dropdown.style.bottom = '100%';
+                            dropdown.style.marginTop = '0';
+                            dropdown.style.marginBottom = '4px';
+                        } else {
+                            dropdown.style.top = '100%';
+                            dropdown.style.bottom = 'auto';
+                            dropdown.style.marginTop = '4px';
+                            dropdown.style.marginBottom = '0';
+                        }
+                    }
+                });
+            }
+        },
+        toggleCategorySelection(categoryId) {
+            if (this.form.categories.includes(categoryId)) {
+                this.form.categories = this.form.categories.filter(id => id !== categoryId);
+            } else {
+                this.form.categories.push(categoryId);
+            }
+        },
+        handleClickOutside(event) {
+            if (this.showCategoryDropdown && !event.target.closest('.category-dropdown-container')) {
+                this.showCategoryDropdown = false;
+                this.categorySearchQuery = '';
             }
         }
     },
@@ -233,6 +425,8 @@ fieldset {
     border-radius: 3px;
     width: fit-content;
     padding-right: 35px;
+    position: relative;
+    overflow: visible;
 }
 legend {
     margin-left: 10px;
@@ -300,5 +494,197 @@ legend {
     justify-content: end;
 }
 
+.form-wrapper {
+    position: relative;
+    overflow: visible;
+}
+
+/* Custom dropdown styles */
+.category-dropdown-container {
+    position: relative;
+    width: 100%;
+}
+
+.dropdown-trigger {
+    width: 100%;
+    padding: 8px 12px;
+    border: 1px solid #d1d5db;
+    border-radius: 4px;
+    background-color: white;
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    min-height: 40px;
+}
+
+.dropdown-trigger:hover {
+    border-color: #9ca3af;
+}
+
+.placeholder-text {
+    color: #9ca3af;
+    font-size: 14px;
+}
+
+.selected-text {
+    color: #374151;
+    font-size: 14px;
+}
+
+.dropdown-arrow {
+    width: 16px;
+    height: 16px;
+    color: #9ca3af;
+    flex-shrink: 0;
+}
+
+.dropdown-content {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    z-index: 10;
+    margin-top: 4px;
+    background-color: white;
+    border: 1px solid #d1d5db;
+    border-radius: 4px;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    max-height: 200px;
+    overflow: hidden;
+    max-width: 100%;
+}
+
+.search-container {
+    padding: 6px;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.search-input {
+    width: 100%;
+    padding: 4px 6px;
+    font-size: 11px;
+    border: 1px solid #d1d5db;
+    border-radius: 3px;
+    color: black;
+    outline: none;
+}
+
+.search-input:focus {
+    border-color: #3b82f6;
+}
+
+.categories-list {
+    max-height: 120px;
+    overflow-y: auto;
+}
+
+.no-categories {
+    padding: 12px;
+    color: #9ca3af;
+    font-size: 12px;
+    text-align: center;
+}
+
+.category-item {
+    display: flex;
+    align-items: center;
+    padding: 6px 8px;
+    cursor: pointer;
+    border-bottom: 1px solid #f3f4f6;
+}
+
+.category-item:hover {
+    background-color: #f9fafb;
+}
+
+.category-item:last-child {
+    border-bottom: none;
+}
+
+.category-checkbox {
+    margin-right: 8px;
+    cursor: pointer;
+}
+
+.category-label {
+    font-size: 12px;
+    color: #374151;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    flex: 1;
+}
+
+.category-icon {
+    margin-right: 6px;
+    display: flex;
+    align-items: center;
+}
+
+.category-icon img {
+    width: 14px;
+    height: 14px;
+}
+
+.category-type {
+    font-size: 10px;
+    color: #9ca3af;
+    margin-left: 4px;
+}
+
+.selected-summary {
+    padding: 6px;
+    border-top: 1px solid #e5e7eb;
+    background-color: #f9fafb;
+}
+
+.summary-title {
+    font-size: 10px;
+    color: #6b7280;
+    margin-bottom: 4px;
+}
+
+.selected-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+}
+
+.selected-tag {
+    display: inline-block;
+    padding: 2px 6px;
+    font-size: 10px;
+    background-color: #dbeafe;
+    color: #1e40af;
+    border-radius: 3px;
+}
+
+.more-tag {
+    display: inline-block;
+    padding: 2px 6px;
+    font-size: 10px;
+    background-color: #e5e7eb;
+    color: #6b7280;
+    border-radius: 3px;
+}
+
+/* Custom scrollbar for category list */
+.categories-list::-webkit-scrollbar {
+    width: 6px;
+}
+
+.categories-list::-webkit-scrollbar-track {
+    background: #f1f1f1;
+}
+
+.categories-list::-webkit-scrollbar-thumb {
+    background: #c1c1c1;
+    border-radius: 3px;
+}
+
+.categories-list::-webkit-scrollbar-thumb:hover {
+    background: #a1a1a1;
+}
 
 </style>

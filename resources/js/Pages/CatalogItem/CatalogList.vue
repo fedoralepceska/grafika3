@@ -323,8 +323,15 @@
 
                                         <option v-for="material in largeMaterials"
                                                 :key="material.id"
-                                                :value="material.id">
-                                            {{ material.article?.name }} ({{ material.article?.code }})
+                                                :value="String(material.id)"
+                                                :disabled="material.disabled">
+                                            <template v-if="material.type === 'category'">
+                                                <img v-if="material.icon" :src="`/storage/icons/${material.icon}`" alt="icon" style="width: 18px; height: 18px; margin-right: 4px;" />
+                                                [{{ $t('category') }}] {{ material.name }}
+                                            </template>
+                                            <template v-else>
+                                                {{ material.name }}
+                                            </template>
                                         </option>
                                     </select>
                                     <button v-if="editForm.large_material_id"
@@ -341,8 +348,15 @@
                                             :disabled="editForm.large_material_id !== null">
                                         <option v-for="material in smallMaterials"
                                                 :key="material.id"
-                                                :value="material.id">
-                                            {{ material.article?.name }} ({{ material.article?.code }})
+                                                :value="String(material.id)"
+                                                :disabled="material.disabled">
+                                            <template v-if="material.type === 'category'">
+                                                <img v-if="material.icon" :src="`/storage/icons/${material.icon}`" alt="icon" style="width: 18px; height: 18px; margin-right: 4px;" />
+                                                [{{ $t('category') }}] {{ material.name }}
+                                            </template>
+                                            <template v-else>
+                                                {{ material.name }}
+                                            </template>
                                         </option>
                                     </select>
                                     <button v-if="editForm.small_material_id"
@@ -1031,8 +1045,8 @@ export default {
                 description: item.description,
                 machinePrint: item.machinePrint,
                 machineCut: item.machineCut,
-                large_material_id: item.large_material_id,
-                small_material_id: item.small_material_id,
+                large_material_id: item.large_material_id ? String(item.large_material_id) : null,
+                small_material_id: item.small_material_id ? String(item.small_material_id) : null,
                 quantity: item.quantity,
                 copies: item.copies,
                 category: item.category,
@@ -1140,15 +1154,41 @@ export default {
                 // Add method override for PUT request
                 formData.append('_method', 'PUT');
 
-                // Append all form fields
+                // Handle large material/category
+                if (this.editForm.large_material_id && this.editForm.large_material_id.startsWith('cat_')) {
+                    formData.append('large_material_category_id', this.editForm.large_material_id.replace('cat_', ''));
+                    formData.append('large_material_id', '');
+                } else {
+                    formData.append('large_material_id', this.editForm.large_material_id || '');
+                    formData.append('large_material_category_id', '');
+                }
+
+                // Handle small material/category
+                if (this.editForm.small_material_id && this.editForm.small_material_id.startsWith('cat_')) {
+                    formData.append('small_material_category_id', this.editForm.small_material_id.replace('cat_', ''));
+                    formData.append('small_material_id', '');
+                } else {
+                    formData.append('small_material_id', this.editForm.small_material_id || '');
+                    formData.append('small_material_category_id', '');
+                }
+
+                // Append all other form fields except material ids (already handled)
                 Object.entries(this.editForm).forEach(([key, value]) => {
-                    if (key !== 'actions' && key !== 'file' && key !== 'template_file' && key !== 'should_ask_questions') {
-                        // Convert price to number if it's the price field
-                        if (key === 'price') {
-                            formData.append(key, Number(value));
-                        } else {
-                            formData.append(key, value);
-                        }
+                    if ([
+                        'large_material_id',
+                        'large_material_category_id',
+                        'small_material_id',
+                        'small_material_category_id',
+                        'actions',
+                        'file',
+                        'template_file',
+                        'should_ask_questions'
+                    ].includes(key)) return;
+                    // Convert price to number if it's the price field
+                    if (key === 'price') {
+                        formData.append(key, Number(value));
+                    } else {
+                        formData.append(key, value);
                     }
                 });
 
@@ -1210,19 +1250,16 @@ export default {
 
         async loadFormData() {
             try {
-                // Fetch machines, materials, actions, and subcategories data
-                const [machinesPrintRes, machinesCutRes, materialsRes, actionsRes, subcategoriesRes] = await Promise.all([
+                // Fetch machines, actions, and subcategories data (materials are loaded in mounted())
+                const [machinesPrintRes, machinesCutRes, actionsRes, subcategoriesRes] = await Promise.all([
                     axios.get('/get-machines-print'),
                     axios.get('/get-machines-cut'),
-                    axios.get('/get-materials'),
                     axios.get('/get-actions'),
                     axios.get(route('subcategories.index'))
                 ]);
 
                 this.machinesPrint = machinesPrintRes.data;
                 this.machinesCut = machinesCutRes.data;
-                this.largeMaterials = materialsRes.data.largeMaterials;
-                this.smallMaterials = materialsRes.data.smallMaterials;
                 this.actions = actionsRes.data;
                 this.subcategories = subcategoriesRes.data;
             } catch (error) {
@@ -1605,7 +1642,20 @@ export default {
             this.fetchCatalogItems(1);
         },
     },
-    mounted() {
+    async mounted() {
+        // Fetch large and small materials for dropdowns
+        try {
+            const [largeRes, smallRes] = await Promise.all([
+                axios.get('/api/materials/large-dropdown'),
+                axios.get('/api/materials/small-dropdown')
+            ]);
+            this.largeMaterials = largeRes.data;
+            this.smallMaterials = smallRes.data;
+        } catch (error) {
+            console.error('Error fetching materials:', error);
+            const toast = useToast();
+            toast.error('Failed to load materials');
+        }
         this.loadFormData();
     },
 };

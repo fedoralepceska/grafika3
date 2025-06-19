@@ -115,4 +115,69 @@ class LargeFormatMaterialController extends Controller
 
         return $pdf->stream('All_Large_Materials.pdf');
     }
+
+    public function largeDropdown()
+    {
+        try {
+            // Get all large categories (type = 'large', not soft deleted)
+            $categories = \App\Models\ArticleCategory::with(['articles' => function($q) {
+                $q->whereHas('largeFormatMaterial');
+            }, 'articles.largeFormatMaterial'])
+                ->where('type', 'large')
+                ->whereNull('deleted_at')
+                ->get();
+
+            // Get all large materials not in any category
+            $categoryArticleIds = $categories->flatMap(function($cat) {
+                return $cat->articles->pluck('id');
+            })->unique();
+            
+            $individualMaterials = \App\Models\LargeFormatMaterial::with('article')
+                ->whereHas('article')
+                ->whereNotIn('article_id', $categoryArticleIds)
+                ->get();
+
+            // Format categories for dropdown
+            $categoryOptions = $categories->map(function($cat) {
+                $materials = $cat->articles->map(function($article) {
+                    return $article->largeFormatMaterial;
+                })->filter();
+                $totalStock = $materials->sum('quantity');
+                return [
+                    'id' => 'cat_' . $cat->id,
+                    'name' => $cat->name,
+                    'icon' => $cat->icon,
+                    'type' => 'category',
+                    'category_type' => 'large',
+                    'disabled' => $totalStock <= 0,
+                    'materials' => $materials->map(function($mat) {
+                        return [
+                            'id' => $mat->id,
+                            'name' => $mat->name,
+                            'quantity' => $mat->quantity,
+                            'created_at' => $mat->created_at,
+                        ];
+                    })->sortBy('created_at')->values()->all(),
+                ];
+            });
+
+            // Format individual materials for dropdown
+            $materialOptions = $individualMaterials->map(function($mat) {
+                return [
+                    'id' => $mat->id,
+                    'name' => $mat->name,
+                    'type' => 'material',
+                    'quantity' => $mat->quantity,
+                    'disabled' => $mat->quantity <= 0,
+                ];
+            });
+
+            // Merge and return
+            $allOptions = array_merge($categoryOptions->toArray(), $materialOptions->toArray());
+            return response()->json($allOptions);
+        } catch (\Exception $e) {
+            \Log::error('Error in largeDropdown: ' . $e->getMessage());
+            return response()->json(['error' => 'Failed to load materials'], 500);
+        }
+    }
 }

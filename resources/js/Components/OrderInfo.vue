@@ -44,8 +44,14 @@
             <div class="form-group mt-2 p-2 text-black sameRow">
                 <label class="label-fixed-width">{{ $t('material') }}</label>
                 <select v-model="selectedMaterial" :disabled="selectedMaterialSmall !== ''" class="select-fixed-width">
-                    <option v-for="material in largeMaterials" :key="material" :value="material">
-                        {{ material.name }}
+                    <option v-for="material in largeMaterials" :key="material.id" :value="material" :disabled="material.disabled">
+                        <template v-if="material.type === 'category'">
+                            <img v-if="material.icon" :src="`/storage/icons/${material.icon}`" alt="icon" style="width: 18px; height: 18px; margin-right: 4px;" />
+                            [{{ $t('category') }}] {{ material.name }}
+                        </template>
+                        <template v-else>
+                            {{ material.name }}
+                        </template>
                     </option>
                 </select>
                 <button v-if="selectedMaterial !== ''" @click="clearSelection('selectedMaterial')" class="removeBtn"><span class="mdi mdi-minus-circle"></span></button>
@@ -54,8 +60,14 @@
             <div class="form-group mt-2 p-2 text-black sameRow">
                 <label class="label-fixed-width">{{ $t('materialSmallFormat') }}</label>
                 <select v-model="selectedMaterialSmall" :disabled="selectedMaterial !== ''" class="select-fixed-width">
-                    <option v-for="material in materialsSmall" :key="material" :value="material">
-                        {{ material.name }}
+                    <option v-for="material in materialsSmall" :key="material.id" :value="material" :disabled="material.disabled">
+                        <template v-if="material.type === 'category'">
+                            <img v-if="material.icon" :src="`/storage/icons/${material.icon}`" alt="icon" style="width: 18px; height: 18px; margin-right: 4px;" />
+                            [{{ $t('category') }}] {{ material.name }}
+                        </template>
+                        <template v-else>
+                            {{ material.name }}
+                        </template>
                     </option>
                 </select>
                 <button v-if="selectedMaterialSmall !== ''" @click="clearSelection('selectedMaterialSmall')" class="removeBtn"><span class="mdi mdi-minus-circle"></span></button>
@@ -167,8 +179,8 @@ export default {
             selectedJobs: [],
             actions: [{}],
             actionOptions: this.generateActionOptions(),
-            largeMaterials: this.generateMaterials(),
-            materialsSmall: this.generateMaterialsSmall(),
+            largeMaterials: [],
+            materialsSmall: [],
             machinesPrint: [],
             machinesCut: [],
             refinements: this.getRefinements()
@@ -179,7 +191,14 @@ export default {
             return this.jobs?.map((job, index) => ({ value: job.id, title: `#${index + 1}` }));
         }
     },
-    beforeMount() {
+    async mounted() {
+        // Fetch large and small materials for dropdowns
+        const [largeRes, smallRes] = await Promise.all([
+            axios.get('/api/materials/large-dropdown'),
+            axios.get('/api/materials/small-dropdown')
+        ]);
+        this.largeMaterials = largeRes.data;
+        this.materialsSmall = smallRes.data;
         this.fetchMachines();
     },
     methods: {
@@ -192,14 +211,6 @@ export default {
                 .catch((error) => {
                     console.error('Error fetching machines:', error);
                 });
-        },
-        async generateMaterials() {
-            const response = await axios.get('/materials/large/all');
-            this.largeMaterials = response.data;
-        },
-        async generateMaterialsSmall() {
-            const response = await axios.get('/materials/small/all');
-            this.materialsSmall = response.data;
         },
         async getRefinements() {
             const response = await axios.get('/refinements/all');
