@@ -206,14 +206,104 @@ class CatalogItemController extends Controller
                 ];
             });
 
+        // Get large format materials and categories
+        $largeMaterials = collect();
+        
+        // Get individual large materials not in any category
+        $largeMaterialCategories = \App\Models\ArticleCategory::with(['articles' => function($q) {
+            $q->whereHas('largeFormatMaterial');
+        }, 'articles.largeFormatMaterial'])
+            ->where('type', 'large')
+            ->whereNull('deleted_at')
+            ->get();
+
+        $categoryArticleIds = $largeMaterialCategories->flatMap(function($cat) {
+            return $cat->articles->pluck('id');
+        })->unique();
+        
+        $individualLargeMaterials = LargeFormatMaterial::with(['article' => function($query) {
+            $query->select('id', 'name', 'code');
+        }])
+            ->whereHas('article')
+            ->whereNotIn('article_id', $categoryArticleIds)
+            ->get();
+
+        // Add categories to large materials
+        foreach ($largeMaterialCategories as $category) {
+            $materials = $category->articles->map(function($article) {
+                return $article->largeFormatMaterial;
+            })->filter();
+            
+            $largeMaterials->push([
+                'id' => 'cat_' . $category->id,
+                'name' => "[Category] {$category->name}",
+                'type' => 'category',
+                'category_type' => 'large',
+                'article' => null
+            ]);
+        }
+
+        // Add individual materials
+        foreach ($individualLargeMaterials as $material) {
+            $largeMaterials->push([
+                'id' => $material->id,
+                'name' => $material->name,
+                'type' => 'individual',
+                'article' => $material->article
+            ]);
+        }
+
+        // Get small format materials and categories
+        $smallMaterials = collect();
+        
+        // Get individual small materials not in any category
+        $smallMaterialCategories = \App\Models\ArticleCategory::with(['articles' => function($q) {
+            $q->whereHas('smallMaterial');
+        }, 'articles.smallMaterial'])
+            ->where('type', 'small')
+            ->whereNull('deleted_at')
+            ->get();
+
+        $categoryArticleIds = $smallMaterialCategories->flatMap(function($cat) {
+            return $cat->articles->pluck('id');
+        })->unique();
+        
+        $individualSmallMaterials = SmallMaterial::with(['article' => function($query) {
+            $query->select('id', 'name', 'code');
+        }])
+            ->whereHas('article')
+            ->whereNotIn('article_id', $categoryArticleIds)
+            ->get();
+
+        // Add categories to small materials
+        foreach ($smallMaterialCategories as $category) {
+            $materials = $category->articles->map(function($article) {
+                return $article->smallMaterial;
+            })->filter();
+            
+            $smallMaterials->push([
+                'id' => 'cat_' . $category->id,
+                'name' => "[Category] {$category->name}",
+                'type' => 'category',
+                'category_type' => 'small',
+                'article' => null
+            ]);
+        }
+
+        // Add individual materials
+        foreach ($individualSmallMaterials as $material) {
+            $smallMaterials->push([
+                'id' => $material->id,
+                'name' => $material->name,
+                'type' => 'individual',
+                'article' => $material->article
+            ]);
+        }
+
         return Inertia::render('CatalogItem/Create', [
             'actions' => $actions,
-            'largeMaterials' => LargeFormatMaterial::with(['article' => function($query) {
-                $query->select('id', 'name', 'code');
-            }])->get(),
-            'smallMaterials' => SmallMaterial::with(['article' => function($query) {
-                $query->select('id', 'name', 'code');
-            }])->get(),
+            'largeMaterials' => $largeMaterials->values(),
+            'smallMaterials' => $smallMaterials->values(),
             'machinesPrint' => $machinesPrint,
             'machinesCut' => $machinesCut,
         ]);
@@ -221,13 +311,16 @@ class CatalogItemController extends Controller
 
     public function store(Request $request)
     {
-        \Log::info('Storing catalog item:', $request->all());
-
         $request->merge([
             'is_for_offer' => filter_var($request->input('is_for_offer'), FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE),
             'is_for_sales' => filter_var($request->input('is_for_sales'), FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE),
             'subcategory_id' => $request->input('subcategory_id') === 'null' || $request->input('subcategory_id') === '' ? null : $request->input('subcategory_id'),
+            'large_material_id' => $request->input('large_material_id') === '' ? null : $request->input('large_material_id'),
+            'small_material_id' => $request->input('small_material_id') === '' ? null : $request->input('small_material_id'),
+            'large_material_category_id' => $request->input('large_material_category_id') === '' ? null : $request->input('large_material_category_id'),
+            'small_material_category_id' => $request->input('small_material_category_id') === '' ? null : $request->input('small_material_category_id'),
         ]);
+        
         $actions = $request->input('actions');
         $actions = array_map(function ($action) {
             if ($action['isMaterialized'] === '') {
@@ -239,40 +332,15 @@ class CatalogItemController extends Controller
         }, $actions);
         $request->merge(['actions' => $actions]);
 
-        // Before saving, determine if a category or material is selected for large and small materials
-        $largeMaterialId = $request->input('large_material_id');
-        $smallMaterialId = $request->input('small_material_id');
-
-        if ($largeMaterialId && str_starts_with($largeMaterialId, 'cat_')) {
-            $request->merge([
-                'large_material_category_id' => intval(str_replace('cat_', '', $largeMaterialId)),
-                'large_material_id' => null
-            ]);
-        } else {
-            $request->merge([
-                'large_material_category_id' => null,
-                'large_material_id' => $largeMaterialId ?: null
-            ]);
-        }
-        if ($smallMaterialId && str_starts_with($smallMaterialId, 'cat_')) {
-            $request->merge([
-                'small_material_category_id' => intval(str_replace('cat_', '', $smallMaterialId)),
-                'small_material_id' => null
-            ]);
-        } else {
-            $request->merge([
-                'small_material_category_id' => null,
-                'small_material_id' => $smallMaterialId ?: null
-            ]);
-        }
-
         $request->validate([
             'name' => 'required|string|unique:catalog_items',
             'description' => 'nullable|string',
             'machinePrint' => 'nullable|string',
             'machineCut' => 'nullable|string',
-            'large_material_id' => 'nullable',
-            'small_material_id' => 'nullable',
+            'large_material_id' => 'nullable|integer',
+            'small_material_id' => 'nullable|integer',
+            'large_material_category_id' => 'nullable|integer|exists:article_categories,id',
+            'small_material_category_id' => 'nullable|integer|exists:article_categories,id',
             'quantity' => 'required|integer|min:1',
             'copies' => 'required|integer|min:1',
             'actions' => 'required|array',
@@ -289,12 +357,34 @@ class CatalogItemController extends Controller
             'articles.*.id' => 'required|exists:article,id',
             'articles.*.quantity' => 'required|numeric|min:0.01',
             'subcategory_id' => 'nullable|exists:subcategories,id'
+        ], [], [
+            'large_material_id' => 'large material',
+            'small_material_id' => 'small material', 
+            'large_material_category_id' => 'large material category',
+            'small_material_category_id' => 'small material category',
+        ]);
+
+        \Log::info('After validation - processed data:', [
+            'large_material_id' => $request->input('large_material_id'),
+            'small_material_id' => $request->input('small_material_id'),
+            'large_material_category_id' => $request->input('large_material_category_id'),
+            'small_material_category_id' => $request->input('small_material_category_id'),
         ]);
 
         DB::beginTransaction();
         try {
+            // Clean up the request data before creating the catalog item
+            $createData = $request->except(['actions', 'articles']);
+            
+            // Ensure material ID fields are properly null if empty
+            $createData['large_material_id'] = $createData['large_material_id'] ?: null;
+            $createData['small_material_id'] = $createData['small_material_id'] ?: null;
+            $createData['large_material_category_id'] = $createData['large_material_category_id'] ?: null;
+            $createData['small_material_category_id'] = $createData['small_material_category_id'] ?: null;
+            $createData['subcategory_id'] = $createData['subcategory_id'] ?: null;
+            
             // Create the catalog item without actions for now
-            $catalogItem = CatalogItem::create($request->except(['actions', 'articles']));
+            $catalogItem = CatalogItem::create($createData);
 
             // Handle file upload if provided
             if ($request->hasFile('file')) {
@@ -385,15 +475,95 @@ class CatalogItemController extends Controller
             'smallMaterial.article'
         ]);
 
+        // Get large format materials and categories - same as in create method
+        $largeMaterials = collect();
+        
+        $largeMaterialCategories = \App\Models\ArticleCategory::with(['articles' => function($q) {
+            $q->whereHas('largeFormatMaterial');
+        }, 'articles.largeFormatMaterial'])
+            ->where('type', 'large')
+            ->whereNull('deleted_at')
+            ->get();
+
+        $categoryArticleIds = $largeMaterialCategories->flatMap(function($cat) {
+            return $cat->articles->pluck('id');
+        })->unique();
+        
+        $individualLargeMaterials = LargeFormatMaterial::with(['article' => function($query) {
+            $query->select('id', 'name', 'code');
+        }])
+            ->whereHas('article')
+            ->whereNotIn('article_id', $categoryArticleIds)
+            ->get();
+
+        // Add categories to large materials
+        foreach ($largeMaterialCategories as $category) {
+            $largeMaterials->push([
+                'id' => 'cat_' . $category->id,
+                'name' => "[Category] {$category->name}",
+                'type' => 'category',
+                'category_type' => 'large',
+                'article' => null
+            ]);
+        }
+
+        // Add individual materials
+        foreach ($individualLargeMaterials as $material) {
+            $largeMaterials->push([
+                'id' => $material->id,
+                'name' => $material->name,
+                'type' => 'individual',
+                'article' => $material->article
+            ]);
+        }
+
+        // Get small format materials and categories - same as in create method
+        $smallMaterials = collect();
+        
+        $smallMaterialCategories = \App\Models\ArticleCategory::with(['articles' => function($q) {
+            $q->whereHas('smallMaterial');
+        }, 'articles.smallMaterial'])
+            ->where('type', 'small')
+            ->whereNull('deleted_at')
+            ->get();
+
+        $categoryArticleIds = $smallMaterialCategories->flatMap(function($cat) {
+            return $cat->articles->pluck('id');
+        })->unique();
+        
+        $individualSmallMaterials = SmallMaterial::with(['article' => function($query) {
+            $query->select('id', 'name', 'code');
+        }])
+            ->whereHas('article')
+            ->whereNotIn('article_id', $categoryArticleIds)
+            ->get();
+
+        // Add categories to small materials
+        foreach ($smallMaterialCategories as $category) {
+            $smallMaterials->push([
+                'id' => 'cat_' . $category->id,
+                'name' => "[Category] {$category->name}",
+                'type' => 'category',
+                'category_type' => 'small',
+                'article' => null
+            ]);
+        }
+
+        // Add individual materials
+        foreach ($individualSmallMaterials as $material) {
+            $smallMaterials->push([
+                'id' => $material->id,
+                'name' => $material->name,
+                'type' => 'individual',
+                'article' => $material->article
+            ]);
+        }
+
         return Inertia::render('CatalogItem/Edit', [
             'catalogItem' => $catalogItem,
             'actions' => $actions,
-            'largeMaterials' => LargeFormatMaterial::with(['article' => function($query) {
-                $query->select('id', 'name', 'code');
-            }])->get(),
-            'smallMaterials' => SmallMaterial::with(['article' => function($query) {
-                $query->select('id', 'name', 'code');
-            }])->get(),
+            'largeMaterials' => $largeMaterials->values(),
+            'smallMaterials' => $smallMaterials->values(),
             'machinesPrint' => $machinesPrint,
             'machinesCut' => $machinesCut,
         ]);
@@ -431,8 +601,8 @@ class CatalogItemController extends Controller
                 'machineCut' => 'nullable|string',
                 'large_material_id' => 'nullable',
                 'small_material_id' => 'nullable',
-                'large_material_category_id' => 'nullable|integer',
-                'small_material_category_id' => 'nullable|integer',
+                'large_material_category_id' => 'nullable|integer|exists:article_categories,id',
+                'small_material_category_id' => 'nullable|integer|exists:article_categories,id',
                 'quantity' => 'required|integer|min:1',
                 'copies' => 'required|integer|min:1',
                 'actions' => 'required|array',

@@ -97,7 +97,12 @@
                                         <option v-for="material in largeMaterials"
                                                 :key="material.id"
                                                 :value="material.id">
-                                            {{ material.article?.name }} ({{ material.article?.code }})
+                                            <template v-if="material.type === 'category'">
+                                                {{ material.name }}
+                                            </template>
+                                            <template v-else>
+                                                {{ material.article?.name }} ({{ material.article?.code }})
+                                            </template>
                                         </option>
                                     </select>
                                 </div>
@@ -113,7 +118,12 @@
                                         <option v-for="material in smallMaterials"
                                                 :key="material.id"
                                                 :value="material.id">
-                                            {{ material.article?.name }} ({{ material.article?.code }})
+                                            <template v-if="material.type === 'category'">
+                                                {{ material.name }}
+                                            </template>
+                                            <template v-else>
+                                                {{ material.article?.name }} ({{ material.article?.code }})
+                                            </template>
                                         </option>
                                     </select>
                                 </div>
@@ -724,9 +734,38 @@ export default {
 
             const formData = new FormData();
 
-            // Append basic fields
+            if (this.form.large_material_id && this.form.large_material_id.toString().startsWith('cat_')) {
+                formData.append('large_material_category_id', this.form.large_material_id.replace('cat_', ''));
+                formData.append('large_material_id', '');
+            } else {
+                formData.append('large_material_id', this.form.large_material_id || '');
+                formData.append('large_material_category_id', '');
+            }
+
+            if (this.form.small_material_id && this.form.small_material_id.toString().startsWith('cat_')) {
+                formData.append('small_material_category_id', this.form.small_material_id.replace('cat_', ''));
+                formData.append('small_material_id', '');
+            } else {
+                formData.append('small_material_id', this.form.small_material_id || '');
+                formData.append('small_material_category_id', '');
+            }
+
             Object.entries(this.form).forEach(([key, value]) => {
-                if (key !== 'actions' && key !== 'file' && key !== 'articles' && key !== 'template_file' && key !== 'should_ask_questions') {
+                if ([
+                    'large_material_id',
+                    'large_material_category_id', 
+                    'small_material_id',
+                    'small_material_category_id',
+                    'actions', 
+                    'file', 
+                    'articles', 
+                    'template_file', 
+                    'should_ask_questions'
+                ].includes(key)) return;
+
+                if (value === null || value === 'null' || value === '') {
+                    formData.append(key, '');
+                } else {
                     formData.append(key, value);
                 }
             });

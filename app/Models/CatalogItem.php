@@ -27,6 +27,7 @@ class CatalogItem extends Model
         'is_for_sales',
         'category',
         'file',
+        'template_file',
         'price',
         'cost_price',
         'subcategory_id',
