@@ -126,7 +126,8 @@
                                         <i class="fas fa-eye"></i>
                                     </button>
                                     <a
-                                        :href="route('catalog.download-template', item.id)"
+                                        @click.prevent="downloadTemplate(item)"
+                                        href="#"
                                         class="action-button text-green-400 hover:text-green-300 ml-2"
                                         title="Download Template"
                                     >
@@ -1543,16 +1544,29 @@ export default {
 
         getTemplateFileName(path) {
             if (!path) return '';
-            // Remove timestamp prefix (numbers followed by underscore)
+            
+            // Handle R2 URLs - extract filename from URL
+            if (path.startsWith('http')) {
+                const url = new URL(path);
+                const filename = url.pathname.split('/').pop();
+                // Remove timestamp prefix (numbers followed by underscore)
+                return filename.replace(/^\d+_/, '');
+            }
+            
+            // Handle local paths - remove timestamp prefix (numbers followed by underscore)
             return path.replace(/^\d+_/, '');
         },
+        
         openTemplatePreview(item) {
-            this.templatePreviewUrl = `/storage/templates/${item.template_file}`;
+            // Always use backend route for preview to handle authentication
+            this.templatePreviewUrl = route('catalog.download-template', item.id);
             this.showTemplatePreviewDialog = true;
         },
-        closeTemplatePreview() {
-            this.showTemplatePreviewDialog = false;
-            this.templatePreviewUrl = null;
+        
+        // Use backend route for all downloads to handle authentication
+        downloadTemplate(item) {
+            // Always use backend route for downloads
+            window.open(route('catalog.download-template', item.id), '_blank');
         },
 
         handleTemplateDrop(event) {
@@ -1586,6 +1600,9 @@ export default {
             this.editForm.template_file = file;
             this.currentTemplateFile = file.name;
             this.removeTemplateFlag = false;
+            
+            const toast = useToast();
+            toast.success('Template file selected. It will be uploaded when you save the catalog item.');
         },
 
         triggerTemplateFileInput() {
@@ -1593,9 +1610,13 @@ export default {
         },
 
         removeTemplate() {
+            const toast = useToast();
+            
             this.editForm.template_file = null;
             this.currentTemplateFile = null;
             this.removeTemplateFlag = true;
+            
+            toast.info('Template will be removed when you save the catalog item');
         },
 
         addArticle(type) {
@@ -1640,6 +1661,10 @@ export default {
                 subcategory_id: ''
             };
             this.fetchCatalogItems(1);
+        },
+        closeTemplatePreview() {
+            this.showTemplatePreviewDialog = false;
+            this.templatePreviewUrl = null;
         },
     },
     async mounted() {

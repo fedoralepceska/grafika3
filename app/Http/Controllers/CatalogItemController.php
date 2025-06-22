@@ -7,6 +7,7 @@ use App\Enums\MachineCut as MachineCutEnum;
 use App\Enums\MachinePrint as MachinePrintEnum;
 use App\Models\LargeFormatMaterial;
 use App\Models\SmallMaterial;
+use App\Services\TemplateStorageService;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use ReflectionClass;
@@ -16,6 +17,13 @@ use Illuminate\Support\Facades\Storage;
 class CatalogItemController extends Controller
 
 {
+    protected $templateStorageService;
+
+    public function __construct(TemplateStorageService $templateStorageService)
+    {
+        $this->templateStorageService = $templateStorageService;
+    }
+
     public function fetchAllForOffer()
     {
         $catalogItems = CatalogItem::with(['largeMaterial', 'smallMaterial'])
@@ -28,6 +36,7 @@ class CatalogItemController extends Controller
                     'description' => $item->description,
                     'price' => $item->price,
                     'file' => $item->file,
+                    'template_file' => $item->template_file ? $this->templateStorageService->getSignedTemplateUrl($item->template_file) : null,
                     'large_material' => $item->largeMaterial ? [
                         'id' => $item->largeMaterial->id,
                         'name' => $item->largeMaterial->name
@@ -121,7 +130,7 @@ class CatalogItemController extends Controller
                     'large_material_id' => $item->large_material_category_id ? 'cat_' . $item->large_material_category_id : ($item->large_material_id ? (string)$item->large_material_id : null),
                     'small_material_id' => $item->small_material_category_id ? 'cat_' . $item->small_material_category_id : ($item->small_material_id ? (string)$item->small_material_id : null),
                     'price' => $item->price,
-                    'template_file' => $item->template_file,
+                    'template_file' => $item->template_file ? $this->templateStorageService->getSignedTemplateUrl($item->template_file) : null,
                     'subcategory' => $item->subcategory ? [
                         'id' => $item->subcategory->id,
                         'name' => $item->subcategory->name
@@ -374,7 +383,7 @@ class CatalogItemController extends Controller
         DB::beginTransaction();
         try {
             // Clean up the request data before creating the catalog item
-            $createData = $request->except(['actions', 'articles']);
+            $createData = $request->except(['actions', 'articles', 'template_file']);
             
             // Ensure material ID fields are properly null if empty
             $createData['large_material_id'] = $createData['large_material_id'] ?: null;
@@ -397,9 +406,24 @@ class CatalogItemController extends Controller
             // Handle template file upload if provided
             if ($request->hasFile('template_file')) {
                 $templateFile = $request->file('template_file');
-                $templateFileName = time() . '_' . $templateFile->getClientOriginalName();
-                $templateFile->storeAs('public/templates', $templateFileName);
-                $catalogItem->template_file = $templateFileName;
+                
+                // Add debugging information
+                \Log::info('Template file received in controller', [
+                    'catalog_item_id' => $catalogItem->id,
+                    'original_name' => $templateFile->getClientOriginalName(),
+                    'original_extension' => $templateFile->getClientOriginalExtension(),
+                    'mime_type' => $templateFile->getMimeType(),
+                    'size' => $templateFile->getSize(),
+                    'temp_path' => $templateFile->getPathname()
+                ]);
+                
+                $templatePath = $this->templateStorageService->storeTemplate($templateFile);
+                $catalogItem->template_file = $templatePath;
+                
+                \Log::info('New template file uploaded successfully', [
+                    'catalog_item_id' => $catalogItem->id,
+                    'new_template' => $templatePath
+                ]);
             }
 
             // Process actions
@@ -635,28 +659,42 @@ class CatalogItemController extends Controller
                     $catalogItem->file = $fileName;
                 }
 
-                // Handle template file upload if provided
                 if ($request->hasFile('template_file')) {
                     if ($catalogItem->template_file) {
-                        Storage::disk('public')->delete('templates/' . $catalogItem->template_file);
+                        try {
+                            $this->templateStorageService->deleteTemplate($catalogItem->template_file);
+                        } catch (\Exception $e) {
+                            \Log::error('Failed to delete old template file', [
+                                'catalog_item_id' => $catalogItem->id,
+                                'old_template' => $catalogItem->template_file,
+                                'error' => $e->getMessage()
+                            ]);
+                        }
                     }
 
-                    $templateFile = $request->file('template_file');
-                    $templateFileName = time() . '_' . $templateFile->getClientOriginalName();
-                    $templateFile->storeAs('public/templates', $templateFileName);
-                    $catalogItem->template_file = $templateFileName;
+                    try {
+                        $templateFile = $request->file('template_file');
+                        $templatePath = $this->templateStorageService->storeTemplate($templateFile);
+                        $catalogItem->template_file = $templatePath;
+                    } catch (\Exception $e) {
+                        throw new \Exception('Failed to upload template file: ' . $e->getMessage());
+                    }
                 }
 
                 // Handle template removal if flag is set
                 if ($request->input('remove_template') === '1') {
                     if ($catalogItem->template_file) {
-                        Storage::disk('public')->delete('templates/' . $catalogItem->template_file);
-                        $catalogItem->template_file = null;
+                        try {
+                            $this->templateStorageService->deleteTemplate($catalogItem->template_file);
+                            $catalogItem->template_file = null;
+                        } catch (\Exception $e) {
+                            throw new \Exception('Failed to remove template file: ' . $e->getMessage());
+                        }
                     }
                 }
 
-                // Update the catalog item without actions first
-                $updateData = $request->except(['actions', 'file', 'articles']);
+                // Update the catalog item without actions, file, and template_file first
+                $updateData = $request->except(['actions', 'file', 'articles', 'template_file', 'remove_template']);
                 
                 // Handle empty strings as null for material/category fields
                 $updateData['large_material_id'] = $request->input('large_material_id') ?: null;
@@ -731,10 +769,37 @@ class CatalogItemController extends Controller
 
     public function destroy(CatalogItem $catalogItem)
     {
-        $catalogItem->actions()->detach();
-        $catalogItem->delete();
-
-        return redirect()->route('catalog.index')->with('success', 'Catalog item deleted successfully.');
+        try {
+            DB::beginTransaction();
+            
+            if ($catalogItem->template_file) {
+                try {
+                    $this->templateStorageService->deleteTemplate($catalogItem->template_file);
+                } catch (\Exception $e) {
+                }
+            }
+            
+            // Delete regular file if it exists (for backward compatibility)
+            if ($catalogItem->file && $catalogItem->file !== 'placeholder.jpeg') {
+                try {
+                    Storage::disk('public')->delete('uploads/' . $catalogItem->file);
+                } catch (\Exception $e) {
+                }
+            }
+            
+            // Detach related records and delete the catalog item
+            $catalogItem->actions()->detach();
+            $catalogItem->articles()->detach();
+            $catalogItem->delete();
+            
+            DB::commit();
+            
+            return redirect()->route('catalog.index')->with('success', 'Catalog item deleted successfully.');
+            
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return redirect()->route('catalog.index')->with('error', 'Failed to delete catalog item.');
+        }
     }
 
     public function downloadTemplate(CatalogItem $catalogItem)
@@ -743,20 +808,37 @@ class CatalogItemController extends Controller
             return response()->json(['error' => 'No template file found'], 404);
         }
 
-        $filePath = storage_path('app/public/templates/' . $catalogItem->template_file);
-
-        if (!file_exists($filePath)) {
+        try {
+            // Check if file exists in R2
+            if ($this->templateStorageService->templateExists($catalogItem->template_file)) {
+                // Get the file content from R2
+                $fileContent = $this->templateStorageService->disk->get($catalogItem->template_file);
+                $originalName = $this->templateStorageService->getOriginalFilename($catalogItem->template_file);
+                
+                return response($fileContent)
+                    ->header('Content-Type', 'application/pdf')
+                    ->header('Content-Disposition', 'inline; filename="' . $originalName . '"')
+                    ->header('Cache-Control', 'no-cache, no-store, must-revalidate')
+                    ->header('Pragma', 'no-cache')
+                    ->header('Expires', '0');
+            }
+            
+            // Fallback for legacy local files
+            $filePath = storage_path('app/public/templates/' . $catalogItem->template_file);
+            if (file_exists($filePath)) {
+                return response()->download($filePath, $this->getOriginalFileName($catalogItem->template_file));
+            }
+            
             return response()->json(['error' => 'Template file not found'], 404);
+            
+        } catch (\Exception $e) {
+            return response()->json(['error' => 'Failed to download template'], 500);
         }
-
-        return response()->download($filePath, $this->getOriginalFileName($catalogItem->template_file));
     }
 
     private function getOriginalFileName($templateFile)
     {
-        // Remove the timestamp prefix from the filename
-        $parts = explode('_template_', $templateFile, 2);
-        return count($parts) > 1 ? $parts[1] : $templateFile;
+        return $this->templateStorageService->getOriginalFilename($templateFile);
     }
 
     private function getUnitLabel($article)
