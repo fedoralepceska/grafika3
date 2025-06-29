@@ -142,6 +142,7 @@ Route::middleware(['auth', 'verified'])->group(function() {
 Route::resource('jobs', \App\Http\Controllers\JobController::class)
     ->only(['index', 'store'])
     ->middleware(['auth', 'verified']);
+Route::post('/jobs/from-manual-catalog', [JobController::class, 'storeFromManualCatalog']);
 
 //Route::get('/jobs/{id}/image-dimensions', 'JobController@calculateImageDimensions');
 

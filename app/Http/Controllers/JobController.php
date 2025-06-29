@@ -317,7 +317,10 @@ class JobController extends Controller
                 'jobs.*' => 'exists:jobs,id',
                 'jobsWithActions' => 'required|array',
                 'client_id' => 'sometimes|exists:clients,id',
-                'catalog_item_id' => 'sometimes|exists:catalog_items,id',
+                'catalog_item_id' => 'sometimes|nullable|exists:catalog_items,id',
+                'articles' => 'sometimes|array',
+                'articles.*.id' => 'required_with:articles|exists:article,id',
+                'articles.*.quantity' => 'required_with:articles|numeric|min:0',
             ]);
 
             $priceCalculationService = app()->make(PriceCalculationService::class);
@@ -355,33 +358,145 @@ class JobController extends Controller
                     'height' => $job->height ?: 0,
                 ];
 
-                if ($unitPrice !== null) {
-                    $updateData['price'] = $unitPrice;
-                } else {
-                    // Original price calculation logic
-                    $smallMaterial = SmallMaterial::with('article')->find($request->input('selectedMaterialsSmall'));
-                    $largeMaterial = LargeFormatMaterial::with('article')->find($request->input('selectedMaterial'));
-                    $price = 0;
+                // Set the job price = manual price × quantity (not copies)
+                if ($request->has('price')) {
+                    $updateData['salePrice'] = $request->input('price') * $request->input('quantity'); // Selling price
+                } elseif ($unitPrice !== null) {
+                    $updateData['salePrice'] = $unitPrice * $request->input('quantity'); // Selling price from hierarchy
+                }
 
-                    if ($request->has('jobsWithActions')) {
-                        foreach ($request->input('jobsWithActions') as $jobWithActions) {
-                            foreach ($jobWithActions['actions'] as $action) {
-                                if (isset($action['quantity'])) {
-                                    if (isset($smallMaterial)) {
-                                        $price = $price + ($action['quantity'] * $smallMaterial->article->price_1);
-                                    }
-                                    if (isset($largeMaterial)) {
-                                        $price = $price + ($action['quantity'] * $largeMaterial->article->price_1);
-                                    }
+                // Calculate cost price from materials and actions
+                $costPrice = 0;
+                $smallMaterial = SmallMaterial::with('article')->find($request->input('selectedMaterialsSmall'));
+                $largeMaterial = LargeFormatMaterial::with('article')->find($request->input('selectedMaterial'));
+
+                if ($request->has('jobsWithActions')) {
+                    foreach ($request->input('jobsWithActions') as $jobWithActions) {
+                        foreach ($jobWithActions['actions'] as $action) {
+                            if (isset($action['quantity'])) {
+                                if (isset($smallMaterial)) {
+                                    $costPrice = $costPrice + ($action['quantity'] * $smallMaterial->article->price_1);
+                                }
+                                if (isset($largeMaterial)) {
+                                    $costPrice = $costPrice + ($action['quantity'] * $largeMaterial->article->price_1);
                                 }
                             }
                         }
                     }
-                    $updateData['price'] = $price;
                 }
+                $updateData['price'] = $costPrice * $request->input('quantity'); // Cost price
 
                 // Update each job individually to preserve its specific attributes
                 $job->update($updateData);
+            }
+
+            // Process actions for all jobs if provided
+            if ($request->has('jobsWithActions')) {
+                foreach ($request->input('jobsWithActions') as $jobWithActions) {
+                    $jobId = $jobWithActions['job_id'];
+                    $job = Job::find($jobId);
+                    
+                    if ($job && isset($jobWithActions['actions'])) {
+                        // Clear existing actions for this job
+                        $existingActionIds = DB::table('job_job_action')
+                            ->where('job_id', $jobId)
+                            ->pluck('job_action_id');
+                        
+                        if ($existingActionIds->count() > 0) {
+                            // Delete from pivot table
+                            DB::table('job_job_action')
+                                ->where('job_id', $jobId)
+                                ->delete();
+                            
+                            // Delete from job_actions table
+                            DB::table('job_actions')
+                                ->whereIn('id', $existingActionIds)
+                                ->delete();
+                        }
+                        
+                        // Create new actions
+                        $newActions = [];
+                        
+                        // Add machine print action
+                        if ($job->machinePrint) {
+                            $machineActionId = DB::table('job_actions')->insertGetId([
+                                'name' => $job->machinePrint,
+                                'status' => 'Not started yet',
+                                'quantity' => 0,
+                                'created_at' => now(),
+                                'updated_at' => now(),
+                            ]);
+                            
+                            $newActions[] = [
+                                'job_action_id' => $machineActionId,
+                                'quantity' => 0,
+                                'status' => 'Not started yet',
+                            ];
+                        }
+                        
+                        // Add catalog actions
+                        foreach ($jobWithActions['actions'] as $actionData) {
+                            if (isset($actionData['action_id'])) {
+                                // Get the action name from dorabotka table
+                                $refinement = DB::table('dorabotka')
+                                    ->where('id', $actionData['action_id'])
+                                    ->first();
+                                
+                                $actionName = $refinement ? $refinement->name : 'Unknown Action';
+                                
+                                $newActionId = DB::table('job_actions')->insertGetId([
+                                    'name' => $actionName,
+                                    'status' => 'Not started yet',
+                                    'quantity' => $actionData['quantity'] ?? 0,
+                                    'created_at' => now(),
+                                    'updated_at' => now(),
+                                ]);
+                                
+                                $newActions[] = [
+                                    'job_action_id' => $newActionId,
+                                    'quantity' => $actionData['quantity'] ?? 0,
+                                    'status' => 'Not started yet',
+                                ];
+                            }
+                        }
+                        
+                        // Create pivot table entries
+                        foreach ($newActions as $action) {
+                            DB::table('job_job_action')->insert([
+                                'job_id' => $jobId,
+                                'job_action_id' => $action['job_action_id'],
+                                'quantity' => $action['quantity'],
+                                'status' => $action['status'],
+                                'created_at' => now(),
+                                'updated_at' => now(),
+                            ]);
+                        }
+                    }
+                }
+            }
+
+            // Process component articles for cost calculation if provided (after job updates)
+            if ($request->has('articles')) {
+                $totalArticlesCost = 0;
+                foreach ($request->input('articles') as $articleData) {
+                    $article = DB::table('article')
+                        ->where('id', $articleData['id'])
+                        ->first();
+                    
+                    if ($article) {
+                        $articleCost = ($article->purchase_price ?? 0) * ($articleData['quantity'] ?? 0);
+                        $totalArticlesCost += $articleCost;
+                    }
+                }
+                
+                // Add articles cost to each job's price (cost per job quantity, not per copies)
+                if ($totalArticlesCost > 0) {
+                    $costPerJob = $totalArticlesCost * $request->input('quantity');
+                    foreach ($jobsToUpdate as $job) {
+                        $job->price = ($job->price ?? 0) + $costPerJob;
+                        $job->save();
+                    }
+                }
             }
 
             // Return the first job's data for price information
@@ -460,7 +575,8 @@ class JobController extends Controller
                 // Convert to array while preserving the exact values
                 $jobArray = $job->toArray();
                 // Ensure numeric values are preserved
-                $jobArray['price'] = (float)$job->price;
+                $jobArray['price'] = (float)$job->price; // Cost price
+                $jobArray['salePrice'] = (float)($job->salePrice ?? 0); // Selling price
                 $jobArray['width'] = (float)$job->width;
                 $jobArray['height'] = (float)$job->height;
                 $jobArray['quantity'] = (int)$job->quantity;
@@ -781,44 +897,93 @@ class JobController extends Controller
             $validatedData = $request->validate([
                 'quantity' => 'sometimes|required|numeric',
                 'copies' => 'sometimes|required|numeric',
-                'catalog_item_id' => 'sometimes|exists:catalog_items,id',
-                'client_id' => 'sometimes|exists:clients,id',
+                'catalog_item_id' => 'sometimes|nullable|exists:catalog_items,id',
+                'client_id' => 'sometimes|nullable|exists:clients,id',
                 'width' => 'sometimes|required|numeric',
                 'height' => 'sometimes|required|numeric',
                 'file' => 'sometimes|required',
                 'status' => 'sometimes|required',
-                'salePrice' => 'sometimes|required', // Keep the original salePrice validation
+                'salePrice' => 'sometimes|required',
             ]);
 
-            // If quantity is being updated, recalculate the price
+            // Only recalculate price if quantity is being updated AND the job has catalog/client info
             if ($request->has('quantity')) {
-                $priceCalculationService = app()->make(PriceCalculationService::class);
-
                 // Get the catalog_item_id and client_id from request or existing job/invoice
                 $catalogItemId = $request->input('catalog_item_id') ?? $job->catalog_item_id ?? $job->invoice?->catalog_item_id;
                 $clientId = $request->input('client_id') ?? $job->client_id ?? $job->invoice?->client_id;
 
-                \Log::info('Recalculating price for job update', [
+                \Log::info('Updating job quantity', [
                     'job_id' => $id,
                     'catalog_item_id' => $catalogItemId,
                     'client_id' => $clientId,
-                    'new_quantity' => $request->input('quantity')
+                    'new_quantity' => $request->input('quantity'),
+                    'old_quantity' => $job->quantity,
+                    'is_catalog_job' => !is_null($catalogItemId) && !is_null($clientId)
                 ]);
 
-                // Calculate the new price based on the updated quantity
-                $newPrice = $priceCalculationService->calculateEffectivePrice(
-                    $catalogItemId,
-                    $clientId,
-                    $request->input('quantity')
-                );
+                // Only recalculate price for catalog-based jobs (those with catalog_item_id and client_id)
+                if (!is_null($catalogItemId) && !is_null($clientId)) {
+                    $priceCalculationService = app()->make(PriceCalculationService::class);
+                    
+                    // Calculate the new selling price based on the updated quantity
+                    $newSalePrice = $priceCalculationService->calculateEffectivePrice(
+                        $catalogItemId,
+                        $clientId,
+                        $request->input('quantity')
+                    );
 
-                \Log::info('Price calculation result', [
-                    'job_id' => $id,
-                    'calculated_price' => $newPrice
-                ]);
+                    \Log::info('Price calculation result for catalog job', [
+                        'job_id' => $id,
+                        'calculated_sale_price' => $newSalePrice
+                    ]);
 
-                if ($newPrice !== null) {
-                    $job->price = $newPrice;
+                    if ($newSalePrice !== null) {
+                        // Update selling price (salePrice)
+                        $job->salePrice = $newSalePrice;
+                    }
+                    
+                    // Also scale the cost price (price) proportionally based on quantity change
+                    if ($job->price && $job->quantity > 0) {
+                        $unitCostPrice = $job->price / $job->quantity;
+                        $job->price = $unitCostPrice * $request->input('quantity');
+                        
+                        \Log::info('Scaled cost price for catalog job', [
+                            'job_id' => $id,
+                            'old_quantity' => $job->quantity,
+                            'new_quantity' => $request->input('quantity'),
+                            'unit_cost_price' => $unitCostPrice,
+                            'new_cost_price' => $job->price
+                        ]);
+                    }
+                } else {
+                    \Log::info('Skipping price recalculation for manual job', [
+                        'job_id' => $id,
+                        'reason' => 'Missing catalog_item_id or client_id'
+                    ]);
+                    
+                    // For manual jobs, scale both selling price and cost price proportionally
+                    if ($job->quantity > 0) {
+                        $quantityRatio = $request->input('quantity') / $job->quantity;
+                        
+                        // Scale selling price if it exists
+                        if ($job->salePrice) {
+                            $job->salePrice = $job->salePrice * $quantityRatio;
+                        }
+                        
+                        // Scale cost price if it exists
+                        if ($job->price) {
+                            $job->price = $job->price * $quantityRatio;
+                        }
+                        
+                        \Log::info('Scaled both prices for manual job', [
+                            'job_id' => $id,
+                            'old_quantity' => $job->quantity,
+                            'new_quantity' => $request->input('quantity'),
+                            'quantity_ratio' => $quantityRatio,
+                            'new_sale_price' => $job->salePrice,
+                            'new_cost_price' => $job->price
+                        ]);
+                    }
                 }
             }
 
@@ -836,6 +1001,7 @@ class JobController extends Controller
             }
             if (isset($validatedData['copies'])) {
                 $job->copies = $validatedData['copies'];
+                // Note: copies updates don't trigger price recalculation
             }
             if (isset($validatedData['salePrice'])) {
                 $job->salePrice = $validatedData['salePrice'];

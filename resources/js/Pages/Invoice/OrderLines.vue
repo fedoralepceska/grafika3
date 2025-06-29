@@ -126,10 +126,10 @@
                     </td>
                     <div v-if="!isRabotnikComputed" class="bg-gray-200 text-black bold">
                         <div class="pt-1 pl-2 pr-2 pb-2">
-                            {{ $t('jobPrice') }}: <span class="bold">{{ (job.price * job.copies).toFixed(2) }} ден.</span>
+                            {{ $t('jobPrice') }}: <span class="bold">{{ (job.salePrice || job.price).toFixed(2) }} ден.</span>
                         </div>
                         <div class="pt-1 pl-2 pr-2">
-                            {{ $t('jobPriceCost') }}: <span class="bold">{{ job.catalog_item?.cost_price }} ден.</span>
+                            {{ $t('jobPriceCost') }}: <span class="bold">{{ job.price.toFixed(2) }} ден.</span>
                         </div>
                     </div>
                 </div>
@@ -201,26 +201,44 @@ export default {
         jobsToDisplay() {
             const mergedJobs = [...this.jobs || [], ...this.updatedJobs || [], ...this.jobsWithPrices || []];
 
-            // Create a Map to store jobs by ID, preserving the most recent updates
+            // Create a Map to store jobs by ID, with later entries overriding earlier ones
             const jobMap = new Map();
 
-            // First pass: store initial values
+            // Process all jobs - later ones will override earlier ones with same ID
             for (const job of mergedJobs) {
-                if (!jobMap.has(job.id)) {
-                    jobMap.set(job.id, {
-                        ...job,
-                        // No need to store totalPrice as we calculate it on the fly
-                    });
-                }
+                jobMap.set(job.id, {
+                    ...job,
+                    // Ensure numeric fields are properly typed
+                    quantity: parseInt(job.quantity) || 1,
+                    copies: parseInt(job.copies) || 1,
+                    price: parseFloat(job.price) || 0,
+                    salePrice: parseFloat(job.salePrice) || null
+                });
             }
 
             // Convert Map values back to array and sort by ID
-            return Array.from(jobMap.values()).sort((a, b) => a.id - b.id);
+            const result = Array.from(jobMap.values()).sort((a, b) => a.id - b.id);
+            return result;
         },
 
         fileJobs() {
             return this.jobsToDisplay.filter(job => job.file && job.file !== 'placeholder.jpeg');
         },
+    },
+
+    watch: {
+        jobs: {
+            handler(newJobs) {
+                // Watch for job prop changes
+            },
+            deep: true
+        },
+        updatedJobs: {
+            handler(newUpdatedJobs) {
+                // Watch for updatedJobs prop changes
+            },
+            deep: true
+        }
     },
 
     methods: {
@@ -255,6 +273,7 @@ export default {
                 const currentQuantity = job.quantity;
                 const currentCopies = job.copies;
                 const currentPrice = job.price;
+                const currentSalePrice = job.salePrice;
 
                 const response = await axios.post(
                     `/jobs/${job.id}/update-file`, formData, {
@@ -275,6 +294,7 @@ export default {
                     quantity: parseInt(currentQuantity),
                     copies: parseInt(currentCopies),
                     price: parseFloat(currentPrice),
+                    salePrice: parseFloat(currentSalePrice) || null,
                     file_url: response.data.file_url
                 };
 
@@ -359,16 +379,27 @@ export default {
             });
 
             try {
-                // First update the backend
-                const response = await axios.put(`/jobs/${job.id}`, {
-                    [this.editingField]: valueToUpdate,
-                    // Include both fields to ensure both are updated
-                    quantity: this.editingField === 'quantity' ? valueToUpdate : job.quantity,
-                    copies: this.editingField === 'copies' ? valueToUpdate : job.copies,
-                    // Include these fields for price recalculation
-                    catalog_item_id,
-                    client_id
+                // Prepare the request data - only send what's actually being edited
+                const requestData = {
+                    [this.editingField]: valueToUpdate
+                };
+
+                // Only include catalog info if we're updating quantity (needed for price recalculation)
+                if (this.editingField === 'quantity') {
+                    requestData.catalog_item_id = catalog_item_id;
+                    requestData.client_id = client_id;
+                }
+
+                // Debug log to check what data is being sent
+                console.log('Request data being sent:', {
+                    jobId: job.id,
+                    editingField: this.editingField,
+                    value: valueToUpdate,
+                    requestData
                 });
+
+                // First update the backend
+                const response = await axios.put(`/jobs/${job.id}`, requestData);
 
                 // Debug log to check response data
                 console.log('Response from server:', response.data);
@@ -382,6 +413,7 @@ export default {
                         quantity: parseInt(response.data.job.quantity),
                         copies: parseInt(response.data.job.copies),
                         price: parseFloat(response.data.job.price),
+                        salePrice: parseFloat(response.data.job.salePrice) || null,
                         effective_catalog_item_id: catalog_item_id,
                         effective_client_id: client_id
                     };

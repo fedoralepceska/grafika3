@@ -96,6 +96,7 @@
                                             @catalog-jobs-created="handleCatalogJobs"
                                             :jobs="$refs.dragAndDrop?.jobs"
                                             :isCatalog="true"
+                                            :clientId="invoice.client_id"
                                         />
                                     </TabV2>
                                     <TabV2 title="From Catalog" icon="mdi mdi-book-open-variant">
@@ -108,7 +109,13 @@
                             </Tab>
 
                             <Tab title="SHIPPING" class="text" icon="mdi mdi-truck">
-                                <OrderInfo v-if="$refs.dragAndDrop?.jobs?.length > 0" @jobs-updated="updateJobs" :shipping="true" :jobs="$refs.dragAndDrop.jobs"/>
+                                <OrderInfo 
+                                    v-if="$refs.dragAndDrop?.jobs?.length > 0" 
+                                    @jobs-updated="updateJobs" 
+                                    :shipping="true" 
+                                    :jobs="$refs.dragAndDrop.jobs"
+                                    :clientId="invoice.client_id"
+                                />
                             </Tab>
                         </TabsWrapper>
                     </div>

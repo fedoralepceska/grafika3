@@ -96,7 +96,7 @@
                                             <span v-else>{{ job?.small_material?.name }}</span>
                                          </span>
                                         </div>
-                                        <div>{{$t('totalm')}}<sup>2</sup>: <span class="bold">{{((job.height * job.width) / 1000000 * job.copies).toFixed(4)}}</span></div>
+                                        <div>{{$t('totalm')}}<sup>2</sup>: <span class="bold">{{((job.height * job.width) / 1000000).toFixed(4)}}</span></div>
                                     </div>
                                     <OrderJobDetails :job="job"/>
                                     <div class="jobInfo relative pt-3">

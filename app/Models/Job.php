@@ -38,6 +38,7 @@ class Job extends Model
         'catalog_item_id',
         'client_id',
         'price',
+        'salePrice',
         'invoice_id'
     ];
 
