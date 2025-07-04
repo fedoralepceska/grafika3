@@ -21,6 +21,75 @@ class Job extends Model
 {
     use HasFactory;
 
+    protected static function boot()
+    {
+        parent::boot();
+
+        static::deleting(function ($job) {
+            // Clean up original files from R2 storage when job is being deleted
+            if ($job->hasOriginalFiles()) {
+                $templateStorageService = app()->make(\App\Services\TemplateStorageService::class);
+                $originalFiles = $job->getOriginalFiles();
+                
+                foreach ($originalFiles as $filePath) {
+                    if ($filePath && str_starts_with($filePath, 'job-originals/')) {
+                        try {
+                            $templateStorageService->deleteTemplate($filePath);
+                            \Log::info('Model cleanup: Successfully deleted original file from R2', [
+                                'job_id' => $job->id,
+                                'file_path' => $filePath
+                            ]);
+                        } catch (\Exception $e) {
+                            \Log::warning('Model cleanup: Failed to delete original file from R2 storage: ' . $e->getMessage(), [
+                                'job_id' => $job->id,
+                                'file_path' => $filePath,
+                                'error' => $e->getMessage()
+                            ]);
+                        }
+                    }
+                }
+            }
+
+            // Clean up thumbnails from R2 storage when job is being deleted
+            try {
+                $templateStorageService = app()->make(\App\Services\TemplateStorageService::class);
+                $thumbnailFiles = $templateStorageService->getDisk()->files('job-thumbnails');
+                $removedCount = 0;
+                
+                foreach ($thumbnailFiles as $thumbnail) {
+                    $thumbBasename = basename($thumbnail);
+                    // Check if this thumbnail belongs to this job
+                    if (strpos($thumbBasename, 'job_' . $job->id . '_') === 0) {
+                        try {
+                            $templateStorageService->getDisk()->delete($thumbnail);
+                            $removedCount++;
+                            \Log::info('Model cleanup: Deleted job thumbnail from R2', [
+                                'job_id' => $job->id,
+                                'thumbnail' => basename($thumbnail)
+                            ]);
+                        } catch (\Exception $e) {
+                            \Log::warning('Model cleanup: Failed to delete thumbnail: ' . $e->getMessage(), [
+                                'thumbnail' => $thumbnail
+                            ]);
+                        }
+                    }
+                }
+                
+                if ($removedCount > 0) {
+                    \Log::info('Model cleanup: Thumbnail cleanup completed', [
+                        'job_id' => $job->id,
+                        'removed_thumbnails' => $removedCount
+                    ]);
+                }
+            } catch (\Exception $e) {
+                \Log::warning('Model cleanup: Failed to cleanup thumbnails: ' . $e->getMessage(), [
+                    'job_id' => $job->id,
+                    'error' => $e->getMessage()
+                ]);
+            }
+        });
+    }
+
     protected $fillable = [
         'file',
         'originalFile',
@@ -58,6 +127,7 @@ class Job extends Model
 
     protected $casts = [
         'question_answers' => 'array',
+        'originalFile' => 'array',
     ];
 
     public function getEffectiveCatalogItemIdAttribute()
@@ -131,5 +201,60 @@ class Job extends Model
             $query->select(DB::raw("concat(job_action_id, '-', status) as actionstatus"))
                 ->groupBy('status', 'job_action_id');
         }]);
+    }
+
+    /**
+     * Add a new original file to the job
+     */
+    public function addOriginalFile(string $filePath): void
+    {
+        $currentFiles = $this->originalFile ?? [];
+        if (!in_array($filePath, $currentFiles)) {
+            $currentFiles[] = $filePath;
+            $this->originalFile = $currentFiles;
+        }
+    }
+
+    /**
+     * Get all original files
+     */
+    public function getOriginalFiles(): array
+    {
+        return $this->originalFile ?? [];
+    }
+
+    /**
+     * Get the primary (first) original file
+     */
+    public function getPrimaryOriginalFile(): ?string
+    {
+        $files = $this->getOriginalFiles();
+        return !empty($files) ? $files[0] : null;
+    }
+
+    /**
+     * Remove an original file from the job
+     */
+    public function removeOriginalFile(string $filePath): bool
+    {
+        $currentFiles = $this->originalFile ?? [];
+        $key = array_search($filePath, $currentFiles);
+        
+        if ($key !== false) {
+            unset($currentFiles[$key]);
+            $this->originalFile = array_values($currentFiles); // Reindex array
+            return true;
+        }
+        
+        return false;
+    }
+
+    /**
+     * Check if the job has any original files
+     */
+    public function hasOriginalFiles(): bool
+    {
+        $files = $this->getOriginalFiles();
+        return !empty($files);
     }
 }

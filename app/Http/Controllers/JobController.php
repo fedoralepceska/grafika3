@@ -12,6 +12,7 @@ use App\Models\LargeFormatMaterial;
 use App\Models\SmallMaterial;
 use App\Models\WorkerAnalytics;
 use App\Models\CatalogItem;
+use App\Services\TemplateStorageService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -22,6 +23,13 @@ use App\Services\PriceCalculationService;
 
 class JobController extends Controller
 {
+    protected $templateStorageService;
+
+    public function __construct(TemplateStorageService $templateStorageService)
+    {
+        $this->templateStorageService = $templateStorageService;
+    }
+
     public function index()
     {
         $jobs = Job::with('actions')->get()->toArray(); // Eager load jobs related to invoices
@@ -240,63 +248,112 @@ class JobController extends Controller
                 return response()->json(['error' => $e->getMessage()], 500);
             }
         }
-        // Original file upload logic
+        
+        // New R2 storage drag-and-drop file upload logic
         try {
             // Validate the request data
             $this->validate($request, [
-                'file' => 'required|mimetypes:image/tiff,application/pdf', // Ensure the file is an image
+                'file' => 'required|mimetypes:image/tiff,application/pdf',
             ]);
 
             // Handle file upload and storage
             if ($request->hasFile('file')) {
                 $file = $request->file('file');
                 $fileExtension = $file->getClientOriginalExtension();
-                $pdfPath = $file->store('public/uploads', ['disk' => 'local']); // Store the PDF file
+                
+                // Create a new job instance
+                $job = new Job();
 
-                if ($fileExtension === 'tiff' || $fileExtension === 'tif') {
-                    // Handle TIFF file conversion to an image
-                    $imagick = new Imagick();
-                    $imagick->readImage($file->getPathname()); // Read the TIFF file
-                    $imagick->setImageFormat('jpg'); // Convert TIFF to JPG (you can use other formats too)
-                    $imageFilename = pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME) . '.jpg'; // Unique image file name
-                    $imagick->writeImage(storage_path('app/public/uploads/' . $imageFilename)); // Save the image
-                    $imagick->clear();
-
-                    // Create a new job
-                    $job = new Job();
-                    $job->file = $imageFilename; // Store the image file name
-
-                    // Set other job properties if needed
-
-                    $job->save(); // Save the job to the database
-
-                    return response()->json(['message' => 'Job created successfully', 'job' => $job]);
-                } elseif ($fileExtension === 'pdf') {
+                if ($fileExtension === 'pdf') {
+                    // Store the original PDF file in R2
+                    $originalPath = $this->templateStorageService->storeTemplate($file, 'job-originals');
+                    
+                    // Generate preview image and calculate dimensions
                     $imagick = new Imagick();
                     $imagick->setOption('gs', "C:\Program Files\gs\gs10.02.0");
-                    $imagick->readImage($file->getPathname() . '[0]'); // Read the first page of the PDF
-                    $imagick->setImageFormat('jpg'); // Convert PDF to JPG (you can use other formats too)
-                    $imageFilename = pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME) . '.jpg'; // Unique image file name
-                    $imagick->writeImage(storage_path('app/public/uploads/' . $imageFilename)); // Save the image
+                    $imagick->readImage($file->getPathname() . '[0]'); // Read first page
+                    $imagick->setImageFormat('jpg');
+                    
+                    // Create unique filename for preview
+                    $imageFilename = pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME) . '.jpg';
+                    $imagePath = storage_path('app/public/uploads/' . $imageFilename);
+                    $imagick->writeImage($imagePath);
+                    
+                    // Calculate dimensions
+                    list($width, $height) = getimagesize($imagePath);
+                    $dpi = 72; // Default DPI
+                    $widthInMm = ($width / $dpi) * 25.4;
+                    $heightInMm = ($height / $dpi) * 25.4;
+                    
                     $imagick->clear();
 
-                    // Create a new job
-                    $job = new Job();
-                    $job->file = $imageFilename; // Store the image file name
-                    $job->originalFile = $pdfPath;
+                    // Save job first to get ID
+                    $job->file = $imageFilename; // Preview image
+                    $job->addOriginalFile($originalPath); // Store in originalFile JSON array
+                    $job->width = $widthInMm;
+                    $job->height = $heightInMm;
+                    $job->save(); // Save to get ID
+                    
+                    // Generate thumbnail and store in R2
+                    $this->generateThumbnail($imagePath, $job->id, 0, $file->getClientOriginalName());
+                    
+                } else if ($fileExtension === 'tiff' || $fileExtension === 'tif') {
+                    // Store the original TIFF file in R2 (fully R2 system)
+                    $originalPath = $this->templateStorageService->storeTemplate($file, 'job-originals');
+                    
+                    // Generate preview JPG and calculate dimensions
+                    $imagick = new Imagick();
+                    $imagick->readImage($file->getPathname());
+                    $imagick->setImageFormat('jpg');
+                    
+                    $imageFilename = pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME) . '.jpg';
+                    $imagePath = storage_path('app/public/uploads/' . $imageFilename);
+                    $imagick->writeImage($imagePath);
+                    
+                    // Calculate dimensions
+                    list($width, $height) = getimagesize($imagePath);
+                    $dpi = 72; // Default DPI
+                    $widthInMm = ($width / $dpi) * 25.4;
+                    $heightInMm = ($height / $dpi) * 25.4;
+                    
+                    $imagick->clear();
 
-                    // Set other job properties if needed
-
-                    $job->save(); // Save the job to the database
-
-                    // Attach the job to the user or invoice as needed
-
-                    return response()->json(['message' => 'Job created successfully', 'job' => $job]);
+                    // Save job first to get ID - TIFF now also uses R2 storage
+                    $job->file = $imageFilename; // Preview image
+                    $job->addOriginalFile($originalPath); // Store TIFF in originalFile JSON array
+                    $job->width = $widthInMm;
+                    $job->height = $heightInMm;
+                    $job->save(); // Save to get ID
+                    
+                    // Generate thumbnail and store in R2
+                    $this->generateThumbnail($imagePath, $job->id, 0, $file->getClientOriginalName());
                 }
+                
+                \Log::info('Job created via drag-and-drop - R2 storage', [
+                    'job_id' => $job->id,
+                    'file_type' => $fileExtension,
+                    'original_files_count' => count($job->getOriginalFiles()),
+                    'dimensions' => ['width' => $job->width, 'height' => $job->height],
+                    'storage_type' => 'R2',
+                    'original_files' => $job->getOriginalFiles()
+                ]);
+
+                return response()->json([
+                    'message' => 'Job created successfully',
+                    'job' => $job,
+                    'has_original_files' => true, // Always true for R2 storage
+                    'original_files_count' => count($job->getOriginalFiles()),
+                    'storage_type' => 'R2'
+                ]);
+                
             } else {
                 return response()->json(['message' => 'File not provided'], 400);
             }
         } catch (\Exception $e) {
+            \Log::error('Error creating job from drag and drop:', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
             return response()->json(['error' => $e->getMessage()], 500);
         }
     }
@@ -819,12 +876,20 @@ class JobController extends Controller
 
             // Find the job
             $job = Job::findOrFail($id);
+            
+            // Store reference to old original file for cleanup
+            $oldOriginalFile = $job->originalFile;
 
             // Handle file upload and storage
             if ($request->hasFile('file')) {
                 $file = $request->file('file');
                 $fileExtension = $file->getClientOriginalExtension();
-                $pdfPath = $file->store('public/uploads', ['disk' => 'local']);
+                
+                // Store the original file in R2 if it's a PDF
+                $pdfPath = null;
+                if ($fileExtension === 'pdf') {
+                    $pdfPath = $this->templateStorageService->storeTemplate($file, 'job-originals');
+                }
 
                 if ($fileExtension === 'pdf') {
                     $imagick = new Imagick();
@@ -844,10 +909,33 @@ class JobController extends Controller
 
                     // Update job with file info and dimensions
                     $job->file = $imageFilename;
-                    $job->originalFile = $pdfPath;
+                    
+                    // Clear old original files and add the new one
+                    $job->originalFile = [];
+                    if ($pdfPath) {
+                        $job->addOriginalFile($pdfPath);
+                    }
+                    
                     $job->width = $widthInMm;
                     $job->height = $heightInMm;
                     $job->save();
+
+                    // Clean up old original files if they exist and are different from new file
+                    if ($oldOriginalFile) {
+                        $oldFiles = is_array($oldOriginalFile) ? $oldOriginalFile : [$oldOriginalFile];
+                        foreach ($oldFiles as $oldFile) {
+                            if ($oldFile && $oldFile !== $pdfPath) {
+                                try {
+                                    $this->templateStorageService->deleteTemplate($oldFile);
+                                } catch (\Exception $e) {
+                                    \Log::warning('Failed to delete old original file: ' . $e->getMessage(), [
+                                        'old_file' => $oldFile,
+                                        'job_id' => $id
+                                    ]);
+                                }
+                            }
+                        }
+                    }
 
                     return response()->json([
                         'message' => 'File updated successfully',
@@ -874,6 +962,26 @@ class JobController extends Controller
                     $job->width = $widthInMm;
                     $job->height = $heightInMm;
                     $job->save();
+
+                    // Clear original files since TIFF doesn't have an original file, but might be replacing a PDF
+                    $job->originalFile = [];
+                    
+                    // Clean up old original files if they exist (TIFF doesn't have originalFile, but might be replacing a PDF)
+                    if ($oldOriginalFile) {
+                        $oldFiles = is_array($oldOriginalFile) ? $oldOriginalFile : [$oldOriginalFile];
+                        foreach ($oldFiles as $oldFile) {
+                            if ($oldFile) {
+                                try {
+                                    $this->templateStorageService->deleteTemplate($oldFile);
+                                } catch (\Exception $e) {
+                                    \Log::warning('Failed to delete old original file: ' . $e->getMessage(), [
+                                        'old_file' => $oldFile,
+                                        'job_id' => $id
+                                    ]);
+                                }
+                            }
+                        }
+                    }
 
                     return response()->json([
                         'message' => 'File updated successfully',
@@ -1413,6 +1521,9 @@ class JobController extends Controller
             DB::beginTransaction();
 
             try {
+                // Store original files for cleanup before deleting the job
+                $originalFiles = $job->getOriginalFiles();
+
                 // Get all action IDs associated with this job
                 $actionIds = DB::table('job_job_action')
                     ->where('job_id', $job->id)
@@ -1428,10 +1539,75 @@ class JobController extends Controller
                     ->whereIn('id', $actionIds)
                     ->delete();
 
-                // Finally delete the job
+                // Delete the job from database first
                 $job->delete();
 
+                // Commit the database transaction before attempting file cleanup
                 DB::commit();
+
+                // Clean up original files from R2 storage after successful database deletion
+                if (!empty($originalFiles)) {
+                    foreach ($originalFiles as $filePath) {
+                        if ($filePath && str_starts_with($filePath, 'job-originals/')) {
+                            try {
+                                $this->templateStorageService->deleteTemplate($filePath);
+                                \Log::info('Successfully deleted original file from R2', [
+                                    'job_id' => $id,
+                                    'file_path' => $filePath
+                                ]);
+                            } catch (\Exception $e) {
+                                \Log::warning('Failed to delete original file from R2 storage: ' . $e->getMessage(), [
+                                    'job_id' => $id,
+                                    'file_path' => $filePath,
+                                    'error' => $e->getMessage()
+                                ]);
+                                // Don't fail the entire operation if file cleanup fails
+                            }
+                        } else if ($filePath) {
+                            // Handle legacy local files
+                            \Log::info('Skipping cleanup of legacy local file', [
+                                'job_id' => $id,
+                                'file_path' => $filePath
+                            ]);
+                        }
+                    }
+                }
+
+                // Clean up ALL thumbnails for this job from R2 storage
+                try {
+                    $thumbnailFiles = $this->templateStorageService->getDisk()->files('job-thumbnails');
+                    $deletedThumbnails = 0;
+                    
+                    foreach ($thumbnailFiles as $thumbFile) {
+                        $thumbBasename = basename($thumbFile);
+                        // Delete all thumbnails that belong to this job
+                        if (strpos($thumbBasename, 'job_' . $id . '_') === 0) {
+                            try {
+                                $this->templateStorageService->getDisk()->delete($thumbFile);
+                                $deletedThumbnails++;
+                                \Log::info('Successfully deleted thumbnail from R2', [
+                                    'job_id' => $id,
+                                    'thumbnail_path' => $thumbFile
+                                ]);
+                            } catch (\Exception $e) {
+                                \Log::warning('Failed to delete thumbnail from R2: ' . $e->getMessage(), [
+                                    'job_id' => $id,
+                                    'thumbnail_path' => $thumbFile
+                                ]);
+                            }
+                        }
+                    }
+                    
+                    \Log::info('Job deletion cleanup completed', [
+                        'job_id' => $id,
+                        'original_files_deleted' => count($originalFiles),
+                        'thumbnails_deleted' => $deletedThumbnails
+                    ]);
+                } catch (\Exception $e) {
+                    \Log::warning('Failed to cleanup thumbnails during job deletion: ' . $e->getMessage(), [
+                        'job_id' => $id
+                    ]);
+                }
 
                 return response()->json([
                     'message' => 'Job and related actions deleted successfully'
@@ -1516,5 +1692,715 @@ class JobController extends Controller
 
         // Return the ID of the first (oldest) available material
         return !empty($availableMaterials) ? $availableMaterials[0]->id : null;
+    }
+
+    /**
+     * Upload multiple files to a job
+     */
+    public function uploadMultipleFiles(Request $request, $id)
+    {
+        try {
+            // Validate the request
+            $request->validate([
+                'files' => 'required|array',
+                'files.*' => 'required|mimes:pdf|max:20480', // 20MB max per file
+            ]);
+
+            // Find the job
+            $job = Job::findOrFail($id);
+
+            $uploadedFiles = [];
+            $thumbnails = [];
+            $allFileDimensions = [];
+            // Start with existing job dimensions (for cumulative uploads)
+            $totalWidthMm = $job->width ?? 0;
+            $totalHeightMm = $job->height ?? 0;
+            $totalAreaM2 = 0; // Area will be calculated from individual files
+            $firstFilePreview = null;
+
+            \Log::info('Starting multiple file upload with existing dimensions', [
+                'job_id' => $id,
+                'existing_width_mm' => $totalWidthMm,
+                'existing_height_mm' => $totalHeightMm,
+                'files_to_upload' => count($request->file('files'))
+            ]);
+
+            foreach ($request->file('files') as $index => $file) {
+                // Store each file in R2
+                $filePath = $this->templateStorageService->storeTemplate($file, 'job-originals');
+                $uploadedFiles[] = $filePath;
+
+                // Calculate dimensions for EVERY file
+                try {
+                    $imagick = new \Imagick();
+                    $imagick->setOption('gs', "C:\Program Files\gs\gs10.02.0");
+                    $imagick->readImage($file->getPathname() . '[0]'); // Read the first page
+                    $imagick->setImageFormat('jpg');
+                    
+                    // Create temporary image for dimension calculation
+                    $tempImagePath = storage_path('app/temp/dim_calc_' . $index . '_' . time() . '.jpg');
+                    
+                    // Ensure temp directory exists
+                    if (!file_exists(dirname($tempImagePath))) {
+                        mkdir(dirname($tempImagePath), 0755, true);
+                    }
+                    
+                    $imagick->writeImage($tempImagePath);
+                    
+                    // Calculate dimensions from the image
+                    list($width, $height) = getimagesize($tempImagePath);
+                    $dpi = 72; // Default DPI if not available
+                    $widthInMm = ($width / $dpi) * 25.4;
+                    $heightInMm = ($height / $dpi) * 25.4;
+                    $areaM2 = ($widthInMm * $heightInMm) / 1000000;
+
+                    // Add to totals
+                    $totalWidthMm += $widthInMm;
+                    $totalHeightMm += $heightInMm;
+                    $totalAreaM2 += $areaM2;
+
+                    // Store individual file dimensions
+                    $allFileDimensions[] = [
+                        'filename' => $file->getClientOriginalName(),
+                        'width_mm' => $widthInMm,
+                        'height_mm' => $heightInMm,
+                        'area_m2' => $areaM2,
+                        'index' => $index
+                    ];
+
+                    // For the FIRST file, also create preview image for the job
+                    if ($index === 0) {
+                        $imageFilename = pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME) . '.jpg';
+                        $imagePath = storage_path('app/public/uploads/' . $imageFilename);
+                        copy($tempImagePath, $imagePath); // Copy temp image to uploads
+                        $firstFilePreview = $imageFilename;
+                    }
+                    
+                    // Clean up temp file
+                    if (file_exists($tempImagePath)) {
+                        unlink($tempImagePath);
+                    }
+                    
+                    $imagick->clear();
+                    
+                    \Log::info('Calculated dimensions for file', [
+                        'job_id' => $id,
+                        'file' => $file->getClientOriginalName(),
+                        'index' => $index,
+                        'width_mm' => $widthInMm,
+                        'height_mm' => $heightInMm,
+                        'area_m2' => $areaM2
+                    ]);
+                    
+                } catch (\Exception $e) {
+                    \Log::warning('Failed to calculate dimensions for file: ' . $e->getMessage(), [
+                        'file' => $file->getClientOriginalName(),
+                        'job_id' => $id,
+                        'index' => $index,
+                        'error_trace' => $e->getTraceAsString()
+                    ]);
+                    // Continue without dimensions for this file - don't fail the upload
+                }
+
+                // Generate thumbnail and store in R2
+                try {
+                    $imagick = new \Imagick();
+                    $imagick->setOption('gs', "C:\Program Files\gs\gs10.02.0");
+                    $imagick->readImage($file->getPathname() . '[0]'); // Read the first page
+                    $imagick->setImageFormat('jpg');
+                    
+                    // Create thumbnail in memory
+                    $thumbnailBlob = $imagick->getImageBlob();
+                    $imagick->clear();
+                    
+                    // Store thumbnail in R2
+                    $originalFilename = pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME);
+                    $thumbnailPath = 'job-thumbnails/job_' . $id . '_' . time() . '_' . $index . '_' . $originalFilename . '.jpg';
+                    
+                    // Upload thumbnail to R2
+                    $this->templateStorageService->getDisk()->put($thumbnailPath, $thumbnailBlob);
+
+                    \Log::info('Generated and stored thumbnail in R2', [
+                        'job_id' => $id,
+                        'file' => $file->getClientOriginalName(),
+                        'thumbnail_path' => $thumbnailPath,
+                        'original_file' => $filePath
+                    ]);
+
+                    $thumbnails[] = [
+                        'originalFile' => $filePath,
+                        'thumbnailPath' => $thumbnailPath,
+                        'filename' => $originalFilename,
+                        'type' => 'pdf',
+                        'index' => $index
+                    ];
+                } catch (\Exception $e) {
+                    \Log::warning('Failed to generate thumbnail for PDF: ' . $e->getMessage(), [
+                        'file' => $file->getClientOriginalName(),
+                        'job_id' => $id,
+                        'error_trace' => $e->getTraceAsString()
+                    ]);
+                    // Continue without thumbnail - show PDF icon instead
+                    $thumbnails[] = [
+                        'originalFile' => $filePath,
+                        'thumbnailPath' => null,
+                        'filename' => $originalFilename,
+                        'type' => 'pdf',
+                        'index' => $index,
+                        'error' => $e->getMessage()
+                    ];
+                }
+            }
+
+            // Add new files to existing original files (keep original behavior)
+            foreach ($uploadedFiles as $filePath) {
+                $job->addOriginalFile($filePath);
+            }
+
+            // Update job with total calculated dimensions
+            if ($totalWidthMm > 0 && $totalHeightMm > 0) {
+                $job->width = $totalWidthMm;
+                $job->height = $totalHeightMm;
+                
+                // Update preview image if we have one
+                if ($firstFilePreview) {
+                    $job->file = $firstFilePreview;
+                }
+                
+                \Log::info('Updated job with cumulative dimensions', [
+                    'job_id' => $id,
+                    'previous_width_mm' => $job->width ?? 0,
+                    'previous_height_mm' => $job->height ?? 0,
+                    'new_total_width_mm' => $totalWidthMm,
+                    'new_total_height_mm' => $totalHeightMm,
+                    'added_area_m2' => $totalAreaM2,
+                    'files_processed_this_batch' => count($allFileDimensions),
+                    'preview_image' => $firstFilePreview
+                ]);
+            }
+
+            $job->save();
+
+            return response()->json([
+                'message' => 'Files uploaded successfully',
+                'originalFiles' => $job->getOriginalFiles(),
+                'uploadedCount' => count($uploadedFiles),
+                'thumbnails' => $thumbnails,
+                'dimensions' => [
+                    'total_width_mm' => $totalWidthMm,
+                    'total_height_mm' => $totalHeightMm,
+                    'total_area_m2' => $totalAreaM2,
+                    'individual_files' => $allFileDimensions,
+                    'files_count' => count($allFileDimensions)
+                ],
+                'job_updated' => $totalWidthMm > 0 // Flag to indicate if job dimensions were updated
+            ]);
+
+        } catch (\Exception $e) {
+            \Log::error('Error uploading multiple files:', [
+                'job_id' => $id,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            return response()->json([
+                'error' => 'Failed to upload files',
+                'details' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Download a specific original file
+     */
+    public function downloadOriginalFile(Request $request, $id)
+    {
+        try {
+            $request->validate([
+                'file_path' => 'required|string'
+            ]);
+
+            // Find the job
+            $job = Job::findOrFail($id);
+            $filePath = $request->input('file_path');
+
+            // Verify the file belongs to this job
+            if (!in_array($filePath, $job->getOriginalFiles())) {
+                return response()->json(['error' => 'File not found for this job'], 404);
+            }
+
+            // Check if file exists in R2
+            if (!$this->templateStorageService->templateExists($filePath)) {
+                return response()->json(['error' => 'File not found in storage'], 404);
+            }
+
+            // Get the file content from R2
+            $fileContent = $this->templateStorageService->getDisk()->get($filePath);
+            $originalName = $this->templateStorageService->getOriginalFilename($filePath);
+            
+            return response($fileContent)
+                ->header('Content-Type', 'application/pdf')
+                ->header('Content-Disposition', 'attachment; filename="' . $originalName . '"')
+                ->header('Cache-Control', 'no-cache, no-store, must-revalidate')
+                ->header('Pragma', 'no-cache')
+                ->header('Expires', '0');
+
+        } catch (\Exception $e) {
+            \Log::error('Error downloading original file:', [
+                'job_id' => $id,
+                'file_path' => $request->input('file_path'),
+                'error' => $e->getMessage()
+            ]);
+
+            return response()->json([
+                'error' => 'Failed to download file',
+                'details' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Remove a specific original file
+     */
+    public function removeOriginalFile(Request $request, $id)
+    {
+        try {
+            $request->validate([
+                'file_index' => 'required|integer|min:0'
+            ]);
+
+            // Find the job
+            $job = Job::findOrFail($id);
+            $fileIndex = $request->input('file_index');
+            $originalFiles = $job->getOriginalFiles();
+
+            // Check if the index is valid
+            if (!isset($originalFiles[$fileIndex])) {
+                return response()->json(['error' => 'File index not found'], 404);
+            }
+
+            $fileToRemove = $originalFiles[$fileIndex];
+
+            // Remove the file from the job
+            if ($job->removeOriginalFile($fileToRemove)) {
+                $job->save();
+
+                // Delete the file from R2 storage
+                if (str_starts_with($fileToRemove, 'job-originals/')) {
+                    try {
+                        $this->templateStorageService->deleteTemplate($fileToRemove);
+                        \Log::info('Successfully deleted original file from R2', [
+                            'job_id' => $id,
+                            'file_path' => $fileToRemove
+                        ]);
+                    } catch (\Exception $e) {
+                        \Log::warning('Failed to delete file from R2 storage: ' . $e->getMessage(), [
+                            'job_id' => $id,
+                            'file_path' => $fileToRemove,
+                            'error' => $e->getMessage()
+                        ]);
+                        // Don't fail the operation if file cleanup fails
+                    }
+                }
+
+                // Clean up associated thumbnail from R2
+                $this->cleanupThumbnailForFile($id, $fileIndex, pathinfo(basename($fileToRemove), PATHINFO_FILENAME));
+
+                \Log::info('File removed successfully', [
+                    'job_id' => $id,
+                    'removed_file' => $fileToRemove,
+                    'remaining_files' => $job->getOriginalFiles()
+                ]);
+
+                return response()->json([
+                    'message' => 'File removed successfully',
+                    'originalFiles' => $job->getOriginalFiles()
+                ]);
+            } else {
+                return response()->json(['error' => 'Failed to remove file'], 500);
+            }
+
+        } catch (\Exception $e) {
+            \Log::error('Error removing original file:', [
+                'job_id' => $id,
+                'file_index' => $request->input('file_index'),
+                'error' => $e->getMessage()
+            ]);
+
+            return response()->json([
+                'error' => 'Failed to remove file',
+                'details' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Get thumbnails for all files in a job
+     */
+    public function getJobThumbnails($id)
+    {
+        try {
+            $job = Job::findOrFail($id);
+            $thumbnails = [];
+
+            \Log::info('Getting thumbnails for job', [
+                'job_id' => $id,
+                'original_files' => $job->getOriginalFiles()
+            ]);
+
+            // Process all original files and find their thumbnails in R2
+            foreach ($job->getOriginalFiles() as $index => $originalFile) {
+                $originalFileName = pathinfo(basename($originalFile), PATHINFO_FILENAME);
+                
+                // Try to find thumbnail in R2 for this file
+                $thumbnailPath = null;
+                
+                try {
+                    // List files in the job-thumbnails directory
+                    $thumbnailFiles = $this->templateStorageService->getDisk()->files('job-thumbnails');
+                    
+                    foreach ($thumbnailFiles as $thumbFile) {
+                        $thumbBasename = basename($thumbFile);
+                        // Check if this thumbnail belongs to this job and matches the original file
+                        if (strpos($thumbBasename, 'job_' . $id . '_') === 0 && 
+                            strpos($thumbBasename, '_' . $index . '_') !== false &&
+                            strpos($thumbBasename, $originalFileName) !== false) {
+                            $thumbnailPath = $thumbFile;
+                            break;
+                        }
+                    }
+                } catch (\Exception $e) {
+                    \Log::warning('Failed to list R2 thumbnails: ' . $e->getMessage());
+                }
+
+                $thumbnailData = [
+                    'type' => 'pdf',
+                    'thumbnailPath' => $thumbnailPath,
+                    'originalFile' => $originalFile,
+                    'index' => $index,
+                    'filename' => $originalFileName
+                ];
+
+                $thumbnails[] = $thumbnailData;
+
+                \Log::info('Thumbnail search result', [
+                    'index' => $index,
+                    'original_file' => $originalFile,
+                    'thumbnail_path' => $thumbnailPath,
+                    'filename' => $originalFileName
+                ]);
+            }
+
+            return response()->json([
+                'thumbnails' => $thumbnails,
+                'debug' => [
+                    'job_id' => $id,
+                    'original_files_count' => count($job->getOriginalFiles())
+                ]
+            ]);
+
+        } catch (\Exception $e) {
+            \Log::error('Error getting job thumbnails:', [
+                'job_id' => $id,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            return response()->json([
+                'error' => 'Failed to get thumbnails',
+                'details' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+
+
+
+
+    /**
+     * Serve job original file with authentication (similar to catalog template download)
+     */
+    public function viewOriginalFile($jobId, $fileIndex)
+    {
+        try {
+            $job = Job::findOrFail($jobId);
+            $originalFiles = $job->getOriginalFiles();
+
+            // Check if the file index is valid
+            if (!isset($originalFiles[$fileIndex])) {
+                return response()->json(['error' => 'File not found'], 404);
+            }
+
+            $filePath = $originalFiles[$fileIndex];
+
+            // Check if file exists in R2
+            if (!$this->templateStorageService->templateExists($filePath)) {
+                return response()->json(['error' => 'File not found in storage'], 404);
+            }
+
+            // Get the file content from R2
+            $fileContent = $this->templateStorageService->getDisk()->get($filePath);
+            $originalName = $this->templateStorageService->getOriginalFilename($filePath);
+            
+            \Log::info('Serving job original file', [
+                'job_id' => $jobId,
+                'file_index' => $fileIndex,
+                'file_path' => $filePath,
+                'original_name' => $originalName
+            ]);
+
+            return response($fileContent)
+                ->header('Content-Type', 'application/pdf')
+                ->header('Content-Disposition', 'inline; filename="' . $originalName . '"')
+                ->header('Cache-Control', 'no-cache, no-store, must-revalidate')
+                ->header('Pragma', 'no-cache')
+                ->header('Expires', '0');
+
+        } catch (\Exception $e) {
+            \Log::error('Error serving job original file:', [
+                'job_id' => $jobId,
+                'file_index' => $fileIndex,
+                'error' => $e->getMessage()
+            ]);
+
+            return response()->json(['error' => 'Failed to serve file'], 500);
+        }
+    }
+
+    /**
+     * Serve job thumbnail with authentication
+     */
+    public function viewThumbnail($jobId, $fileIndex)
+    {
+        try {
+            $job = Job::findOrFail($jobId);
+            $originalFiles = $job->getOriginalFiles();
+
+            // Check if the file index is valid
+            if (!isset($originalFiles[$fileIndex])) {
+                \Log::warning('File index not found', [
+                    'job_id' => $jobId,
+                    'file_index' => $fileIndex,
+                    'available_files' => $originalFiles
+                ]);
+                return response()->json(['error' => 'File not found'], 404);
+            }
+
+            // Find ALL thumbnails for this job and sort them by timestamp
+            $thumbnailPath = null;
+            
+            try {
+                // List files in the job-thumbnails directory
+                $thumbnailFiles = $this->templateStorageService->getDisk()->files('job-thumbnails');
+                
+                // Get all thumbnails for this job
+                $jobThumbnails = [];
+                foreach ($thumbnailFiles as $thumbFile) {
+                    $thumbBasename = basename($thumbFile);
+                    if (strpos($thumbBasename, 'job_' . $jobId . '_') === 0) {
+                        // Extract timestamp from filename: job_ID_TIMESTAMP_INDEX_filename.jpg
+                        if (preg_match('/job_' . $jobId . '_(\d+)_(\d+)_/', $thumbBasename, $matches)) {
+                            $timestamp = $matches[1];
+                            $originalIndex = $matches[2];
+                            $jobThumbnails[] = [
+                                'path' => $thumbFile,
+                                'timestamp' => (int)$timestamp,
+                                'original_index' => (int)$originalIndex,
+                                'basename' => $thumbBasename
+                            ];
+                        }
+                    }
+                }
+                
+                \Log::info('Found thumbnails for job', [
+                    'job_id' => $jobId,
+                    'requested_index' => $fileIndex,
+                    'found_thumbnails' => $jobThumbnails
+                ]);
+                
+                // Sort by timestamp to get chronological order
+                usort($jobThumbnails, function($a, $b) {
+                    return $a['timestamp'] <=> $b['timestamp'];
+                });
+                
+                // Get the thumbnail for the requested index (0-based from sorted list)
+                if (isset($jobThumbnails[$fileIndex])) {
+                    $thumbnailPath = $jobThumbnails[$fileIndex]['path'];
+                    \Log::info('Serving thumbnail by position', [
+                        'job_id' => $jobId,
+                        'requested_index' => $fileIndex,
+                        'thumbnail_path' => $thumbnailPath,
+                        'original_index_in_filename' => $jobThumbnails[$fileIndex]['original_index']
+                    ]);
+                }
+                
+            } catch (\Exception $e) {
+                \Log::warning('Failed to find thumbnail: ' . $e->getMessage());
+                return response()->json(['error' => 'Thumbnail not found'], 404);
+            }
+
+            if (!$thumbnailPath) {
+                \Log::warning('No thumbnail found for requested index', [
+                    'job_id' => $jobId,
+                    'file_index' => $fileIndex,
+                    'available_count' => count($jobThumbnails ?? [])
+                ]);
+                return response()->json(['error' => 'Thumbnail not found'], 404);
+            }
+
+            // Check if thumbnail exists in R2
+            if (!$this->templateStorageService->getDisk()->exists($thumbnailPath)) {
+                \Log::warning('Thumbnail not found in R2 storage', [
+                    'thumbnail_path' => $thumbnailPath
+                ]);
+                return response()->json(['error' => 'Thumbnail not found in storage'], 404);
+            }
+
+            // Get the thumbnail content from R2
+            $thumbnailContent = $this->templateStorageService->getDisk()->get($thumbnailPath);
+            
+            \Log::info('Successfully serving job thumbnail', [
+                'job_id' => $jobId,
+                'file_index' => $fileIndex,
+                'thumbnail_path' => $thumbnailPath,
+                'content_size' => strlen($thumbnailContent)
+            ]);
+
+            return response($thumbnailContent)
+                ->header('Content-Type', 'image/jpeg')
+                ->header('Cache-Control', 'public, max-age=3600')
+                ->header('Expires', gmdate('D, d M Y H:i:s \G\M\T', time() + 3600));
+
+        } catch (\Exception $e) {
+            \Log::error('Error serving job thumbnail:', [
+                'job_id' => $jobId,
+                'file_index' => $fileIndex,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            return response()->json(['error' => 'Failed to serve thumbnail'], 500);
+        }
+    }
+
+    /**
+     * Clean up a specific thumbnail for a removed file
+     */
+    private function cleanupThumbnailForFile($jobId, $fileIndex, $originalFileName)
+    {
+        try {
+            // List all thumbnails in R2 for this job
+            $thumbnailFiles = $this->templateStorageService->getDisk()->files('job-thumbnails');
+            
+            // Get all thumbnails for this job and sort them by timestamp
+            $jobThumbnails = [];
+            foreach ($thumbnailFiles as $thumbFile) {
+                $thumbBasename = basename($thumbFile);
+                if (strpos($thumbBasename, 'job_' . $jobId . '_') === 0) {
+                    // Extract timestamp from filename: job_ID_TIMESTAMP_INDEX_filename.jpg
+                    if (preg_match('/job_' . $jobId . '_(\d+)_(\d+)_/', $thumbBasename, $matches)) {
+                        $timestamp = $matches[1];
+                        $originalIndex = $matches[2];
+                        $jobThumbnails[] = [
+                            'path' => $thumbFile,
+                            'timestamp' => (int)$timestamp,
+                            'original_index' => (int)$originalIndex,
+                            'basename' => $thumbBasename
+                        ];
+                    }
+                }
+            }
+            
+            // Sort by timestamp to get chronological order
+            usort($jobThumbnails, function($a, $b) {
+                return $a['timestamp'] <=> $b['timestamp'];
+            });
+            
+            \Log::info('Cleaning up thumbnail for removed file', [
+                'job_id' => $jobId,
+                'file_index' => $fileIndex,
+                'available_thumbnails' => count($jobThumbnails),
+                'thumbnails' => $jobThumbnails
+            ]);
+            
+            // Delete the thumbnail at the specified index position
+            if (isset($jobThumbnails[$fileIndex])) {
+                $thumbnailToDelete = $jobThumbnails[$fileIndex];
+                
+                try {
+                    $this->templateStorageService->getDisk()->delete($thumbnailToDelete['path']);
+                    \Log::info('Successfully deleted specific thumbnail from R2', [
+                        'job_id' => $jobId,
+                        'file_index' => $fileIndex,
+                        'thumbnail_path' => $thumbnailToDelete['path'],
+                        'original_index_in_filename' => $thumbnailToDelete['original_index']
+                    ]);
+                } catch (\Exception $e) {
+                    \Log::error('Failed to delete specific thumbnail: ' . $e->getMessage(), [
+                        'job_id' => $jobId,
+                        'file_index' => $fileIndex,
+                        'thumbnail_path' => $thumbnailToDelete['path']
+                    ]);
+                }
+            } else {
+                \Log::warning('No thumbnail found at index for deletion', [
+                    'job_id' => $jobId,
+                    'file_index' => $fileIndex,
+                    'available_count' => count($jobThumbnails)
+                ]);
+            }
+            
+        } catch (\Exception $e) {
+            \Log::error('Failed to cleanup specific thumbnail: ' . $e->getMessage(), [
+                'job_id' => $jobId,
+                'file_index' => $fileIndex,
+                'trace' => $e->getTraceAsString()
+            ]);
+        }
+    }
+
+    /**
+     * Generate and store thumbnail for a single file
+     */
+    private function generateThumbnail($imagePath, $jobId, $fileIndex, $originalFileName)
+    {
+        try {
+            // Read the image and create thumbnail
+            $imagick = new \Imagick();
+            $imagick->readImage($imagePath);
+            $imagick->setImageFormat('jpg');
+            $imagick->resizeImage(200, 200, \Imagick::FILTER_LANCZOS, 1, true); // Resize to thumbnail size
+            
+            // Create thumbnail in memory
+            $thumbnailBlob = $imagick->getImageBlob();
+            $imagick->clear();
+            
+            // Store thumbnail in R2
+            $originalFilename = pathinfo($originalFileName, PATHINFO_FILENAME);
+            $thumbnailPath = 'job-thumbnails/job_' . $jobId . '_' . time() . '_' . $fileIndex . '_' . $originalFilename . '.jpg';
+            
+            // Upload thumbnail to R2
+            $this->templateStorageService->getDisk()->put($thumbnailPath, $thumbnailBlob);
+
+            \Log::info('Generated and stored thumbnail in R2', [
+                'job_id' => $jobId,
+                'file_index' => $fileIndex,
+                'original_filename' => $originalFileName,
+                'thumbnail_path' => $thumbnailPath,
+                'image_path' => $imagePath
+            ]);
+
+            return $thumbnailPath;
+            
+        } catch (\Exception $e) {
+            \Log::warning('Failed to generate thumbnail: ' . $e->getMessage(), [
+                'job_id' => $jobId,
+                'file_index' => $fileIndex,
+                'original_filename' => $originalFileName,
+                'image_path' => $imagePath,
+                'error_trace' => $e->getTraceAsString()
+            ]);
+            return null;
+        }
     }
 }

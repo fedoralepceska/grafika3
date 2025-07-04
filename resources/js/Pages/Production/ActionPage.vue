@@ -73,17 +73,35 @@
                                 'orange2' :  invoice.comment && !acknowledged && !job.hasNote
                             }">
                                 <td class="bg-white !text-black"><strong>#{{jobIndex+1}}</strong></td>
-                                <td class="flex">
-                                    <button @click="toggleImagePopover(job)">
-                                        <img :src="getImageUrl(invoice.id, job.id)" alt="Job Image" class="jobImg thumbnail"/>
-                                    </button>
-                                    <div v-if="showImagePopover" class="popover">
-                                        <div class="popover-content bg-gray-700">
-                                            <img :src="getImageUrl(invoice.id, selectedJob.id)" alt="Job Image" />
-                                            <button @click="toggleImagePopover(null)" class="popover-close"><icon class="text-white fa fa-close"/></button>
+                                <td class="image-cell">
+                                    <!-- Multiple file thumbnails for new system -->
+                                    <template v-if="hasMultipleFiles(job)">
+                                        <div class="thumbnail-grid">
+                                            <div 
+                                                v-for="(file, fileIndex) in getJobFiles(job)" 
+                                                :key="fileIndex" 
+                                                class="thumbnail-container"
+                                                @click="openPreviewModal(job, fileIndex)"
+                                            >
+                                                <img 
+                                                    :src="getThumbnailUrl(job.id, fileIndex)" 
+                                                    :alt="`File ${fileIndex + 1}`" 
+                                                    class="jobImg thumbnail"
+                                                    @error="handleThumbnailError($event, fileIndex)"
+                                                />
+                                                <div class="thumbnail-number">{{ fileIndex + 1 }}</div>
+                                            </div>
                                         </div>
-                                    </div>
-                                    {{job.file}}
+                                        <div class="file-count">{{ getJobFiles(job).length }} files</div>
+                                    </template>
+                                    
+                                    <!-- Legacy single file support -->
+                                    <template v-else>
+                                        <button @click="toggleImagePopover(job)">
+                                            <img :src="getImageUrl(invoice.id, job.id)" alt="Job Image" class="jobImg thumbnail"/>
+                                        </button>
+                                        <div class="file-name">{{job.file}}</div>
+                                    </template>
                                 </td>
                                 <td>{{job.quantity}}</td>
                                 <td>{{job.copies}}</td>
@@ -176,6 +194,52 @@
                     />
                 </div>
             </div>
+
+            <!-- Legacy image popover -->
+            <div v-if="showImagePopover && selectedJob" class="popover">
+                <div class="popover-content bg-gray-700">
+                    <img :src="'/storage/uploads/' + selectedJob.file" alt="Job Image" />
+                    <button @click="toggleImagePopover(null)" class="popover-close">
+                        <i class="text-white fa fa-close"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- PDF Preview Modal for multiple files -->
+            <div v-if="showPreviewModal" class="preview-modal" @click="closePreviewModal">
+                <div class="preview-modal-content" @click.stop>
+                    <div class="preview-modal-header">
+                        <h3>File {{ currentFileIndex + 1 }} of {{ getJobFiles(currentJob).length }}</h3>
+                        <button @click="closePreviewModal" class="close-btn">
+                            <i class="fa fa-times"></i>
+                        </button>
+                    </div>
+                    <div class="preview-modal-body">
+                        <iframe 
+                            v-if="currentJob && currentFileIndex !== null"
+                            :src="getOriginalFileUrl(currentJob.id, currentFileIndex)" 
+                            class="pdf-iframe"
+                        ></iframe>
+                    </div>
+                    <div class="preview-modal-footer" v-if="getJobFiles(currentJob).length > 1">
+                        <button 
+                            @click="previousFile" 
+                            :disabled="currentFileIndex === 0"
+                            class="nav-btn"
+                        >
+                            <i class="fa fa-chevron-left"></i> Previous
+                        </button>
+                        <span class="file-counter">{{ currentFileIndex + 1 }} / {{ getJobFiles(currentJob).length }}</span>
+                        <button 
+                            @click="nextFile" 
+                            :disabled="currentFileIndex === getJobFiles(currentJob).length - 1"
+                            class="nav-btn"
+                        >
+                            Next <i class="fa fa-chevron-right"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
         </div>
     </MainLayout>
 </template>
@@ -210,6 +274,9 @@ export default {
             timers: {},
             elapsedTimes: {},
             jobDisabledStatus: {},
+            showPreviewModal: false,
+            currentFileIndex: null,
+            currentJob: null,
         };
     },
     created() {
@@ -332,7 +399,8 @@ export default {
             this.jobViewMode = this.jobViewMode === index ? null : index;
         },
         getImageUrl(invoiceId, jobId) {
-            return `/storage/uploads/${this.invoices.find(i => i.id === invoiceId).jobs.find(j => j.id === jobId).file}`
+            const job = this.invoices.find(i => i.id === invoiceId)?.jobs.find(j => j.id === jobId);
+            return `/storage/uploads/${job?.file}`
         },
         openModal(index) {
             this.showModal = true;
@@ -602,6 +670,48 @@ export default {
         navigateToOrder(orderID) {
             this.$inertia.visit(`/orders/${orderID}`);
         },
+        hasMultipleFiles(job) {
+            // Check if job has originalFile array (new system) or if it's legacy single file
+            return Array.isArray(job.originalFile) && job.originalFile.length > 0;
+        },
+        getJobFiles(job) {
+            // Return originalFile array for new system, or create array from legacy file
+            if (Array.isArray(job.originalFile)) {
+                return job.originalFile;
+            }
+            return job.file ? [job.file] : [];
+        },
+        getThumbnailUrl(jobId, fileIndex) {
+            return `/jobs/${jobId}/view-thumbnail/${fileIndex}`;
+        },
+        handleThumbnailError(event, fileIndex) {
+            // Show PDF icon as fallback for thumbnail errors
+            event.target.src = '/images/pdf.png';
+            console.log(`Thumbnail loading failed for file index ${fileIndex}`);
+        },
+        openPreviewModal(job, fileIndex) {
+            this.currentFileIndex = fileIndex;
+            this.currentJob = job;
+            this.showPreviewModal = true;
+        },
+        closePreviewModal() {
+            this.showPreviewModal = false;
+            this.currentFileIndex = null;
+            this.currentJob = null;
+        },
+        previousFile() {
+            if (this.currentFileIndex > 0) {
+                this.currentFileIndex--;
+            }
+        },
+        nextFile() {
+            if (this.currentFileIndex < this.getJobFiles(this.currentJob).length - 1) {
+                this.currentFileIndex++;
+            }
+        },
+        getOriginalFileUrl(jobId, fileIndex) {
+            return `/jobs/${jobId}/view-original-file/${fileIndex}`;
+        },
     },
 }
 </script>
@@ -792,6 +902,164 @@ td{
 
     i {
         font-size: 1.2em;
+    }
+}
+
+.image-cell {
+    min-width: 120px;
+    padding: 10px;
+}
+
+.thumbnail-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+    justify-content: center;
+    margin-bottom: 5px;
+}
+
+.thumbnail-container {
+    position: relative;
+    width: 45px;
+    height: 45px;
+    overflow: hidden;
+    border-radius: 4px;
+    cursor: pointer;
+    border: 2px solid transparent;
+    transition: border-color 0.2s;
+
+    &:hover {
+        border-color: #fff;
+    }
+
+    img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    .thumbnail-number {
+        position: absolute;
+        top: 2px;
+        right: 2px;
+        background-color: rgba(0, 0, 0, 0.8);
+        color: white;
+        padding: 1px 4px;
+        border-radius: 2px;
+        font-size: 10px;
+        font-weight: bold;
+    }
+}
+
+.file-count {
+    font-size: 11px;
+    text-align: center;
+    color: #ffffff80;
+}
+
+.file-name {
+    font-size: 11px;
+    text-align: center;
+    color: #ffffff80;
+    margin-top: 5px;
+    word-break: break-all;
+}
+
+.preview-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background-color: rgba(0, 0, 0, 0.8);
+    z-index: 1000;
+
+    .preview-modal-content {
+        background-color: #2d3748;
+        padding: 20px;
+        border-radius: 8px;
+        width: 90%;
+        max-width: 900px;
+        max-height: 90vh;
+        position: relative;
+        color: white;
+
+        .preview-modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            border-bottom: 1px solid #4a5568;
+            padding-bottom: 10px;
+
+            h3 {
+                margin: 0;
+                color: white;
+            }
+
+            .close-btn {
+                background: none;
+                border: none;
+                color: white;
+                font-size: 1.5em;
+                cursor: pointer;
+                padding: 5px;
+                border-radius: 4px;
+                
+                &:hover {
+                    background-color: rgba(255, 255, 255, 0.1);
+                }
+            }
+        }
+
+        .preview-modal-body {
+            height: 60vh;
+            position: relative;
+
+            .pdf-iframe {
+                width: 100%;
+                height: 100%;
+                border: none;
+                border-radius: 4px;
+            }
+        }
+
+        .preview-modal-footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 15px;
+            padding-top: 2px;
+            
+            .nav-btn {
+                background-color: #4a5568;
+                border: none;
+                color: white;
+                font-size: 1em;
+                cursor: pointer;
+                padding: 8px 16px;
+                border-radius: 4px;
+                transition: background-color 0.2s;
+
+                &:hover:not(:disabled) {
+                    background-color: #2d3748;
+                }
+
+                &:disabled {
+                    opacity: 0.5;
+                    cursor: not-allowed;
+                }
+            }
+
+            .file-counter {
+                margin: 0 10px;
+                font-weight: bold;
+                color: white;
+            }
+        }
     }
 }
 </style>

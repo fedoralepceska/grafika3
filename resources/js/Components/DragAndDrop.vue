@@ -2,7 +2,7 @@
     <div class="FileBox light-gray">
         <TabsWrapper>
             <Tab title="Art" icon="mdi-file-image">
-                <div class="flex pb-1 justify-center gap-4">
+                <div class="flex pb-1 pt-2 justify-center gap-4">
                     <!-- Drop Area -->
                     <div class="drop-zone-container">
                         <div
@@ -44,7 +44,7 @@
                 <!-- File Size and Details -->
                 <div class="fbox ultra-light-gray rounded flex justify-between text-center m-6">
                     <div class="text-white flex-wrap align-center d-flex p-2">
-                        Files: {{ fileJobs.length }} Uploaded: {{ calculateTotalFileSize() }}MB<br>
+                        Jobs: {{ fileJobs.length }} | Total Size: {{ calculateTotalFileSize() }}MB<br>
                     </div>
                     <div class="position-relative p-2">
                         <button
@@ -55,8 +55,13 @@
                             Details
                         </button>
                         <div v-if="showPopover" class="popover">
-                            <div v-for="job in fileJobs" :key="job.file.name">
-                                {{ job.file.name }} ({{ jobSize(job.fileSize) }}MB)
+                            <div v-for="job in fileJobs" :key="job.id || job.file.name">
+                                <strong>{{ job.file || 'Unknown' }}</strong> ({{ jobSize(job.fileSize) }}MB)
+                                <br>
+                                <small class="text-green-300">
+                                    ✓ R2 Cloud Storage ({{ job.original_files_count || 1 }} original files)
+                                </small>
+                                <br><br>
                             </div>
                         </div>
                     </div>
@@ -187,21 +192,25 @@ export default {
             try {
                 const tempJob = await this.createJob(file);
 
-                const response = await axios.get(`/jobs/${tempJob.id}/image-dimensions`);
-                await axios.put(`/jobs/${tempJob.id}`, {
-                    width: response.data.width,
-                    height: response.data.height,
-                });
-
+                // Job dimensions are now calculated during creation
                 this.jobs.push({
                     file: tempJob.file,
-                    width: response.data.width,
-                    height: response.data.height,
+                    width: tempJob.width || 0,
+                    height: tempJob.height || 0,
                     id: tempJob.id,
                     fileSize: file.size,
+                    originalFile: tempJob.originalFile || [], // R2 storage structure
+                    has_original_files: true, // Always true for R2 storage
+                    original_files_count: tempJob.original_files_count || 1,
+                    storage_type: 'R2'
                 });
+
+                const toast = useToast();
+                toast.success(`File uploaded successfully to R2 cloud storage.`);
             } catch (error) {
                 console.error('Error creating job:', error);
+                const toast = useToast();
+                toast.error('Failed to create job from uploaded file');
             }
         },
 
@@ -230,16 +239,23 @@ export default {
                     this.jobs[index] = {
                         ...job,
                         file: tempJob.file,
+                        width: tempJob.width || job.width || 0,
+                        height: tempJob.height || job.height || 0,
+                        originalFile: tempJob.originalFile || [], // R2 storage structure
+                        has_original_files: true, // Always true for R2 storage
+                        original_files_count: tempJob.original_files_count || 1,
+                        storage_type: 'R2',
                         isPlaceholder: false,
                         needsFile: false,
                     };
                 }
 
                 const toast = useToast();
-                toast.success('File uploaded successfully');
+                toast.success('File uploaded successfully to R2 cloud storage.');
             } catch (error) {
                 const toast = useToast();
                 toast.error('Failed to upload file');
+                console.error('Error uploading placeholder file:', error);
             }
         },
     },

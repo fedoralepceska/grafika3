@@ -23,6 +23,7 @@ use Inertia\Inertia;
 use Milon\Barcode\DNS1D;
 use ZipArchive;
 use function PHPUnit\Framework\isEmpty;
+use App\Services\TemplateStorageService;
 
 class InvoiceController extends Controller
 {
@@ -157,13 +158,33 @@ class InvoiceController extends Controller
             $errorMessages = [];
 
             foreach ($jobs as $job) {
+                // Check if job has a catalog item before proceeding
+                if (!$job->catalogItem) {
+                    \Log::warning('Job without catalog item found during invoice creation', [
+                        'job_id' => $job->id,
+                        'invoice_id' => $invoiceId
+                    ]);
+                    continue; // Skip this job if no catalog item
+                }
+
                 $catalogItemArticle = DB::table('catalog_item_articles')
                     ->select()
                     ->where('catalog_item_id', $job->catalogItem->id)
                     ->get();
+                
+                // Skip if no catalog item articles found
+                if ($catalogItemArticle->isEmpty()) {
+                    \Log::warning('No catalog item articles found for job', [
+                        'job_id' => $job->id,
+                        'catalog_item_id' => $job->catalogItem->id
+                    ]);
+                    continue;
+                }
+
                 // Update Large Material
                 if ($job->large_material_id !== null) {
                     $large_material = LargeFormatMaterial::with('article')->find($job->large_material_id);
+                    if ($large_material) {
                     $neededQuantity = $catalogItemArticle[0]->quantity * $job->copies;
                     if ($neededQuantity > (int) $large_material->quantity) {
                         $errorMessages[] = "For the catalog item {$job->catalogItem->name} with material {$large_material->name}, you need {$neededQuantity} (quantity), but you only have {$large_material->quantity} in storage.";
@@ -174,10 +195,18 @@ class InvoiceController extends Controller
                         $large_material->quantity -= $job->copies;
                     }
                     $large_material->save();
+                    } else {
+                        \Log::warning('Large material not found for job', [
+                            'job_id' => $job->id,
+                            'large_material_id' => $job->large_material_id
+                        ]);
                 }
+                }
+                
                 // Update Small Material
                 if ($job->small_material_id !== null) {
                     $small_material = SmallMaterial::with('article')->find($job->small_material_id);
+                    if ($small_material) {
                     $neededQuantity = (int) $catalogItemArticle[0]->quantity * $job->copies;
                     if ($neededQuantity > (int) $small_material->quantity) {
                         $errorMessages[] = "For the catalog item '{$job->catalogItem->name}', which uses the material '{$small_material->name}', you need {$neededQuantity} units, but only {$small_material->quantity} are available in storage.";
@@ -188,16 +217,47 @@ class InvoiceController extends Controller
                         $small_material->quantity -= $job->copies;
                     }
                     $small_material->save();
+                    } else {
+                        \Log::warning('Small material not found for job', [
+                            'job_id' => $job->id,
+                            'small_material_id' => $job->small_material_id
+                        ]);
+                    }
                 }
 
-                if ($job->originalFile) {
-                    // Define the new path for the original file
-                    $newPath = $clientName . '/' . $invoice->id . '/' . basename($job->originalFile);
-                    // Move the original file to the new directory
-                    Storage::move($job->originalFile, $newPath);
-                    // Update the job with the new file path
-                    $job->originalFile = $newPath;
+                if ($job->hasOriginalFiles()) {
+                    $originalFiles = $job->getOriginalFiles();
+                    $updatedFiles = [];
+                    
+                    foreach ($originalFiles as $originalFile) {
+                        // Skip file organization for R2-stored files (they are already properly organized)
+                        // R2 files start with 'job-originals/' and don't need to be moved
+                        if (!str_starts_with($originalFile, 'job-originals/')) {
+                            // This is a legacy local file, attempt to move it
+                            try {
+                                $newPath = $clientName . '/' . $invoice->id . '/' . basename($originalFile);
+                                Storage::move($originalFile, $newPath);
+                                $updatedFiles[] = $newPath;
+                            } catch (\Exception $e) {
+                                \Log::warning('Failed to move legacy original file: ' . $e->getMessage(), [
+                                    'old_file' => $originalFile,
+                                    'new_path' => $newPath ?? 'unknown',
+                                    'job_id' => $job->id
+                                ]);
+                                // Keep the original path if move failed
+                                $updatedFiles[] = $originalFile;
+                            }
+                        } else {
+                            // R2 files don't need to be moved, they stay in their original location
+                            $updatedFiles[] = $originalFile;
+                        }
+                    }
+                    
+                    // Update the job with the new file paths if any changes were made
+                    if ($updatedFiles !== $originalFiles) {
+                        $job->originalFile = $updatedFiles;
                     $job->save();
+                    }
                 }
             }
             // Check if there are any errors and throw them as a single exception
@@ -419,8 +479,72 @@ class InvoiceController extends Controller
 
     public function generateInvoicePdf($invoiceId)
     {
-        $invoice = Invoice::with(['jobs','contact','user'])->findOrFail($invoiceId);
+        $invoice = Invoice::with(['jobs.actions','contact','user'])->findOrFail($invoiceId);
 
+        // Prepare thumbnails for PDF generation
+        $tempFiles = [];
+        
+        foreach ($invoice->jobs as $job) {
+            $originalFiles = is_array($job->originalFile) ? $job->originalFile : [];
+            
+            if (count($originalFiles) > 0) {
+                // This job has multiple files, download thumbnails from R2
+                $localThumbnails = [];
+                
+                foreach ($originalFiles as $index => $filePath) {
+                    try {
+                        // Find thumbnail in R2
+                        $disk = app(TemplateStorageService::class)->getDisk();
+                        
+                        // List all thumbnails for this job
+                        $allThumbnails = $disk->files('job-thumbnails/');
+                        
+                        // Find any thumbnail that contains this job ID
+                        $jobThumbnails = array_filter($allThumbnails, function($file) use ($job) {
+                            return strpos($file, 'job_' . $job->id . '_') !== false;
+                        });
+                        
+                        // Sort by timestamp (chronological order)
+                        usort($jobThumbnails, function($a, $b) {
+                            // Extract timestamp from filename: job_123_1234567890_0_filename.jpg
+                            preg_match('/job_\d+_(\d+)_/', $a, $matchesA);
+                            preg_match('/job_\d+_(\d+)_/', $b, $matchesB);
+                            $timestampA = isset($matchesA[1]) ? (int)$matchesA[1] : 0;
+                            $timestampB = isset($matchesB[1]) ? (int)$matchesB[1] : 0;
+                            return $timestampA <=> $timestampB;
+                        });
+                        
+                        // Get the thumbnail for this specific index
+                        if (isset($jobThumbnails[$index])) {
+                            $thumbnailPath = $jobThumbnails[$index];
+                            
+                            // Download to temporary local storage
+                            $tempFileName = 'temp_thumbnail_' . $job->id . '_' . $index . '_' . time() . '.jpg';
+                            $tempPath = storage_path('app/temp/' . $tempFileName);
+                            
+                            // Ensure temp directory exists
+                            if (!file_exists(dirname($tempPath))) {
+                                mkdir(dirname($tempPath), 0755, true);
+                            }
+                            
+                            // Download thumbnail content
+                            $thumbnailContent = $disk->get($thumbnailPath);
+                            file_put_contents($tempPath, $thumbnailContent);
+                            
+                            $localThumbnails[] = $tempPath;
+                            $tempFiles[] = $tempPath; // Track for cleanup
+                        }
+                    } catch (\Exception $e) {
+                        // Silently continue if thumbnail download fails
+                    }
+                }
+                
+                // Add local thumbnails to job data
+                $job->local_thumbnails = $localThumbnails;
+            }
+        }
+
+        try {
         // Load the view and pass data
         $pdf = Pdf::loadView('invoices.pdf', compact('invoice'), [
             'isHtml5ParserEnabled' => true,
@@ -429,7 +553,17 @@ class InvoiceController extends Controller
             'chroot' => storage_path('fonts'),
         ]);
 
-        return $pdf->stream('Order_' . $invoice->id .'/'. date('Y', strtotime($invoice->start_date)) . '.pdf');
+            $result = $pdf->stream('Order_' . $invoice->id .'/'. date('Y', strtotime($invoice->start_date)) . '.pdf');
+            
+            return $result;
+        } finally {
+            // Clean up temporary files
+            foreach ($tempFiles as $tempFile) {
+                if (file_exists($tempFile)) {
+                    unlink($tempFile);
+                }
+            }
+        }
     }
 
     public function invoiceReady(Request $request){
@@ -724,6 +858,122 @@ class InvoiceController extends Controller
         } catch (\Exception $e) {
             // Return error response
             return response()->json(['error' => 'Failed to update Faktura comment'], 500);
+        }
+    }
+
+    /**
+     * Download all files from an invoice as a ZIP
+     */
+    public function downloadAllFiles(Request $request)
+    {
+        try {
+            $request->validate([
+                'invoiceId' => 'required|integer',
+                'clientName' => 'required|string',
+                'files' => 'required|array'
+            ]);
+
+            $invoiceId = $request->input('invoiceId');
+            $clientName = $request->input('clientName');
+            $files = $request->input('files');
+
+            // Find the invoice
+            $invoice = Invoice::with('jobs')->findOrFail($invoiceId);
+
+            // Create a temporary file for the ZIP
+            $zipFileName = 'Invoice_' . $clientName . '_' . $invoiceId . '_AllFiles.zip';
+            $tempZipPath = storage_path('app/temp/' . $zipFileName);
+            
+            // Ensure temp directory exists
+            if (!file_exists(dirname($tempZipPath))) {
+                mkdir(dirname($tempZipPath), 0755, true);
+            }
+
+            $zip = new \ZipArchive();
+            if ($zip->open($tempZipPath, \ZipArchive::CREATE | \ZipArchive::OVERWRITE) !== TRUE) {
+                return response()->json(['error' => 'Cannot create ZIP file'], 500);
+            }
+
+            $addedFiles = 0;
+            $templateStorageService = app(\App\Services\TemplateStorageService::class);
+
+            foreach ($files as $file) {
+                try {
+                    if ($file['isMultiple']) {
+                        // New system: Get file from R2 storage
+                        $job = $invoice->jobs->firstWhere('id', $file['jobId']);
+                        if (!$job) continue;
+
+                        $originalFiles = $job->getOriginalFiles();
+                        if (!isset($originalFiles[$file['fileIndex']])) continue;
+
+                        $filePath = $originalFiles[$file['fileIndex']];
+                        
+                        // Check if file exists in R2
+                        if (!$templateStorageService->getDisk()->exists($filePath)) {
+                            \Log::warning('File not found in R2', ['file_path' => $filePath]);
+                            continue;
+                        }
+
+                        // Get file content from R2
+                        $fileContent = $templateStorageService->getDisk()->get($filePath);
+                        $fileName = $file['jobName'] . '_' . ($file['fileIndex'] + 1) . '.pdf';
+                        
+                        // Add to ZIP
+                        $zip->addFromString($fileName, $fileContent);
+                        $addedFiles++;
+
+                    } else {
+                        // Legacy system: Get file from local storage
+                        $localFilePath = storage_path('app/public/uploads/' . $file['filePath']);
+                        if (file_exists($localFilePath)) {
+                            $fileName = $file['jobName'] . '_' . $file['filePath'];
+                            $zip->addFile($localFilePath, $fileName);
+                            $addedFiles++;
+                        } else {
+                            \Log::warning('Legacy file not found', ['file_path' => $localFilePath]);
+                        }
+                    }
+
+                } catch (\Exception $e) {
+                    \Log::warning('Failed to add file to ZIP: ' . $e->getMessage(), [
+                        'file' => $file,
+                        'error' => $e->getMessage()
+                    ]);
+                    continue;
+                }
+            }
+
+            $zip->close();
+
+            if ($addedFiles === 0) {
+                // Clean up empty ZIP file
+                if (file_exists($tempZipPath)) {
+                    unlink($tempZipPath);
+                }
+                return response()->json(['error' => 'No files could be added to download'], 404);
+            }
+
+            \Log::info('ZIP file created successfully', [
+                'invoice_id' => $invoiceId,
+                'files_added' => $addedFiles,
+                'zip_path' => $tempZipPath
+            ]);
+
+            // Return the ZIP file for download
+            return response()->download($tempZipPath, $zipFileName)->deleteFileAfterSend(true);
+
+        } catch (\Exception $e) {
+            \Log::error('Error creating ZIP download:', [
+                'invoice_id' => $request->input('invoiceId'),
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            return response()->json([
+                'error' => 'Failed to create download',
+                'details' => $e->getMessage()
+            ], 500);
         }
     }
 }

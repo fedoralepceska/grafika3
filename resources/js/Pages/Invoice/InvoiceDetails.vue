@@ -107,13 +107,57 @@
                                         <div class="invoice-title bg-white text-black bold p-3">
                                             #{{index+1}} {{job.name}}
                                         </div>
-                                        <button @click="toggleImagePopover(job)">
-                                            <img :src="getImageUrl(job.id)" alt="Job Image" class="jobImg thumbnail"/>
+                                        <!-- Show multiple thumbnails or single legacy image -->
+                                        <div class="job-thumbnails-container">
+                                            <!-- New system: Multiple files with thumbnails -->
+                                            <div v-if="job.originalFile && Array.isArray(job.originalFile) && job.originalFile.length > 0" class="thumbnails-grid">
+                                                <button 
+                                                    v-for="(file, fileIndex) in job.originalFile" 
+                                                    :key="fileIndex"
+                                                    @click="toggleImagePopover(job, fileIndex)"
+                                                    class="thumbnail-btn"
+                                                >
+                                                    <img 
+                                                        :src="getThumbnailUrl(job.id, fileIndex)" 
+                                                        :alt="'Thumbnail ' + (fileIndex + 1)"
+                                                        class="jobImg thumbnail"
+                                                        @error="handleThumbnailError($event, fileIndex)"
+                                                    />
+                                                    <span class="thumbnail-number">{{ fileIndex + 1 }}</span>
+                                                </button>
+                                            </div>
+                                            <!-- Legacy system: Single file -->
+                                            <button v-else-if="job.file && job.file !== 'placeholder.jpeg'" @click="toggleImagePopover(job, 0)">
+                                                <img :src="getLegacyImageUrl(job)" alt="Job Image" class="jobImg thumbnail"/>
                                         </button>
+                                            <!-- No files -->
+                                            <div v-else class="no-files-placeholder">
+                                                <i class="fa fa-file-o"></i>
+                                                <span>No files</span>
+                                            </div>
+                                        </div>
+                                        
+                                        <!-- Enhanced preview modal -->
                                         <div v-if="showImagePopover" class="popover">
                                             <div class="popover-content bg-gray-700">
-                                                <img :src="getImageUrl(selectedJob.id)" alt="Job Image" />
-                                                <button @click="toggleImagePopover(null)" class="popover-close"><icon class="fa fa-close"/></button>
+                                                <!-- PDF Preview for new system -->
+                                                <iframe 
+                                                    v-if="selectedJob && selectedFileIndex !== null && hasMultipleFiles(selectedJob)"
+                                                    :src="getOriginalFileUrl(selectedJob.id, selectedFileIndex)" 
+                                                    class="pdf-preview"
+                                                    frameborder="0"
+                                                >
+                                                    <p>Your browser does not support PDFs. <a :href="getOriginalFileUrl(selectedJob.id, selectedFileIndex)" target="_blank">Download the PDF</a>.</p>
+                                                </iframe>
+                                                <!-- Legacy image preview -->
+                                                <img 
+                                                    v-else-if="selectedJob" 
+                                                    :src="getLegacyImageUrl(selectedJob)" 
+                                                    alt="Job Image" 
+                                                />
+                                                <button @click="toggleImagePopover(null)" class="popover-close">
+                                                    <i class="fa fa-close"></i>
+                                                </button>
                                             </div>
                                         </div>
                                         <div>{{job.file}}</div>
@@ -206,6 +250,7 @@ export default {
         return {
             showImagePopover: false,
             selectedJob: null,
+            selectedFileIndex: null,
             isSidebarVisible: false,
             spreadsheetMode:true,
             jobProcessMode:false,
@@ -312,11 +357,35 @@ export default {
         }
     },
     methods: {
-        getImageUrl(id) {
-            return `/storage/uploads/${this.invoice.jobs.find(j => j.id === id).file}`
+        // Legacy method for old single-file system
+        getLegacyImageUrl(job) {
+            return `/storage/uploads/${job.file}`;
         },
-        toggleImagePopover(job) {
+        
+        // New method for multiple file thumbnails
+        getThumbnailUrl(jobId, fileIndex) {
+            return route('jobs.viewThumbnail', { jobId: jobId, fileIndex: fileIndex });
+        },
+        
+        // Get original file URL for PDF preview
+        getOriginalFileUrl(jobId, fileIndex) {
+            return route('jobs.viewOriginalFile', { jobId: jobId, fileIndex: fileIndex });
+        },
+        
+        // Check if job has multiple files (new system)
+        hasMultipleFiles(job) {
+            return job.originalFile && Array.isArray(job.originalFile) && job.originalFile.length > 0;
+        },
+        
+        // Handle thumbnail loading errors
+        handleThumbnailError(event, fileIndex) {
+            console.warn('Thumbnail failed to load for file index:', fileIndex);
+            // Could add fallback logic here if needed
+        },
+        
+        toggleImagePopover(job, fileIndex = null) {
             this.selectedJob = job;
+            this.selectedFileIndex = fileIndex;
             this.showImagePopover = !this.showImagePopover;
         },
         toggleSidebar() {
@@ -330,28 +399,124 @@ export default {
         },
         async downloadAllProofs() {
             const toast = useToast();
+            
             try {
-                const response = await axios.get('/order/download', {
-                    params: {
+                toast.info('Preparing download...');
+                
+                // Collect all files from all jobs
+                const allFiles = [];
+                
+                for (const job of this.invoice.jobs) {
+                    // New system: Multiple files
+                    if (this.hasMultipleFiles(job)) {
+                        for (let fileIndex = 0; fileIndex < job.originalFile.length; fileIndex++) {
+                            allFiles.push({
+                                jobId: job.id,
+                                jobName: job.name,
+                                fileIndex: fileIndex,
+                                isMultiple: true
+                            });
+                        }
+                    }
+                    // Legacy system: Single file
+                    else if (job.file && job.file !== 'placeholder.jpeg') {
+                        allFiles.push({
+                            jobId: job.id,
+                            jobName: job.name,
+                            filePath: job.file,
+                            isMultiple: false
+                        });
+                    }
+                }
+                
+                if (allFiles.length === 0) {
+                    toast.warning('No files found to download');
+                    return;
+                }
+                
+                // Try bulk download endpoint first
+                try {
+                    const response = await axios.post('/orders/download-all-files', {
+                        invoiceId: this.invoice.id,
                         clientName: this.invoice.client.name,
-                        invoiceId: this.invoice.id
-                    },
-                    responseType: 'blob' // important to handle binary data
+                        files: allFiles
+                    }, {
+                        responseType: 'blob'
                 });
 
-                // Create a new Blob object using the response data
+                    // Create and download the zip file
                 const fileURL = window.URL.createObjectURL(new Blob([response.data]));
                 const fileLink = document.createElement('a');
-
+                    fileLink.href = fileURL;
+                    fileLink.setAttribute('download', `Invoice_${this.invoice.client.name}_${this.invoice.id}_AllFiles.zip`);
+                    document.body.appendChild(fileLink);
+                    fileLink.click();
+                    fileLink.remove();
+                    
+                    toast.success(`Downloaded ${allFiles.length} files successfully`);
+                    
+                } catch (bulkError) {
+                    console.warn('Bulk download failed, trying individual downloads:', bulkError);
+                    
+                    // Fallback: Download files individually
+                    toast.info('Downloading files individually...');
+                    let downloadCount = 0;
+                    
+                    for (const file of allFiles) {
+                        try {
+                            let downloadUrl;
+                            let filename;
+                            
+                            if (file.isMultiple) {
+                                // New system: Download from R2 via backend
+                                downloadUrl = `/jobs/${file.jobId}/download-original-file`;
+                                filename = `${file.jobName}_${file.fileIndex + 1}.pdf`;
+                                
+                                const response = await axios.post(downloadUrl, {
+                                    file_index: file.fileIndex
+                                }, {
+                                    responseType: 'blob'
+                                });
+                                
+                                const fileURL = window.URL.createObjectURL(new Blob([response.data]));
+                                const fileLink = document.createElement('a');
                 fileLink.href = fileURL;
-                fileLink.setAttribute('download', `Invoice_${this.invoice.client.name}_${this.invoice.id}.zip`); // or any other name you want
+                                fileLink.setAttribute('download', filename);
                 document.body.appendChild(fileLink);
-
+                                fileLink.click();
+                                fileLink.remove();
+                                
+                            } else {
+                                // Legacy system: Download from local storage
+                                downloadUrl = `/storage/uploads/${file.filePath}`;
+                                filename = `${file.jobName}_${file.filePath}`;
+                                
+                                const fileLink = document.createElement('a');
+                                fileLink.href = downloadUrl;
+                                fileLink.setAttribute('download', filename);
+                                fileLink.target = '_blank';
+                                document.body.appendChild(fileLink);
                 fileLink.click();
-
-                fileLink.remove(); // Clean up
+                                fileLink.remove();
+                            }
+                            
+                            downloadCount++;
+                            
+                        } catch (fileError) {
+                            console.error(`Failed to download file for job ${file.jobName}:`, fileError);
+                        }
+                    }
+                    
+                    if (downloadCount > 0) {
+                        toast.success(`Downloaded ${downloadCount} of ${allFiles.length} files`);
+                    } else {
+                        toast.error('Failed to download any files');
+                    }
+                }
+                
             } catch (error) {
-                toast.error('There was an error downloading the files: ', error);
+                console.error('Download error:', error);
+                toast.error('There was an error downloading the files');
             }
         },
         generatePdf(invoiceId) {
@@ -691,6 +856,81 @@ export default {
 .jobImg {
     height: 45px;
     margin: 0 1rem;
+}
+
+/* New thumbnail system styles */
+.job-thumbnails-container {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.thumbnails-grid {
+    display: flex;
+    gap: 0.25rem;
+    flex-wrap: wrap;
+}
+
+.thumbnail-btn {
+    position: relative;
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.thumbnail-btn:hover {
+    transform: scale(1.05);
+    transition: transform 0.2s;
+}
+
+.thumbnail-number {
+    position: absolute;
+    top: 2px;
+    right: 2px;
+    background-color: rgba(0, 0, 0, 0.7);
+    color: white;
+    border-radius: 50%;
+    width: 18px;
+    height: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    font-weight: bold;
+}
+
+.no-files-placeholder {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+    color: #999;
+    font-size: 12px;
+}
+
+.no-files-placeholder i {
+    font-size: 24px;
+    margin-bottom: 0.5rem;
+}
+
+/* Enhanced PDF preview styles */
+.pdf-preview {
+    width: 80vw;
+    height: 80vh;
+    max-width: 1000px;
+    max-height: 800px;
+}
+
+.popover-content {
+    max-width: 90vw;
+    max-height: 90vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 /*
 spreadheet style

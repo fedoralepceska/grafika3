@@ -207,7 +207,7 @@
             </tr>
         </table>
     </div>
-    <div  class="bolder opensans" style="margin-left: 15px; margin-top: 8px; font-size: 10pt; color: black">
+    <!-- <div  class="bolder opensans" style="margin-left: 15px; margin-top: 8px; font-size: 10pt; color: black">
          ДОРАБОТКА БР. <span class="opensans bolder" style="color: black; font-size: 10pt" >01</span>
         <div class="divider"></div>
     </div>
@@ -228,17 +228,105 @@
                 <td colspan="3">{{$job->shippingInfo}}</td>
             </tr>
         </table>
+        </div> -->
+
+    {{-- REFINEMENTS TIMELINE - SIMPLE INFORMATIONAL --}}
+    @php
+        // Access actions as array data (not Eloquent relationship)
+        $jobArray = $job->toArray();
+        $allActions = isset($jobArray['actions']) ? $jobArray['actions'] : [];
+        $actionCount = count($allActions);
+        
+        // Extract action names
+        $actionNames = array_column($allActions, 'name');
+        
+        // Filter out Start and Completed actions as requested
+        $refinementActions = array_filter($allActions, function($action) {
+            return !in_array(strtolower(trim($action['name'])), ['start', 'completed']);
+        });
+    @endphp
+    
+    @if(count($refinementActions) > 0)
+        <div style="margin-left: 15px; margin-top: 15px; font-size: 10pt; color: #3f3f3f; font-family: 'Open Sans', sans-serif; font-weight: bold;">
+            ДОРАБОТКИ <span style="color: #3f3f3f; font-size: 10pt; font-family: 'Open Sans', sans-serif; font-weight: bold;">:</span>
         </div>
+        
+        <div style="margin-left: 15px; margin-top: 10px; margin-bottom: 15px;">
+            <table style="width: 100%; border-collapse: collapse;">
+                <tr>
+                    {{-- Timeline line row --}}
+                    <td colspan="{{ count($refinementActions) }}" style="height: 2px; background-color: #cccccc; padding: 0; margin: 0;"></td>
+                </tr>
+                <tr>
+                    {{-- Circle indicators --}}
+                    @foreach($refinementActions as $index => $action)
+                        <td style="text-align: center; vertical-align: top; padding: 0; margin: 0; width: {{ 100 / count($refinementActions) }}%;">
+                            <div style="width: 25px; height: 25px; border-radius: 50%; background-color: #6c757d; border: 3px solid white; margin: -15px auto 8px auto; display: inline-block;"></div>
+                        </td>
+                    @endforeach
+                </tr>
+                <tr>
+                    {{-- Action names --}}
+                    @foreach($refinementActions as $index => $action)
+                        <td style="text-align: center; vertical-align: top; padding: 5px; font-size: 9pt; color: #333; font-weight: bold; font-family: 'Tahoma', sans-serif; word-wrap: break-word;">
+                            {{ $action['name'] }}
+                        </td>
+                    @endforeach
+                </tr>
+            </table>
+        </div>
+    @endif
 
     <div  class="bolder tahoma" style="margin-top: 13px; font-size: 9.5pt; color: #3f3f3f">
         ART BOARD<span class="opensans bolder" style="color: #333333; font-size: 10pt" >:</span>
     </div>
-    @if ($job->file)
+    @php
+        $originalFiles = is_array($job->originalFile) ? $job->originalFile : [];
+        $hasMultipleFiles = count($originalFiles) > 0;
+        $legacyFile = $job->file;
+        $localThumbnails = isset($job->local_thumbnails) ? $job->local_thumbnails : [];
+        
+
+    @endphp
+
+    @if ($hasMultipleFiles && !empty($localThumbnails))
+        {{-- Multiple files with downloaded thumbnails --}}
+                @foreach ($localThumbnails as $index => $thumbnailPath)
+            @if (file_exists($thumbnailPath))
         <div style="text-align: center; height: 440px;">
-            <img src="{{ storage_path('app/public/uploads/' . $job->file) }}" alt="Job Image" style="max-height: 375px; min-height: 375px; vertical-align: middle;">
+                    <img src="{{ $thumbnailPath }}" alt="Job Image {{ $index + 1 }}" style="max-height: 375px; min-height: 375px; vertical-align: middle;">
         </div>
 
+                <table style="width: 100%; text-align: center; letter-spacing: 0.5px">
+                    <tr style="font-size: 11.5px; text-transform: uppercase">
+                        <td class="tahoma" style="padding: 15px;">Печатење и контрола</td>
+                        <td class="tahoma" style="padding: 15px;">Доработка и контрола</td>
+                        <td class="tahoma" style="padding: 15px;">Монтажа и контрола</td>
+                    </tr>
+                    <tr style="">
+                        <td style="padding: 15px 15px 0 15px; border-bottom: 1px solid #d7d7d7;"></td>
+                        <td style="padding: 15px 15px 0 15px; border-bottom: 1px solid #d7d7d7;"></td>
+                        <td style="padding: 15px 15px 0 15px; border-bottom: 1px solid #d7d7d7;"></td>
+                    </tr>
+                </table>
+                
+                @if (!$loop->last)
+                    <div class="page-break"></div>
+                @endif
     @endif
+        @endforeach
+    @elseif ($hasMultipleFiles)
+        {{-- Multiple files but no thumbnails available - show placeholders --}}
+        @foreach ($originalFiles as $index => $filePath)
+            <div style="text-align: center; height: 440px;">
+                <div style="max-height: 375px; min-height: 375px; vertical-align: middle; display: flex; align-items: center; justify-content: center; border: 2px dashed #ccc; background-color: #f9f9f9;">
+                    <div style="text-align: center;">
+                        <div style="font-size: 48px; color: #666; margin-bottom: 10px;">📄</div>
+                        <div style="font-size: 14px; color: #666;">PDF File {{ $index + 1 }}</div>
+                        <div style="font-size: 12px; color: #999;">{{ basename($filePath) }}</div>
+                    </div>
+                </div>
+            </div>
 
     <table style="width: 100%; text-align: center; letter-spacing: 0.5px">
         <tr style="font-size: 11.5px; text-transform: uppercase">
@@ -252,6 +340,31 @@
             <td style="padding: 15px 15px 0 15px; border-bottom: 1px solid #d7d7d7;"></td>
         </tr>
     </table>
+            
+            @if (!$loop->last)
+                <div class="page-break"></div>
+            @endif
+        @endforeach
+    @elseif ($legacyFile)
+        {{-- Legacy single file --}}
+        <div style="text-align: center; height: 440px;">
+            <img src="{{ storage_path('app/public/uploads/' . $legacyFile) }}" alt="Job Image" style="max-height: 375px; min-height: 375px; vertical-align: middle;">
+        </div>
+        
+        <table style="width: 100%; text-align: center; letter-spacing: 0.5px">
+            <tr style="font-size: 11.5px; text-transform: uppercase">
+                <td class="tahoma" style="padding: 15px;">Печатење и контрола</td>
+                <td class="tahoma" style="padding: 15px;">Доработка и контрола</td>
+                <td class="tahoma" style="padding: 15px;">Монтажа и контрола</td>
+            </tr>
+            <tr style="">
+                <td style="padding: 15px 15px 0 15px; border-bottom: 1px solid #d7d7d7;"></td>
+                <td style="padding: 15px 15px 0 15px; border-bottom: 1px solid #d7d7d7;"></td>
+                <td style="padding: 15px 15px 0 15px; border-bottom: 1px solid #d7d7d7;"></td>
+            </tr>
+        </table>
+    @endif
+    
     @if (!$loop->last)
         <div class="page-break"></div>
     @endif

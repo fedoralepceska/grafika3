@@ -153,6 +153,14 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/jobs/{id}/image-dimensions', [JobController::class, 'calculateImageDimensions'])->name('jobs.calculateImageDimensions');
     Route::put('/jobs/{id}', [JobController::class, 'update'])->name('jobs.update');
     Route::post('/jobs/{id}/update-file', [JobController::class, 'updateFile'])->name('jobs.updateFile');
+    Route::post('/jobs/{id}/upload-multiple-files', [JobController::class, 'uploadMultipleFiles'])->name('jobs.uploadMultipleFiles');
+    Route::get('/jobs/{id}/download-original-file', [JobController::class, 'downloadOriginalFile'])->name('jobs.downloadOriginalFile');
+    Route::post('/jobs/{id}/download-original-file', [JobController::class, 'downloadOriginalFile'])->name('jobs.downloadOriginalFilePost');
+    Route::delete('/jobs/{id}/remove-original-file', [JobController::class, 'removeOriginalFile'])->name('jobs.removeOriginalFile');
+    Route::post('/orders/download-all-files', [InvoiceController::class, 'downloadAllFiles'])->name('orders.downloadAllFiles');
+    Route::get('/jobs/{id}/thumbnails', [JobController::class, 'getJobThumbnails'])->name('jobs.getThumbnails');
+    Route::get('/jobs/{jobId}/view-original-file/{fileIndex}', [JobController::class, 'viewOriginalFile'])->name('jobs.viewOriginalFile');
+    Route::get('/jobs/{jobId}/view-thumbnail/{fileIndex}', [JobController::class, 'viewThumbnail'])->name('jobs.viewThumbnail');
     Route::get('/jobs/{id}', [JobController::class, 'show'])->name('jobs.show');
     Route::get('/job-action-status-counts', [JobController::class, 'jobActionStatusCounts']);
     Route::get('/job-machine-print-counts', [JobController::class, 'jobMachinePrintCounts']);
