@@ -83,6 +83,35 @@
                                         </div>
                                     </div>
                                 </div>
+                                
+                                <!-- Pricing Method Selection -->
+                                <div class="mt-4 p-2 border-dashed border-2 border-gray-500">
+                                    <label class="text-white block mb-2">{{ $t('pricingMethod') }}</label>
+                                    <div class="space-y-2">
+                                        <div class="flex items-center">
+                                            <input
+                                                type="radio"
+                                                id="pricing_quantity"
+                                                name="pricing_method"
+                                                value="quantity"
+                                                v-model="pricingMethod"
+                                                class="mr-2"
+                                            />
+                                            <label for="pricing_quantity" class="text-white">{{ $t('priceByQuantity') }}</label>
+                                        </div>
+                                        <div class="flex items-center">
+                                            <input
+                                                type="radio"
+                                                id="pricing_copies"
+                                                name="pricing_method"
+                                                value="copies"
+                                                v-model="pricingMethod"
+                                                class="mr-2"
+                                            />
+                                            <label for="pricing_copies" class="text-white">{{ $t('priceByCopies') }}</label>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
 
                             <div class="space-y-4">
@@ -156,16 +185,19 @@
                                         :class="{ 'bg-gray-200 cursor-not-allowed': isRabotnikComputed }"
                                     />
                                 </div>
-                                <div class="grid grid-cols-2 gap-4 pt-9">
-                                    <div>
-                                        <Checkbox name="is_for_offer" v-model:checked="form.is_for_offer" />
-                                        <label class="text-white ml-2">{{ $t('forOffer') }}</label>
-                                    </div>
-                                    <div>
+                                <div class="flex flex-col p-2 border-dashed border-2 border-gray-500">
+                                    <label class="text-white block mb-2">{{ $t('Additional options') }}</label>
+                                    <div class="flex items-center gap-8">
+                                        <div class="flex items-center">
+                                            <Checkbox name="is_for_offer" v-model:checked="form.is_for_offer" />
+                                            <label class="text-white ml-2">{{ $t('forOffer') }}</label>
+                                        </div>
+                                        <div class="flex items-center">
                                         <Checkbox name="is_for_sales" v-model:checked="form.is_for_sales" />
                                         <label class="text-white ml-2">{{ $t('forSales') }}</label>
+                                        </div>
                                     </div>
-                                    <div class="col-span-2 mt-2">
+                                    <div class="flex items-center mt-2">
                                         <Checkbox name="should_ask_questions" v-model:checked="form.should_ask_questions" />
                                         <label class="text-white ml-2">Ask questions before production</label>
                                     </div>
@@ -174,7 +206,7 @@
                         </div>
 
                         <!-- Articles Section -->
-                        <div class="mt-6">
+                        <div class="mt-6 p-4 border-dashed border-2 border-gray-500 ">
                             <h3 class="text-white text-lg font-semibold mb-4">{{ $t('componentArticles') }}</h3>
 
                             <!-- Products Section -->
@@ -289,12 +321,13 @@
                             </div>
                         </div>
 
-                        <!-- File and Description Section -->
+                        <!-- File/Template Upload and Description Section -->
                         <div class="grid grid-cols-2 gap-6 mt-6">
-                            <div class="file-upload">
-                                <h3 class="text-white text-lg font-semibold mb-4">{{ $t('fileUpload') }}</h3>
+                            <!-- File Upload -->
+                            <div>
+                                <h4 class="text-white text-md font-medium mb-3">{{ $t('fileUpload') }}</h4>
                                 <div
-                                    class="upload-area"
+                                    class="upload-area compact"
                                     @dragover.prevent
                                     @drop.prevent="handleDrop"
                                     @click="triggerFileInput"
@@ -306,71 +339,71 @@
                                         @change="handleFileInput"
                                         accept=".pdf, .png, .jpg, .jpeg"
                                     />
-                                    <div v-if="!previewUrl" class="placeholder-content">
+                                    <div v-if="!previewUrl" class="placeholder-content compact">
                                         <div class="upload-icon">
-                                            <span class="mdi mdi-cloud-upload text-4xl"></span>
+                                            <span class="mdi mdi-cloud-upload text-2xl"></span>
                                         </div>
                                         <p class="upload-text">{{ $t('dragAndDrop') }}</p>
                                         <p class="upload-text-sub">{{ $t('orClickToBrowse') }}</p>
                                         <p class="file-types">{{ $t('supportedFormats') }}: PDF, PNG, JPG, JPEG</p>
                                     </div>
-                                    <div v-else class="preview-container">
+                                    <div v-else class="preview-container compact">
                                         <img
                                             v-if="isImage"
                                             :src="previewUrl"
                                             alt="Preview"
-                                            class="preview-image"
+                                            class="preview-image compact"
                                         />
-                                        <div v-else class="pdf-preview">
-                                            <span class="mdi mdi-file-pdf text-4xl"></span>
+                                        <div v-else class="pdf-preview compact">
+                                            <span class="mdi mdi-file-pdf text-2xl"></span>
                                             <span class="pdf-name">{{ fileName }}</span>
                                         </div>
                                     </div>
                                 </div>
                             </div>
-
-                            <div class="description-section">
-                                <h3 class="text-white text-lg font-semibold mb-4">{{ $t('description') }}</h3>
-                                <textarea
-                                    v-model="form.description"
-                                    class="w-full rounded description-textarea"
-                                    rows="11"
-                                    placeholder="Enter item description..."
-                                ></textarea>
+                            <!-- Template Upload -->
+                            <div>
+                                <h4 class="text-white text-md font-medium mb-3">{{ $t('templateFilePdfOnly') }}</h4>
+                                <div
+                                    class="upload-area compact"
+                                    @dragover.prevent
+                                    @drop.prevent="handleTemplateDrop"
+                                    @click="triggerTemplateFileInput"
+                                >
+                                    <input
+                                        type="file"
+                                        id="template-file-input"
+                                        class="hidden"
+                                        @change="handleTemplateFileInput"
+                                        accept=".pdf"
+                                    />
+                                    <div v-if="!templatePreviewUrl" class="placeholder-content compact">
+                                        <div class="upload-icon">
+                                            <span class="mdi mdi-cloud-upload text-2xl"></span>
+                                        </div>
+                                        <p class="upload-text">{{ $t('dragAndDropTemplatePdfHere') }}</p>
+                                        <p class="upload-text-sub">{{ $t('orClickToBrowse') }}</p>
+                                        <p class="file-types">{{ $t('supportedFormats') }}: PDF</p>
+                                    </div>
+                                    <div v-else class="preview-container compact">
+                                        <div class="pdf-preview compact">
+                                            <span class="mdi mdi-file-pdf text-2xl"></span>
+                                            <span class="pdf-name">{{ templateFileName }}</span>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
-
-                        <!-- Template File Section -->
-                        <div class="mt-6">
-                            <h3 class="text-white text-lg font-semibold mb-4">{{ $t('templateFilePdfOnly') }}</h3>
-                            <div
-                                class="upload-area"
-                                @dragover.prevent
-                                @drop.prevent="handleTemplateDrop"
-                                @click="triggerTemplateFileInput"
-                            >
-                                <input
-                                    type="file"
-                                    id="template-file-input"
-                                    class="hidden"
-                                    @change="handleTemplateFileInput"
-                                    accept=".pdf"
-                                />
-                                <div v-if="!templatePreviewUrl" class="placeholder-content">
-                                    <div class="upload-icon">
-                                        <span class="mdi mdi-cloud-upload text-4xl"></span>
-                                    </div>
-                                    <p class="upload-text">{{ $t('dragAndDropTemplatePdfHere') }}</p>
-                                    <p class="upload-text-sub">{{ $t('orClickToBrowse') }}</p>
-                                    <p class="file-types">{{ $t('supportedFormats') }}: PDF</p>
-                                </div>
-                                <div v-else class="preview-container">
-                                    <div class="pdf-preview">
-                                        <span class="mdi mdi-file-pdf text-4xl"></span>
-                                        <span class="pdf-name">{{ templateFileName }}</span>
-                                    </div>
-                                </div>
-                            </div>
+                        <!-- Description below, full width but short -->
+                        <div class="mt-4">
+                            <h4 class="text-white text-md font-medium mb-3">{{ $t('description') }}</h4>
+                            <textarea
+                                v-model="form.description"
+                                class="w-full rounded description-textarea compact"
+                                rows="4"
+                                placeholder="Enter item description..."
+                                style="min-height: 60px; max-height: 120px;"
+                            ></textarea>
                         </div>
 
                         <!-- Actions Section -->
@@ -504,6 +537,7 @@ export default {
                 subcategory_id: null,
                 should_ask_questions: false
             },
+            pricingMethod: 'quantity', // Default to quantity-based pricing
             productArticles: [],
             serviceArticles: [],
             categories: ['material', 'article', 'small_format'],
@@ -713,6 +747,12 @@ export default {
         async submit() {
             const toast = useToast();
 
+            // Validate pricing method selection
+            if (!this.pricingMethod) {
+                toast.error('Please select a pricing method');
+                return;
+            }
+
             // Combine products and services into articles array
             this.form.articles = [
                 ...this.productArticles.map(article => ({
@@ -772,6 +812,10 @@ export default {
 
             // Append should_ask_questions as integer
             formData.append('should_ask_questions', this.form.should_ask_questions ? 1 : 0);
+
+            // Append pricing method
+            formData.append('by_quantity', this.pricingMethod === 'quantity' ? 1 : 0);
+            formData.append('by_copies', this.pricingMethod === 'copies' ? 1 : 0);
 
             // Append file
             if (this.form.file instanceof File) {
@@ -904,9 +948,14 @@ export default {
     background-color: $light-gray;
     border: 2px dashed $ultra-light-gray;
     padding: 1rem;
-    min-height: 250px;
+    min-height: 200px;
     resize: none;
     transition: all 0.3s ease;
+
+    &.compact {
+        min-height: 180px;
+        padding: 0.75rem;
+    }
 
     &:hover, &:focus {
         border-color: $green;
@@ -927,10 +976,21 @@ export default {
     text-align: center;
     cursor: pointer;
     transition: all 0.3s ease;
+    min-height: 200px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    &.compact {
+        padding: 1.5rem;
+        min-height: 180px;
+    }
 
     &:hover {
         border-color: $green;
         background-color: rgba($light-gray, 0.7);
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
     }
 }
 
@@ -940,27 +1000,48 @@ export default {
     align-items: center;
     gap: 0.5rem;
     color: $white;
+
+    &.compact {
+        gap: 0.25rem;
+    }
 }
 
 .upload-icon {
     color: $ultra-light-gray;
     margin-bottom: 1rem;
+
+    .compact & {
+        margin-bottom: 0.5rem;
+    }
 }
 
 .upload-text {
     font-size: 1.1rem;
     font-weight: 500;
+
+    .compact & {
+        font-size: 1rem;
+    }
 }
 
 .upload-text-sub {
     font-size: 0.9rem;
     color: $ultra-light-gray;
+
+    .compact & {
+        font-size: 0.8rem;
+    }
 }
 
 .file-types {
     font-size: 0.8rem;
     color: $ultra-light-gray;
     margin-top: 1rem;
+
+    .compact & {
+        font-size: 0.7rem;
+        margin-top: 0.5rem;
+    }
 }
 
 .preview-container {
@@ -968,6 +1049,10 @@ export default {
     flex-direction: column;
     align-items: center;
     gap: 1rem;
+
+    &.compact {
+        gap: 0.5rem;
+    }
 }
 
 .preview-image {
@@ -975,6 +1060,11 @@ export default {
     max-height: 200px;
     border-radius: 4px;
     object-fit: contain;
+
+    &.compact {
+        max-width: 120px;
+        max-height: 120px;
+    }
 }
 
 .pdf-preview {
@@ -984,6 +1074,10 @@ export default {
     gap: 0.5rem;
     color: $white;
 
+    &.compact {
+        gap: 0.25rem;
+    }
+
     .mdi-file-pdf {
         color: #ff4444;
     }
@@ -992,6 +1086,26 @@ export default {
         font-size: 0.9rem;
         word-break: break-all;
         max-width: 200px;
+        text-align: center;
+
+        .compact & {
+            font-size: 0.8rem;
+            max-width: 120px;
+        }
+    }
+}
+
+.file-upload-section,
+.description-section,
+.template-section {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+}
+
+.description-section {
+    .description-textarea {
+        flex: 1;
     }
 }
 

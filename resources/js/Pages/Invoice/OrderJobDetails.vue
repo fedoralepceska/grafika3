@@ -41,13 +41,13 @@
                         class="flexed"
                         :class="{
                             'circle': true,
-                            'dark-gray': job.status === 'Not started yet',
-                            'blue': job.status === 'In progress',
-                            'green': job.status === 'Completed',
+                            'dark-gray': getCompletionStatus() === 'not_started',
+                            'blue': getCompletionStatus() === 'in_progress',
+                            'green': getCompletionStatus() === 'completed',
                             'disabled' : true,
                         }"
                     >
-                        <span v-if="job.status === 'Completed'">&#10003;</span>
+                        <span v-if="getCompletionStatus() === 'completed'">&#10003;</span>
                     </div>
                     <span>Completed</span>
                 </div>
@@ -102,6 +102,20 @@ export default {
         },
         navigateToAction(actionName) {
                 window.location.href = `/actions/${actionName}`;
+        },
+        getCompletionStatus() {
+            const jobActions = this.actions(this.job.id);
+            // If no actions exist, return not_started
+            if (!jobActions || jobActions.length === 0) {
+                return 'not_started';
+            }
+            // Check if all actions are completed
+            const allCompleted = jobActions.every(action => action.status === 'Completed');
+            if (allCompleted) {
+                return 'completed';
+            }
+            // In all other cases, return not_started (idle/dark-gray)
+            return 'not_started';
         },
     },
 };

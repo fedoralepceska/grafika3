@@ -159,9 +159,9 @@ class OfferController extends Controller
             'production_start_date' => 'nullable|date',
             'production_end_date' => 'nullable|date|after:production_start_date',
             'catalog_items' => 'required|array|min:1',
-            'catalog_items.*.id' => 'required|exists:catalog_items,id',
             'catalog_items.*.quantity' => 'required|integer|min:1',
             'catalog_items.*.description' => 'nullable|string',
+            'catalog_items.*.custom_price' => 'nullable|numeric|min:0',
             'production_time' => 'nullable|string'
         ]);
 
@@ -182,11 +182,39 @@ class OfferController extends Controller
 
         // Attach catalog items with their quantities and descriptions
         foreach ($request->catalog_items as $item) {
-            $offer->catalogItems()->attach($item['id'], [
-                'quantity' => $item['quantity'],
-                'description' => $item['description'] ?? null,
-                'custom_price' => $item['custom_price'] ?? null
-            ]);
+            // Check if this is a custom item (no ID or null ID)
+            if (empty($item['id']) || $item['id'] === null) {
+                // For custom items, we need to create a placeholder catalog item
+                // or use a special approach to store the custom data
+                $customItemData = [
+                    'name' => $item['name'],
+                    'description' => $item['description'] ?? '',
+                    'price' => $item['custom_price'] ?? 0,
+                    'is_for_offer' => true,
+                    'is_for_sales' => false,
+                    'category' => 'material'
+                ];
+                
+                // Create a temporary catalog item for this custom item
+                $catalogItem = CatalogItem::create($customItemData);
+                
+                // Immediately soft-delete the custom item so it doesn't appear in catalog list
+                $catalogItem->delete();
+                
+                // Attach the soft-deleted catalog item
+                $offer->catalogItems()->attach($catalogItem->id, [
+                    'quantity' => $item['quantity'],
+                    'description' => $item['description'] ?? null,
+                    'custom_price' => $item['custom_price'] ?? null
+                ]);
+            } else {
+                // Regular catalog item
+                $offer->catalogItems()->attach($item['id'], [
+                    'quantity' => $item['quantity'],
+                    'description' => $item['description'] ?? null,
+                    'custom_price' => $item['custom_price'] ?? null
+                ]);
+            }
         }
 
         return redirect()->route('offer.index');
@@ -207,13 +235,17 @@ class OfferController extends Controller
                 'decline_reason' => $offer->decline_reason,
                 'created_at' => $offer->created_at->format('Y-m-d H:i:s'),
                 'catalog_items' => $offer->catalogItems->map(function ($item) {
+                    // Check if this is a custom item (created for this offer)
+                    $isCustomItem = $item->large_material_id === null && $item->small_material_id === null;
+                    
                     return [
                         'id' => $item->id,
                         'name' => $item->name,
                         'description' => $item->pivot->description ?? $item->description,
                         'quantity' => $item->pivot->quantity,
-                        'price' => $item->price,
+                        'price' => $item->pivot->custom_price ?? $item->price,
                         'file' => $item->file,
+                        'isCustomItem' => $isCustomItem,
                         'large_material' => $item->largeMaterial ? [
                             'id' => $item->largeMaterial->id,
                             'name' => $item->largeMaterial->name
@@ -256,15 +288,19 @@ class OfferController extends Controller
                 'id' => $offer->id,
                 'client' => $offer->client->name,
                 'catalog_items' => $offer->catalogItems->map(function ($item) {
+                    // Check if this is a custom item (created for this offer)
+                    $isCustomItem = $item->large_material_id === null && $item->small_material_id === null;
+                    
                     return [
                         'id' => $item->id,
                         'name' => $item->name,
                         'description' => $item->description,
                         'file' => $item->file,
-                        'price' => $item->price,
+                        'price' => $item->pivot->custom_price ?? $item->price,
                         'quantity' => $item->pivot->quantity,
                         'custom_description' => $item->pivot->description,
                         'custom_price' => $item->pivot->custom_price,
+                        'isCustomItem' => $isCustomItem,
                         'large_material' => $item->largeMaterial ? [
                             'id' => $item->largeMaterial->id,
                             'name' => $item->largeMaterial->name
@@ -335,15 +371,19 @@ class OfferController extends Controller
                 'validity_days' => $offer->validity_days,
                 'production_time' => $offer->production_time,
                 'catalog_items' => $offer->catalogItems->map(function ($item) use ($offer) {
+                    // Check if this is a custom item (created for this offer)
+                    $isCustomItem = $item->large_material_id === null && $item->small_material_id === null;
+                    
                     return [
                         'id' => $item->id,
                         'selection_id' => uniqid(),
                         'name' => $item->name,
                         'description' => $item->pivot->description,
                         'quantity' => $item->pivot->quantity,
-                        'custom_price' => $item->pivot->custom_price,
-                        'calculated_price' => $this->getPrice($offer->client->id, $item),
+                        'custom_price' => $item->pivot->custom_price ?? $item->price,
+                        'calculated_price' => $isCustomItem ? ($item->pivot->custom_price ?? $item->price) * $item->pivot->quantity : $this->getPrice($offer->client->id, $item),
                         'file' => $item->file,
+                        'isCustomItem' => $isCustomItem,
                         'large_material' => $item->largeMaterial ? [
                             'id' => $item->largeMaterial->id,
                             'name' => $item->largeMaterial->name
@@ -370,7 +410,6 @@ class OfferController extends Controller
             'validity_days' => 'required|integer|min:1',
             'production_time' => 'nullable|string',
             'catalog_items' => 'required|array|min:1',
-            'catalog_items.*.id' => 'required|exists:catalog_items,id',
             'catalog_items.*.quantity' => 'required|integer|min:1',
             'catalog_items.*.description' => 'nullable|string',
             'catalog_items.*.custom_price' => 'nullable|numeric|min:0'
@@ -390,11 +429,38 @@ class OfferController extends Controller
         
         // Then attach each item individually
         foreach ($request->catalog_items as $item) {
-            $offer->catalogItems()->attach($item['id'], [
-                'quantity' => $item['quantity'],
-                'description' => $item['description'] ?? null,
-                'custom_price' => $item['custom_price'] ?? null
-            ]);
+            // Check if this is a custom item (no ID or null ID)
+            if (empty($item['id']) || $item['id'] === null) {
+                // For custom items, we need to create a placeholder catalog item
+                $customItemData = [
+                    'name' => $item['name'],
+                    'description' => $item['description'] ?? '',
+                    'price' => $item['custom_price'] ?? 0,
+                    'is_for_offer' => true,
+                    'is_for_sales' => false,
+                    'category' => 'material'
+                ];
+                
+                // Create a temporary catalog item for this custom item
+                $catalogItem = CatalogItem::create($customItemData);
+                
+                // Immediately soft-delete the custom item so it doesn't appear in catalog list
+                $catalogItem->delete();
+                
+                // Attach the soft-deleted catalog item
+                $offer->catalogItems()->attach($catalogItem->id, [
+                    'quantity' => $item['quantity'],
+                    'description' => $item['description'] ?? null,
+                    'custom_price' => $item['custom_price'] ?? null
+                ]);
+            } else {
+                // Regular catalog item
+                $offer->catalogItems()->attach($item['id'], [
+                    'quantity' => $item['quantity'],
+                    'description' => $item['description'] ?? null,
+                    'custom_price' => $item['custom_price'] ?? null
+                ]);
+            }
         }
 
         return response()->json(['message' => 'Offer updated successfully']);

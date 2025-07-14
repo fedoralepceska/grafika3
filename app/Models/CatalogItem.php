@@ -6,10 +6,11 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class CatalogItem extends Model
 {
-    use HasFactory;
+    use HasFactory, SoftDeletes;
 
     protected $fillable = [
         'name',
@@ -31,12 +32,16 @@ class CatalogItem extends Model
         'price',
         'cost_price',
         'subcategory_id',
-        'should_ask_questions'
+        'should_ask_questions',
+        'by_quantity',
+        'by_copies'
     ];
 
     protected $casts = [
         'is_for_offer' => 'boolean',
         'is_for_sales' => 'boolean',
+        'by_quantity' => 'boolean',
+        'by_copies' => 'boolean',
         'price' => 'decimal:2',
         'cost_price' => 'decimal:2',
         'actions' => 'array'
@@ -212,5 +217,27 @@ class CatalogItem extends Model
     public function subcategory(): BelongsTo
     {
         return $this->belongsTo(Subcategory::class);
+    }
+
+    // Method to get the pricing method (quantity or copies)
+    public function getPricingMethod(): string
+    {
+        if ($this->by_copies) {
+            return 'copies';
+        }
+        
+        // Default to quantity if by_quantity is true or if neither is set
+        return 'quantity';
+    }
+
+    // Method to get the multiplier value based on pricing method
+    public function getPricingMultiplier($quantity, $copies): float
+    {
+        if ($this->by_copies) {
+            return $copies;
+        }
+        
+        // Default to quantity
+        return $quantity;
     }
 }

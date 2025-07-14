@@ -24,6 +24,7 @@ use Milon\Barcode\DNS1D;
 use ZipArchive;
 use function PHPUnit\Framework\isEmpty;
 use App\Services\TemplateStorageService;
+use Spatie\PdfToImage\Pdf as PdfToImage;
 
 class InvoiceController extends Controller
 {
@@ -275,6 +276,11 @@ class InvoiceController extends Controller
     {
         $invoice = Invoice::with(['jobs.small_material.smallFormatMaterial', 'historyLogs', 'user', 'client', 'jobs.actions', 'jobs.large_material'])->findOrFail($id);
 
+        // Always append totalPrice for each job
+        $invoice->jobs->each(function ($job) {
+            $job->append('totalPrice');
+        });
+
         if (!auth()->user()->hasRole('Rabotnik')) {
             $invoice->jobs->each(function ($job) {
                 $job->append('totalPrice');
@@ -481,89 +487,92 @@ class InvoiceController extends Controller
     {
         $invoice = Invoice::with(['jobs.actions','contact','user'])->findOrFail($invoiceId);
 
-        // Prepare thumbnails for PDF generation
         $tempFiles = [];
-        
         foreach ($invoice->jobs as $job) {
             $originalFiles = is_array($job->originalFile) ? $job->originalFile : [];
-            
             if (count($originalFiles) > 0) {
-                // This job has multiple files, download thumbnails from R2
                 $localThumbnails = [];
-                
                 foreach ($originalFiles as $index => $filePath) {
                     try {
-                        // Find thumbnail in R2
                         $disk = app(TemplateStorageService::class)->getDisk();
-                        
-                        // List all thumbnails for this job
                         $allThumbnails = $disk->files('job-thumbnails/');
-                        
-                        // Find any thumbnail that contains this job ID
                         $jobThumbnails = array_filter($allThumbnails, function($file) use ($job) {
                             return strpos($file, 'job_' . $job->id . '_') !== false;
                         });
-                        
-                        // Sort by timestamp (chronological order)
                         usort($jobThumbnails, function($a, $b) {
-                            // Extract timestamp from filename: job_123_1234567890_0_filename.jpg
-                            preg_match('/job_\d+_(\d+)_/', $a, $matchesA);
-                            preg_match('/job_\d+_(\d+)_/', $b, $matchesB);
+                            preg_match('/job_\\d+_(\\d+)_/', $a, $matchesA);
+                            preg_match('/job_\\d+_(\\d+)_/', $b, $matchesB);
                             $timestampA = isset($matchesA[1]) ? (int)$matchesA[1] : 0;
                             $timestampB = isset($matchesB[1]) ? (int)$matchesB[1] : 0;
                             return $timestampA <=> $timestampB;
                         });
-                        
-                        // Get the thumbnail for this specific index
                         if (isset($jobThumbnails[$index])) {
                             $thumbnailPath = $jobThumbnails[$index];
-                            
-                            // Download to temporary local storage
                             $tempFileName = 'temp_thumbnail_' . $job->id . '_' . $index . '_' . time() . '.jpg';
                             $tempPath = storage_path('app/temp/' . $tempFileName);
-                            
-                            // Ensure temp directory exists
                             if (!file_exists(dirname($tempPath))) {
                                 mkdir(dirname($tempPath), 0755, true);
                             }
-                            
-                            // Download thumbnail content
                             $thumbnailContent = $disk->get($thumbnailPath);
                             file_put_contents($tempPath, $thumbnailContent);
-                            
                             $localThumbnails[] = $tempPath;
-                            $tempFiles[] = $tempPath; // Track for cleanup
+                            $tempFiles[] = $tempPath;
                         }
                     } catch (\Exception $e) {
                         // Silently continue if thumbnail download fails
                     }
                 }
-                
-                // Add local thumbnails to job data
                 $job->local_thumbnails = $localThumbnails;
+            }
+
+            // Cutting file image generation
+            if (!empty($job->cuttingFiles) && is_array($job->cuttingFiles)) {
+                foreach ($job->cuttingFiles as $cuttingFilePath) {
+                    $ext = strtolower(pathinfo($cuttingFilePath, PATHINFO_EXTENSION));
+                    if ($ext === 'pdf') {
+                        $disk = app(TemplateStorageService::class)->getDisk();
+                        if ($disk->exists($cuttingFilePath)) {
+                            $cuttingPdfContent = $disk->get($cuttingFilePath);
+                            $cuttingPdfTempPath = storage_path('app/temp/cutting_' . $job->id . '_' . uniqid() . '.pdf');
+                            file_put_contents($cuttingPdfTempPath, $cuttingPdfContent);
+                            $tempFiles[] = $cuttingPdfTempPath;
+
+                            // Convert first page to image
+                            try {
+                                $pdfToImage = new PdfToImage($cuttingPdfTempPath);
+                                $imagePath = storage_path('app/temp/cutting_' . $job->id . '_' . uniqid() . '.jpg');
+                                $pdfToImage->setPage(1)->saveImage($imagePath);
+                                $job->cutting_file_image = $imagePath;
+                                $tempFiles[] = $imagePath;
+                            } catch (\Exception $e) {
+                                // If conversion fails, do not set image
+                                $job->cutting_file_image = null;
+                            }
+                        }
+                    }
+                }
             }
         }
 
-        try {
-        // Load the view and pass data
+        // Generate the main invoice PDF with DomPDF (Blade handles header, title, and image)
         $pdf = Pdf::loadView('invoices.pdf', compact('invoice'), [
             'isHtml5ParserEnabled' => true,
             'isRemoteEnabled' => true,
             'isFontSubsettingEnabled' => true,
             'chroot' => storage_path('fonts'),
         ]);
+        $output = $pdf->output();
 
-            $result = $pdf->stream('Order_' . $invoice->id .'/'. date('Y', strtotime($invoice->start_date)) . '.pdf');
-            
-            return $result;
-        } finally {
-            // Clean up temporary files
-            foreach ($tempFiles as $tempFile) {
-                if (file_exists($tempFile)) {
-                    unlink($tempFile);
-                }
+        // Clean up temp files
+        foreach ($tempFiles as $tempFile) {
+            if (file_exists($tempFile)) {
+                unlink($tempFile);
             }
         }
+
+        return response($output, 200)
+            ->header('Content-Type', 'application/pdf')
+            ->header('Content-Disposition', 'inline; filename="Order_' . $invoice->id . '_' . date('Y', strtotime($invoice->start_date)) . '.pdf"');
     }
 
     public function invoiceReady(Request $request){

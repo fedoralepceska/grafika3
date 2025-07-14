@@ -13,9 +13,10 @@ class PricePerQuantityController extends Controller
     public function index(Request $request)
     {
         $query = PricePerQuantity::with(['catalogItem', 'client'])
+            ->select('catalog_item_id', 'client_id')
+            ->distinct()
             ->orderBy('catalog_item_id')
-            ->orderBy('client_id')
-            ->orderBy('quantity_from');
+            ->orderBy('client_id');
 
         if ($request->has('search')) {
             $search = $request->input('search');
@@ -26,11 +27,152 @@ class PricePerQuantityController extends Controller
             });
         }
 
-        $prices = $query->paginate(10);
+        $groupedPrices = $query->paginate(10);
+
+        // Get the actual price data for each group
+        $groupedPrices->getCollection()->transform(function ($group) {
+            $prices = PricePerQuantity::where('catalog_item_id', $group->catalog_item_id)
+                ->where('client_id', $group->client_id)
+                ->orderBy('quantity_from')
+                ->get();
+
+            $catalogItem = CatalogItem::find($group->catalog_item_id);
+            $client = Client::find($group->client_id);
+
+            return [
+                'catalog_item' => $catalogItem,
+                'client' => $client,
+                'price_count' => $prices->count(),
+                'ranges_summary' => $this->getRangesSummary($prices)
+            ];
+        });
 
         return Inertia::render('Pricing/QuantityPrices/Index', [
+            'prices' => $groupedPrices
+        ]);
+    }
+
+    public function view(CatalogItem $catalogItem, Client $client)
+    {
+        $prices = PricePerQuantity::where('catalog_item_id', $catalogItem->id)
+            ->where('client_id', $client->id)
+            ->orderBy('quantity_from')
+            ->get();
+
+        return Inertia::render('Pricing/QuantityPrices/View', [
+            'catalogItem' => $catalogItem,
+            'client' => $client,
             'prices' => $prices
         ]);
+    }
+
+    public function editGroup(CatalogItem $catalogItem, Client $client)
+    {
+        $prices = PricePerQuantity::where('catalog_item_id', $catalogItem->id)
+            ->where('client_id', $client->id)
+            ->orderBy('quantity_from')
+            ->get();
+
+        $catalogItems = CatalogItem::select('id', 'name', 'price')->get();
+        $clients = Client::select('id', 'name')->get();
+
+        return Inertia::render('Pricing/QuantityPrices/EditGroup', [
+            'catalogItem' => $catalogItem,
+            'client' => $client,
+            'prices' => $prices,
+            'catalogItems' => $catalogItems,
+            'clients' => $clients
+        ]);
+    }
+
+    public function updateGroup(Request $request, CatalogItem $catalogItem, Client $client)
+    {
+        $validated = $request->validate([
+            'catalog_item_id' => 'required|exists:catalog_items,id',
+            'client_id' => 'required|exists:clients,id',
+            'ranges' => 'required|array|min:1',
+            'ranges.*.quantity_from' => 'nullable|integer|min:0',
+            'ranges.*.quantity_to' => 'nullable|integer|min:0',
+            'ranges.*.price' => 'required|numeric|min:0',
+        ]);
+
+        \DB::beginTransaction();
+
+        try {
+            // Delete existing prices for this combination
+            PricePerQuantity::where('catalog_item_id', $catalogItem->id)
+                ->where('client_id', $client->id)
+                ->delete();
+
+            // Sort ranges by quantity_from
+            $ranges = collect($validated['ranges'])->sortBy(function ($range) {
+                return $range['quantity_from'] ?? 0;
+            })->values()->all();
+
+            foreach ($ranges as $index => $range) {
+                // Ensure at least one boundary is set
+                if (empty($range['quantity_from']) && empty($range['quantity_to'])) {
+                    throw new \Exception('At least one quantity boundary must be set for each range.');
+                }
+
+                // Validate range logic
+                if (!empty($range['quantity_from']) && !empty($range['quantity_to'])) {
+                    if ($range['quantity_from'] >= $range['quantity_to']) {
+                        throw new \Exception('The "from" quantity must be less than the "to" quantity.');
+                    }
+                }
+
+                // Check for overlap with next range
+                if (isset($ranges[$index + 1])) {
+                    $nextRange = $ranges[$index + 1];
+                    if (!empty($range['quantity_to']) && !empty($nextRange['quantity_from'])) {
+                        if ($range['quantity_to'] >= $nextRange['quantity_from']) {
+                            throw new \Exception('Ranges cannot overlap.');
+                        }
+                    }
+                }
+
+                // Check for overlapping ranges in database (excluding current combination)
+                $overlapping = $this->checkOverlappingRanges(
+                    $validated['catalog_item_id'],
+                    $validated['client_id'],
+                    $range['quantity_from'],
+                    $range['quantity_to']
+                );
+
+                if ($overlapping) {
+                    throw new \Exception('One or more ranges overlap with existing price ranges.');
+                }
+
+                // Create the price record
+                PricePerQuantity::create([
+                    'catalog_item_id' => $validated['catalog_item_id'],
+                    'client_id' => $validated['client_id'],
+                    'quantity_from' => $range['quantity_from'],
+                    'quantity_to' => $range['quantity_to'],
+                    'price' => $range['price'],
+                ]);
+            }
+
+            \DB::commit();
+
+            return redirect()->route('quantity-prices.index')
+                ->with('success', 'Quantity prices updated successfully.');
+
+        } catch (\Exception $e) {
+            \DB::rollBack();
+            return back()->withErrors(['message' => $e->getMessage()]);
+        }
+    }
+
+    public function destroyGroup(CatalogItem $catalogItem, Client $client)
+    {
+        PricePerQuantity::where('catalog_item_id', $catalogItem->id)
+            ->where('client_id', $client->id)
+            ->delete();
+
+        return redirect()->route('quantity-prices.index')
+            ->with('success', 'Quantity prices deleted successfully.');
     }
 
     public function create()
@@ -49,39 +191,74 @@ class PricePerQuantityController extends Controller
         $validated = $request->validate([
             'catalog_item_id' => 'required|exists:catalog_items,id',
             'client_id' => 'required|exists:clients,id',
-            'quantity_from' => 'nullable|integer|min:0',
-            'quantity_to' => 'nullable|integer|min:0',
-            'price' => 'required|numeric|min:0',
+            'ranges' => 'required|array|min:1',
+            'ranges.*.quantity_from' => 'nullable|integer|min:0',
+            'ranges.*.quantity_to' => 'nullable|integer|min:0',
+            'ranges.*.price' => 'required|numeric|min:0',
         ]);
 
-        // Ensure at least one boundary is set
-        if (empty($validated['quantity_from']) && empty($validated['quantity_to'])) {
-            return back()->withErrors(['message' => 'At least one quantity boundary must be set.']);
-        }
+        \DB::beginTransaction();
 
-        // Validate range logic
-        if (!empty($validated['quantity_from']) && !empty($validated['quantity_to'])) {
-            if ($validated['quantity_from'] >= $validated['quantity_to']) {
-                return back()->withErrors(['message' => 'The "from" quantity must be less than the "to" quantity.']);
+        try {
+            // Sort ranges by quantity_from
+            $ranges = collect($validated['ranges'])->sortBy(function ($range) {
+                return $range['quantity_from'] ?? 0;
+            })->values()->all();
+
+            foreach ($ranges as $index => $range) {
+                // Ensure at least one boundary is set
+                if (empty($range['quantity_from']) && empty($range['quantity_to'])) {
+                    throw new \Exception('At least one quantity boundary must be set for each range.');
+                }
+
+                // Validate range logic
+                if (!empty($range['quantity_from']) && !empty($range['quantity_to'])) {
+                    if ($range['quantity_from'] >= $range['quantity_to']) {
+                        throw new \Exception('The "from" quantity must be less than the "to" quantity.');
+                    }
+                }
+
+                // Check for overlap with next range
+                if (isset($ranges[$index + 1])) {
+                    $nextRange = $ranges[$index + 1];
+                    if (!empty($range['quantity_to']) && !empty($nextRange['quantity_from'])) {
+                        if ($range['quantity_to'] >= $nextRange['quantity_from']) {
+                            throw new \Exception('Ranges cannot overlap.');
+                        }
+                    }
+                }
+
+                // Check for overlapping ranges in database
+                $overlapping = $this->checkOverlappingRanges(
+                    $validated['catalog_item_id'],
+                    $validated['client_id'],
+                    $range['quantity_from'],
+                    $range['quantity_to']
+                );
+
+                if ($overlapping) {
+                    throw new \Exception('One or more ranges overlap with existing price ranges.');
+                }
+
+                // Create the price record
+                PricePerQuantity::create([
+                    'catalog_item_id' => $validated['catalog_item_id'],
+                    'client_id' => $validated['client_id'],
+                    'quantity_from' => $range['quantity_from'],
+                    'quantity_to' => $range['quantity_to'],
+                    'price' => $range['price'],
+                ]);
             }
+
+            \DB::commit();
+
+            return redirect()->route('quantity-prices.index')
+                ->with('success', count($ranges) > 1 ? 'Quantity prices created successfully.' : 'Quantity price created successfully.');
+
+        } catch (\Exception $e) {
+            \DB::rollBack();
+            return back()->withErrors(['message' => $e->getMessage()]);
         }
-
-        // Check for overlapping ranges
-        $overlapping = $this->checkOverlappingRanges(
-            $validated['catalog_item_id'],
-            $validated['client_id'],
-            $validated['quantity_from'],
-            $validated['quantity_to']
-        );
-
-        if ($overlapping) {
-            return back()->withErrors(['message' => 'This range overlaps with an existing price range.']);
-        }
-
-        PricePerQuantity::create($validated);
-
-        return redirect()->route('quantity-prices.index')
-            ->with('success', 'Quantity price created successfully.');
     }
 
     public function edit(PricePerQuantity $quantityPrice)
@@ -197,5 +374,24 @@ class PricePerQuantityController extends Controller
                 });
             }
         })->exists();
+    }
+
+    private function getRangesSummary($prices)
+    {
+        if ($prices->isEmpty()) {
+            return 'No ranges defined';
+        }
+
+        $ranges = $prices->map(function ($price) {
+            if ($price->quantity_from === null) {
+                return "Up to {$price->quantity_to}";
+            }
+            if ($price->quantity_to === null) {
+                return "{$price->quantity_from}+";
+            }
+            return "{$price->quantity_from}-{$price->quantity_to}";
+        });
+
+        return $ranges->implode(', ');
     }
 } 

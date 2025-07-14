@@ -277,9 +277,6 @@
         </div>
     @endif
 
-    <div  class="bolder tahoma" style="margin-top: 13px; font-size: 9.5pt; color: #3f3f3f">
-        ART BOARD<span class="opensans bolder" style="color: #333333; font-size: 10pt" >:</span>
-    </div>
     @php
         $originalFiles = is_array($job->originalFile) ? $job->originalFile : [];
         $hasMultipleFiles = count($originalFiles) > 0;
@@ -293,33 +290,35 @@
         {{-- Multiple files with downloaded thumbnails --}}
                 @foreach ($localThumbnails as $index => $thumbnailPath)
             @if (file_exists($thumbnailPath))
+                <div  class="bolder tahoma" style="margin-top: 10px; font-size: 9.5pt; color: #3f3f3f">
+                    ART BOARD {{ $index + 1 }}<span class="opensans bolder" style="color: #333333; font-size: 10pt" >:</span>
+                </div>
         <div style="text-align: center; height: 440px;">
                     <img src="{{ $thumbnailPath }}" alt="Job Image {{ $index + 1 }}" style="max-height: 375px; min-height: 375px; vertical-align: middle;">
         </div>
 
-                <table style="width: 100%; text-align: center; letter-spacing: 0.5px">
-                    <tr style="font-size: 11.5px; text-transform: uppercase">
-                        <td class="tahoma" style="padding: 15px;">Печатење и контрола</td>
-                        <td class="tahoma" style="padding: 15px;">Доработка и контрола</td>
-                        <td class="tahoma" style="padding: 15px;">Монтажа и контрола</td>
-                    </tr>
-                    <tr style="">
-                        <td style="padding: 15px 15px 0 15px; border-bottom: 1px solid #d7d7d7;"></td>
-                        <td style="padding: 15px 15px 0 15px; border-bottom: 1px solid #d7d7d7;"></td>
-                        <td style="padding: 15px 15px 0 15px; border-bottom: 1px solid #d7d7d7;"></td>
-                    </tr>
-                </table>
-                
-                @if (!$loop->last)
-                    <div class="page-break"></div>
-                @endif
+        <table style="width: 100%; text-align: center; letter-spacing: 0.5px">
+            <tr style="font-size: 11.5px; text-transform: uppercase">
+                <td class="tahoma" style="padding: 15px;">Печатење и контрола</td>
+                <td class="tahoma" style="padding: 15px;">Доработка и контрола</td>
+                <td class="tahoma" style="padding: 15px;">Монтажа и контрола</td>
+            </tr>
+            <tr style="">
+                <td style="padding: 15px 15px 0 15px; border-bottom: 1px solid #d7d7d7;"></td>
+                <td style="padding: 15px 15px 0 15px; border-bottom: 1px solid #d7d7d7;"></td>
+                <td style="padding: 15px 15px 0 15px; border-bottom: 1px solid #d7d7d7;"></td>
+            </tr>
+        </table>
     @endif
         @endforeach
     @elseif ($hasMultipleFiles)
         {{-- Multiple files but no thumbnails available - show placeholders --}}
         @foreach ($originalFiles as $index => $filePath)
+            <div  class="bolder tahoma" style="margin-top: 5px; font-size: 9.5pt; color: #3f3f3f">
+                ART BOARD {{ $index + 1 }}<span class="opensans bolder" style="color: #333333; font-size: 9pt" >:</span>
+            </div>
             <div style="text-align: center; height: 440px;">
-                <div style="max-height: 375px; min-height: 375px; vertical-align: middle; display: flex; align-items: center; justify-content: center; border: 2px dashed #ccc; background-color: #f9f9f9;">
+                <div style="max-height: 370px; min-height: 370px; vertical-align: middle; display: flex; align-items: center; justify-content: center; border: 2px dashed #ccc; background-color: #f9f9f9;">
                     <div style="text-align: center;">
                         <div style="font-size: 48px; color: #666; margin-bottom: 10px;">📄</div>
                         <div style="font-size: 14px; color: #666;">PDF File {{ $index + 1 }}</div>
@@ -328,25 +327,24 @@
                 </div>
             </div>
 
-    <table style="width: 100%; text-align: center; letter-spacing: 0.5px">
-        <tr style="font-size: 11.5px; text-transform: uppercase">
-            <td class="tahoma" style="padding: 15px;">Печатење и контрола</td>
-            <td class="tahoma" style="padding: 15px;">Доработка и контрола</td>
-            <td class="tahoma" style="padding: 15px;">Монтажа и контрола</td>
-        </tr>
-        <tr style="">
-            <td style="padding: 15px 15px 0 15px; border-bottom: 1px solid #d7d7d7;"></td>
-            <td style="padding: 15px 15px 0 15px; border-bottom: 1px solid #d7d7d7;"></td>
-            <td style="padding: 15px 15px 0 15px; border-bottom: 1px solid #d7d7d7;"></td>
-        </tr>
-    </table>
-            
-            @if (!$loop->last)
-                <div class="page-break"></div>
-            @endif
+            <table style="width: 100%; text-align: center; letter-spacing: 0.5px">
+                <tr style="font-size: 11.5px; text-transform: uppercase">
+                    <td class="tahoma" style="padding: 15px;">Печатење и контрола</td>
+                    <td class="tahoma" style="padding: 15px;">Доработка и контрола</td>
+                    <td class="tahoma" style="padding: 15px;">Монтажа и контрола</td>
+                </tr>
+                <tr style="">
+                    <td style="padding: 15px 15px 0 15px; border-bottom: 1px solid #d7d7d7;"></td>
+                    <td style="padding: 15px 15px 0 15px; border-bottom: 1px solid #d7d7d7;"></td>
+                    <td style="padding: 15px 15px 0 15px; border-bottom: 1px solid #d7d7d7;"></td>
+                </tr>
+            </table>
         @endforeach
     @elseif ($legacyFile)
         {{-- Legacy single file --}}
+        <div  class="bolder tahoma" style="margin-top: 13px; font-size: 9.5pt; color: #3f3f3f">
+            ART BOARD 1<span class="opensans bolder" style="color: #333333; font-size: 10pt" >:</span>
+        </div>
         <div style="text-align: center; height: 440px;">
             <img src="{{ storage_path('app/public/uploads/' . $legacyFile) }}" alt="Job Image" style="max-height: 375px; min-height: 375px; vertical-align: middle;">
         </div>
@@ -363,10 +361,55 @@
                 <td style="padding: 15px 15px 0 15px; border-bottom: 1px solid #d7d7d7;"></td>
             </tr>
         </table>
+
     @endif
-    
+
     @if (!$loop->last)
         <div class="page-break"></div>
+    @endif
+
+    @if (!empty($job->cutting_file_image))
+        <div style="page-break-before: always;"></div>
+        {{-- Duplicate header code here --}}
+        <div class="invoice-info">
+            <table  style="table-layout: fixed;  width: 100%;">
+                <tr style=" line-height: 10px; margin-top: -25px" >
+                    <td style="width: 360px; text-align: left; margin-top: 5px">
+                        <div>
+                            <span class="tahoma" style="margin-left: -3px; color: #333333; font-size: 11.5pt;">Работен налог</span><span class="opensans" style="color: #333333;">:
+                            </span> <span class="order tahoma bolder" style="font-size: 19pt">бр<span class="opensans" style="font-size: 27pt">.</span><span class="opensans bolder">{{ $invoice->id }}/{{ date('Y', strtotime($invoice->start_date)) }}</span></span>
+                        </div>
+                    </td>
+                    <td style="text-align: right" >
+                        <img src="{{ public_path('logo_blue.png') }}" alt="LOGO" style="height: 30px;">
+                    </td>
+
+            </table>
+            <div class="divider"></div>
+            <div class="info">
+                <table style="width: 100%; color: #333333; gap: 0">
+                    <tr>
+                        <td class="left" style="padding-top:5px; padding-bottom: 10px">
+                            <div style="font-size:9.5pt" class="tahoma">Датум на отварање: <span class="opensans bolder">{{ date('m/d/Y', strtotime($invoice->start_date)) }}</span></div>
+                            <div style="font-size:9.5pt" class="tahoma">Краен рок: <span class="opensans bolder">{{ date('m/d/Y', strtotime($invoice->end_date)) }}</span></div>
+                            <div style="font-size:9.5pt" class="tahoma">Одговорно лице: <span class="opensans bolder">{{$invoice->user->name}}</span></div>
+                        </td>
+                        <td class="right"  style="padding-top:5px; padding-bottom: 10px">
+                            <div class="bolder tahoma" style="text-transform: uppercase; font-size: 12px;">Нарачател: <span class="bolder">{{ $invoice->client->name }}</span></div>
+                            <div style="font-size: 13px;">Контакт: <span>{{$invoice->contact->name }}</span></div>
+                            <div style="font-size: 13px">Контакт тел: <span>{{$invoice->contact->phone }}</span> </div>
+                        </td>
+                    </tr>
+                </table>
+            </div>
+            <div class="divider"></div>
+        </div>
+        <div  class="bolder opensans" style="margin-left: 25px; margin-top: 8px; font-size: 10pt; color: #333333">
+        CUTTING FILE:
+    </div>
+        <div style="text-align: center;">
+            <img src="{{ $job->cutting_file_image }}" style="max-width: 100%; max-height: 900px;">
+        </div>
     @endif
 @endforeach
 </body>

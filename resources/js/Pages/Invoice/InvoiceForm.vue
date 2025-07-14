@@ -124,6 +124,8 @@
                     <div class="Order light-gray">
                         <h2 class="sub-title uppercase pl-1" >{{ $t('orderLines') }}</h2>
                         <OrderLines
+                            ref="orderLines"
+                            :key="`order-lines-${$refs.dragAndDrop?.jobs?.length || 0}-${updatedJobs.length || 0}`"
                             :jobs="$refs.dragAndDrop?.jobs"
                             :updatedJobs="updatedJobs"
                             @job-updated="handleJobUpdate"
@@ -409,11 +411,31 @@ export default {
                     // Also remove from updatedJobs if it exists there
                     this.updatedJobs = this.updatedJobs.filter(job => job.id !== jobId);
 
+                    // Force reactivity update for DragAndDrop component
+                    this.$refs.dragAndDrop.$forceUpdate();
+
+                    // Clean up jobsWithPrices in OrderLines component
+                    this.handleJobDeleted(jobId);
+
+                    // Force reactivity update for OrderLines component
+                    this.$nextTick(() => {
+                        if (this.$refs.orderLines) {
+                            this.$refs.orderLines.$forceUpdate();
+                        }
+                    });
+
                     toast.success('Job deleted successfully');
                 } catch (error) {
                     console.error('Error deleting job:', error);
                     toast.error('Failed to delete job');
                 }
+            }
+        },
+
+        handleJobDeleted(jobId) {
+            // Clean up jobsWithPrices in OrderLines component to prevent deleted jobs from reappearing
+            if (this.$refs.orderLines) {
+                this.$refs.orderLines.cleanupDeletedJob(jobId);
             }
         },
     },

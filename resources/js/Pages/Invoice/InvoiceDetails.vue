@@ -175,6 +175,20 @@
                                          </span>
                                         </div>
                                         <div>{{$t('totalm')}}<sup>2</sup>: <span class="bold">{{((job.height * job.width) / 1000000).toFixed(4)}}</span></div>
+                                   <!-- Cutting Files Preview Buttons -->
+                                   <div v-if="job.cuttingFiles && job.cuttingFiles.length > 0" class="cutting-files-preview flex gap-1">
+                                    <div>Cutting Files:</div>
+                                    <button
+                                                    v-for="(cuttingFile, cuttingIndex) in job.cuttingFiles"
+                                                    :key="cuttingIndex"
+                                                    class="cutting-file-btn"
+                                                    @click="previewCuttingFile(job.id, cuttingIndex)"
+                                                >
+                                                    <i class="fa fa-scissors"></i>
+                                                    {{ getCuttingFileExtension(cuttingFile).toUpperCase() }} {{ cuttingIndex + 1 }}
+                                                    <span class="preview-hint">Preview</span>
+                                                </button>
+                                            </div>
                                     </div>
                                     <div v-if="jobProcessMode">
                                         <OrderJobDetails :job="job"/>
@@ -201,7 +215,7 @@
                             </div>
                         </div>
                         <div class="flex justify-center" v-else>
-                            <OrderSpreadsheet :invoice="invoice" :canViewPrice="canViewPrice" />
+                            <OrderSpreadsheet :invoice="invoice" :canViewPrice="spreadsheetMode ? true : canViewPrice" />
                         </div>
                     </div>
                 </div>
@@ -557,6 +571,15 @@ export default {
                 // Handle unexpected errors
                 console.error('Error unlocking order:', error);
             }
+        },
+        previewCuttingFile(jobId, fileIndex) {
+            const url = route
+                ? route('jobs.viewCuttingFile', { jobId, fileIndex })
+                : `/jobs/${jobId}/view-cutting-file/${fileIndex}`;
+            window.open(url, '_blank');
+        },
+        getCuttingFileExtension(filePath) {
+            return filePath.split('.').pop() || '';
         }
 
     },
@@ -961,5 +984,28 @@ table th {
 
 [v-cloak] {
     display: none;
+}
+.cutting-files-preview {
+    display: flex;
+}
+.cutting-file-btn {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    background: #ff6b35;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    padding: 4px 10px;
+    cursor: pointer;
+    font-size: 0.9rem;
+}
+.cutting-file-btn .fa-scissors {
+    margin-right: 4px;
+}
+.preview-hint {
+    font-size: 0.7em;
+    opacity: 0.7;
+    margin-left: 4px;
 }
 </style>

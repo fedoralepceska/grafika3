@@ -1,13 +1,23 @@
 <template>
     <MainLayout>
         <div class="pl-7 pr-7">
-            <Header
-                title="Pricing"
-                subtitle="Quantity-Based Prices"
-                icon="Price.png"
-                link="quantity-prices"
-                buttonText="Add New Price Range"
-            />
+            <div class="flex justify-between align-center">
+                <Header
+                    title="Pricing"
+                    subtitle="Quantity-Based Prices"
+                    icon="Price.png"
+                    link="quantity-prices"
+                    buttonText="Add New Price Range"
+                />
+                <div class="flex align-center py-5">
+                    <Link
+                        :href="route('quantity-prices.create')"
+                        class="btn create-order2"
+                    >
+                        Add New Price Range
+                    </Link>
+                </div>
+            </div>
 
             <div class="dark-gray p-2 text-white">
                 <div class="form-container p-2">
@@ -32,27 +42,34 @@
                             <tr class="bg-gray-700 text-white">
                                 <th class="p-4">Catalog Item</th>
                                 <th class="p-4">Client</th>
-                                <th class="p-4">Quantity Range</th>
-                                <th class="p-4">Default Price</th>
-                                <th class="p-4">Range Price</th>
+                                <th class="p-4">Price Ranges</th>
                                 <th class="p-4">Actions</th>
                             </tr>
                         </thead>
                         <tbody>
                             <tr
                                 v-for="price in prices.data"
-                                :key="price.id"
+                                :key="`${price.catalog_item.id}-${price.client.id}`"
                                 class="bg-gray-800 text-white border-t border-gray-700"
                             >
                                 <td class="p-4">{{ price.catalog_item.name }}</td>
                                 <td class="p-4">{{ price.client.name }}</td>
-                                <td class="p-4">{{ formatRange(price.quantity_from, price.quantity_to) }}</td>
-                                <td class="p-4">{{ formatPrice(price.catalog_item.price) }}</td>
-                                <td class="p-4">{{ formatPrice(price.price) }}</td>
+                                <td class="p-4">
+                                    <div class="text-sm">
+                                        <div class="font-semibold">{{ price.price_count }} range(s)</div>
+                                        <div class="text-gray-300">{{ price.ranges_summary }}</div>
+                                    </div>
+                                </td>
                                 <td class="p-4">
                                     <div class="flex space-x-2">
                                         <Link
-                                            :href="route('quantity-prices.edit', price.id)"
+                                            :href="route('quantity-prices.view', [price.catalog_item.id, price.client.id])"
+                                            class="btn btn-secondary"
+                                        >
+                                            <i class="fas fa-eye"></i> View
+                                        </Link>
+                                        <Link
+                                            :href="route('quantity-prices.edit-group', [price.catalog_item.id, price.client.id])"
                                             class="btn btn-secondary"
                                         >
                                             <i class="fas fa-edit"></i> Edit
@@ -101,7 +118,7 @@
                     <button @click="showDeleteModal = false" class="close-button">&times;</button>
                 </div>
                 <div class="modal-body">
-                    <p>Are you sure you want to delete this price range?</p>
+                    <p>Are you sure you want to delete all quantity prices for <strong>{{ selectedPrice?.catalog_item?.name }}</strong> and <strong>{{ selectedPrice?.client?.name }}</strong>?</p>
                     <div class="mt-4 flex justify-end space-x-2">
                         <button @click="showDeleteModal = false" class="btn btn-secondary">
                             Cancel
@@ -117,6 +134,7 @@
 </template>
 
 <script>
+import debounce from 'lodash.debounce';
 import MainLayout from '@/Layouts/MainLayout.vue';
 import Header from '@/Components/Header.vue';
 import { Link } from '@inertiajs/vue3';
@@ -142,24 +160,7 @@ export default {
     },
 
     methods: {
-        formatPrice(price) {
-            return new Intl.NumberFormat('en-US', {
-                style: 'currency',
-                currency: 'USD'
-            }).format(price);
-        },
-
-        formatRange(from, to) {
-            if (from === null) {
-                return `Up to ${to}`;
-            }
-            if (to === null) {
-                return `${from}+`;
-            }
-            return `${from} - ${to}`;
-        },
-
-        handleSearch: _.debounce(function() {
+        handleSearch: debounce(function() {
             this.$inertia.get(route('quantity-prices.index'), {
                 search: this.searchQuery
             }, {
@@ -185,12 +186,12 @@ export default {
 
         async deletePrice() {
             try {
-                await this.$inertia.delete(route('quantity-prices.destroy', this.selectedPrice.id));
+                await this.$inertia.delete(route('quantity-prices.destroy-group', [this.selectedPrice.catalog_item.id, this.selectedPrice.client.id]));
                 this.showDeleteModal = false;
                 this.selectedPrice = null;
-                useToast().success('Price range deleted successfully');
+                useToast().success('Quantity prices deleted successfully');
             } catch (error) {
-                useToast().error('Failed to delete price range');
+                useToast().error('Failed to delete quantity prices');
             }
         }
     }
@@ -243,6 +244,20 @@ export default {
 
         &:hover {
             background-color: darken($red, 10%);
+        }
+    }
+
+    &.create-order2 {
+        background-color: $green;
+        color: $white;
+        padding: 10px 20px;
+        border-radius: 4px;
+        font-weight: bold;
+        text-decoration: none;
+        display: inline-block;
+
+        &:hover {
+            background-color: darken($green, 10%);
         }
     }
 }

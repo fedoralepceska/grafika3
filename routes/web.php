@@ -24,7 +24,7 @@ use App\Models\SmallMaterial;
 use App\Http\Controllers\PricePerClientController;
 use App\Http\Controllers\PricePerQuantityController;
 use App\Http\Controllers\ClientPriceController;
-use App\Http\Controllers\QuantityPriceController;
+
 use App\Http\Controllers\OfferController;
 use App\Http\Controllers\ItemController;
 use App\Http\Controllers\PriceController;
@@ -152,8 +152,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('/get-jobs-by-ids', [JobController::class, 'getJobsByIds'])->name('jobs.getJobsByIds');
     Route::get('/jobs/{id}/image-dimensions', [JobController::class, 'calculateImageDimensions'])->name('jobs.calculateImageDimensions');
     Route::put('/jobs/{id}', [JobController::class, 'update'])->name('jobs.update');
+    Route::put('/jobs/{id}/update-machines', [JobController::class, 'updateMachines'])->name('jobs.updateMachines');
+    Route::put('/jobs/{id}/update-machine', [JobController::class, 'updateMachine'])->name('jobs.updateMachine');
     Route::post('/jobs/{id}/update-file', [JobController::class, 'updateFile'])->name('jobs.updateFile');
     Route::post('/jobs/{id}/upload-multiple-files', [JobController::class, 'uploadMultipleFiles'])->name('jobs.uploadMultipleFiles');
+    Route::get('/jobs/{id}/upload-progress', [JobController::class, 'getUploadProgress'])->name('jobs.uploadProgress');
     Route::get('/jobs/{id}/download-original-file', [JobController::class, 'downloadOriginalFile'])->name('jobs.downloadOriginalFile');
     Route::post('/jobs/{id}/download-original-file', [JobController::class, 'downloadOriginalFile'])->name('jobs.downloadOriginalFilePost');
     Route::delete('/jobs/{id}/remove-original-file', [JobController::class, 'removeOriginalFile'])->name('jobs.removeOriginalFile');
@@ -161,6 +164,15 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/jobs/{id}/thumbnails', [JobController::class, 'getJobThumbnails'])->name('jobs.getThumbnails');
     Route::get('/jobs/{jobId}/view-original-file/{fileIndex}', [JobController::class, 'viewOriginalFile'])->name('jobs.viewOriginalFile');
     Route::get('/jobs/{jobId}/view-thumbnail/{fileIndex}', [JobController::class, 'viewThumbnail'])->name('jobs.viewThumbnail');
+    
+    // Cutting Files Routes
+    Route::post('/jobs/{id}/upload-cutting-files', [JobController::class, 'uploadCuttingFiles'])->name('jobs.uploadCuttingFiles');
+    Route::get('/jobs/{id}/cutting-upload-progress', [JobController::class, 'getCuttingUploadProgress'])->name('jobs.cuttingUploadProgress');
+    Route::get('/jobs/{id}/cutting-file-thumbnails', [JobController::class, 'getCuttingFileThumbnails'])->name('jobs.getCuttingFileThumbnails');
+    Route::get('/jobs/{jobId}/view-cutting-file/{fileIndex}', [JobController::class, 'viewCuttingFile'])->name('jobs.viewCuttingFile');
+    Route::get('/jobs/{jobId}/view-cutting-file-thumbnail/{fileIndex}', [JobController::class, 'viewCuttingFileThumbnail'])->name('jobs.viewCuttingFileThumbnail');
+    Route::delete('/jobs/{id}/remove-cutting-file', [JobController::class, 'removeCuttingFile'])->name('jobs.removeCuttingFile');
+    
     Route::get('/jobs/{id}', [JobController::class, 'show'])->name('jobs.show');
     Route::get('/job-action-status-counts', [JobController::class, 'jobActionStatusCounts']);
     Route::get('/job-machine-print-counts', [JobController::class, 'jobMachinePrintCounts']);
@@ -336,7 +348,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('/catalog', [CatalogItemController::class, 'store'])->name('catalog.store');
     Route::get('/catalog/{catalogItem}/edit', [CatalogItemController::class, 'edit'])->name('catalog.edit');
     Route::put('/catalog/{catalogItem}', [CatalogItemController::class, 'update'])->name('catalog.update');
-    Route::delete('/catalog/{catalogItem}', [CatalogItemController::class, 'destroy'])->name('catalog.destroy');
+    Route::delete('/catalog/{id}', [CatalogItemController::class, 'destroy'])->name('catalog.destroy');
+    Route::delete('/catalog/{id}/force', [CatalogItemController::class, 'forceDelete'])->name('catalog.force-delete');
     Route::get('/catalog_items/offer', [CatalogItemController::class, 'fetchAllForOffer'])->name('catalog.fetchAllForOffer');
     Route::get('/catalog/{catalogItem}/download-template', [CatalogItemController::class, 'downloadTemplate'])->name('catalog.download-template');
 });
@@ -395,48 +408,28 @@ Route::get('/get-actions', function () {
 
 // Price Management Routes
 Route::middleware(['auth'])->group(function () {
-    // Client Prices
-    Route::get('/client-prices', [PricePerClientController::class, 'index'])->name('client-prices.index');
-    Route::get('/client-prices/create', [PricePerClientController::class, 'create'])->name('client-prices.create');
-    Route::post('/client-prices', [PricePerClientController::class, 'store'])->name('client-prices.store');
-    Route::get('/client-prices/{clientPrice}/edit', [PricePerClientController::class, 'edit'])->name('client-prices.edit');
-    Route::put('/client-prices/{clientPrice}', [PricePerClientController::class, 'update'])->name('client-prices.update');
-    Route::delete('/client-prices/{clientPrice}', [PricePerClientController::class, 'destroy'])->name('client-prices.destroy');
-    Route::get('/catalog-items/{catalogItem}/client-prices', [PricePerClientController::class, 'getClientPrices'])->name('client-prices.get');
-
-    // Quantity Prices
-    Route::get('/quantity-prices', [PricePerQuantityController::class, 'index'])->name('quantity-prices.index');
-    Route::get('/quantity-prices/create', [PricePerQuantityController::class, 'create'])->name('quantity-prices.create');
-    Route::post('/quantity-prices', [PricePerQuantityController::class, 'store'])->name('quantity-prices.store');
-    Route::get('/quantity-prices/{quantityPrice}/edit', [PricePerQuantityController::class, 'edit'])->name('quantity-prices.edit');
-    Route::put('/quantity-prices/{quantityPrice}', [PricePerQuantityController::class, 'update'])->name('quantity-prices.update');
-    Route::delete('/quantity-prices/{quantityPrice}', [PricePerQuantityController::class, 'destroy'])->name('quantity-prices.destroy');
-    Route::get('/catalog-items/{catalogItem}/clients/{client}/quantity-prices', [PricePerQuantityController::class, 'getQuantityPrices'])->name('quantity-prices.get');
-});
-
-// Client-specific prices routes
-Route::middleware(['auth'])->group(function () {
+    // Client-specific prices routes
     Route::get('/client-prices', [ClientPriceController::class, 'index'])->name('client-prices.index');
     Route::get('/client-prices/create', [ClientPriceController::class, 'create'])->name('client-prices.create');
     Route::post('/client-prices', [ClientPriceController::class, 'store'])->name('client-prices.store');
     Route::get('/client-prices/{clientPrice}/edit', [ClientPriceController::class, 'edit'])->name('client-prices.edit');
     Route::put('/client-prices/{clientPrice}', [ClientPriceController::class, 'update'])->name('client-prices.update');
     Route::delete('/client-prices/{clientPrice}', [ClientPriceController::class, 'destroy'])->name('client-prices.destroy');
-});
-// Quantity-based prices routes
-Route::middleware(['auth'])->group(function () {
-    // Routes for QuantityPriceController (multiple ranges)
-    Route::get('/quantity-prices', [QuantityPriceController::class, 'index'])->name('quantity-prices.index');
-    Route::get('/quantity-prices/create', [QuantityPriceController::class, 'create'])->name('quantity-prices.create');
-    Route::post('/quantity-prices', [QuantityPriceController::class, 'store'])->name('quantity-prices.store');
-    
-    // Routes for PricePerQuantityController (single ranges)
-    Route::post('/quantity-prices/single', [PricePerQuantityController::class, 'store'])->name('quantity-prices.store.single');
-    Route::get('/price-per-quantity/{quantityPrice}/edit', [PricePerQuantityController::class, 'edit'])->name('price-per-quantity.edit');
-    Route::post('/price-per-quantity/{quantityPrice}', [PricePerQuantityController::class, 'update'])->name('price-per-quantity.update');
-    Route::delete('/price-per-quantity/{quantityPrice}', [PricePerQuantityController::class, 'destroy'])->name('price-per-quantity.destroy');
+
+    // Grouped Quantity Prices
+    Route::get('/quantity-prices', [PricePerQuantityController::class, 'index'])->name('quantity-prices.index');
+    Route::get('/quantity-prices/create', [PricePerQuantityController::class, 'create'])->name('quantity-prices.create');
+    Route::post('/quantity-prices', [PricePerQuantityController::class, 'store'])->name('quantity-prices.store');
+    Route::get('/quantity-prices/{catalogItem}/{client}/view', [PricePerQuantityController::class, 'view'])->name('quantity-prices.view');
+    Route::get('/quantity-prices/{catalogItem}/{client}/edit', [PricePerQuantityController::class, 'editGroup'])->name('quantity-prices.edit-group');
+    Route::put('/quantity-prices/{catalogItem}/{client}', [PricePerQuantityController::class, 'updateGroup'])->name('quantity-prices.update-group');
+    Route::delete('/quantity-prices/{catalogItem}/{client}', [PricePerQuantityController::class, 'destroyGroup'])->name('quantity-prices.destroy-group');
     Route::get('/catalog-items/{catalogItem}/clients/{client}/quantity-prices', [PricePerQuantityController::class, 'getQuantityPrices'])->name('quantity-prices.get');
 });
+
+
+
+
 
 // Offer Routes
 Route::middleware(['auth'])->group(function () {

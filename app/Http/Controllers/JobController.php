@@ -415,11 +415,14 @@ class JobController extends Controller
                     'height' => $job->height ?: 0,
                 ];
 
-                // Set the job price = manual price × quantity (not copies)
+                // Determine pricing multiplier based on catalog item settings
+                $pricingMultiplier = $this->getPricingMultiplier($job, $request->input('quantity'), $request->input('copies'));
+
+                // Set the job price using the appropriate multiplier
                 if ($request->has('price')) {
-                    $updateData['salePrice'] = $request->input('price') * $request->input('quantity'); // Selling price
+                    $updateData['salePrice'] = $request->input('price') * $pricingMultiplier; // Selling price
                 } elseif ($unitPrice !== null) {
-                    $updateData['salePrice'] = $unitPrice * $request->input('quantity'); // Selling price from hierarchy
+                    $updateData['salePrice'] = $unitPrice * $pricingMultiplier; // Selling price from hierarchy
                 }
 
                 // Calculate cost price from materials and actions
@@ -441,7 +444,7 @@ class JobController extends Controller
                         }
                     }
                 }
-                $updateData['price'] = $costPrice * $request->input('quantity'); // Cost price
+                $updateData['price'] = $costPrice * $pricingMultiplier; // Cost price
 
                 // Update each job individually to preserve its specific attributes
                 $job->update($updateData);
@@ -546,10 +549,11 @@ class JobController extends Controller
                     }
                 }
                 
-                // Add articles cost to each job's price (cost per job quantity, not per copies)
+                // Add articles cost to each job's price using appropriate multiplier
                 if ($totalArticlesCost > 0) {
-                    $costPerJob = $totalArticlesCost * $request->input('quantity');
                     foreach ($jobsToUpdate as $job) {
+                        $pricingMultiplier = $this->getPricingMultiplier($job, $request->input('quantity'), $request->input('copies'));
+                        $costPerJob = $totalArticlesCost * $pricingMultiplier;
                         $job->price = ($job->price ?? 0) + $costPerJob;
                         $job->save();
                     }
@@ -1014,54 +1018,77 @@ class JobController extends Controller
                 'salePrice' => 'sometimes|required',
             ]);
 
-            // Only recalculate price if quantity is being updated AND the job has catalog/client info
-            if ($request->has('quantity')) {
+            // Recalculate price if quantity or copies is being updated AND the job has catalog/client info
+            if ($request->has('quantity') || $request->has('copies')) {
                 // Get the catalog_item_id and client_id from request or existing job/invoice
                 $catalogItemId = $request->input('catalog_item_id') ?? $job->catalog_item_id ?? $job->invoice?->catalog_item_id;
                 $clientId = $request->input('client_id') ?? $job->client_id ?? $job->invoice?->client_id;
 
-                \Log::info('Updating job quantity', [
+                \Log::info('Updating job quantity/copies', [
                     'job_id' => $id,
                     'catalog_item_id' => $catalogItemId,
                     'client_id' => $clientId,
-                    'new_quantity' => $request->input('quantity'),
+                    'new_quantity' => $request->input('quantity', $job->quantity),
+                    'new_copies' => $request->input('copies', $job->copies),
                     'old_quantity' => $job->quantity,
+                    'old_copies' => $job->copies,
                     'is_catalog_job' => !is_null($catalogItemId) && !is_null($clientId)
                 ]);
 
                 // Only recalculate price for catalog-based jobs (those with catalog_item_id and client_id)
                 if (!is_null($catalogItemId) && !is_null($clientId)) {
-                    $priceCalculationService = app()->make(PriceCalculationService::class);
+                    $catalogItem = \App\Models\CatalogItem::find($catalogItemId);
                     
-                    // Calculate the new selling price based on the updated quantity
-                    $newSalePrice = $priceCalculationService->calculateEffectivePrice(
-                        $catalogItemId,
-                        $clientId,
-                        $request->input('quantity')
-                    );
-
-                    \Log::info('Price calculation result for catalog job', [
-                        'job_id' => $id,
-                        'calculated_sale_price' => $newSalePrice
-                    ]);
-
-                    if ($newSalePrice !== null) {
+                    if ($catalogItem) {
+                        // Get the new quantity and copies values
+                        $newQuantity = $request->input('quantity', $job->quantity);
+                        $newCopies = $request->input('copies', $job->copies);
+                        
+                        // Get the pricing multiplier based on catalog item settings
+                        $pricingMultiplier = $catalogItem->getPricingMultiplier($newQuantity, $newCopies);
+                        
+                        // Get the base price from the catalog item
+                        $basePrice = $catalogItem->getEffectivePrice($clientId, 1);
+                        
+                        // Calculate new selling price
+                        $newSalePrice = $basePrice * $pricingMultiplier;
+                        
+                        \Log::info('Price calculation result for catalog job with new pricing method', [
+                            'job_id' => $id,
+                            'catalog_item_id' => $catalogItemId,
+                            'pricing_method' => $catalogItem->getPricingMethod(),
+                            'base_price' => $basePrice,
+                            'pricing_multiplier' => $pricingMultiplier,
+                            'new_quantity' => $newQuantity,
+                            'new_copies' => $newCopies,
+                            'calculated_sale_price' => $newSalePrice
+                        ]);
+                        
                         // Update selling price (salePrice)
                         $job->salePrice = $newSalePrice;
-                    }
-                    
-                    // Also scale the cost price (price) proportionally based on quantity change
-                    if ($job->price && $job->quantity > 0) {
-                        $unitCostPrice = $job->price / $job->quantity;
-                        $job->price = $unitCostPrice * $request->input('quantity');
                         
-                        \Log::info('Scaled cost price for catalog job', [
-                            'job_id' => $id,
-                            'old_quantity' => $job->quantity,
-                            'new_quantity' => $request->input('quantity'),
-                            'unit_cost_price' => $unitCostPrice,
-                            'new_cost_price' => $job->price
-                        ]);
+                        // Also scale the cost price (price) proportionally based on the pricing multiplier
+                        if ($job->price && $job->quantity > 0) {
+                            // Calculate the current pricing multiplier
+                            $currentMultiplier = $catalogItem->getPricingMultiplier($job->quantity, $job->copies);
+                            
+                            if ($currentMultiplier > 0) {
+                                $unitCostPrice = $job->price / $currentMultiplier;
+                                $job->price = $unitCostPrice * $pricingMultiplier;
+                                
+                                \Log::info('Scaled cost price for catalog job with new pricing method', [
+                                    'job_id' => $id,
+                                    'old_quantity' => $job->quantity,
+                                    'new_quantity' => $newQuantity,
+                                    'old_copies' => $job->copies,
+                                    'new_copies' => $newCopies,
+                                    'old_multiplier' => $currentMultiplier,
+                                    'new_multiplier' => $pricingMultiplier,
+                                    'unit_cost_price' => $unitCostPrice,
+                                    'new_cost_price' => $job->price
+                                ]);
+                            }
+                        }
                     }
                 } else {
                     \Log::info('Skipping price recalculation for manual job', [
@@ -1069,8 +1096,8 @@ class JobController extends Controller
                         'reason' => 'Missing catalog_item_id or client_id'
                     ]);
                     
-                    // For manual jobs, scale both selling price and cost price proportionally
-                    if ($job->quantity > 0) {
+                    // For manual jobs, scale both selling price and cost price proportionally based on quantity change only
+                    if ($request->has('quantity') && $job->quantity > 0) {
                         $quantityRatio = $request->input('quantity') / $job->quantity;
                         
                         // Scale selling price if it exists
@@ -1109,7 +1136,6 @@ class JobController extends Controller
             }
             if (isset($validatedData['copies'])) {
                 $job->copies = $validatedData['copies'];
-                // Note: copies updates don't trigger price recalculation
             }
             if (isset($validatedData['salePrice'])) {
                 $job->salePrice = $validatedData['salePrice'];
@@ -1695,7 +1721,7 @@ class JobController extends Controller
     }
 
     /**
-     * Upload multiple files to a job
+     * Upload multiple files to a job with batch processing and progress tracking
      */
     public function uploadMultipleFiles(Request $request, $id)
     {
@@ -1718,144 +1744,78 @@ class JobController extends Controller
             $totalAreaM2 = 0; // Area will be calculated from individual files
             $firstFilePreview = null;
 
-            \Log::info('Starting multiple file upload with existing dimensions', [
+            $files = $request->file('files');
+            $totalFiles = count($files);
+            $batchSize = 2; // Reduced batch size for more granular progress
+
+            // Initialize progress tracking
+            $this->updateUploadProgress($id, 'starting', 5, 0, $totalFiles, 'Starting upload...');
+
+            \Log::info('Starting optimized multiple file upload', [
                 'job_id' => $id,
+                'total_files' => $totalFiles,
+                'batch_size' => $batchSize,
                 'existing_width_mm' => $totalWidthMm,
-                'existing_height_mm' => $totalHeightMm,
-                'files_to_upload' => count($request->file('files'))
+                'existing_height_mm' => $totalHeightMm
             ]);
 
-            foreach ($request->file('files') as $index => $file) {
-                // Store each file in R2
-                $filePath = $this->templateStorageService->storeTemplate($file, 'job-originals');
-                $uploadedFiles[] = $filePath;
+            // Update to uploading state
+            $this->updateUploadProgress($id, 'uploading', 10, 0, $totalFiles, 'Files uploaded, starting processing...');
 
-                // Calculate dimensions for EVERY file
-                try {
-                    $imagick = new \Imagick();
-                    $imagick->setOption('gs', "C:\Program Files\gs\gs10.02.0");
-                    $imagick->readImage($file->getPathname() . '[0]'); // Read the first page
-                    $imagick->setImageFormat('jpg');
-                    
-                    // Create temporary image for dimension calculation
-                    $tempImagePath = storage_path('app/temp/dim_calc_' . $index . '_' . time() . '.jpg');
-                    
-                    // Ensure temp directory exists
-                    if (!file_exists(dirname($tempImagePath))) {
-                        mkdir(dirname($tempImagePath), 0755, true);
-                    }
-                    
-                    $imagick->writeImage($tempImagePath);
-                    
-                    // Calculate dimensions from the image
-                    list($width, $height) = getimagesize($tempImagePath);
-                    $dpi = 72; // Default DPI if not available
-                    $widthInMm = ($width / $dpi) * 25.4;
-                    $heightInMm = ($height / $dpi) * 25.4;
-                    $areaM2 = ($widthInMm * $heightInMm) / 1000000;
+            // Process files in batches
+            for ($batchStart = 0; $batchStart < $totalFiles; $batchStart += $batchSize) {
+                $batchEnd = min($batchStart + $batchSize, $totalFiles);
+                $batchFiles = array_slice($files, $batchStart, $batchEnd - $batchStart);
+                
+                \Log::info('Processing batch', [
+                    'job_id' => $id,
+                    'batch_start' => $batchStart,
+                    'batch_end' => $batchEnd,
+                    'batch_size' => count($batchFiles)
+                ]);
 
-                    // Add to totals
-                    $totalWidthMm += $widthInMm;
-                    $totalHeightMm += $heightInMm;
-                    $totalAreaM2 += $areaM2;
+                // Update progress for batch start (10% to 80% for processing)
+                $batchProgress = 10 + (($batchStart / $totalFiles) * 70);
+                $this->updateUploadProgress($id, 'processing', $batchProgress, $batchStart, $totalFiles, "Processing batch " . ($batchStart / $batchSize + 1));
 
-                    // Store individual file dimensions
-                    $allFileDimensions[] = [
-                        'filename' => $file->getClientOriginalName(),
-                        'width_mm' => $widthInMm,
-                        'height_mm' => $heightInMm,
-                        'area_m2' => $areaM2,
-                        'index' => $index
-                    ];
+                // Process each file in the current batch
+                foreach ($batchFiles as $batchIndex => $file) {
+                    $globalIndex = $batchStart + $batchIndex;
+                    
+                    // Update progress for individual file (more granular)
+                    $fileProgress = 10 + (($globalIndex + 1) / $totalFiles) * 70;
+                    $this->updateUploadProgress($id, 'processing', $fileProgress, $globalIndex + 1, $totalFiles, "Processing file " . ($globalIndex + 1) . " of {$totalFiles}");
+                    
+                    // Store file in R2
+                    $filePath = $this->templateStorageService->storeTemplate($file, 'job-originals');
+                    $uploadedFiles[] = $filePath;
 
-                    // For the FIRST file, also create preview image for the job
-                    if ($index === 0) {
-                        $imageFilename = pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME) . '.jpg';
-                        $imagePath = storage_path('app/public/uploads/' . $imageFilename);
-                        copy($tempImagePath, $imagePath); // Copy temp image to uploads
-                        $firstFilePreview = $imageFilename;
-                    }
-                    
-                    // Clean up temp file
-                    if (file_exists($tempImagePath)) {
-                        unlink($tempImagePath);
-                    }
-                    
-                    $imagick->clear();
-                    
-                    \Log::info('Calculated dimensions for file', [
-                        'job_id' => $id,
-                        'file' => $file->getClientOriginalName(),
-                        'index' => $index,
-                        'width_mm' => $widthInMm,
-                        'height_mm' => $heightInMm,
-                        'area_m2' => $areaM2
-                    ]);
-                    
-                } catch (\Exception $e) {
-                    \Log::warning('Failed to calculate dimensions for file: ' . $e->getMessage(), [
-                        'file' => $file->getClientOriginalName(),
-                        'job_id' => $id,
-                        'index' => $index,
-                        'error_trace' => $e->getTraceAsString()
-                    ]);
-                    // Continue without dimensions for this file - don't fail the upload
+                    // Add a small delay to make progress visible
+                    usleep(200000); // 200ms delay
+
+                    // Calculate dimensions and generate thumbnail in parallel
+                    $this->processFileDimensionsAndThumbnail($file, $globalIndex, $id, $filePath, $totalWidthMm, $totalHeightMm, $totalAreaM2, $allFileDimensions, $thumbnails, $firstFilePreview);
                 }
 
-                // Generate thumbnail and store in R2
-                try {
-                    $imagick = new \Imagick();
-                    $imagick->setOption('gs', "C:\Program Files\gs\gs10.02.0");
-                    $imagick->readImage($file->getPathname() . '[0]'); // Read the first page
-                    $imagick->setImageFormat('jpg');
-                    
-                    // Create thumbnail in memory
-                    $thumbnailBlob = $imagick->getImageBlob();
-                    $imagick->clear();
-                    
-                    // Store thumbnail in R2
-                    $originalFilename = pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME);
-                    $thumbnailPath = 'job-thumbnails/job_' . $id . '_' . time() . '_' . $index . '_' . $originalFilename . '.jpg';
-                    
-                    // Upload thumbnail to R2
-                    $this->templateStorageService->getDisk()->put($thumbnailPath, $thumbnailBlob);
-
-                    \Log::info('Generated and stored thumbnail in R2', [
-                        'job_id' => $id,
-                        'file' => $file->getClientOriginalName(),
-                        'thumbnail_path' => $thumbnailPath,
-                        'original_file' => $filePath
-                    ]);
-
-                    $thumbnails[] = [
-                        'originalFile' => $filePath,
-                        'thumbnailPath' => $thumbnailPath,
-                        'filename' => $originalFilename,
-                        'type' => 'pdf',
-                        'index' => $index
-                    ];
-                } catch (\Exception $e) {
-                    \Log::warning('Failed to generate thumbnail for PDF: ' . $e->getMessage(), [
-                        'file' => $file->getClientOriginalName(),
-                        'job_id' => $id,
-                        'error_trace' => $e->getTraceAsString()
-                    ]);
-                    // Continue without thumbnail - show PDF icon instead
-                    $thumbnails[] = [
-                        'originalFile' => $filePath,
-                        'thumbnailPath' => null,
-                        'filename' => $originalFilename,
-                        'type' => 'pdf',
-                        'index' => $index,
-                        'error' => $e->getMessage()
-                    ];
+                // Small delay between batches to prevent overwhelming the system
+                if ($batchEnd < $totalFiles) {
+                    usleep(300000); // 300ms delay
                 }
             }
 
-            // Add new files to existing original files (keep original behavior)
+            // Update progress for final processing (80% to 95%)
+            $this->updateUploadProgress($id, 'finalizing', 85, $totalFiles, $totalFiles, 'Finalizing upload...');
+
+            // Add a delay to make finalizing visible
+            usleep(500000); // 500ms delay
+
+            // Add new files to existing original files
             foreach ($uploadedFiles as $filePath) {
                 $job->addOriginalFile($filePath);
             }
+
+            // Update progress to 90%
+            $this->updateUploadProgress($id, 'finalizing', 90, $totalFiles, $totalFiles, 'Saving job data...');
 
             // Update job with total calculated dimensions
             if ($totalWidthMm > 0 && $totalHeightMm > 0) {
@@ -1869,17 +1829,18 @@ class JobController extends Controller
                 
                 \Log::info('Updated job with cumulative dimensions', [
                     'job_id' => $id,
-                    'previous_width_mm' => $job->width ?? 0,
-                    'previous_height_mm' => $job->height ?? 0,
                     'new_total_width_mm' => $totalWidthMm,
                     'new_total_height_mm' => $totalHeightMm,
                     'added_area_m2' => $totalAreaM2,
-                    'files_processed_this_batch' => count($allFileDimensions),
+                    'files_processed' => count($allFileDimensions),
                     'preview_image' => $firstFilePreview
                 ]);
             }
 
             $job->save();
+
+            // Update progress to complete
+            $this->updateUploadProgress($id, 'complete', 100, $totalFiles, $totalFiles, 'Upload completed successfully');
 
             return response()->json([
                 'message' => 'Files uploaded successfully',
@@ -1893,10 +1854,13 @@ class JobController extends Controller
                     'individual_files' => $allFileDimensions,
                     'files_count' => count($allFileDimensions)
                 ],
-                'job_updated' => $totalWidthMm > 0 // Flag to indicate if job dimensions were updated
+                'job_updated' => $totalWidthMm > 0
             ]);
 
         } catch (\Exception $e) {
+            // Update progress to error
+            $this->updateUploadProgress($id, 'error', 0, 0, 0, 'Upload failed: ' . $e->getMessage());
+
             \Log::error('Error uploading multiple files:', [
                 'job_id' => $id,
                 'error' => $e->getMessage(),
@@ -1907,6 +1871,134 @@ class JobController extends Controller
                 'error' => 'Failed to upload files',
                 'details' => $e->getMessage()
             ], 500);
+        }
+    }
+
+    /**
+     * Process a single file for dimensions and thumbnail generation
+     */
+    private function processFileDimensionsAndThumbnail($file, $index, $jobId, $filePath, &$totalWidthMm, &$totalHeightMm, &$totalAreaM2, &$allFileDimensions, &$thumbnails, &$firstFilePreview)
+    {
+        $originalFilename = pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME);
+        
+        // Calculate dimensions for the file
+        try {
+            $imagick = new \Imagick();
+            $imagick->setOption('gs', "C:\Program Files\gs\gs10.02.0");
+            $imagick->readImage($file->getPathname() . '[0]'); // Read the first page
+            $imagick->setImageFormat('jpg');
+            
+            // Create temporary image for dimension calculation
+            $tempImagePath = storage_path('app/temp/dim_calc_' . $index . '_' . time() . '.jpg');
+            
+            // Ensure temp directory exists
+            if (!file_exists(dirname($tempImagePath))) {
+                mkdir(dirname($tempImagePath), 0755, true);
+            }
+            
+            $imagick->writeImage($tempImagePath);
+            
+            // Calculate dimensions from the image
+            list($width, $height) = getimagesize($tempImagePath);
+            $dpi = 72; // Default DPI if not available
+            $widthInMm = ($width / $dpi) * 25.4;
+            $heightInMm = ($height / $dpi) * 25.4;
+            $areaM2 = ($widthInMm * $heightInMm) / 1000000;
+
+            // Add to totals
+            $totalWidthMm += $widthInMm;
+            $totalHeightMm += $heightInMm;
+            $totalAreaM2 += $areaM2;
+
+            // Store individual file dimensions
+            $allFileDimensions[] = [
+                'filename' => $file->getClientOriginalName(),
+                'width_mm' => $widthInMm,
+                'height_mm' => $heightInMm,
+                'area_m2' => $areaM2,
+                'index' => $index
+            ];
+
+            // For the FIRST file, also create preview image for the job
+            if ($index === 0) {
+                $imageFilename = pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME) . '.jpg';
+                $imagePath = storage_path('app/public/uploads/' . $imageFilename);
+                copy($tempImagePath, $imagePath); // Copy temp image to uploads
+                $firstFilePreview = $imageFilename;
+            }
+            
+            // Clean up temp file
+            if (file_exists($tempImagePath)) {
+                unlink($tempImagePath);
+            }
+            
+            $imagick->clear();
+            
+            \Log::info('Calculated dimensions for file', [
+                'job_id' => $jobId,
+                'file' => $file->getClientOriginalName(),
+                'index' => $index,
+                'width_mm' => $widthInMm,
+                'height_mm' => $heightInMm,
+                'area_m2' => $areaM2
+            ]);
+            
+        } catch (\Exception $e) {
+            \Log::warning('Failed to calculate dimensions for file: ' . $e->getMessage(), [
+                'file' => $file->getClientOriginalName(),
+                'job_id' => $jobId,
+                'index' => $index,
+                'error_trace' => $e->getTraceAsString()
+            ]);
+            // Continue without dimensions for this file - don't fail the upload
+        }
+
+        // Generate thumbnail and store in R2
+        try {
+            $imagick = new \Imagick();
+            $imagick->setOption('gs', "C:\Program Files\gs\gs10.02.0");
+            $imagick->readImage($file->getPathname() . '[0]'); // Read the first page
+            $imagick->setImageFormat('jpg');
+            
+            // Create thumbnail in memory
+            $thumbnailBlob = $imagick->getImageBlob();
+            $imagick->clear();
+            
+            // Store thumbnail in R2
+            $thumbnailPath = 'job-thumbnails/job_' . $jobId . '_' . time() . '_' . $index . '_' . $originalFilename . '.jpg';
+            
+            // Upload thumbnail to R2
+            $this->templateStorageService->getDisk()->put($thumbnailPath, $thumbnailBlob);
+
+            \Log::info('Generated and stored thumbnail in R2', [
+                'job_id' => $jobId,
+                'file' => $file->getClientOriginalName(),
+                'thumbnail_path' => $thumbnailPath,
+                'original_file' => $filePath
+            ]);
+
+            $thumbnails[] = [
+                'originalFile' => $filePath,
+                'thumbnailPath' => $thumbnailPath,
+                'filename' => $originalFilename,
+                'type' => 'pdf',
+                'index' => $index
+            ];
+        } catch (\Exception $e) {
+            \Log::warning('Failed to generate thumbnail for PDF: ' . $e->getMessage(), [
+                'file' => $file->getClientOriginalName(),
+                'job_id' => $jobId,
+                'error_trace' => $e->getTraceAsString()
+            ]);
+            // Continue without thumbnail - show PDF icon instead
+            $thumbnails[] = [
+                'originalFile' => $filePath,
+                'thumbnailPath' => null,
+                'filename' => $originalFilename,
+                'type' => 'pdf',
+                'index' => $index,
+                'error' => $e->getMessage()
+            ];
         }
     }
 
@@ -1980,9 +2072,60 @@ class JobController extends Controller
             }
 
             $fileToRemove = $originalFiles[$fileIndex];
+            $removedFileDimensions = null;
+
+            // Calculate dimensions of the file being removed before removing it
+            try {
+                $removedFileDimensions = $this->calculateFileDimensions($fileToRemove, $fileIndex);
+                \Log::info('Calculated dimensions for file being removed', [
+                    'job_id' => $id,
+                    'file_index' => $fileIndex,
+                    'file_path' => $fileToRemove,
+                    'dimensions' => $removedFileDimensions
+                ]);
+            } catch (\Exception $e) {
+                \Log::warning('Failed to calculate dimensions for removed file: ' . $e->getMessage(), [
+                    'job_id' => $id,
+                    'file_index' => $fileIndex,
+                    'file_path' => $fileToRemove,
+                    'error' => $e->getMessage()
+                ]);
+                // Continue without dimensions - don't fail the operation
+            }
 
             // Remove the file from the job
             if ($job->removeOriginalFile($fileToRemove)) {
+                // Recalculate job dimensions by subtracting the removed file's dimensions
+                if ($removedFileDimensions && $removedFileDimensions['width_mm'] > 0 && $removedFileDimensions['height_mm'] > 0) {
+                    $currentWidth = $job->width ?? 0;
+                    $currentHeight = $job->height ?? 0;
+                    $currentArea = ($currentWidth * $currentHeight) / 1000000; // Convert to m²
+                    
+                    // Subtract the removed file's dimensions
+                    $newWidth = max(0, $currentWidth - $removedFileDimensions['width_mm']);
+                    $newHeight = max(0, $currentHeight - $removedFileDimensions['height_mm']);
+                    $newArea = max(0, $currentArea - $removedFileDimensions['area_m2']);
+                    
+                    // Update job dimensions
+                    $job->width = $newWidth > 0 ? $newWidth : null;
+                    $job->height = $newHeight > 0 ? $newHeight : null;
+                    
+                    \Log::info('Recalculated job dimensions after file removal', [
+                        'job_id' => $id,
+                        'removed_file_dimensions' => $removedFileDimensions,
+                        'previous_dimensions' => [
+                            'width_mm' => $currentWidth,
+                            'height_mm' => $currentHeight,
+                            'area_m2' => $currentArea
+                        ],
+                        'new_dimensions' => [
+                            'width_mm' => $newWidth,
+                            'height_mm' => $newHeight,
+                            'area_m2' => $newArea
+                        ]
+                    ]);
+                }
+
                 $job->save();
 
                 // Delete the file from R2 storage
@@ -2009,12 +2152,19 @@ class JobController extends Controller
                 \Log::info('File removed successfully', [
                     'job_id' => $id,
                     'removed_file' => $fileToRemove,
-                    'remaining_files' => $job->getOriginalFiles()
+                    'remaining_files' => $job->getOriginalFiles(),
+                    'dimensions_recalculated' => $removedFileDimensions !== null
                 ]);
 
                 return response()->json([
                     'message' => 'File removed successfully',
-                    'originalFiles' => $job->getOriginalFiles()
+                    'originalFiles' => $job->getOriginalFiles(),
+                    'dimensions' => [
+                        'width_mm' => $job->width,
+                        'height_mm' => $job->height,
+                        'area_m2' => $job->width && $job->height ? ($job->width * $job->height) / 1000000 : 0
+                    ],
+                    'removed_file_dimensions' => $removedFileDimensions
                 ]);
             } else {
                 return response()->json(['error' => 'Failed to remove file'], 500);
@@ -2031,6 +2181,70 @@ class JobController extends Controller
                 'error' => 'Failed to remove file',
                 'details' => $e->getMessage()
             ], 500);
+        }
+    }
+
+    /**
+     * Calculate dimensions for a single file (used for removal)
+     */
+    private function calculateFileDimensions($filePath, $fileIndex)
+    {
+        try {
+            // Get the file content from R2
+            $fileContent = $this->templateStorageService->getDisk()->get($filePath);
+            
+            // Create a temporary file to process with ImageMagick
+            $tempFilePath = storage_path('app/temp/remove_calc_' . $fileIndex . '_' . time() . '.pdf');
+            
+            // Ensure temp directory exists
+            if (!file_exists(dirname($tempFilePath))) {
+                mkdir(dirname($tempFilePath), 0755, true);
+            }
+            
+            // Write the file content to temp file
+            file_put_contents($tempFilePath, $fileContent);
+            
+            // Process with ImageMagick
+            $imagick = new \Imagick();
+            $imagick->setOption('gs', "C:\Program Files\gs\gs10.02.0");
+            $imagick->readImage($tempFilePath . '[0]'); // Read the first page
+            $imagick->setImageFormat('jpg');
+            
+            // Create temporary image for dimension calculation
+            $tempImagePath = storage_path('app/temp/remove_dim_calc_' . $fileIndex . '_' . time() . '.jpg');
+            $imagick->writeImage($tempImagePath);
+            
+            // Calculate dimensions from the image
+            list($width, $height) = getimagesize($tempImagePath);
+            $dpi = 72; // Default DPI if not available
+            $widthInMm = ($width / $dpi) * 25.4;
+            $heightInMm = ($height / $dpi) * 25.4;
+            $areaM2 = ($widthInMm * $heightInMm) / 1000000;
+            
+            // Clean up temp files
+            if (file_exists($tempFilePath)) {
+                unlink($tempFilePath);
+            }
+            if (file_exists($tempImagePath)) {
+                unlink($tempImagePath);
+            }
+            
+            $imagick->clear();
+            
+            return [
+                'width_mm' => $widthInMm,
+                'height_mm' => $heightInMm,
+                'area_m2' => $areaM2,
+                'index' => $fileIndex
+            ];
+            
+        } catch (\Exception $e) {
+            \Log::warning('Failed to calculate dimensions for file removal: ' . $e->getMessage(), [
+                'file_path' => $filePath,
+                'file_index' => $fileIndex,
+                'error' => $e->getMessage()
+            ]);
+            throw $e;
         }
     }
 
@@ -2402,5 +2616,450 @@ class JobController extends Controller
             ]);
             return null;
         }
+    }
+
+    /**
+     * Get upload progress for a job
+     */
+    public function getUploadProgress($id)
+    {
+        try {
+            $cacheKey = "upload_progress_{$id}";
+            $progress = \Cache::get($cacheKey, [
+                'status' => 'idle',
+                'progress' => 0,
+                'current_file' => 0,
+                'total_files' => 0,
+                'message' => 'No upload in progress'
+            ]);
+
+            return response()->json($progress);
+        } catch (\Exception $e) {
+            return response()->json([
+                'error' => 'Failed to get upload progress',
+                'details' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Update upload progress for a job
+     */
+    private function updateUploadProgress($jobId, $status, $progress, $currentFile = 0, $totalFiles = 0, $message = '')
+    {
+        $cacheKey = "upload_progress_{$jobId}";
+        $progressData = [
+            'status' => $status,
+            'progress' => $progress,
+            'current_file' => $currentFile,
+            'total_files' => $totalFiles,
+            'message' => $message,
+            'timestamp' => now()->timestamp
+        ];
+        
+        \Cache::put($cacheKey, $progressData, 300); // Cache for 5 minutes
+    }
+
+    /**
+     * Update job machine assignments
+     */
+    public function updateMachines(Request $request, $id)
+    {
+        try {
+            $request->validate([
+                'machinePrint' => 'nullable|string',
+                'machineCut' => 'nullable|string'
+            ]);
+
+            // Find the job
+            $job = Job::findOrFail($id);
+
+            // Validate machine names against registered machines
+            if ($request->has('machinePrint') && $request->input('machinePrint') !== null) {
+                $machinePrint = $request->input('machinePrint');
+                $validPrintMachine = \App\Models\MachinesPrint::where('name', $machinePrint)->exists();
+                
+                if (!$validPrintMachine) {
+                    return response()->json([
+                        'error' => 'Invalid print machine specified',
+                        'details' => 'The specified print machine is not registered in the system'
+                    ], 400);
+                }
+            }
+
+            if ($request->has('machineCut') && $request->input('machineCut') !== null) {
+                $machineCut = $request->input('machineCut');
+                $validCutMachine = \App\Models\MachinesCut::where('name', $machineCut)->exists();
+                
+                if (!$validCutMachine) {
+                    return response()->json([
+                        'error' => 'Invalid cut machine specified',
+                        'details' => 'The specified cut machine is not registered in the system'
+                    ], 400);
+                }
+            }
+
+            // Update the job
+            $job->machinePrint = $request->input('machinePrint');
+            $job->machineCut = $request->input('machineCut');
+            $job->save();
+
+            \Log::info('Job machines updated', [
+                'job_id' => $id,
+                'machine_print' => $job->machinePrint,
+                'machine_cut' => $job->machineCut
+            ]);
+
+            return response()->json([
+                'message' => 'Job machines updated successfully',
+                'job' => $job
+            ]);
+
+        } catch (\Exception $e) {
+            \Log::error('Error updating job machines:', [
+                'job_id' => $id,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            return response()->json([
+                'error' => 'Failed to update job machines',
+                'details' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Update individual job machine assignment
+     */
+    public function updateMachine(Request $request, $id)
+    {
+        try {
+            $request->validate([
+                'machinePrint' => 'nullable|string',
+                'machineCut' => 'nullable|string'
+            ]);
+
+            // Find the job
+            $job = Job::findOrFail($id);
+
+            // Validate machine names against registered machines
+            if ($request->has('machinePrint') && $request->input('machinePrint') !== null) {
+                $machinePrint = $request->input('machinePrint');
+                $validPrintMachine = \App\Models\MachinesPrint::where('name', $machinePrint)->exists();
+                
+                if (!$validPrintMachine) {
+                    return response()->json([
+                        'error' => 'Invalid print machine specified',
+                        'details' => 'The specified print machine is not registered in the system'
+                    ], 400);
+                }
+                
+                $job->machinePrint = $machinePrint;
+            }
+
+            if ($request->has('machineCut') && $request->input('machineCut') !== null) {
+                $machineCut = $request->input('machineCut');
+                $validCutMachine = \App\Models\MachinesCut::where('name', $machineCut)->exists();
+                
+                if (!$validCutMachine) {
+                    return response()->json([
+                        'error' => 'Invalid cut machine specified',
+                        'details' => 'The specified cut machine is not registered in the system'
+                    ], 400);
+                }
+                
+                $job->machineCut = $machineCut;
+            }
+
+            $job->save();
+
+            \Log::info('Individual job machine updated', [
+                'job_id' => $id,
+                'machine_print' => $job->machinePrint,
+                'machine_cut' => $job->machineCut
+            ]);
+
+            return response()->json([
+                'message' => 'Job machine updated successfully',
+                'job' => $job
+            ]);
+
+        } catch (\Exception $e) {
+            \Log::error('Error updating individual job machine:', [
+                'job_id' => $id,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            return response()->json([
+                'error' => 'Failed to update job machine',
+                'details' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    // --- CUTTING FILES BACKEND ---
+
+    public function uploadCuttingFiles(Request $request, $id)
+    {
+        try {
+            $request->validate([
+                'files' => 'required|array',
+                'files.*' => 'required|mimes:pdf,svg,dxf,cdr,ai|max:20480', // 20MB max per file
+            ]);
+
+            $job = Job::findOrFail($id);
+            $uploadedFiles = [];
+            $thumbnails = [];
+            $allFileDimensions = [];
+            $totalFiles = count($request->file('files'));
+            $batchSize = 2;
+
+            $this->updateCuttingUploadProgress($id, 'starting', 5, 0, $totalFiles, 'Starting upload...');
+
+            $files = $request->file('files');
+            $this->updateCuttingUploadProgress($id, 'uploading', 10, 0, $totalFiles, 'Files uploaded, starting processing...');
+
+            foreach ($files as $index => $file) {
+                $fileProgress = 10 + (($index + 1) / $totalFiles) * 70;
+                $this->updateCuttingUploadProgress($id, 'processing', $fileProgress, $index + 1, $totalFiles, "Processing file " . ($index + 1) . " of {$totalFiles}");
+
+                // Store file in R2
+                $filePath = $this->templateStorageService->storeTemplate($file, 'job-cutting');
+                $uploadedFiles[] = $filePath;
+
+                // Try to generate a thumbnail (only for previewable types)
+                $ext = strtolower($file->getClientOriginalExtension());
+                $thumbPath = null;
+                if (in_array($ext, ['pdf', 'svg'])) {
+                    $thumbPath = $this->generateCuttingThumbnail($file, $id, $index);
+                }
+                $thumbnails[] = [
+                    'path' => $thumbPath,
+                    'type' => $ext,
+                    'filename' => $file->getClientOriginalName(),
+                    'index' => $index
+                ];
+            }
+
+            $this->updateCuttingUploadProgress($id, 'finalizing', 90, $totalFiles, $totalFiles, 'Saving job data...');
+
+            foreach ($uploadedFiles as $filePath) {
+                $job->addCuttingFile($filePath);
+            }
+            $job->save();
+
+            $this->updateCuttingUploadProgress($id, 'complete', 100, $totalFiles, $totalFiles, 'Upload completed successfully');
+
+            return response()->json([
+                'message' => 'Cutting files uploaded successfully',
+                'cuttingFiles' => $job->getCuttingFiles(),
+                'uploadedCount' => count($uploadedFiles),
+                'thumbnails' => $thumbnails
+            ]);
+        } catch (\Exception $e) {
+            $this->updateCuttingUploadProgress($id, 'error', 0, 0, 0, 'Upload failed: ' . $e->getMessage());
+            \Log::error('Error uploading cutting files:', [
+                'job_id' => $id,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            return response()->json([
+                'error' => 'Failed to upload cutting files',
+                'details' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    public function getCuttingFileThumbnails($id)
+    {
+        $job = Job::findOrFail($id);
+        $cuttingFiles = $job->getCuttingFiles();
+        $thumbnails = [];
+        foreach ($cuttingFiles as $index => $filePath) {
+            $ext = strtolower(pathinfo($filePath, PATHINFO_EXTENSION));
+            $thumbPath = null;
+            if (in_array($ext, ['pdf', 'svg'])) {
+                $thumbPath = $this->getCuttingThumbnailPath($id, $index, $filePath);
+            }
+            $thumbnails[] = [
+                'path' => $thumbPath,
+                'type' => $ext,
+                'filename' => basename($filePath),
+                'index' => $index
+            ];
+        }
+        return response()->json(['thumbnails' => $thumbnails]);
+    }
+
+    public function viewCuttingFile($jobId, $fileIndex)
+    {
+        $job = Job::findOrFail($jobId);
+        $cuttingFiles = $job->getCuttingFiles();
+        if (!isset($cuttingFiles[$fileIndex])) {
+            return response()->json(['error' => 'File not found'], 404);
+        }
+        $filePath = $cuttingFiles[$fileIndex];
+        $disk = $this->templateStorageService->getDisk();
+        if (!$disk->exists($filePath)) {
+            return response()->json(['error' => 'File not found in storage'], 404);
+        }
+        $mime = $disk->mimeType($filePath);
+        $stream = $disk->readStream($filePath);
+        return response()->stream(function () use ($stream) {
+            fpassthru($stream);
+        }, 200, [
+            'Content-Type' => $mime,
+            'Content-Disposition' => 'inline; filename="' . basename($filePath) . '"',
+        ]);
+    }
+
+    public function viewCuttingFileThumbnail($jobId, $fileIndex)
+    {
+        $job = Job::findOrFail($jobId);
+        $cuttingFiles = $job->getCuttingFiles();
+        if (!isset($cuttingFiles[$fileIndex])) {
+            return response()->json(['error' => 'File not found'], 404);
+        }
+        $filePath = $cuttingFiles[$fileIndex];
+        $ext = strtolower(pathinfo($filePath, PATHINFO_EXTENSION));
+        $disk = $this->templateStorageService->getDisk();
+        if (in_array($ext, ['pdf', 'svg'])) {
+            $thumbPath = $this->getCuttingThumbnailPath($jobId, $fileIndex, $filePath);
+            if ($disk->exists($thumbPath)) {
+                $mime = $disk->mimeType($thumbPath);
+                $stream = $disk->readStream($thumbPath);
+                return response()->stream(function () use ($stream) {
+                    fpassthru($stream);
+                }, 200, [
+                    'Content-Type' => $mime,
+                    'Content-Disposition' => 'inline; filename="' . basename($thumbPath) . '"',
+                ]);
+            }
+        }
+        // Fallback: return a generic icon or 404
+        return response()->json(['error' => 'No thumbnail available'], 404);
+    }
+
+    public function removeCuttingFile(Request $request, $id)
+    {
+        $request->validate(['fileIndex' => 'required|integer']);
+        $job = Job::findOrFail($id);
+        $cuttingFiles = $job->getCuttingFiles();
+        $fileIndex = $request->input('fileIndex');
+        if (!isset($cuttingFiles[$fileIndex]) || !is_string($cuttingFiles[$fileIndex]) || empty($cuttingFiles[$fileIndex])) {
+            return response()->json(['error' => 'File not found or invalid file path'], 404);
+        }
+        $fileToRemove = $cuttingFiles[$fileIndex];
+        $disk = $this->templateStorageService->getDisk();
+        if ($fileToRemove && $disk->exists($fileToRemove)) {
+            $disk->delete($fileToRemove);
+        }
+        // Remove thumbnail if exists
+        $thumbPath = $this->getCuttingThumbnailPath($id, $fileIndex, $fileToRemove);
+        if ($thumbPath && $disk->exists($thumbPath)) {
+            $disk->delete($thumbPath);
+        }
+        $job->removeCuttingFile($fileToRemove);
+        $job->save();
+        return response()->json(['message' => 'Cutting file removed', 'remaining_files' => $job->getCuttingFiles()]);
+    }
+
+    public function getCuttingFileUploadProgress($id)
+    {
+        try {
+            $cacheKey = "cutting_upload_progress_{$id}";
+            $progress = \Cache::get($cacheKey, [
+                'status' => 'idle',
+                'progress' => 0,
+                'current_file' => 0,
+                'total_files' => 0,
+                'message' => 'No upload in progress'
+            ]);
+            return response()->json($progress);
+        } catch (\Exception $e) {
+            return response()->json([
+                'error' => 'Failed to get cutting file upload progress',
+                'details' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    private function updateCuttingUploadProgress($jobId, $status, $progress, $currentFile = 0, $totalFiles = 0, $message = '')
+    {
+        $cacheKey = "cutting_upload_progress_{$jobId}";
+        $progressData = [
+            'status' => $status,
+            'progress' => $progress,
+            'current_file' => $currentFile,
+            'total_files' => $totalFiles,
+            'message' => $message,
+            'timestamp' => now()->timestamp
+        ];
+        \Cache::put($cacheKey, $progressData, 300); // Cache for 5 minutes
+    }
+
+    private function generateCuttingThumbnail($file, $jobId, $fileIndex)
+    {
+        try {
+            $ext = strtolower($file->getClientOriginalExtension());
+            $imagick = new \Imagick();
+            if ($ext === 'pdf') {
+                $imagick->readImage($file->getPathname() . '[0]');
+            } elseif ($ext === 'svg') {
+                $imagick->readImage($file->getPathname());
+            } else {
+                return null; // No thumbnail for other types
+            }
+            $imagick->setImageFormat('jpg');
+            $imagick->resizeImage(200, 200, \Imagick::FILTER_LANCZOS, 1, true);
+            $thumbnailBlob = $imagick->getImageBlob();
+            $imagick->clear();
+            $originalFilename = pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME);
+            $thumbnailPath = 'job-cutting-thumbnails/job_' . $jobId . '_' . time() . '_' . $fileIndex . '_' . $originalFilename . '.jpg';
+            $this->templateStorageService->getDisk()->put($thumbnailPath, $thumbnailBlob);
+            return $thumbnailPath;
+        } catch (\Exception $e) {
+            \Log::warning('Failed to generate cutting file thumbnail: ' . $e->getMessage(), [
+                'job_id' => $jobId,
+                'file' => $file->getClientOriginalName(),
+                'error_trace' => $e->getTraceAsString()
+            ]);
+            return null;
+        }
+    }
+
+    private function getCuttingThumbnailPath($jobId, $fileIndex, $filePath)
+    {
+        $originalFilename = pathinfo(basename($filePath), PATHINFO_FILENAME);
+        $pattern = 'job-cutting-thumbnails/job_' . $jobId . '_*_'. $fileIndex . '_' . $originalFilename . '.jpg';
+        $disk = $this->templateStorageService->getDisk();
+        $allThumbs = $disk->files('job-cutting-thumbnails');
+        foreach ($allThumbs as $thumb) {
+            if (fnmatch($pattern, $thumb)) {
+                return $thumb;
+            }
+        }
+        return null;
+    }
+    // --- END CUTTING FILES BACKEND ---
+
+    /**
+     * Get the pricing multiplier based on catalog item settings
+     * @param Job $job
+     * @param int $quantity
+     * @param int $copies
+     * @return float
+     */
+    private function getPricingMultiplier($job, $quantity, $copies)
+    {
+        // If job has a catalog item, use its pricing method
+        if ($job->catalog_item_id && $job->catalogItem) {
+            return $job->catalogItem->getPricingMultiplier($quantity, $copies);
+        }
+        
+        // For manually created jobs (no catalog item), default to quantity-based pricing
+        return $quantity;
     }
 }

@@ -38,7 +38,8 @@ class Offer extends Model
     {
         return $this->belongsToMany(CatalogItem::class, 'catalog_item_offer')
                     ->withPivot('quantity', 'description','custom_price')
-                    ->withTimestamps();
+                    ->withTimestamps()
+                    ->withTrashed(); // Include soft deleted catalog items
     }
 
     public function client()

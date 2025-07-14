@@ -162,6 +162,8 @@ class CatalogItemController extends Controller
                     'subcategory_id' => $item->subcategory_id,
                     'subcategory_name' => $item->subcategory ? $item->subcategory->name : null,
                     'should_ask_questions' => (bool)$item->should_ask_questions,
+                    'by_quantity' => (bool)$item->by_quantity,
+                    'by_copies' => (bool)$item->by_copies,
                 ];
             });
 
@@ -328,6 +330,8 @@ class CatalogItemController extends Controller
             'small_material_id' => $request->input('small_material_id') === '' ? null : $request->input('small_material_id'),
             'large_material_category_id' => $request->input('large_material_category_id') === '' ? null : $request->input('large_material_category_id'),
             'small_material_category_id' => $request->input('small_material_category_id') === '' ? null : $request->input('small_material_category_id'),
+            'by_quantity' => filter_var($request->input('by_quantity'), FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE),
+            'by_copies' => filter_var($request->input('by_copies'), FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE),
         ]);
         
         $actions = $request->input('actions');
@@ -358,6 +362,8 @@ class CatalogItemController extends Controller
             'actions.*.isMaterialized' => 'nullable',
             'is_for_offer' => 'nullable|boolean',
             'is_for_sales' => 'nullable|boolean',
+            'by_quantity' => 'nullable|boolean',
+            'by_copies' => 'nullable|boolean',
             'category' => 'nullable|string|in:' . implode(',', \App\Models\CatalogItem::CATEGORIES),
             'file' => 'nullable|mimes:jpg,jpeg,png|max:20480',
             'template_file' => 'nullable|mimes:pdf|max:20480',
@@ -613,6 +619,8 @@ class CatalogItemController extends Controller
             $request->merge([
                 'is_for_offer' => filter_var($request->input('is_for_offer'), FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE),
                 'is_for_sales' => filter_var($request->input('is_for_sales'), FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE),
+                'by_quantity' => filter_var($request->input('by_quantity'), FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE),
+                'by_copies' => filter_var($request->input('by_copies'), FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE),
                 'subcategory_id' => $subcategoryId,
                 'actions' => $actions,
                 'articles' => $articles
@@ -634,6 +642,8 @@ class CatalogItemController extends Controller
                 'actions.*.quantity' => 'integer|min:0|nullable',
                 'is_for_offer' => 'nullable|boolean',
                 'is_for_sales' => 'nullable|boolean',
+                'by_quantity' => 'nullable|boolean',
+                'by_copies' => 'nullable|boolean',
                 'category' => 'nullable|string|in:' . implode(',', CatalogItem::CATEGORIES),
                 'file' => 'nullable|mimes:jpg,jpeg,png|max:20480',
                 'template_file' => 'nullable|mimes:pdf|max:20480',
@@ -767,10 +777,38 @@ class CatalogItemController extends Controller
         }
     }
 
-    public function destroy(CatalogItem $catalogItem)
+    public function destroy($id)
     {
         try {
             DB::beginTransaction();
+            
+            // Find the catalog item by ID (including soft deleted ones)
+            $catalogItem = CatalogItem::withTrashed()->findOrFail($id);
+            
+            // Perform soft delete - this will set deleted_at timestamp
+            // The catalog item will be hidden from normal queries but still exist in the database
+            $catalogItem->delete();
+            
+            DB::commit();
+            
+            return redirect()->route('catalog.index')->with('success', 'Catalog item deleted successfully.');
+            
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return redirect()->route('catalog.index')->with('error', 'Failed to delete catalog item.');
+        }
+    }
+
+    /**
+     * Permanently delete a catalog item (use with caution)
+     */
+    public function forceDelete($id)
+    {
+        try {
+            DB::beginTransaction();
+            
+            // Find the catalog item by ID (including soft deleted ones)
+            $catalogItem = CatalogItem::withTrashed()->findOrFail($id);
             
             if ($catalogItem->template_file) {
                 try {
@@ -787,18 +825,18 @@ class CatalogItemController extends Controller
                 }
             }
             
-            // Detach related records and delete the catalog item
+            // Detach related records and permanently delete the catalog item
             $catalogItem->actions()->detach();
             $catalogItem->articles()->detach();
-            $catalogItem->delete();
+            $catalogItem->forceDelete();
             
             DB::commit();
             
-            return redirect()->route('catalog.index')->with('success', 'Catalog item deleted successfully.');
+            return redirect()->route('catalog.index')->with('success', 'Catalog item permanently deleted.');
             
         } catch (\Exception $e) {
             DB::rollBack();
-            return redirect()->route('catalog.index')->with('error', 'Failed to delete catalog item.');
+            return redirect()->route('catalog.index')->with('error', 'Failed to permanently delete catalog item.');
         }
     }
 

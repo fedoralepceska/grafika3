@@ -20,7 +20,7 @@
                     <th class="w-[10%]">Status</th>
                     <th class="w-[8%]">Unit</th>
                     <th class="w-[8%]" v-if="canViewPrice">Job Price</th>
-                    <th class="w-[9%]">Sale</th>
+                    <th class="w-[9%]" v-if="canViewPrice">Sale</th>
                 </tr>
                 </thead>
                 <tbody>
@@ -39,10 +39,10 @@
                     <td>{{job.status}}</td>
                     <td>{{ job?.small_material?.small_format_material?.price_per_unit }}.ден</td>
                     <td v-if="canViewPrice">{{job.totalPrice.toFixed(2)}}.ден</td>
-                    <td v-if="editMode">
+                    <td v-if="canViewPrice && editMode">
                         <input type="text" class="text-black w-full" v-model="job.editableSalePrice" />
                     </td>
-                    <td v-else>
+                    <td v-else-if="canViewPrice">
                         {{job.salePrice}}.ден
                     </td>
                 </tr>

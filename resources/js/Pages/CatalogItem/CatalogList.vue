@@ -29,12 +29,14 @@
                             placeholder="Search by name, description or subcategory..."
                             class="rounded p-2 bg-gray-700 text-white w-full"
                             style="width: 420px;"
+                            @input="debouncedSearch"
                             />
                     </div>
                     <div class="w-48">
                         <select
                             v-model="filters.category"
                             class="rounded p-2 bg-gray-700 text-white w-full"
+                            @change="applyFilters"
                         >
                             <option value="">{{ $t('allCategories') }}</option>
                             <option v-for="category in categories"
@@ -49,6 +51,7 @@
                         <select
                             v-model="filters.subcategory_id"
                             class="rounded p-2 bg-gray-700 text-white w-full"
+                            @change="applyFilters"
                         >
                             <option value="">{{ $t('allSubcategories') }}</option>
                             <option
@@ -59,14 +62,6 @@
                                 {{ subcategory.name }}
                             </option>
                         </select>
-                    </div>
-                    <div>
-                        <button 
-                            @click="applyFilters"
-                            class="btn btn-secondary px-4 hover:bg-gray-900"
-                        >
-                            {{ $t('applyFilters') }}
-                        </button>
                     </div>
                     <div>
                         <button 
@@ -158,9 +153,9 @@
                                 <button @click="openEditDialog(item)" class="btn btn-secondary">
                                     <i class="fas fa-edit"></i> {{ $t('Edit') }}
                                 </button>
-<!--                                <button @click="deleteCatalogItem(item.id)" class="btn btn-danger">-->
-<!--                                    <i class="fas fa-trash"></i>-->
-<!--                                </button>-->
+                                <button @click="deleteCatalogItem(item.id)" class="btn btn-danger">
+                                    <i class="fas fa-trash"></i> {{ $t('Delete') }}
+                                </button>
                             </div>
                         </td>
                     </tr>
@@ -474,7 +469,11 @@
                                     </div>
                                 </div>
 
-                                <div class="grid grid-cols-2 gap-4 pt-9">
+                                <div class="p-2 border-dashed border-2 border-gray-500">
+                                    <div>
+                                        <label class="text-white block mb-2 font-bold">{{ $t('Additional options') }}</label>
+                                    </div>
+                                    <div class="flex items-center gap-8">
                                     <div>
                                         <input
                                             type="checkbox"
@@ -493,6 +492,7 @@
                                         />
                                         <label for="is_for_sales" class="text-white ml-2">{{ $t('forSales') }}</label>
                                     </div>
+                                    </div>
                                     <div class="col-span-2 mt-2">
                                         <input
                                             type="checkbox"
@@ -501,6 +501,35 @@
                                             class="rounded border-gray-300 text-indigo-600 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
                                         />
                                         <label for="should_ask_questions" class="text-white ml-2">Ask questions before production</label>
+                                    </div>
+                                </div>
+
+                                <!-- Pricing Method Selection -->
+                                <div class="mt-4 p-2 border-dashed border-2 border-gray-500">
+                                    <label class="text-white block mb-2 font-bold">{{ $t('pricingMethod') }}</label>
+                                    <div class="space-y-2">
+                                        <div class="flex items-center">
+                                            <input
+                                                type="radio"
+                                                id="edit_pricing_quantity"
+                                                name="edit_pricing_method"
+                                                value="quantity"
+                                                v-model="editPricingMethod"
+                                                class="mr-2"
+                                            />
+                                            <label for="edit_pricing_quantity" class="text-white">{{ $t('priceByQuantity') }}</label>
+                                        </div>
+                                        <div class="flex items-center">
+                                            <input
+                                                type="radio"
+                                                id="edit_pricing_copies"
+                                                name="edit_pricing_method"
+                                                value="copies"
+                                                v-model="editPricingMethod"
+                                                class="mr-2"
+                                            />
+                                            <label for="edit_pricing_copies" class="text-white">{{ $t('priceByCopies') }}</label>
+                                        </div>
                                     </div>
                                 </div>
 
@@ -881,6 +910,91 @@
                 </div>
             </div>
         </div>
+
+        <!-- Delete Verification Dialog -->
+        <div v-if="showDeleteDialog" class="modal-backdrop" @click="closeDeleteDialog">
+            <div class="modal-content" @click.stop>
+                <div class="modal-header">
+                    <h2 class="text-xl font-semibold">Delete Catalog Item</h2>
+                    <button @click="closeDeleteDialog" class="close-button">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div class="space-y-4">
+                        <div>
+                            <p class="text-white mb-4 text-center">
+                                Are you sure you want to delete "{{ selectedItem?.name }}"?
+                                <br>
+                                <span class="text-sm text-gray-400">
+                                    This will hide it from the catalog list, but it will still be available in existing offers.
+                                </span>
+                            </p>
+                            <p class="text-white mb-4 text-center">
+                                Please enter the 4-digit security code to confirm deletion.
+                            </p>
+                            
+                            <!-- PIN Input Boxes -->
+                            <div class="flex justify-center space-x-2 mb-4">
+                                <input 
+                                    ref="pin1"
+                                    v-model="pin.digit1" 
+                                    type="text" 
+                                    maxlength="1"
+                                    class="w-12 h-12 text-center text-xl bg-gray-600 border border-light-gray rounded-md text-white"
+                                    @input="onPinInput(0)"
+                                    @keydown="handleKeyDown($event, 0)"
+                                />
+                                <input 
+                                    ref="pin2"
+                                    v-model="pin.digit2" 
+                                    type="text" 
+                                    maxlength="1"
+                                    class="w-12 h-12 text-center text-xl bg-gray-600 border border-light-gray rounded-md text-white"
+                                    @input="onPinInput(1)"
+                                    @keydown="handleKeyDown($event, 1)"
+                                />
+                                <input 
+                                    ref="pin3"
+                                    v-model="pin.digit3" 
+                                    type="text" 
+                                    maxlength="1"
+                                    class="w-12 h-12 text-center text-xl bg-gray-600 border border-light-gray rounded-md text-white"
+                                    @input="onPinInput(2)"
+                                    @keydown="handleKeyDown($event, 2)"
+                                />
+                                <input 
+                                    ref="pin4"
+                                    v-model="pin.digit4" 
+                                    type="text" 
+                                    maxlength="1"
+                                    class="w-12 h-12 text-center text-xl bg-gray-600 border border-light-gray rounded-md text-white"
+                                    @input="onPinInput(3)"
+                                    @keydown="handleKeyDown($event, 3)"
+                                />
+                            </div>
+                            
+                            <p v-if="deleteCodeError" class="text-red-500 text-sm mt-2 text-center">
+                                {{ deleteCodeError }}
+                            </p>
+                        </div>
+
+                        <div class="flex justify-end space-x-2">
+                            <button
+                                @click="closeDeleteDialog"
+                                class="px-4 py-2 btn-secondary text-white"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                @click="confirmDelete"
+                                class="px-4 py-2 btn-danger text-white"
+                            >
+                                Delete Catalog Item
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
     </MainLayout>
 </template>
 
@@ -908,6 +1022,7 @@ export default {
     data() {
         return {
             searchQuery: "",
+            debouncedSearch: null,
             selectedItem: null,
             showEditDialog: false,
             showClientPricesDialog: false,
@@ -983,6 +1098,15 @@ export default {
                 category: '',
                 subcategory_id: ''
             },
+            editPricingMethod: 'quantity', // Default to quantity-based pricing
+            showDeleteDialog: false,
+            deleteCodeError: '',
+            pin: {
+                digit1: '',
+                digit2: '',
+                digit3: '',
+                digit4: ''
+            },
         };
     },
     computed: {
@@ -1027,16 +1151,19 @@ export default {
         },
 
         async deleteCatalogItem(id) {
-            if (!confirm("Are you sure you want to delete this catalog item?")) {
-                return;
-            }
-
-            try {
-                await axios.delete(route("catalog.destroy", id));
-                this.$inertia.reload();
-            } catch (error) {
-                console.error("Failed to delete catalog item.", error);
-            }
+            // Find the catalog item by ID
+            const item = this.catalogItems.find(item => item.id === id);
+            if (!item) return;
+            
+            this.selectedItem = item;
+            this.deleteCodeError = '';
+            this.resetPin();
+            this.showDeleteDialog = true;
+            
+            // Focus the first input after the dialog is shown
+            this.$nextTick(() => {
+                this.$refs.pin1.focus();
+            });
         },
 
         openEditDialog(item) {
@@ -1066,6 +1193,13 @@ export default {
                 subcategory_id: item.subcategory_id,
                 should_ask_questions: Boolean(item.should_ask_questions)
             };
+
+            // Set pricing method based on the item's pricing flags
+            if (item.by_copies) {
+                this.editPricingMethod = 'copies';
+            } else {
+                this.editPricingMethod = 'quantity';
+            }
 
             // Initialize product and service articles from existing articles
             this.productArticles = item.articles
@@ -1127,6 +1261,7 @@ export default {
             this.previewUrl = null;
             this.currentTemplateFile = null;
             this.removeTemplateFlag = false;
+            this.editPricingMethod = 'quantity';
         },
 
         clearLargeMaterial() {
@@ -1148,6 +1283,12 @@ export default {
 
         async updateCatalogItem() {
             const toast = useToast();
+
+            // Validate pricing method selection
+            if (!this.editPricingMethod) {
+                toast.error('Please select a pricing method');
+                return;
+            }
 
             try {
                 const formData = new FormData();
@@ -1195,6 +1336,10 @@ export default {
 
                 // Append should_ask_questions as integer
                 formData.append('should_ask_questions', this.editForm.should_ask_questions ? 1 : 0);
+
+                // Append pricing method
+                formData.append('by_quantity', this.editPricingMethod === 'quantity' ? 1 : 0);
+                formData.append('by_copies', this.editPricingMethod === 'copies' ? 1 : 0);
 
                 // Append actions as JSON
                 formData.append('actions', JSON.stringify(this.editForm.actions));
@@ -1666,8 +1811,103 @@ export default {
             this.showTemplatePreviewDialog = false;
             this.templatePreviewUrl = null;
         },
+
+        closeDeleteDialog() {
+            this.showDeleteDialog = false;
+            this.selectedItem = null;
+            this.deleteCodeError = '';
+            this.resetPin();
+        },
+
+        resetPin() {
+            this.pin = {
+                digit1: '',
+                digit2: '',
+                digit3: '',
+                digit4: ''
+            };
+        },
+
+        onPinInput(index) {
+            const pinRefs = [this.$refs.pin1, this.$refs.pin2, this.$refs.pin3, this.$refs.pin4];
+            
+            // Move to next input if current input has a value
+            if (index < 3 && pinRefs[index].value) {
+                pinRefs[index + 1].focus();
+            }
+            
+            // Clear error when user starts typing again
+            this.deleteCodeError = '';
+        },
+
+        handleKeyDown(event, index) {
+            const pinRefs = [this.$refs.pin1, this.$refs.pin2, this.$refs.pin3, this.$refs.pin4];
+            
+            // Handle backspace to go to previous input
+            if (event.key === 'Backspace') {
+                if (index > 0 && !pinRefs[index].value) {
+                    pinRefs[index - 1].focus();
+                }
+            }
+            
+            // Handle delete key
+            if (event.key === 'Delete') {
+                pinRefs[index].value = '';
+            }
+            
+            // Handle arrow keys
+            if (event.key === 'ArrowLeft' && index > 0) {
+                pinRefs[index - 1].focus();
+            }
+            if (event.key === 'ArrowRight' && index < 3) {
+                pinRefs[index + 1].focus();
+            }
+        },
+
+        confirmDelete() {
+            // Combine the PIN digits
+            const enteredPin = `${this.pin.digit1}${this.pin.digit2}${this.pin.digit3}${this.pin.digit4}`;
+            
+            // Check if the verification code is correct (7412)
+            if (enteredPin !== '7412') {
+                this.deleteCodeError = 'Incorrect security code. Please try again.';
+                this.resetPin();
+                // Focus the first input after error
+                this.$nextTick(() => {
+                    this.$refs.pin1.focus();
+                });
+                return;
+            }
+            
+            // If code is correct, proceed with deletion
+            this.deleteCatalogItemConfirmed();
+        },
+
+        async deleteCatalogItemConfirmed() {
+            const toast = useToast();
+            
+            if (!this.selectedItem) return;
+            
+            try {
+                await axios.delete(route("catalog.destroy", this.selectedItem.id));
+                
+                toast.success('Catalog item deleted successfully');
+                this.closeDeleteDialog();
+                
+                // Refresh the catalog items list
+                this.fetchCatalogItems();
+            } catch (error) {
+                console.error('Error deleting catalog item:', error);
+                toast.error('Failed to delete the catalog item. Please try again.');
+            }
+        },
     },
     async mounted() {
+        // Initialize debounced search
+        this.debouncedSearch = debounce(() => {
+            this.fetchCatalogItems(1);
+        }, 300);
+        
         // Fetch large and small materials for dropdowns
         try {
             const [largeRes, smallRes] = await Promise.all([
@@ -1758,6 +1998,19 @@ tbody td {
 .btn-danger {
     background-color: #e53e3e;
     color: white;
+}
+
+.btn-secondary {
+    background-color: #4a5568;
+    color: white;
+}
+
+.w-12 {
+    width: 3rem;
+}
+
+.h-12 {
+    height: 3rem;
 }
 
 .modal-backdrop {

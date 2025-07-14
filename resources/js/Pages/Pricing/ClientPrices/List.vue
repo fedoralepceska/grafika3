@@ -209,9 +209,9 @@ export default {
 
     methods: {
         formatPrice(price) {
-            return new Intl.NumberFormat('en-US', {
+            return new Intl.NumberFormat('mk-MK', {
                 style: 'currency',
-                currency: 'USD'
+                currency: 'MKD'
             }).format(price);
         },
 

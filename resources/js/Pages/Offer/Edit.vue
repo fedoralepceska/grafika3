@@ -147,6 +147,7 @@
                                                 <div class="flex items-center gap-2">
                                                     <span class="text-white text-sm font-medium">{{ index + 1 }}.</span>
                                                     <h4 class="text-white text-sm font-medium truncate">{{ item.name }}</h4>
+                                                    <span v-if="item.isCustomItem" class="bg-blue-500 text-white text-xs px-2 py-0.5 rounded">Custom</span>
                                                     <input
                                                         v-model="item.description"
                                                         type="text"
@@ -181,14 +182,14 @@
                                                         min="0"
                                                         step="0.01"
                                                         class="w-full rounded bg-white border-gray-700 text-white text-sm py-1 px-2"
-                                                        :class="{'border-green-500': item.isCustomPrice}"
+                                                        :class="{'border-green-500': item.isCustomPrice || item.isCustomItem}"
                                                         placeholder="Price per unit"
                                                         @input="handleCustomPriceChange(item)"
                                                         @keydown.enter.prevent="updatePrice(item)"
                                                     />
                                                     <div v-if="item.calculated_price" class="absolute -bottom-4 left-0 text-gray-400 text-xs whitespace-nowrap">
                                                         Total: {{ item.calculated_price }} ден 
-                                                        <span v-if="item.isCustomPrice" class="text-green-500">(Manual)</span>
+                                                        <span v-if="item.isCustomPrice || item.isCustomItem" class="text-green-500">(Manual)</span>
                                                         <span v-else>({{ (item.calculated_price / item.quantity).toFixed(2) }} per unit)</span>
                                                     </div>
                                                 </div>
@@ -209,10 +210,20 @@
 
                             <!-- Catalog Items Selection -->
                             <div class="w-full">
-                                <label class="text-white">Catalog Items</label>
-                                <p class="text-sm text-gray-400 mb-2">
-                                    You can add the same item multiple times with different quantities and descriptions.
-                                </p>
+                                <div class="flex items-center justify-between mb-2">
+                                    <div>
+                                        <label class="text-white">Catalog Items</label>
+                                        <p class="text-sm text-gray-400">
+                                            You can add the same item multiple times with different quantities and descriptions.
+                                        </p>
+                                    </div>
+                                    <button
+                                        @click="openCustomItemModal"
+                                        class="btn bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded text-sm"
+                                    >
+                                        <i class="fas fa-plus mr-2"></i>Add Custom Item
+                                    </button>
+                                </div>
                                 <div class="catalog-tabs">
                                     <!-- Search Input -->
                                     <div class="px-4 py-2 border-b border-gray-700">
@@ -407,6 +418,84 @@
                                 </div>
                             </div>
                         </div>
+
+                        <!-- Custom Item Modal -->
+                        <div v-if="showCustomItemModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                            <div class="bg-gray-800 rounded-lg p-6 w-full max-w-md mx-4">
+                                <div class="flex justify-between items-center mb-4">
+                                    <h3 class="text-white text-lg font-semibold">Add Custom Item</h3>
+                                    <button @click="closeCustomItemModal" class="text-gray-400 hover:text-white">
+                                        <i class="fas fa-times"></i>
+                                    </button>
+                                </div>
+                                
+                                <div class="space-y-4">
+                                    <div>
+                                        <label class="block text-white text-sm mb-2">Item Name <span class="text-red-500">*</span></label>
+                                        <input
+                                            v-model="customItem.name"
+                                            type="text"
+                                            class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white placeholder-gray-400 focus:border-green-500 focus:outline-none"
+                                            placeholder="Enter item name"
+                                            required
+                                        />
+                                    </div>
+                                    
+                                    <div>
+                                        <label class="block text-white text-sm mb-2">Description</label>
+                                        <textarea
+                                            v-model="customItem.description"
+                                            rows="3"
+                                            class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white placeholder-gray-400 focus:border-green-500 focus:outline-none"
+                                            placeholder="Enter item description"
+                                        ></textarea>
+                                    </div>
+                                    
+                                    <div class="grid grid-cols-2 gap-4">
+                                        <div>
+                                            <label class="block text-white text-sm mb-2">Quantity <span class="text-red-500">*</span></label>
+                                            <input
+                                                v-model.number="customItem.quantity"
+                                                type="number"
+                                                min="1"
+                                                class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white placeholder-gray-400 focus:border-green-500 focus:outline-none"
+                                                placeholder="1"
+                                                required
+                                            />
+                                        </div>
+                                        
+                                        <div>
+                                            <label class="block text-white text-sm mb-2">Price per Unit <span class="text-red-500">*</span></label>
+                                            <input
+                                                v-model.number="customItem.price"
+                                                type="number"
+                                                min="0"
+                                                step="0.01"
+                                                class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white placeholder-gray-400 focus:border-green-500 focus:outline-none"
+                                                placeholder="0.00"
+                                                required
+                                            />
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="flex justify-end space-x-2 pt-4">
+                                        <button
+                                            @click="closeCustomItemModal"
+                                            class="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700"
+                                        >
+                                            Cancel
+                                        </button>
+                                        <button
+                                            @click="addCustomItem"
+                                            :disabled="!customItem.name || !customItem.quantity || !customItem.price"
+                                            class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                                        >
+                                            Add Item
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </form>
                 </div>
             </div>
@@ -458,6 +547,13 @@ export default {
             activeTab: 'large',
             viewMode: 'grid',
             selectedClient: null,
+            showCustomItemModal: false,
+            customItem: {
+                name: '',
+                description: '',
+                quantity: 1,
+                price: 0,
+            }
         };
     },
 
@@ -518,6 +614,12 @@ export default {
         async updatePrice(item) {
             if (!this.form.client_id || !item.quantity) return;
 
+            // For custom items, don't try to calculate price from API
+            if (item.isCustomItem) {
+                item.calculated_price = item.custom_price * item.quantity;
+                return;
+            }
+
             try {
                 // Only calculate using API if there's no custom price 
                 // or if the isCustomPrice flag is not set to true
@@ -561,14 +663,19 @@ export default {
                 // Calculate the total price by multiplying the custom price per unit by quantity
                 item.calculated_price = item.custom_price * item.quantity;
                 
+                // For custom items, always mark as custom price
+                if (item.isCustomItem) {
+                    item.isCustomPrice = true;
+                }
+                
                 // Add a flag in console for debugging
                 console.log(`Manual price set: ${item.custom_price} per unit, total: ${item.calculated_price}`);
             }
         },
 
         onQuantityChange(item) {
-            if (item.isCustomPrice) {
-                // For manual prices, just recalculate the total based on the custom unit price
+            if (item.isCustomPrice || item.isCustomItem) {
+                // For manual prices or custom items, just recalculate the total based on the custom unit price
                 if (item.custom_price && item.quantity) {
                     item.calculated_price = item.custom_price * item.quantity;
                 }
@@ -607,7 +714,8 @@ export default {
                 isCustomPrice: false,
                 file: item.file,
                 large_material: item.large_material,
-                small_material: item.small_material
+                small_material: item.small_material,
+                isCustomItem: false // Indicate if it's a custom item
             });
             
             // Add the unique selection ID to track this particular selection
@@ -654,6 +762,49 @@ export default {
                 style: 'currency',
                 currency: 'EUR'
             }).format(price);
+        },
+
+        openCustomItemModal() {
+            this.customItem = {
+                name: '',
+                description: '',
+                quantity: 1,
+                price: 0,
+            };
+            this.showCustomItemModal = true;
+        },
+
+        closeCustomItemModal() {
+            this.showCustomItemModal = false;
+        },
+
+        addCustomItem() {
+            if (!this.customItem.name || !this.customItem.quantity || !this.customItem.price) {
+                const toast = useToast();
+                toast.error('Please fill in all custom item details.');
+                return;
+            }
+
+            const uniqueId = Date.now() + Math.floor(Math.random() * 1000);
+            this.form.catalog_items.push({
+                id: null, // No ID for custom items
+                selection_id: uniqueId,
+                name: this.customItem.name,
+                quantity: this.customItem.quantity,
+                description: this.customItem.description,
+                custom_price: this.customItem.price,
+                calculated_price: this.customItem.price * this.customItem.quantity,
+                isCustomPrice: true,
+                file: null, // No file for custom items
+                large_material: null,
+                small_material: null,
+                isCustomItem: true,
+            });
+            this.selectedItems.push(uniqueId);
+
+            this.closeCustomItemModal();
+            const toast = useToast();
+            toast.success(`Custom item "${this.customItem.name}" added.`);
         }
     }
 };

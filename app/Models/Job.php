@@ -128,6 +128,8 @@ class Job extends Model
     protected $casts = [
         'question_answers' => 'array',
         'originalFile' => 'array',
+        'cuttingFiles' => 'array',
+        'cuttingFileDimensions' => 'array',
     ];
 
     public function getEffectiveCatalogItemIdAttribute()
@@ -255,6 +257,50 @@ class Job extends Model
     public function hasOriginalFiles(): bool
     {
         $files = $this->getOriginalFiles();
+        return !empty($files);
+    }
+
+    /**
+     * Add a new cutting file to the job
+     */
+    public function addCuttingFile(string $filePath): void
+    {
+        $currentFiles = $this->cuttingFiles ?? [];
+        if (!in_array($filePath, $currentFiles)) {
+            $currentFiles[] = $filePath;
+            $this->cuttingFiles = $currentFiles;
+        }
+    }
+
+    /**
+     * Get all cutting files
+     */
+    public function getCuttingFiles(): array
+    {
+        return $this->cuttingFiles ?? [];
+    }
+
+    /**
+     * Remove a cutting file from the job
+     */
+    public function removeCuttingFile(string $filePath): bool
+    {
+        $currentFiles = $this->cuttingFiles ?? [];
+        $key = array_search($filePath, $currentFiles);
+        if ($key !== false) {
+            unset($currentFiles[$key]);
+            $this->cuttingFiles = array_values($currentFiles); // Reindex array
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * Check if the job has any cutting files
+     */
+    public function hasCuttingFiles(): bool
+    {
+        $files = $this->getCuttingFiles();
         return !empty($files);
     }
 }

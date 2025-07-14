@@ -3,7 +3,7 @@
         <div class="pl-7 pr-7">
             <Header
                 :title="isEditing ? 'editClientPrice' : 'createClientPrice'"
-                :subtitle="isEditing ? $t('updateClientSpecificPrice') : $t('addNewClientSpecificPrice')"
+                :subtitle="isEditing ? `Update price for ${clientPrice?.catalog_item?.name} - ${clientPrice?.client?.name}` : $t('addNewClientSpecificPrice')"
                 icon="Price.png"
                 link="client-prices"
             />
@@ -14,41 +14,97 @@
                         <!-- Catalog Item Selection -->
                         <div class="form-group" v-if="!isEditing">
                             <label class="form-label">{{$t('catalogItem')}}</label>
-                            <select
-                                v-model="form.catalog_item_id"
-                                class="form-select"
-                                required
-                                :disabled="isEditing"
-                            >
-                                <option value="">{{$t('selectCatalogItem')}}</option>
-                                <option
-                                    v-for="item in catalogItems"
-                                    :key="item.id"
-                                    :value="item.id"
-                                >
-                                    {{ item.name }} ({{$t('default')}}: {{ formatPrice(item.price) }})
-                                </option>
-                            </select>
+                            <div class="relative">
+                                <input
+                                    v-model="catalogItemSearch"
+                                    type="text"
+                                    :placeholder="$t('searchCatalogItem')"
+                                    class="form-input pr-10"
+                                    @input="filterCatalogItems"
+                                    @focus="showCatalogItemDropdown = true"
+                                    @blur="setTimeout(() => showCatalogItemDropdown = false, 200)"
+                                />
+                                <div class="absolute inset-y-0 right-0 flex items-center pr-3">
+                                    <i class="fas fa-search text-gray-400"></i>
+                                </div>
+                                
+                                <!-- Catalog Item Dropdown -->
+                                <div v-if="showCatalogItemDropdown && filteredCatalogItems.length > 0" 
+                                     class="absolute z-50 w-full mt-1 bg-gray-700 border border-gray-600 rounded-md shadow-lg max-h-60 overflow-auto">
+                                    <div
+                                        v-for="item in filteredCatalogItems"
+                                        :key="item.id"
+                                        @click="selectCatalogItem(item)"
+                                        class="px-4 py-2 hover:bg-gray-600 cursor-pointer text-white"
+                                    >
+                                        <div class="font-medium">{{ item.name }}</div>
+                                        <div class="text-sm text-gray-300">{{$t('default')}}: {{ formatPrice(item.price) }}</div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Selected Catalog Item Display -->
+                            <div v-if="selectedCatalogItem" class="mt-2 p-2 bg-gray-600 rounded">
+                                <div class="text-sm text-gray-300">Selected:</div>
+                                <div class="font-medium">{{ selectedCatalogItem.name }}</div>
+                                <div class="text-sm text-gray-400">{{$t('default')}}: {{ formatPrice(selectedCatalogItem.price) }}</div>
+                            </div>
                         </div>
 
                         <!-- Client Selection -->
                         <div class="form-group" v-if="!isEditing">
                             <label class="form-label">{{$t('client')}}</label>
-                            <select
-                                v-model="form.client_id"
-                                class="form-select"
-                                required
-                                :disabled="isEditing"
-                            >
-                                <option value="">{{$t('selectClient')}}</option>
-                                <option
-                                    v-for="client in clients"
-                                    :key="client.id"
-                                    :value="client.id"
-                                >
-                                    {{ client.name }}
-                                </option>
-                            </select>
+                            <div class="relative">
+                                <input
+                                    v-model="clientSearch"
+                                    type="text"
+                                    :placeholder="$t('searchClient')"
+                                    class="form-input pr-10"
+                                    @input="filterClients"
+                                    @focus="showClientDropdown = true"
+                                    @blur="setTimeout(() => showClientDropdown = false, 200)"
+                                />
+                                <div class="absolute inset-y-0 right-0 flex items-center pr-3">
+                                    <i class="fas fa-search text-gray-400"></i>
+                                </div>
+                                
+                                <!-- Client Dropdown -->
+                                <div v-if="showClientDropdown && filteredClients.length > 0" 
+                                     class="absolute z-50 w-full mt-1 bg-gray-700 border border-gray-600 rounded-md shadow-lg max-h-60 overflow-auto">
+                                    <div
+                                        v-for="client in filteredClients"
+                                        :key="client.id"
+                                        @click="selectClient(client)"
+                                        class="px-4 py-2 hover:bg-gray-600 cursor-pointer text-white"
+                                    >
+                                        <div class="font-medium">{{ client.name }}</div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Selected Client Display -->
+                            <div v-if="selectedClient" class="mt-2 p-2 bg-gray-600 rounded">
+                                <div class="text-sm text-gray-300">Selected:</div>
+                                <div class="font-medium">{{ selectedClient.name }}</div>
+                            </div>
+                        </div>
+
+                        <!-- Edit Mode Display -->
+                        <div v-if="isEditing" class="form-group">
+                            <div class="bg-gray-700 p-4 rounded-lg">
+                                <h3 class="text-lg font-semibold mb-3">Editing Price For:</h3>
+                                <div class="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label class="form-label text-gray-300">Catalog Item:</label>
+                                        <div class="text-white font-medium">{{ clientPrice?.catalog_item?.name }}</div>
+                                        <div class="text-gray-400 text-sm">Default: {{ formatPrice(clientPrice?.catalog_item?.price) }}</div>
+                                    </div>
+                                    <div>
+                                        <label class="form-label text-gray-300">Client:</label>
+                                        <div class="text-white font-medium">{{ clientPrice?.client?.name }}</div>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
 
                         <!-- Price Input -->
@@ -118,7 +174,16 @@ export default {
                 client_id: this.clientPrice?.client_id || '',
                 price: this.clientPrice?.price || ''
             },
-            error: null
+            error: null,
+            // Search functionality
+            catalogItemSearch: '',
+            clientSearch: '',
+            showCatalogItemDropdown: false,
+            showClientDropdown: false,
+            filteredCatalogItems: [],
+            filteredClients: [],
+            selectedCatalogItem: null,
+            selectedClient: null
         };
     },
 
@@ -128,15 +193,67 @@ export default {
         }
     },
 
+    mounted() {
+        // Initialize filtered arrays
+        this.filteredCatalogItems = this.catalogItems;
+        this.filteredClients = this.clients;
+        
+        // If editing, set the selected items
+        if (this.isEditing && this.clientPrice) {
+            this.selectedCatalogItem = this.clientPrice.catalog_item;
+            this.selectedClient = this.clientPrice.client;
+        }
+    },
+
     methods: {
         formatPrice(price) {
-            return new Intl.NumberFormat('en-US', {
+            return new Intl.NumberFormat('mk-MK', {
                 style: 'currency',
-                currency: 'USD'
+                currency: 'MKD'
             }).format(price);
         },
 
+        filterCatalogItems() {
+            if (!this.catalogItemSearch.trim()) {
+                this.filteredCatalogItems = this.catalogItems;
+            } else {
+                this.filteredCatalogItems = this.catalogItems.filter(item =>
+                    item.name.toLowerCase().includes(this.catalogItemSearch.toLowerCase())
+                );
+            }
+        },
+
+        filterClients() {
+            if (!this.clientSearch.trim()) {
+                this.filteredClients = this.clients;
+            } else {
+                this.filteredClients = this.clients.filter(client =>
+                    client.name.toLowerCase().includes(this.clientSearch.toLowerCase())
+                );
+            }
+        },
+
+        selectCatalogItem(item) {
+            this.selectedCatalogItem = item;
+            this.form.catalog_item_id = item.id;
+            this.catalogItemSearch = item.name;
+            this.showCatalogItemDropdown = false;
+        },
+
+        selectClient(client) {
+            this.selectedClient = client;
+            this.form.client_id = client.id;
+            this.clientSearch = client.name;
+            this.showClientDropdown = false;
+        },
+
         async submit() {
+            // Validate that both catalog item and client are selected
+            if (!this.isEditing && (!this.form.catalog_item_id || !this.form.client_id)) {
+                this.error = 'Please select both a catalog item and a client.';
+                return;
+            }
+
             try {
                 if (this.isEditing) {
                     await this.$inertia.put(
@@ -208,6 +325,106 @@ export default {
         background-color: darken($light-gray, 10%);
         cursor: not-allowed;
     }
+}
+
+.relative {
+    position: relative;
+}
+
+.absolute {
+    position: absolute;
+}
+
+.inset-y-0 {
+    top: 0;
+    bottom: 0;
+}
+
+.right-0 {
+    right: 0;
+}
+
+.flex {
+    display: flex;
+}
+
+.items-center {
+    align-items: center;
+}
+
+.pr-3 {
+    padding-right: 0.75rem;
+}
+
+.pr-10 {
+    padding-right: 2.5rem;
+}
+
+.mt-1 {
+    margin-top: 0.25rem;
+}
+
+.mt-2 {
+    margin-top: 0.5rem;
+}
+
+.z-50 {
+    z-index: 50;
+}
+
+.max-h-60 {
+    max-height: 15rem;
+}
+
+.overflow-auto {
+    overflow: auto;
+}
+
+.px-4 {
+    padding-left: 1rem;
+    padding-right: 1rem;
+}
+
+.py-2 {
+    padding-top: 0.5rem;
+    padding-bottom: 0.5rem;
+}
+
+.hover\:bg-gray-600:hover {
+    background-color: #4b5563;
+}
+
+.cursor-pointer {
+    cursor: pointer;
+}
+
+.text-sm {
+    font-size: 0.875rem;
+    line-height: 1.25rem;
+}
+
+.font-medium {
+    font-weight: 500;
+}
+
+.text-gray-300 {
+    color: #d1d5db;
+}
+
+.text-gray-400 {
+    color: #9ca3af;
+}
+
+.border-gray-600 {
+    border-color: #4b5563;
+}
+
+.shadow-lg {
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+}
+
+.rounded-md {
+    border-radius: 0.375rem;
 }
 
 .btn {

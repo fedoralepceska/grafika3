@@ -496,7 +496,12 @@ const messages = {
         listOfAllTheMachines: 'List of all the machines',
         addMachine: 'Add machine',
         addNewMachine: 'Add new machine',
-        type: 'Type'
+        type: 'Type',
+        searchCatalogItem: 'Search catalog item',
+        searchClient: 'Search client',
+        pricingMethod: 'Pricing Method',
+        priceByQuantity: 'Price by Quantity',
+        priceByCopies: 'Price by Copies',
     },
     mk: {
         // Define your Macedonian translations here
@@ -995,7 +1000,12 @@ const messages = {
         listOfAllTheMachines: 'Листа на сите машини',
         addMachine: 'Додади машина',
         addNewMachine: 'Додади нова машина',
-        type: 'Тип'
+        type: 'Тип',
+        searchCatalogItem: 'Пребарај ставка од каталог',
+        searchClient: 'Пребарај клиент',
+        pricingMethod: 'Начин на пресметување на цена',
+        priceByQuantity: 'Цена по количина',
+        priceByCopies: 'Цена по копии',
     },
 };
 
