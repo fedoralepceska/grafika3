@@ -58,8 +58,8 @@ export default {
                     const nameA = a.name.toLowerCase();
                     const nameB = b.name.toLowerCase();
 
-                    const isDostavaA = nameA === 'достава' || nameA === 'dostava';
-                    const isDostavaB = nameB === 'достава' || nameB === 'dostava';
+                    const isDostavaA = nameA.includes('достава') || nameA.includes('dostava');
+                    const isDostavaB = nameB.includes('достава') || nameB.includes('dostava');
 
                     if (isDostavaA && !isDostavaB) return 1;  // a goes after b
                     if (!isDostavaA && isDostavaB) return -1; // a goes before b
