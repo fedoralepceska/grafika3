@@ -186,6 +186,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/machines/{id}/jobs', [JobController::class, 'getActionsByMachineName'])->name('jobs.getActionsByMachineName');
     Route::post('/jobs/start-job', [JobController::class, 'fireStartJobEvent'])->name('jobs.fireStartJobEvent');
     Route::post('/jobs/end-job', [JobController::class, 'fireEndJobEvent'])->name('jobs.fireEndJobEvent');
+    Route::get('/action/{actionId}/status', [JobController::class, 'getActionStatus'])->name('jobs.getActionStatus');
+Route::post('/invoice/{invoiceId}/update-status', [JobController::class, 'updateInvoiceStatusManually']);
+Route::get('/invoice/{invoiceId}/debug-status', [JobController::class, 'debugInvoiceStatus']);
+Route::get('/test-start-job-response', [JobController::class, 'testStartJobResponse']);
     Route::post('/jobs-with-prices', [JobController::class, 'getJobsWithPrices'])->name('jobs.getJobsWithPrices');
     Route::post('/sync-jobs-with-machine', [JobController::class, 'syncAllJobsWithMachines'])->name('jobs.syncAllJobsWithMachines');
     Route::delete('/jobs/{id}', [JobController::class, 'destroy'])->name('jobs.destroy');

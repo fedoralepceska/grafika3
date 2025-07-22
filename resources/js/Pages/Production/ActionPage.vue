@@ -115,6 +115,20 @@
                                             <i class="fa-solid fa-check"></i> {{ $t('completed') }}
                                         </div>
                                     </template>
+                                    <template v-else-if="job.actions.find(a => a.name === actionId)?.status === 'In progress'">
+                                        <div class="in-progress-status">
+                                            <i class="fa-solid fa-clock"></i> {{ $t('inProgress') }}
+                                            <div class="timer-display">{{ elapsedTimes[getActionId(job).id] }}</div>
+                                        </div>
+                                        <button
+                                            v-if="canEndJob(job)"
+                                            :class="['red', 'p-2', 'rounded', { 'disabled' : invoice.onHold }]"
+                                            @click="endJob(job)"
+                                            :disabled="invoice.onHold"
+                                        >
+                                            <strong>{{ $t('endJob') }}</strong>
+                                        </button>
+                                    </template>
                                     <template v-else>
                                         <button
                                             style="min-width: 230px; max-width: 230px"
@@ -140,14 +154,6 @@
                                                 <i class="fa-regular fa-clock"></i>
                                                 <span>{{ elapsedTimes[getActionId(job).id] }}</span>
                                             </strong>
-                                        </button>
-                                        <button
-                                            v-if="canEndJob(job)"
-                                            :class="['red', 'p-2', 'rounded', { 'disabled' : invoice.onHold }]"
-                                            @click="endJob(job)"
-                                            :disabled="invoice.onHold"
-                                        >
-                                            <strong>{{ $t('endJob') }}</strong>
                                         </button>
                                     </template>
                                 </td>
@@ -281,21 +287,44 @@ export default {
     },
     created() {
         this.fetchJobs();
+        
+        // Set up periodic sync of action statuses
+        this.syncInterval = setInterval(() => {
+            // Get unique action IDs from all jobs
+            const actionIds = new Set();
+            this.invoices.forEach(invoice => {
+                invoice.jobs.forEach(job => {
+                    const action = job.actions.find(a => a.name === this.actionId);
+                    if (action && action.id) {
+                        actionIds.add(action.id);
+                    }
+                });
+            });
+            
+            // Sync each action status
+            actionIds.forEach(actionId => {
+                this.syncActionStatus(actionId);
+            });
+        }, 5000); // Sync every 5 seconds
     },
     beforeMount() {
-        this.updateInvoiceStatus()
-        this.updateJobStatus()
-        for (const [key, startTimeStr] of Object.entries(localStorage)) {
-            if (key.startsWith('timer_')) {
-                const jobId = key.split('_')[1];
-                const startTime = parseInt(startTimeStr);
-                const elapsedTime = Math.floor((new Date().getTime() - startTime) / 1000);
-                this.elapsedTimes[jobId] = this.formatElapsedTime(elapsedTime);
-                this.startTimer(jobId);
-            }
-        }
+        // Load job disabled status from localStorage
         this.jobDisabledStatus = JSON.parse(localStorage.getItem('jobDisabledStatus')) || {};
-
+        
+        // Note: Timer restoration is now handled in restoreTimerState() after fetching jobs
+        // This ensures we sync with the actual server state rather than just localStorage
+    },
+    
+    beforeUnmount() {
+        // Clean up intervals
+        if (this.syncInterval) {
+            clearInterval(this.syncInterval);
+        }
+        
+        // Clean up timers
+        Object.keys(this.timers).forEach(actionId => {
+            clearInterval(this.timers[actionId]);
+        });
     },
     computed: {
         getActionStatus() {
@@ -375,8 +404,10 @@ export default {
 
         fetchJobs() {
             const url = `/actions/${this.actionId}/jobs`;
+            console.log('Fetching jobs from:', url);
             axios.get(url)
                 .then(response => {
+                    console.log('Jobs response:', response.data);
                     this.jobs = response.data?.jobs?.actions?.filter(a => a?.name === this?.actionId);
                     this.invoices = response.data?.invoices;
                     this.invoices = this.invoices?.map(invoice => {
@@ -390,6 +421,14 @@ export default {
                     });
 
                     this.id = response.data?.actionId;
+                    
+                    console.log('Processed invoices:', this.invoices);
+                    
+                    // After loading jobs, restore timer state for actions that are in progress
+                    this.restoreTimerState();
+                    
+                    // Debug the current state
+                    this.debugCurrentState();
                 })
                 .catch(error => {
                     console.error('There was an error fetching the jobs:', error);
@@ -433,74 +472,118 @@ export default {
 
             const { id: actionId } = this.getActionId(job);
 
-            // Check if job is already started
+            // Check if job is already started locally
             if (this.jobDisabledStatus[actionId]) {
+                // If locally disabled, check server status to sync
+                await this.syncActionStatus(actionId);
                 return;
             }
 
-            this.startTimer(actionId, job);
-            job.started = true;
-            this.jobDisabledStatus[actionId] = true;
-
-            // Persist jobDisabledStatus to localStorage
-            localStorage.setItem('jobDisabledStatus', JSON.stringify(this.jobDisabledStatus));
-
             try {
-                await axios.put(`/actions/${actionId}`, {
-                    status: 'In progress',
+                console.log('Starting job with data:', {
+                    jobId: job.id,
+                    actionId: actionId,
+                    invoiceId: this.invoices.find(invoice => 
+                        invoice.jobs.some(j => j.id === job.id)
+                    )?.id
                 });
 
-                await axios.put(`/jobs/${job.id}`, {
-                    status: 'In progress',
+                // Start the action on the server
+                const response = await axios.post('/jobs/start-job', {
+                    job: job.id,
+                    invoice: this.invoices.find(invoice => 
+                        invoice.jobs.some(j => j.id === job.id)
+                    )?.id,
+                    action: actionId
                 });
 
-                // Find the invoice that contains this job
-                const invoiceWithJob = this.invoices.find(invoice =>
-                    invoice.jobs.some(j => j.id === job.id)
-                );
+                console.log('Start job response:', response);
+                console.log('Response data:', response.data);
+                console.log('Response status:', response.status);
 
-                if (invoiceWithJob) {
-                    // Check if all jobs in the invoice are completed
-                    const allJobsCompleted = invoiceWithJob.jobs.some(j => j.status === 'In progress');
-                    if (allJobsCompleted || job) {
-                        // Update the invoice status
-                        await axios.put(`/orders/${invoiceWithJob.id}`, {
-                            status: 'In progress',
-                        });
-                        await axios.post('/jobs/start-job', {
-                            job: job.id,
-                            invoice: invoiceWithJob.id,
-                            action: actionId
-                        });
+                if (response.data.success) {
+                    console.log('Job start successful, updating UI...');
+                    
+                    // Start timer with server time
+                    this.startTimer(actionId, response.data.started_at);
+                    job.started = true;
+                    this.jobDisabledStatus[actionId] = true;
+
+                    // Update local action status
+                    const action = job.actions.find(a => a.id === actionId);
+                    if (action) {
+                        action.status = 'In progress';
+                        action.started_at = response.data.started_at;
+                        console.log('Updated action status:', action);
                     }
+
+                    // Persist jobDisabledStatus to localStorage
+                    localStorage.setItem('jobDisabledStatus', JSON.stringify(this.jobDisabledStatus));
+                    
+                    // Show success toast
+                    const toast = useToast();
+                    toast.success('Job started successfully');
+                    console.log('Success toast shown');
+                } else {
+                    console.log('Job start failed - success is false');
+                    // Handle case where success is false
+                    const toast = useToast();
+                    toast.error(response.data.error || "Failed to start job");
                 }
             } catch (error) {
-                console.error('Error starting job:', error);
+                console.error('=== ERROR STARTING JOB ===');
+                console.error('Error object:', error);
+                console.error('Error message:', error.message);
+                console.error('Error response:', error.response);
+                console.error('Error response data:', error.response?.data);
+                console.error('Error response status:', error.response?.status);
+                console.error('Error response headers:', error.response?.headers);
+                console.error('Error stack:', error.stack);
+                console.error('=== END ERROR ===');
+                
                 const toast = useToast();
-                toast.error("Error starting job");
+                toast.error(error.response?.data?.error || "Error starting job");
             }
         },
-        startTimer(actionId, job) {
-            const storedStartTimeStr = localStorage.getItem(`timer_${actionId}`);
-
-            if (storedStartTimeStr) {
-                // Resume existing timer
-                const startTime = parseInt(storedStartTimeStr);
-                this.timers[actionId] = setInterval(() => {
-                    const elapsedTime = Math.floor((new Date().getTime() - startTime) / 1000);
-                    this.elapsedTimes[actionId] = this.formatElapsedTime(elapsedTime);
-                }, 1000);
+        startTimer(actionId, startTime = null) {
+            let startTimeMs;
+            
+            if (startTime) {
+                // Use server-provided start time - convert to local timezone for accurate calculation
+                const serverDate = new Date(startTime);
+                startTimeMs = serverDate.getTime();
+                localStorage.setItem(`timer_${actionId}`, startTimeMs.toString());
+                
+                // Calculate initial elapsed time immediately
+                const initialElapsedTime = Math.floor((new Date().getTime() - startTimeMs) / 1000);
+                this.elapsedTimes[actionId] = this.formatElapsedTime(initialElapsedTime);
+                console.log(`Timer started for action ${actionId}`);
+                console.log(`Server start time: ${startTime}`);
+                console.log(`Local start time: ${serverDate.toLocaleString()}`);
+                console.log(`Initial elapsed: ${this.elapsedTimes[actionId]}`);
             } else {
-                // Create a new timer
-                const startTime = new Date().getTime();
-                this.timers[actionId] = setInterval(() => {
-                    // Calculate elapsed time
-                    const elapsedTime = Math.floor((new Date().getTime() - startTime) / 1000);
-                    // Update elapsed time for this job
-                    this.elapsedTimes[actionId] = this.formatElapsedTime(elapsedTime);
-                }, 1000);
-                localStorage.setItem(`timer_${actionId}`, startTime.toString());
+                // Resume existing timer from localStorage
+                const storedStartTimeStr = localStorage.getItem(`timer_${actionId}`);
+                if (storedStartTimeStr) {
+                    startTimeMs = parseInt(storedStartTimeStr);
+                    
+                    // Calculate initial elapsed time immediately
+                    const initialElapsedTime = Math.floor((new Date().getTime() - startTimeMs) / 1000);
+                    this.elapsedTimes[actionId] = this.formatElapsedTime(initialElapsedTime);
+                    console.log(`Timer resumed for action ${actionId} with stored start time, initial elapsed: ${this.elapsedTimes[actionId]}`);
+                } else {
+                    // Fallback to current time
+                    startTimeMs = new Date().getTime();
+                    localStorage.setItem(`timer_${actionId}`, startTimeMs.toString());
+                    this.elapsedTimes[actionId] = this.formatElapsedTime(0);
+                    console.log(`Timer started for action ${actionId} with current time, initial elapsed: ${this.elapsedTimes[actionId]}`);
+                }
             }
+
+            this.timers[actionId] = setInterval(() => {
+                const elapsedTime = Math.floor((new Date().getTime() - startTimeMs) / 1000);
+                this.elapsedTimes[actionId] = this.formatElapsedTime(elapsedTime);
+            }, 1000);
         },
         formatElapsedTime(elapsedTime) {
             const minutes = Math.floor(elapsedTime / 60);
@@ -515,94 +598,60 @@ export default {
                 // Store the elapsed time before clearing
                 const finalTime = this.elapsedTimes[actionId];
 
-                // Immediately update the action status in the local data
-                const action = job.actions.find(a => a.name === this.actionId);
-                if (action) {
-                    action.status = 'Completed';
-                }
-
-                // Clear all job status
-                this.endTimer(job);
-                job.started = false;
-                delete this.jobDisabledStatus[actionId];
-                localStorage.setItem('jobDisabledStatus', JSON.stringify(this.jobDisabledStatus));
-
-                // Make API calls after UI update
-                await axios.put(`/actions/${actionId}`, {
-                    status: 'Completed',
-                });
-
-                // Find the invoice containing the job
-                const invoiceWithJob = this.invoices.find(invoice =>
-                    invoice.originalJobs.some(j => j.id === job.id)
-                );
-
-                // Check if all actions in the job are completed
-                const allActionsCompleted = job.actions.every(a =>
-                    a.id === actionId || a.status === 'Completed'
-                );
-
-                if (allActionsCompleted) {
-                    // Mark the job as completed
-                    await axios.put(`/jobs/${job.id}`, {
-                        status: 'Completed',
-                    });
-
-                    // Check if all jobs in the invoice are completed
-                    const allJobsCompleted = invoiceWithJob.originalJobs
-                        .filter(j => j.id !== job.id)
-                        .every(j => j.status === 'Completed');
-
-                    if (allJobsCompleted) {
-                        // Mark the invoice as completed
-                        await axios.put(`/orders/${invoiceWithJob.id}`, {
-                            status: 'Completed',
-                        });
-                    }
-                }
-
-                // Post analytics data
-                await axios.post('/insert-analytics', {
-                    job,
-                    invoice: invoiceWithJob,
+                // End the action on the server
+                const response = await axios.post('/jobs/end-job', {
+                    job: job.id,
+                    invoice: this.invoices.find(invoice => 
+                        invoice.jobs.some(j => j.id === job.id)
+                    )?.id,
                     action: actionId,
-                    time_spent: finalTime,
+                    time_spent: finalTime
                 });
 
-                // Show success toast and handle redirection
-                const toast = useToast();
-                toast.success(`Job finished for ${finalTime}`, {
-                    timeout: 2000,
-                    onClose: () => {
-                        // Check if there's a next action and if it exists in the job's actions
-                        const hasNextAction = currentIndex < job.actions.length - 1 && job.actions[currentIndex + 1];
-
-                        if (hasNextAction) {
-                            // Redirect to next action
-                            const nextAction = job.actions[currentIndex + 1];
-                            this.$inertia.visit(`/actions/${nextAction.name}`);
-                        } else {
-                            // If no next action exists, redirect to orders page
-                            this.$inertia.visit(`/orders/${invoiceWithJob.id}`);
-                        }
+                if (response.data.success) {
+                    // Update local action status
+                    const action = job.actions.find(a => a.id === actionId);
+                    if (action) {
+                        action.status = 'Completed';
+                        action.ended_at = response.data.ended_at;
                     }
-                });
 
+                    // Clear timer and status
+                    this.endTimer(actionId);
+                    job.started = false;
+                    delete this.jobDisabledStatus[actionId];
+                    localStorage.setItem('jobDisabledStatus', JSON.stringify(this.jobDisabledStatus));
+
+                    // Show success toast and handle redirection
+                    const toast = useToast();
+                    toast.success(`Job finished for ${finalTime}`, {
+                        timeout: 2000,
+                        onClose: () => {
+                            // Check if there's a next action and if it exists in the job's actions
+                            const hasNextAction = currentIndex < job.actions.length - 1 && job.actions[currentIndex + 1];
+
+                            if (hasNextAction) {
+                                // Redirect to next action
+                                const nextAction = job.actions[currentIndex + 1];
+                                this.$inertia.visit(`/actions/${nextAction.name}`);
+                            } else {
+                                // If no next action exists, redirect to orders page
+                                const invoiceWithJob = this.invoices.find(invoice =>
+                                    invoice.jobs.some(j => j.id === job.id)
+                                );
+                                this.$inertia.visit(`/orders/${invoiceWithJob.id}`);
+                            }
+                        }
+                    });
+                }
             } catch (error) {
                 console.error('Error ending job:', error);
                 const toast = useToast();
-                toast.error("Error ending job");
-
-                // Revert the status if the API call failed
-                const action = job.actions.find(a => a.name === this.actionId);
-                if (action) {
-                    action.status = 'In progress';
-                }
+                toast.error(error.response?.data?.error || "Error ending job");
             }
         },
 
-        endTimer(job) {
-            const { id: actionId } = this.getActionId(job);
+        endTimer(actionId) {
             clearInterval(this.timers[actionId]);
             delete this.timers[actionId];
             delete this.elapsedTimes[actionId];
@@ -619,20 +668,6 @@ export default {
                 return 'Not started yet';
             }
         },
-        updateInvoiceStatus() {
-            this.invoices.forEach(invoice => {
-                const newStatus = this.getOverallInvoiceStatus(invoice); // Assuming this method needs the current invoice
-
-                axios.put(`/orders/${invoice.id}`, { status: newStatus })
-                    .then(response => {
-                        // Handle successful update
-                        // Optionally, you can update some status in your Vue data to reflect this
-                    })
-                    .catch(error => {
-                        console.error("Failed to update invoice status:", error);
-                    });
-            });
-        },
         getOverallJobStatus() {
             const jobActionStatuses = this.jobs.flatMap((job) => job.actions.map((action) => action.status.toLowerCase().trim()));
             if (jobActionStatuses.includes('in progress')) {
@@ -642,26 +677,6 @@ export default {
             } else {
                 return 'Not started yet';
             }
-        },
-        updateJobStatus() {
-            const newStatus = this.getOverallJobStatus();
-
-            // Loop through all jobs and update their statuses
-            this.jobs.forEach(job => {
-                const jobId = job.id;
-
-                // Make a PUT request to update the job status
-                axios.put(`/jobs/${jobId}`, {
-                    status: newStatus,
-                })
-                    .then(response => {
-                        // Handle the response if needed
-                    })
-                    .catch(error => {
-                        // Handle the error if the update fails
-                        console.error(`Failed to update job ${jobId} status:`, error);
-                    });
-            });
         },
         toggleImagePopover(job) {
             this.selectedJob = job;
@@ -711,6 +726,121 @@ export default {
         },
         getOriginalFileUrl(jobId, fileIndex) {
             return `/jobs/${jobId}/view-original-file/${fileIndex}`;
+        },
+        
+        debugCurrentState() {
+            console.log('=== DEBUG CURRENT STATE ===');
+            console.log('Timers:', this.timers);
+            console.log('Elapsed times:', this.elapsedTimes);
+            console.log('Job disabled status:', this.jobDisabledStatus);
+            console.log('Invoices:', this.invoices);
+            this.invoices.forEach((invoice, invoiceIndex) => {
+                console.log(`Invoice ${invoiceIndex}:`, invoice.id);
+                invoice.jobs.forEach((job, jobIndex) => {
+                    const action = job.actions.find(a => a.name === this.actionId);
+                    console.log(`  Job ${jobIndex}:`, {
+                        id: job.id,
+                        actionId: action?.id,
+                        actionStatus: action?.status,
+                        started: job.started,
+                        hasTimer: !!this.timers[action?.id],
+                        isDisabled: this.jobDisabledStatus[action?.id],
+                        started_at: action?.started_at,
+                        started_at_type: typeof action?.started_at
+                    });
+                });
+            });
+            console.log('=== END DEBUG ===');
+        },
+        
+        restoreTimerState() {
+            console.log('Restoring timer state...');
+            // Check all jobs for actions that are in progress and restore their timers
+            this.invoices.forEach(invoice => {
+                invoice.jobs.forEach(job => {
+                    const action = job.actions.find(a => a.name === this.actionId);
+                    if (action && action.status === 'In progress' && action.started_at) {
+                        const actionId = action.id;
+                        console.log(`Found in-progress action: ${actionId} for job: ${job.id}`);
+                        console.log(`Action started_at: ${action.started_at}`);
+                        console.log(`Action started_at type: ${typeof action.started_at}`);
+                        console.log(`Current time: ${new Date().toISOString()}`);
+                        
+                        // Calculate expected elapsed time
+                        const serverDate = new Date(action.started_at);
+                        const startTimeMs = serverDate.getTime();
+                        const currentTimeMs = new Date().getTime();
+                        const expectedElapsedSeconds = Math.floor((currentTimeMs - startTimeMs) / 1000);
+                        console.log(`Server start time: ${action.started_at}`);
+                        console.log(`Local start time: ${serverDate.toLocaleString()}`);
+                        console.log(`Current local time: ${new Date().toLocaleString()}`);
+                        console.log(`Start time in ms: ${startTimeMs}`);
+                        console.log(`Current time in ms: ${currentTimeMs}`);
+                        console.log(`Expected elapsed time: ${expectedElapsedSeconds} seconds (${Math.floor(expectedElapsedSeconds / 60)}min ${expectedElapsedSeconds % 60}sec)`);
+                        
+                        // If timer doesn't exist for this action, start it
+                        if (!this.timers[actionId]) {
+                            console.log(`Starting timer for action: ${actionId}`);
+                            this.startTimer(actionId, action.started_at);
+                            this.jobDisabledStatus[actionId] = true;
+                            job.started = true;
+                        } else {
+                            console.log(`Timer already exists for action: ${actionId}`);
+                        }
+                    }
+                });
+            });
+            
+            // Persist the restored job disabled status
+            localStorage.setItem('jobDisabledStatus', JSON.stringify(this.jobDisabledStatus));
+            console.log('Timer state restoration completed');
+        },
+        
+        async syncActionStatus(actionId) {
+            try {
+                console.log(`Syncing action status for actionId: ${actionId}`);
+                const response = await axios.get(`/action/${actionId}/status`);
+                if (response.data.success) {
+                    const actionData = response.data.action;
+                    console.log(`Action status data:`, actionData);
+                    
+                    // Update all jobs that have this action
+                    this.invoices.forEach(invoice => {
+                        invoice.jobs.forEach(job => {
+                            const action = job.actions.find(a => a.id === actionId);
+                            if (action) {
+                                const oldStatus = action.status;
+                                action.status = actionData.status;
+                                action.started_at = actionData.started_at;
+                                action.ended_at = actionData.ended_at;
+                                
+                                console.log(`Updated action ${actionId} status from ${oldStatus} to ${actionData.status}`);
+                                
+                                // Update timer if action is in progress
+                                if (actionData.is_in_progress && !this.timers[actionId]) {
+                                    console.log(`Starting timer for in-progress action: ${actionId}`);
+                                    this.startTimer(actionId, actionData.started_at);
+                                    this.jobDisabledStatus[actionId] = true;
+                                    job.started = true;
+                                }
+                                
+                                // Clear timer if action is completed
+                                if (actionData.is_completed && this.timers[actionId]) {
+                                    console.log(`Clearing timer for completed action: ${actionId}`);
+                                    this.endTimer(actionId);
+                                    delete this.jobDisabledStatus[actionId];
+                                    job.started = false;
+                                }
+                            }
+                        });
+                    });
+                    
+                    // Persist job disabled status changes
+                    localStorage.setItem('jobDisabledStatus', JSON.stringify(this.jobDisabledStatus));
+                }
+            } catch (error) {
+                console.error('Error syncing action status:', error);
+            }
         },
     },
 }
@@ -903,6 +1033,30 @@ td{
     i {
         font-size: 1.2em;
     }
+
+}
+
+.in-progress-status {
+    background-color: #2196F3;
+    color: white;
+    padding: 10px;
+    border-radius: 4px;
+    font-weight: bold;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    margin-bottom: 10px;
+
+    i {
+        font-size: 1.2em;
+    }
+
+    .timer-display {
+        font-size: 0.9em;
+        opacity: 0.9;
+    }
 }
 
 .image-cell {
@@ -1063,3 +1217,4 @@ td{
     }
 }
 </style>
+
