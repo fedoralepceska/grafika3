@@ -8,33 +8,66 @@
                         <h2 class="sub-title">
                             {{ $t('allRefinements') }}
                         </h2>
-                        <div class="flex justify-end pr-3 pb-5">
-                            <button class="btn delete mr-5">Delete</button>
-                            <EditRefinementDialog class="mr-8" :refinement="selectedRefinement"/>
+                        <div class="flex justify-end pr-3 pb-8">
                             <AddRefinementDialog :refinement="Refinements"/>
                         </div>
-                        <table class="excel-table ">
-                            <thead>
-                            <tr>
-                                <th style="width: 45px;">{{$t('Nr')}}</th>
-                                <th>{{$t('name')}}<div class="resizer" @mousedown="initResize($event, 1)"></div></th>
-                                <th>{{$t('material')}}-{{$t('Quantity')}}<div class="resizer" @mousedown="initResize($event, 3)"></div></th>
-                                <th style="width: 80px;">{{$t('Unit')}}<div class="resizer" @mousedown="initResize($event, 2)"></div></th>
-                                <th style="width: 45px;"></th>
-                            </tr>
-                            </thead>
-                            <tbody>
-                            <tr v-for="refinement in refinements">
-                                <th>{{ refinement.id }}</th>
-                                <th>{{ refinement.name }}</th>
-                                <th>{{ getMaterial(refinement) }}</th>
-                                <th>{{ getUnit(refinement) }}</th>
-                                <th>
-                                    <input type="checkbox" class="rounded" :value="refinement" @change="toggleSelection(refinement)" :checked="isSelected(refinement)" />
-                                </th>
-                            </tr>
-                            </tbody>
-                        </table>
+                        
+                        <EditRefinementDialog 
+                            ref="editDialog"
+                            :refinement="currentEditingRefinement"
+                            @refinement-updated="refreshRefinements"
+                        />
+                        
+                        <div class="table-container">
+                            <table class="modern-table">
+                                <thead>
+                                <tr>
+                                    <th class="table-header id-column">{{$t('Nr')}}</th>
+                                    <th class="table-header name-column">{{$t('name')}}</th>
+                                    <th class="table-header material-column">{{$t('material')}}-{{$t('Quantity')}}</th>
+                                    <th class="table-header unit-column">{{$t('Unit')}}</th>
+                                    <th class="table-header action-column">Actions</th>
+                                </tr>
+                                </thead>
+                                <tbody>
+                                <tr v-for="refinement in refinements" :key="refinement.id" class="table-row">
+                                    <td class="table-cell id-cell">{{ refinement.id }}</td>
+                                    <td class="table-cell name-cell">{{ refinement.name }}</td>
+                                    <td class="table-cell material-cell">{{ getMaterial(refinement) }}</td>
+                                    <td class="table-cell unit-cell">
+                                        <span class="unit-badge" v-if="getUnit(refinement)">{{ getUnit(refinement) }}</span>
+                                    </td>
+                                    <td class="table-cell action-cell">
+                                        <div class="action-buttons">
+                                            <button 
+                                                class="edit-btn" 
+                                                @click="openEditDialog(refinement)"
+                                                title="Edit refinement"
+                                            >
+                                                <svg class="edit-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                                                    <path d="m18.5 2.5 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                                                </svg>
+                                                Edit
+                                            </button>
+                                            <button 
+                                                class="delete-btn" 
+                                                @click="deleteRefinement(refinement)"
+                                                title="Delete refinement"
+                                            >
+                                                <svg class="delete-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                    <path d="M3 6h18"></path>
+                                                    <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path>
+                                                    <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path>
+                                                </svg>
+                                                Delete
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                                </tbody>
+                            </table>
+                        </div>
 
                         <!--
                                                 <Pagination />
@@ -80,55 +113,17 @@ export default {
     },
     data() {
         return {
-            startX: 0,
-            startWidth: 0,
-            columnIndex: -1,
-            selectedRefinements: [],
+            currentEditingRefinement: null,
+            isOpeningDialog: false,
         };
     },
-    computed: {
-        // Return the first selected refinement (if needed for the dialog)
-        selectedRefinement() {
-            return this.selectedRefinements.length > 0 ? this.selectedRefinements[0] : null;
-        },
+    mounted() {
+        // Ensure the component is properly mounted
+        this.$nextTick(() => {
+            console.log('Refinements Index component mounted');
+        });
     },
     methods: {
-        // Check if a refinement is selected
-        isSelected(refinement) {
-            return this.selectedRefinements.includes(refinement);
-        },
-        // Toggle the selection of a refinement
-        toggleSelection(refinement) {
-            const index = this.selectedRefinements.indexOf(refinement);
-            if (index > -1) {
-                // If the refinement is already selected, remove it
-                this.selectedRefinements.splice(index, 1);
-            } else {
-                // Otherwise, add it to the selected refinements
-                this.selectedRefinements.push(refinement);
-            }
-        },
-        initResize(event, index) {
-            this.startX = event.clientX;
-            this.startWidth = event.target.parentElement.offsetWidth;
-            this.columnIndex = index;
-
-            document.documentElement.addEventListener('mousemove', this.resizeColumn);
-            document.documentElement.addEventListener('mouseup', this.stopResize);
-        },
-        resizeColumn(event) {
-            const diffX = event.clientX - this.startX;
-            const newWidth = this.startWidth + diffX;
-            const ths = document.querySelectorAll('.excel-table th');
-
-            if (this.columnIndex >= 0 && this.columnIndex < ths.length) {
-                ths[this.columnIndex].style.width = `${newWidth}px`;
-            }
-        },
-        stopResize() {
-            document.documentElement.removeEventListener('mousemove', this.resizeColumn);
-            document.documentElement.removeEventListener('mouseup', this.stopResize);
-        },
         getUnit(refinement) {
             const small = refinement?.small_material;
             const large = refinement?.large_format_material;
@@ -158,6 +153,78 @@ export default {
                 return refinement?.large_format_material?.name + "-" + refinement?.large_format_material?.quantity;
             } else {
                 return "X";
+            }
+        },
+        async openEditDialog(refinement) {
+            if (!refinement) {
+                console.warn('No refinement provided');
+                return;
+            }
+            
+            // Prevent multiple rapid clicks
+            if (this.isOpeningDialog) {
+                return;
+            }
+            
+            this.isOpeningDialog = true;
+            
+            try {
+                // Set the refinement first
+                this.currentEditingRefinement = refinement;
+                
+                // Use $nextTick to ensure the DOM is fully rendered and the prop is updated
+                await this.$nextTick();
+                
+                if (!this.$refs.editDialog) {
+                    console.error('Edit dialog reference not found');
+                    return;
+                }
+                
+                // Add a small delay to ensure the component is fully ready
+                await new Promise(resolve => setTimeout(resolve, 10));
+                
+                await this.$refs.editDialog.openDialog();
+            } catch (error) {
+                console.error('Error opening edit dialog:', error);
+            } finally {
+                this.isOpeningDialog = false;
+            }
+        },
+        async refreshRefinements() {
+            try {
+                // Clear current editing refinement
+                this.currentEditingRefinement = null;
+                
+                // Use Inertia's reload method to refresh page data without full page reload
+                this.$inertia.reload({ only: ['refinements'] });
+            } catch (error) {
+                console.error('Error refreshing refinements:', error);
+            }
+        },
+        
+        async deleteRefinement(refinement) {
+            if (!refinement) {
+                console.warn('No refinement provided for deletion');
+                return;
+            }
+            
+            
+            try {
+                const response = await axios.delete(`/refinements/${refinement.id}`);
+                
+                // Show success message
+                if (response.data.message) {
+                    // You can add a toast notification here if you have a toast system
+                    console.log(response.data.message);
+                }
+                
+                // Refresh the refinements list
+                await this.refreshRefinements();
+                
+            } catch (error) {
+                console.error('Error deleting refinement:', error);
+                // You can add an error toast notification here
+                alert('Error deleting refinement. Please try again.');
             }
         }
     },
@@ -277,37 +344,185 @@ select{
     display: flex;
     justify-content: end;
 }
-.excel-table {
-    border-collapse: collapse;
-    width: 100%;
-    color: white;
-    table-layout: fixed;
-}
-.excel-table th,
-.excel-table td {
+
+/* Modern Table Styles */
+.table-container {
     border: 1px solid #dddddd;
-    padding: 4px;
-    text-align: center;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
     overflow: hidden;
-    white-space: nowrap;
-    text-overflow: ellipsis;
+    margin-top: 20px;
+}
+
+.modern-table {
+    width: 100%;
+    border: 1px solid #dddddd;
+    font-size: 14px;
+    color: $white;
+}
+
+.table-header {
+   
+    color: white;
+    font-weight: 600;
+    padding: 16px 12px;
+    text-align: left;
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    border: 1px solid #dddddd;
     position: relative;
 }
-.excel-table th {
-    min-width: 50px;
+
+.table-header:first-child {
+    border-top-left-radius: 12px;
 }
-.excel-table tr:nth-child(even) {
-    background-color: $ultra-light-gray;
+
+.table-header:last-child {
+    border-top-right-radius: 12px;
 }
-.resizer {
-    width: 5px;
-    height: 100%;
-    position: absolute;
-    right: 0;
-    top: 0;
-    cursor: col-resize;
-    user-select: none;
-    background-color: transparent;
+
+.table-row {
+    transition: all 0.2s ease;
+    border-bottom: 1px solid #f0f0f0;
+}
+
+
+
+.table-row:last-child {
+    border-bottom: none;
+}
+
+.table-cell {
+    padding: 16px 12px;
+    text-align: left;
+    vertical-align: middle;
+    border: none;
+    font-weight: 500;
+}
+
+/* Column-specific styles */
+.id-column, .id-cell {
+    width: 80px;
+    text-align: center;
+    font-weight: 600;
+    color: $white;
+}
+
+.name-column, .name-cell {
+    min-width: 200px;
+    font-weight: 600;
+    color: $white;
+}
+
+.material-column, .material-cell {
+    min-width: 250px;
+    color: $white;
+}
+
+.unit-column, .unit-cell {
+    width: 120px;
+    text-align: center;
+}
+
+.action-column, .action-cell {
+    width: 160px;
+    text-align: center;
+}
+
+/* Unit badge styling */
+.unit-badge {
+    background: $green;
+    color: white;
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    display: inline-block;
+    min-width: 80px;
+}
+
+/* Action buttons container */
+.action-buttons {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+    align-items: center;
+}
+
+/* Edit button styling */
+.edit-btn {
+    background: $blue;
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    box-shadow: 0 2px 4px rgba(66, 153, 225, 0.3);
+}
+
+
+
+
+.edit-icon {
+    width: 14px;
+    height: 14px;
+}
+
+/* Delete button styling */
+.delete-btn {
+    background: $red;
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    box-shadow: 0 2px 4px rgba(245, 101, 101, 0.3);
+}
+
+
+.delete-icon {
+    width: 14px;
+    height: 14px;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+    .table-container {
+        border-radius: 8px;
+        margin-top: 15px;
+    }
+    
+    .table-header {
+        padding: 12px 8px;
+        font-size: 12px;
+    }
+    
+    .table-cell {
+        padding: 12px 8px;
+        font-size: 13px;
+    }
+    
+    .name-column, .name-cell {
+        min-width: 150px;
+    }
+    
+    .material-column, .material-cell {
+        min-width: 180px;
+    }
 }
 .info {
     border: 2px solid white;

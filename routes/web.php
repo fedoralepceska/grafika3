@@ -304,6 +304,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/refinements/all', [\App\Http\Controllers\RefinementsController::class, 'getRefinements'])->name('refinements.getRefinements');
     Route::post('/refinements/create', [\App\Http\Controllers\RefinementsController::class, 'store'])->name('refinements.store');
     Route::put('/refinements/{refinement}', [\App\Http\Controllers\RefinementsController::class, 'update'])->name('refinements.update');
+    Route::delete('/refinements/{id}', [\App\Http\Controllers\RefinementsController::class, 'destroy'])->name('refinements.destroy');
 });
 
 //Routes for Banks

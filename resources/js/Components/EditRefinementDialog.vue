@@ -8,11 +8,6 @@
                 class="height"
                 @keydown.esc="closeDialog"
             >
-                <template v-slot:activator="{ props }">
-                    <div v-bind="props" class="bt">
-                        <button class="btn" @click="openAddItemForm">Update</button>
-                    </div>
-                </template>
                 <v-card class="height background">
                     <v-card-title>
                         <span class="text-h5 text-white">Update Refinement</span>
@@ -26,11 +21,10 @@
                                             <div class="form-group gap-3">
                                                 <label for="newRefinementName" class="width100">Name</label>
                                                 <input
-                                                    disabled
                                                     type="text"
                                                     id="newRefinementName"
                                                     class="text-black rounded"
-                                                    :value="refinement.name"
+                                                    v-model="updatingRefinement.name"
                                                     style="width: 50vh"
                                                 />
                                             </div>
@@ -42,7 +36,6 @@
                                                         class="rounded"
                                                         id="isMaterialRefinement"
                                                         v-model="updatingRefinement.isMaterialRefinement"
-                                                        :checked="refinement.isMaterialized"
                                                         style="padding: 8px"
                                                     />
                                                 </label>
@@ -54,7 +47,9 @@
                                                     v-model="updatingRefinement.materials"
                                                     class="text-black rounded"
                                                     style="width: 50vh"
+                                                    :key="updatingRefinement.materials?.id || 'no-material'"
                                                 >
+                                                    <option value="" disabled>Select a material</option>
                                                     <option v-for="material in availableMaterials" :value="material" :key="material.id">
                                                         {{ material.name }}
                                                     </option>
@@ -105,29 +100,80 @@ export default {
         refinement: Object,
     },
     methods: {
-        openDialog() {
+        async openDialog() {
+            // Check if refinement is selected
+            if (!this.refinement) {
+                console.warn('No refinement selected');
+                return;
+            }
+            
+            // Always ensure materials are loaded first, even if they were loaded before
+            await this.generateMaterials();
+            
             this.updatingRefinement = Object.assign({}, this.refinement);
+            
+            // Set the current material selection based on the refinement's material relationships
+            if (this.refinement.small_material) {
+                // Find the exact material in availableMaterials to ensure proper binding
+                const material = this.availableMaterials.find(m => m.id === this.refinement.small_material.id);
+                this.updatingRefinement.materials = material || this.refinement.small_material;
+                this.updatingRefinement.isMaterialRefinement = this.refinement.isMaterialized === 1;
+                console.log('Setting small material:', this.updatingRefinement.materials);
+            } else if (this.refinement.large_format_material) {
+                // Find the exact material in availableMaterials to ensure proper binding
+                const material = this.availableMaterials.find(m => m.id === this.refinement.large_format_material.id);
+                this.updatingRefinement.materials = material || this.refinement.large_format_material;
+                this.updatingRefinement.isMaterialRefinement = this.refinement.isMaterialized === 1;
+                console.log('Setting large material:', this.updatingRefinement.materials);
+            }
+            
+            console.log('Refinement data:', this.refinement);
+            console.log('Updating refinement:', this.updatingRefinement);
+            console.log('Available materials:', this.availableMaterials);
+            
+            this.showAddRefinementForm = true;
             this.dialog = true;
         },
         closeDialog() {
             this.dialog = false;
+            this.showAddRefinementForm = false;
             this.updatingRefinement = {};
-            window.location.reload();
+            // Don't emit refinement-updated when just closing - only emit on actual updates
         },
-        openAddItemForm() {
-            this.showAddRefinementForm = true;
-        },
+
         async updateItem() {
             const toast = useToast();
             try {
                 const updatedObject = {};
-                updatedObject.material_type = this?.updatingRefinement?.materials?.small_format_material_id === null ? 'SmallMaterial' : 'LargeFormatMaterial';
-                updatedObject.material_id = this?.updatingRefinement?.materials?.id;
+                updatedObject.name = this.updatingRefinement.name;
+                updatedObject.isMaterialRefinement = this.updatingRefinement.isMaterialRefinement;
+                
+                // Determine material type based on the selected material
+                if (this.updatingRefinement.materials) {
+                    // Check if it's a small material (has small_format_material_id) or large material
+                    if (this.updatingRefinement.materials.small_format_material_id !== undefined && 
+                        this.updatingRefinement.materials.small_format_material_id !== null) {
+                        updatedObject.material_type = 'SmallMaterial';
+                    } else {
+                        updatedObject.material_type = 'LargeFormatMaterial';
+                    }
+                    updatedObject.material_id = this.updatingRefinement.materials.id;
+                } else {
+                    // If no material is selected, set default values
+                    updatedObject.material_type = null;
+                    updatedObject.material_id = null;
+                }
+                
+                console.log('Sending update data:', updatedObject);
                 const response = await axios.put(`/refinements/${this.refinement.id}`, updatedObject);
                 toast.success(response.data.message);
+                
+                // Emit the event only after successful update
+                this.$emit('refinement-updated');
+                
                 this.closeDialog();
             } catch (error) {
-                toast.error("Error updating article!");
+                toast.error("Error updating refinement!");
                 console.error(error);
             }
         },
@@ -145,6 +191,47 @@ export default {
     async mounted() {
         await this.generateMaterials();
         document.addEventListener('keydown', this.handleEscapeKey);
+    },
+    watch: {
+        dialog(newVal) {
+            if (newVal && this.refinement) {
+                // Ensure form is properly initialized when dialog opens
+                this.$nextTick(() => {
+                    this.updatingRefinement = Object.assign({}, this.refinement);
+                    
+                    if (this.refinement.small_material) {
+                        const material = this.availableMaterials.find(m => m.id === this.refinement.small_material.id);
+                        this.updatingRefinement.materials = material || this.refinement.small_material;
+                        this.updatingRefinement.isMaterialRefinement = this.refinement.isMaterialized === 1;
+                    } else if (this.refinement.large_format_material) {
+                        const material = this.availableMaterials.find(m => m.id === this.refinement.large_format_material.id);
+                        this.updatingRefinement.materials = material || this.refinement.large_format_material;
+                        this.updatingRefinement.isMaterialRefinement = this.refinement.isMaterialized === 1;
+                    }
+                });
+            }
+        },
+        refinement: {
+            handler(newRefinement) {
+                if (newRefinement && this.dialog) {
+                    // If dialog is open and refinement changes, update the form
+                    this.$nextTick(() => {
+                        this.updatingRefinement = Object.assign({}, newRefinement);
+                        
+                        if (newRefinement.small_material) {
+                            const material = this.availableMaterials.find(m => m.id === newRefinement.small_material.id);
+                            this.updatingRefinement.materials = material || newRefinement.small_material;
+                            this.updatingRefinement.isMaterialRefinement = newRefinement.isMaterialized === 1;
+                        } else if (newRefinement.large_format_material) {
+                            const material = this.availableMaterials.find(m => m.id === newRefinement.large_format_material.id);
+                            this.updatingRefinement.materials = material || newRefinement.large_format_material;
+                            this.updatingRefinement.isMaterialRefinement = newRefinement.isMaterialized === 1;
+                        }
+                    });
+                }
+            },
+            deep: true
+        }
     },
 };
 </script>
