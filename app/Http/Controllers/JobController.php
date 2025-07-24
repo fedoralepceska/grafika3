@@ -1658,7 +1658,9 @@ class JobController extends Controller
     public function getQuestionsForCatalogItems(Request $request)
     {
         $catalogItemIds = $request->input('catalog_item_ids', []);
-        $catalogItems = \App\Models\CatalogItem::whereIn('id', $catalogItemIds)->get();
+        $catalogItems = \App\Models\CatalogItem::with(['questions' => function($query) {
+            $query->where('active', true)->orderBy('order');
+        }])->whereIn('id', $catalogItemIds)->get();
 
         $shouldAsk = $catalogItems->where('should_ask_questions', true)->isNotEmpty();
 
@@ -1666,11 +1668,11 @@ class JobController extends Controller
             return response()->json(['shouldAsk' => false]);
         }
 
-        $activeQuestions = \App\Models\Question::active()->get();
         $questionsByCatalogItem = [];
         foreach ($catalogItems as $item) {
             if ($item->should_ask_questions) {
-                $questionsByCatalogItem[$item->id] = $activeQuestions;
+                // Only get questions that are specifically associated with this catalog item
+                $questionsByCatalogItem[$item->id] = $item->questions->toArray();
             }
         }
 

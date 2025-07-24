@@ -7,7 +7,6 @@
         <div class="question-row" :class="{'inactive': !element.active}">
           <span>{{ index + 1 }}.</span>
           <span>{{ element.question }}</span>
-          <span class="default-answer">({{ element.default_answer }})</span>
           <button @click="openEditModal(element)">Edit</button>
           <button v-if="element.active" @click="disableQuestion(element)">Disable</button>
           <button v-else @click="enableQuestion(element)">Enable</button>
@@ -26,10 +25,6 @@
           <div>
             <label>Question:</label>
             <input v-model="modalData.question" required />
-          </div>
-          <div>
-            <label>Default Answer:</label>
-            <input v-model="modalData.default_answer" required />
           </div>
         </form>
       </template>
@@ -50,7 +45,7 @@ import axios from 'axios';
 const questions = ref([]);
 const showModal = ref(false);
 const editMode = ref(false);
-const modalData = ref({ id: null, question: '', default_answer: '' });
+const modalData = ref({ id: null, question: '' });
 
 const fetchQuestions = async () => {
   const res = await axios.get('/questions');
@@ -59,7 +54,7 @@ const fetchQuestions = async () => {
 
 const openAddModal = () => {
   editMode.value = false;
-  modalData.value = { id: null, question: '', default_answer: '' };
+  modalData.value = { id: null, question: '' };
   showModal.value = true;
 };
 
@@ -77,12 +72,10 @@ const saveQuestion = async () => {
   if (editMode.value) {
     await axios.put(`/questions/${modalData.value.id}`, {
       question: modalData.value.question,
-      default_answer: modalData.value.default_answer,
     });
   } else {
     await axios.post('/questions', {
       question: modalData.value.question,
-      default_answer: modalData.value.default_answer,
       order: questions.value.length,
       active: true,
     });

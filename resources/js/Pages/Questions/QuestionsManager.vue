@@ -18,7 +18,6 @@
                 <div class="question-content">
                   <div class="question-main">
                     <div class="question-text">{{ q.question }}</div>
-                    <div class="default-answer">{{ q.default_answer }}</div>
                   </div>
                   <div class="question-meta">
                     <span v-if="q.active" class="status-badge active">Active</span>
@@ -46,10 +45,6 @@
             <label class="modal-label">Question:</label>
             <input v-model="form.question" class="modal-input" required />
           </div>
-          <div class="mb-4">
-            <label class="modal-label">Default Answer:</label>
-            <input v-model="form.default_answer" class="modal-input" required />
-          </div>
           <div class="flex gap-2 justify-end mt-6">
             <button class="btn" type="submit">Save</button>
           </div>
@@ -68,7 +63,7 @@ import draggable from 'vuedraggable';
 import axios from 'axios';
 
 const questions = ref([]);
-const form = ref({ question: '', default_answer: '' });
+const form = ref({ question: '' });
 const editMode = ref(false);
 const editId = ref(null);
 const showModal = ref(false);
@@ -82,20 +77,20 @@ const fetchQuestions = async () => {
 const openAddModal = () => {
   editMode.value = false;
   editId.value = null;
-  form.value = { question: '', default_answer: '' };
+  form.value = { question: '' };
   showModal.value = true;
 };
 
 const openEditModal = (q) => {
   editMode.value = true;
   editId.value = q.id;
-  form.value = { question: q.question, default_answer: q.default_answer };
+  form.value = { question: q.question };
   showModal.value = true;
 };
 
 const closeModal = () => {
   showModal.value = false;
-  form.value = { question: '', default_answer: '' };
+  form.value = { question: '' };
   editMode.value = false;
   editId.value = null;
 };
@@ -105,13 +100,11 @@ const saveQuestion = async () => {
     if (editMode.value) {
       await axios.put(`/questions/${editId.value}`, {
         question: form.value.question,
-        default_answer: form.value.default_answer,
       });
       toast.success('Question updated!');
     } else {
       await axios.post('/questions', {
         question: form.value.question,
-        default_answer: form.value.default_answer,
         order: questions.value.length,
         active: true,
       });

@@ -205,6 +205,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('/questions/{question}/disable', [\App\Http\Controllers\QuestionController::class, 'disable']);
     Route::post('/questions/reorder', [\App\Http\Controllers\QuestionController::class, 'reorder']);
     Route::get('/questions/active', [\App\Http\Controllers\QuestionController::class, 'active']);
+    Route::get('/questions/catalog-item/{catalogItem}', [\App\Http\Controllers\QuestionController::class, 'getByCatalogItem']);
+    Route::post('/questions/catalog-item/{catalogItem}', [\App\Http\Controllers\QuestionController::class, 'updateCatalogItemQuestions']);
     Route::get('/admin/questions', function () {
         return Inertia::render('Questions/QuestionsManager');
     })->name('admin.questions');

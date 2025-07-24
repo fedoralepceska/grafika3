@@ -470,7 +470,10 @@ class CatalogItemController extends Controller
             DB::commit();
             \Log::info('Stored catalog item actions:', ['actions' => $catalogItem->actions]);
 
-            return redirect()->route('catalog.index');
+            return response()->json([
+                'message' => 'Catalog item created successfully',
+                'catalog_item' => ['id' => $catalogItem->id]
+            ], 201);
 
         } catch (\Exception $e) {
             DB::rollBack();

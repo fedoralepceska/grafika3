@@ -533,6 +533,13 @@
                                     </div>
                                 </div>
 
+                                <!-- Questions Selection -->
+                                <QuestionsSelector
+                                    v-model="selectedQuestions"
+                                    :should-ask-questions="editForm.should_ask_questions"
+                                    :catalog-item-id="editForm.id"
+                                />
+
                             </div>
                         </div>
 
@@ -1004,6 +1011,7 @@ import Header from "@/Components/Header.vue";
 import { Link } from "@inertiajs/vue3";
 import { useToast } from "vue-toastification";
 import CatalogArticleSelect from "@/Components/CatalogArticleSelect.vue";
+import QuestionsSelector from "@/Components/QuestionsSelector.vue";
 import debounce from 'lodash.debounce';     
 import { computed } from 'vue';
 
@@ -1012,7 +1020,8 @@ export default {
         MainLayout,
         Header,
         Link,
-        CatalogArticleSelect
+        CatalogArticleSelect,
+        QuestionsSelector
     },
     props: {
         catalogItems: Array,
@@ -1107,6 +1116,7 @@ export default {
                 digit3: '',
                 digit4: ''
             },
+            selectedQuestions: [],
         };
     },
     computed: {
@@ -1262,6 +1272,7 @@ export default {
             this.currentTemplateFile = null;
             this.removeTemplateFlag = false;
             this.editPricingMethod = 'quantity';
+            this.selectedQuestions = [];
         },
 
         clearLargeMaterial() {
@@ -1379,6 +1390,13 @@ export default {
                         'Content-Type': 'multipart/form-data'
                     }
                 });
+
+                // Update catalog item questions if should_ask_questions is enabled
+                if (this.editForm.should_ask_questions) {
+                    await axios.post(`/questions/catalog-item/${this.editForm.id}`, {
+                        question_ids: this.selectedQuestions
+                    });
+                }
 
                 toast.success('Catalog item updated successfully');
                 this.closeEditDialog();

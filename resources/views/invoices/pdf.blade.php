@@ -180,6 +180,30 @@
                     <td colspan="3">{{ $job->large_material->name }}</td>
                 </tr>
             @endif
+
+            @if($job->question_answers)
+                @php
+                    $questionAnswers = is_string($job->question_answers) ? json_decode($job->question_answers, true) : $job->question_answers;
+                    $answeredQuestions = [];
+                    if ($questionAnswers) {
+                        foreach ($questionAnswers as $questionId => $questionData) {
+                            if (isset($questionData['question']) && isset($questionData['answer']) && $questionData['answer']) {
+                                $answeredQuestions[] = $questionData['question'];
+                            }
+                        }
+                    }
+                @endphp
+                @if(count($answeredQuestions) > 0)
+                    <tr>
+                        <td class="tahoma" style="background-color: #F0EFEF; padding-left: 5px; border-bottom: 1px solid #cccccc;;">Инфо:</td>
+                        <td colspan="3" style="font-size: 9pt; line-height: 1.3;">
+                            @foreach($answeredQuestions as $index => $question)
+                                {{ $question }}@if(!$loop->last)<br>@endif
+                            @endforeach
+                        </td>
+                    </tr>
+                @endif
+            @endif   
             <tr>
                 <td class="tahoma" style="background-color: #F0EFEF; padding-left: 5px; border-bottom: 1px solid #cccccc;;">Димензија во mm:</td>
                 <td colspan="3">{{ number_format($job->width) }}x{{ number_format( $job->height) }}</td>

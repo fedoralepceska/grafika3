@@ -74,7 +74,7 @@ export default {
       }
     },
     submit() {
-      // Only include checked answers, and save both the question text and answer
+      // Only include checked answers with the question text
       const result = {};
       for (const item of this.catalogItems) {
         const questions = this.questionsByCatalogItem[item.id] || [];
@@ -83,7 +83,7 @@ export default {
           if (this.answers[item.id][q.id]) {
             result[item.id][q.id] = {
               question: q.question,
-              answer: q.default_answer
+              answer: true // Just mark that the question was answered
             };
           }
         }

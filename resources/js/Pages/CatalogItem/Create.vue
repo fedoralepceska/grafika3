@@ -202,6 +202,12 @@
                                         <label class="text-white ml-2">Ask questions before production</label>
                                     </div>
                                 </div>
+                                
+                                <!-- Questions Selection -->
+                                <QuestionsSelector
+                                    v-model="selectedQuestions"
+                                    :should-ask-questions="form.should_ask_questions"
+                                />
                             </div>
                         </div>
 
@@ -481,6 +487,7 @@ import { Link } from '@inertiajs/vue3';
 import { useToast } from 'vue-toastification';
 import Checkbox from '@/Components/inputs/Checkbox.vue';
 import CatalogArticleSelect from '@/Components/CatalogArticleSelect.vue';
+import QuestionsSelector from '@/Components/QuestionsSelector.vue';
 import CreateSubcategoryDialog from '@/Components/CreateSubcategoryDialog.vue';
 import ViewSubcategoriesDialog from '@/Components/ViewSubcategoriesDialog.vue';
 import useRoleCheck from '@/Composables/useRoleCheck';
@@ -493,6 +500,7 @@ export default {
         Link,
         Checkbox,
         CatalogArticleSelect,
+        QuestionsSelector,
         CreateSubcategoryDialog,
         ViewSubcategoriesDialog
     },
@@ -548,7 +556,8 @@ export default {
             servicesCost: 0,
             templatePreviewUrl: null,
             templateFileName: '',
-            subcategories: []
+            subcategories: [],
+            selectedQuestions: []
         }
     },
 
@@ -844,6 +853,13 @@ export default {
                 const response = await axios.post(route('catalog.store'), formData, {
                     headers: { 'Content-Type': 'multipart/form-data' },
                 });
+
+                // If should_ask_questions is enabled and questions are selected, save them
+                if (this.form.should_ask_questions && this.selectedQuestions.length > 0) {
+                    await axios.post(`/questions/catalog-item/${response.data.catalog_item.id}`, {
+                        question_ids: this.selectedQuestions
+                    });
+                }
 
                 toast.success('Catalog item created successfully');
                 this.$inertia.visit(route('catalog.index'));

@@ -240,4 +240,10 @@ class CatalogItem extends Model
         // Default to quantity
         return $quantity;
     }
+
+    // Relationship with questions
+    public function questions()
+    {
+        return $this->belongsToMany(Question::class, 'catalog_item_questions');
+    }
 }

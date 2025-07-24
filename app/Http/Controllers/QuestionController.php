@@ -16,7 +16,6 @@ class QuestionController extends Controller
     {
         $data = $request->validate([
             'question' => 'required|string',
-            'default_answer' => 'required|string',
             'order' => 'integer',
             'active' => 'boolean'
         ]);
@@ -28,7 +27,6 @@ class QuestionController extends Controller
     {
         $data = $request->validate([
             'question' => 'string',
-            'default_answer' => 'string',
             'order' => 'integer',
             'active' => 'boolean'
         ]);
@@ -66,5 +64,24 @@ class QuestionController extends Controller
     public function active()
     {
         return response()->json(Question::active()->get());
+    }
+
+    public function getByCatalogItem($catalogItemId)
+    {
+        $catalogItem = \App\Models\CatalogItem::findOrFail($catalogItemId);
+        return response()->json($catalogItem->questions);
+    }
+
+    public function updateCatalogItemQuestions(Request $request, $catalogItemId)
+    {
+        $data = $request->validate([
+            'question_ids' => 'array',
+            'question_ids.*' => 'exists:questions,id'
+        ]);
+
+        $catalogItem = \App\Models\CatalogItem::findOrFail($catalogItemId);
+        $catalogItem->questions()->sync($data['question_ids'] ?? []);
+
+        return response()->json(['message' => 'Questions updated successfully']);
     }
 } 
