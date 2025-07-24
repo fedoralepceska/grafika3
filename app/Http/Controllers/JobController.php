@@ -6,6 +6,9 @@ use App\Enums\JobAction;
 use App\Events\InvoiceCreated;
 use App\Events\JobEnded;
 use App\Events\JobStarted;
+use App\Events\JobStatusUpdated;
+use App\Events\JobActionStarted;
+use App\Events\JobActionEnded;
 use App\Models\Invoice;
 use App\Models\Job;
 use App\Models\LargeFormatMaterial;
@@ -1478,6 +1481,38 @@ class JobController extends Controller
                 ]);
                 // Don't fail the entire request if event dispatch fails
             }
+
+            // Broadcast job status update
+            try {
+                event(new JobStatusUpdated($job->id, 'In progress', auth()->id()));
+                \Log::info('JobStatusUpdated event broadcasted successfully');
+            } catch (\Exception $e) {
+                \Log::error('Error broadcasting JobStatusUpdated event', [
+                    'error' => $e->getMessage(),
+                    'job_id' => $job->id
+                ]);
+            }
+
+            // Broadcast job action started event
+            try {
+                $action = $job->actions()->where('id', $actionId)->first();
+                if ($action) {
+                    event(new JobActionStarted(
+                        $job->id,
+                        $actionId,
+                        $action->name,
+                        auth()->id(),
+                        $action->started_at ? $action->started_at->toISOString() : now()->toISOString()
+                    ));
+                    \Log::info('JobActionStarted event broadcasted successfully');
+                }
+            } catch (\Exception $e) {
+                \Log::error('Error broadcasting JobActionStarted event', [
+                    'error' => $e->getMessage(),
+                    'job_id' => $job->id,
+                    'action_id' => $actionId
+                ]);
+            }
             
             $responseData = [
                 'success' => true,
@@ -1575,6 +1610,39 @@ class JobController extends Controller
             
             // Dispatch the JobEnded event
             event(new JobEnded($job, $invoice));
+            
+            // Broadcast job status update
+            try {
+                event(new JobStatusUpdated($job->id, 'Completed', auth()->id()));
+                \Log::info('JobStatusUpdated event broadcasted successfully');
+            } catch (\Exception $e) {
+                \Log::error('Error broadcasting JobStatusUpdated event', [
+                    'error' => $e->getMessage(),
+                    'job_id' => $job->id
+                ]);
+            }
+
+            // Broadcast job action ended event
+            try {
+                $action = $job->actions()->where('id', $actionId)->first();
+                if ($action) {
+                    event(new JobActionEnded(
+                        $job->id,
+                        $actionId,
+                        $action->name,
+                        auth()->id(),
+                        $action->ended_at ? $action->ended_at->toISOString() : now()->toISOString(),
+                        $request->input('time_spent')
+                    ));
+                    \Log::info('JobActionEnded event broadcasted successfully');
+                }
+            } catch (\Exception $e) {
+                \Log::error('Error broadcasting JobActionEnded event', [
+                    'error' => $e->getMessage(),
+                    'job_id' => $job->id,
+                    'action_id' => $actionId
+                ]);
+            }
             
             return response()->json([
                 'success' => true,

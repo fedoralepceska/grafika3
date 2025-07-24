@@ -187,9 +187,87 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('/jobs/start-job', [JobController::class, 'fireStartJobEvent'])->name('jobs.fireStartJobEvent');
     Route::post('/jobs/end-job', [JobController::class, 'fireEndJobEvent'])->name('jobs.fireEndJobEvent');
     Route::get('/action/{actionId}/status', [JobController::class, 'getActionStatus'])->name('jobs.getActionStatus');
-Route::post('/invoice/{invoiceId}/update-status', [JobController::class, 'updateInvoiceStatusManually']);
-Route::get('/invoice/{invoiceId}/debug-status', [JobController::class, 'debugInvoiceStatus']);
-Route::get('/test-start-job-response', [JobController::class, 'testStartJobResponse']);
+    Route::post('/invoice/{invoiceId}/update-status', [JobController::class, 'updateInvoiceStatusManually']);
+    Route::get('/invoice/{invoiceId}/debug-status', [JobController::class, 'debugInvoiceStatus']);
+    Route::get('/test-start-job-response', [JobController::class, 'testStartJobResponse']);
+Route::get('/websocket-test', function () {
+    return Inertia::render('WebSocketTest');
+})->name('websocket.test');
+    
+    Route::get('/test-broadcast', function () {
+        // Test if events are being dispatched
+        try {
+            // Dispatch a test event
+            event(new \App\Events\JobActionStarted(
+                123, // job_id
+                456, // action_id
+                'Test Action', // action_name
+                1, // user_id
+                now()->toISOString() // started_at
+            ));
+            
+            return response()->json([
+                'success' => true,
+                'message' => 'Test event dispatched successfully',
+                'event' => 'JobActionStarted'
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+        }
+    });
+    
+Route::post('/test-job-action-started', function () {
+    try {
+        // Test broadcasting a job action started event
+        event(new \App\Events\JobActionStarted(123, 456, 'Test Action', 1, now()->toISOString()));
+        
+        return response()->json([
+            'success' => true,
+            'message' => 'Job action started event dispatched successfully',
+            'event' => 'JobActionStarted'
+        ]);
+    } catch (\Exception $e) {
+        return response()->json([
+            'success' => false,
+            'error' => $e->getMessage()
+        ], 500);
+    }
+});
+
+Route::post('/test-simple-broadcast', function () {
+    try {
+        // Write a simple test message directly to the broadcast file
+        $broadcastFile = storage_path('broadcasts.jsonl');
+        $payload = [
+            'event' => 'test.simple',
+            'data' => [
+                'message' => 'Simple test message',
+                'timestamp' => now()->toISOString()
+            ],
+            'channel' => 'job-actions'
+        ];
+        
+        $result = file_put_contents($broadcastFile, json_encode($payload) . "\n", FILE_APPEND | LOCK_EX);
+        
+        return response()->json([
+            'success' => true,
+            'message' => 'Simple test broadcast written to file',
+            'bytes_written' => $result,
+            'payload' => $payload
+        ]);
+    } catch (\Exception $e) {
+        return response()->json([
+            'success' => false,
+            'error' => $e->getMessage()
+        ], 500);
+    }
+});
+
+
     Route::post('/jobs-with-prices', [JobController::class, 'getJobsWithPrices'])->name('jobs.getJobsWithPrices');
     Route::post('/sync-jobs-with-machine', [JobController::class, 'syncAllJobsWithMachines'])->name('jobs.syncAllJobsWithMachines');
     Route::delete('/jobs/{id}', [JobController::class, 'destroy'])->name('jobs.destroy');

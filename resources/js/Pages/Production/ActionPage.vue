@@ -2,6 +2,21 @@
     <MainLayout>
         <div class="pl-7 pr-7">
             <Header title="action" subtitle="actionInfo" icon="task.png" link="production"/>
+            
+            <!-- WebSocket Connection Status -->
+            <div class="websocket-status mb-4">
+                <div class="flex items-center gap-2">
+                    <div 
+                        :class="[
+                            'w-3 h-3 rounded-full',
+                            wsConnected ? 'bg-green-500' : 'bg-red-500'
+                        ]"
+                    ></div>
+                    <span class="text-sm font-medium">
+                        {{ wsConnected ? 'Live Updates: Connected' : 'Live Updates: Disconnected' }}
+                    </span>
+                </div>
+            </div>
             <div v-for="(invoice,index) in invoices" class="main" >
                 <div class="container" :class="['container', 'flex', 'p-2', { 'red': invoice.onHold }]">
                     <div class="content">
@@ -256,6 +271,7 @@ import Header from "@/Components/Header.vue";
 import CommentModal from "@/Components/CommentModal.vue";
 import axios from "axios";
 import {useToast} from "vue-toastification";
+import { WebSocketClient } from '../../websocket-client.js';
 
 export default {
     name: 'ActionPage',
@@ -283,29 +299,33 @@ export default {
             showPreviewModal: false,
             currentFileIndex: null,
             currentJob: null,
+            wsClient: null,
+            wsConnected: false,
+            // syncInterval: null, // Removed since we're using WebSocket instead of polling
         };
     },
     created() {
         this.fetchJobs();
+        this.initializeWebSocket();
         
+        // Commented out polling since we now have real-time WebSocket updates
         // Set up periodic sync of action statuses
-        this.syncInterval = setInterval(() => {
-            // Get unique action IDs from all jobs
-            const actionIds = new Set();
-            this.invoices.forEach(invoice => {
-                invoice.jobs.forEach(job => {
-                    const action = job.actions.find(a => a.name === this.actionId);
-                    if (action && action.id) {
-                        actionIds.add(action.id);
-                    }
-                });
-            });
-            
-            // Sync each action status
-            actionIds.forEach(actionId => {
-                this.syncActionStatus(actionId);
-            });
-        }, 5000); // Sync every 5 seconds
+        // this.syncInterval = setInterval(() => {
+        //     // Get unique action IDs from all jobs
+        //     const actionIds = new Set();
+        //     this.invoices.forEach(invoice => {
+        //         invoice.jobs.forEach(job => {
+        //             const action = job.actions.find(a => a.name === this.actionId);
+        //             if (action && action.id) {
+        //             actionIds.add(action.id);
+        //         }
+        //     });
+        //     
+        //     // Sync each action status
+        //     actionIds.forEach(actionId => {
+        //         this.syncActionStatus(actionId);
+        //     });
+        // }, 5000); // Sync every 5 seconds
     },
     beforeMount() {
         // Load job disabled status from localStorage
@@ -316,15 +336,20 @@ export default {
     },
     
     beforeUnmount() {
-        // Clean up intervals
-        if (this.syncInterval) {
-            clearInterval(this.syncInterval);
-        }
+        // Clean up intervals (commented out since we removed polling)
+        // if (this.syncInterval) {
+        //     clearInterval(this.syncInterval);
+        // }
         
         // Clean up timers
         Object.keys(this.timers).forEach(actionId => {
             clearInterval(this.timers[actionId]);
         });
+        
+        // Disconnect WebSocket
+        if (this.wsClient) {
+            this.wsClient.disconnect();
+        }
     },
     computed: {
         getActionStatus() {
@@ -726,6 +751,224 @@ export default {
         },
         getOriginalFileUrl(jobId, fileIndex) {
             return `/jobs/${jobId}/view-original-file/${fileIndex}`;
+        },
+        
+        initializeWebSocket() {
+            try {
+                // Get WebSocket host from current domain
+                const host = window.location.hostname;
+                const port = 6001; // Default WebSocket port
+                
+                this.wsClient = new WebSocketClient(host, port);
+                
+                // Track connection status
+                this.wsClient.onConnect = () => {
+                    this.wsConnected = true;
+                    console.log('WebSocket connected - live updates enabled');
+                };
+                
+                this.wsClient.onDisconnect = () => {
+                    this.wsConnected = false;
+                    console.log('WebSocket disconnected - live updates disabled');
+                };
+                
+                this.wsClient.connect();
+                
+                // Subscribe to job action updates
+                this.wsClient.subscribe('job-actions', (data) => {
+                    this.handleWebSocketMessage(data);
+                });
+                
+                // Subscribe to user-specific updates if user is authenticated
+                if (window.userId) {
+                    this.wsClient.subscribeToUser(window.userId, (data) => {
+                        this.handleWebSocketMessage(data);
+                    });
+                }
+                
+                console.log('WebSocket client initialized');
+            } catch (error) {
+                console.error('Failed to initialize WebSocket:', error);
+            }
+        },
+        
+        handleWebSocketMessage(data) {
+            console.log('WebSocket message received:', data);
+            
+            // Handle different event types
+            switch (data.event) {
+                case 'job.action.started':
+                    this.handleJobActionStarted(data.data);
+                    break;
+                case 'job.action.ended':
+                    this.handleJobActionEnded(data.data);
+                    break;
+                case 'job.status.updated':
+                    this.handleJobStatusUpdated(data.data);
+                    break;
+                case 'connected':
+                    console.log('WebSocket connection confirmed:', data.message);
+                    break;
+                case 'subscribed':
+                    console.log('Successfully subscribed to channel:', data.channel);
+                    break;
+                case 'pong':
+                    console.log('Pong received from server');
+                    break;
+                default:
+                    console.log('Unknown WebSocket event:', data.event);
+            }
+        },
+        
+        handleJobActionStarted(data) {
+            const { job_id, action_id, action_name, user_id } = data;
+            
+            console.log('Handling job action started:', data);
+            
+            // Update the specific job action status
+            this.invoices.forEach(invoice => {
+                invoice.jobs.forEach(job => {
+                    if (job.id === job_id) {
+                        const action = job.actions.find(a => a.id === action_id);
+                        if (action) {
+                            const oldStatus = action.status;
+                            action.status = 'In progress';
+                            action.started_at = data.started_at;
+                            job.started = true;
+                            
+                            // Start timer if this is the current action
+                            if (action.name === this.actionId && !this.timers[action_id]) {
+                                this.startTimer(action_id, data.started_at);
+                                this.jobDisabledStatus[action_id] = true;
+                                localStorage.setItem('jobDisabledStatus', JSON.stringify(this.jobDisabledStatus));
+                            }
+                            
+                            console.log(`Job action ${action_id} status changed from ${oldStatus} to ${action.status} by user ${user_id}`);
+                            
+                            // Force Vue to re-render the component
+                            this.$forceUpdate();
+                        }
+                    }
+                });
+            });
+            
+            // Show notification
+            const toast = useToast();
+            toast.info(`Job action "${action_name}" started by user ${user_id}`, {
+                timeout: 3000,
+                position: 'top-right'
+            });
+        },
+        
+        handleJobActionEnded(data) {
+            const { job_id, action_id, action_name, user_id, time_spent } = data;
+            
+            console.log('Handling job action ended:', data);
+            
+            // Update the specific job action status
+            this.invoices.forEach(invoice => {
+                invoice.jobs.forEach(job => {
+                    if (job.id === job_id) {
+                        const action = job.actions.find(a => a.id === action_id);
+                        if (action) {
+                            const oldStatus = action.status;
+                            action.status = 'Completed';
+                            action.ended_at = data.ended_at;
+                            job.started = false;
+                            
+                            // Clear timer if this is the current action
+                            if (action.name === this.actionId && this.timers[action_id]) {
+                                this.endTimer(action_id);
+                                delete this.jobDisabledStatus[action_id];
+                                localStorage.setItem('jobDisabledStatus', JSON.stringify(this.jobDisabledStatus));
+                            }
+                            
+                            console.log(`Job action ${action_id} status changed from ${oldStatus} to ${action.status} by user ${user_id} in ${time_spent}`);
+                            
+                            // Force Vue to re-render the component
+                            this.$forceUpdate();
+                        }
+                    }
+                });
+            });
+            
+            // Show notification
+            const toast = useToast();
+            toast.success(`Job action "${action_name}" completed by user ${user_id} in ${time_spent}`, {
+                timeout: 5000,
+                position: 'top-right'
+            });
+        },
+        
+        handleJobStatusUpdated(data) {
+            const { job_id, status, user_id } = data;
+            
+            console.log('Handling job status updated:', data);
+            
+            // Update job status if needed
+            this.invoices.forEach(invoice => {
+                invoice.jobs.forEach(job => {
+                    if (job.id === job_id) {
+                        // Update job status if it exists
+                        if (job.status !== undefined) {
+                            job.status = status;
+                        }
+                        
+                        // If status is "In progress", find the action that was started and update it
+                        if (status === 'In progress') {
+                            const action = job.actions.find(a => a.name === this.actionId);
+                            if (action && action.status !== 'In progress') {
+                                action.status = 'In progress';
+                                action.started_at = data.timestamp || new Date().toISOString();
+                                job.started = true;
+                                
+                                // Start timer if this is the current action
+                                if (!this.timers[action.id]) {
+                                    this.startTimer(action.id, action.started_at);
+                                    this.jobDisabledStatus[action.id] = true;
+                                    localStorage.setItem('jobDisabledStatus', JSON.stringify(this.jobDisabledStatus));
+                                }
+                                
+                                console.log(`Job action ${action.id} status changed to ${action.status} by user ${user_id}`);
+                                
+                                // Force Vue to re-render the component
+                                this.$forceUpdate();
+                            }
+                        }
+                        
+                        // If status is "Completed", find the action and mark it as completed
+                        if (status === 'Completed') {
+                            const action = job.actions.find(a => a.name === this.actionId);
+                            if (action && action.status !== 'Completed') {
+                                action.status = 'Completed';
+                                action.ended_at = data.timestamp || new Date().toISOString();
+                                job.started = false;
+                                
+                                // Clear timer if this is the current action
+                                if (this.timers[action.id]) {
+                                    this.endTimer(action.id);
+                                    delete this.jobDisabledStatus[action.id];
+                                    localStorage.setItem('jobDisabledStatus', JSON.stringify(this.jobDisabledStatus));
+                                }
+                                
+                                console.log(`Job action ${action.id} status changed to ${action.status} by user ${user_id}`);
+                                
+                                // Force Vue to re-render the component
+                                this.$forceUpdate();
+                            }
+                        }
+                        
+                        console.log(`Job ${job_id} status updated to ${status} by user ${user_id}`);
+                    }
+                });
+            });
+            
+            // Show notification for status changes
+            const toast = useToast();
+            toast.info(`Job ${job_id} status updated to ${status}`, {
+                timeout: 3000,
+                position: 'top-right'
+            });
         },
         
         debugCurrentState() {

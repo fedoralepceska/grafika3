@@ -1,0 +1,18 @@
+[Unit]
+Description=Laravel WebSocket Server
+After=network.target
+
+[Service]
+Type=simple
+User=www-data
+Group=www-data
+WorkingDirectory=/path/to/your/laravel/project
+ExecStart=/usr/bin/php artisan websocket:serve --port=6001 --host=0.0.0.0
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=laravel-websocket
+
+[Install]
+WantedBy=multi-user.target 

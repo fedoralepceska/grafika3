@@ -15,7 +15,7 @@ return [
     |
     */
 
-    'default' => env('BROADCAST_DRIVER', 'null'),
+    'default' => env('BROADCAST_DRIVER', 'websocket'),
 
     /*
     |--------------------------------------------------------------------------
@@ -64,6 +64,13 @@ return [
 
         'null' => [
             'driver' => 'null',
+        ],
+
+        'websocket' => [
+            'driver' => 'websocket',
+            'host' => env('WEBSOCKET_HOST', 'localhost'),
+            'port' => env('WEBSOCKET_PORT', 6001),
+            'scheme' => env('WEBSOCKET_SCHEME', 'ws'),
         ],
 
     ],

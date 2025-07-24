@@ -18,5 +18,10 @@
     </head>
     <body class="font-sans antialiased">
         @inertia
+        
+        <script>
+            // Make user ID available to frontend
+            window.userId = {{ auth()->id() ?? 'null' }};
+        </script>
     </body>
 </html>
