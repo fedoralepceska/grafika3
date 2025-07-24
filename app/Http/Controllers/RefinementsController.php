@@ -45,7 +45,6 @@ class RefinementsController extends Controller
 
     public function update(Request $request, $id)
     {
-        // Validate incoming request data
         $validatedData = $request->validate([
             'name' => 'string|nullable',
             'isMaterialRefinement' => 'boolean|nullable',
@@ -53,60 +52,36 @@ class RefinementsController extends Controller
             'material_id' => 'integer|nullable',
         ]);
 
-        // Debug: Log the incoming data
-        \Log::info('Refinement update request:', [
-            'id' => $id,
-            'validated_data' => $validatedData,
-            'raw_request' => $request->all()
-        ]);
-
-        // Find the refinement record
         $dorabotka = Dorabotka::find($id);
 
-        // Update the name if provided
         if (isset($validatedData['name'])) {
             $dorabotka->name = $validatedData['name'];
         }
 
-        // Update the isMaterialized field if provided
         if (isset($validatedData['isMaterialRefinement'])) {
             $dorabotka->isMaterialized = $validatedData['isMaterialRefinement'] ? 1 : null;
         }
 
-        // Update material relationships if material_id is provided
         if (isset($validatedData['material_id']) && isset($validatedData['material_type']) && $validatedData['material_type'] !== null) {
-            // Debug: Log material update logic
-            \Log::info('Updating material relationships:', [
-                'material_type' => $validatedData['material_type'],
-                'material_id' => $validatedData['material_id']
-            ]);
             
-            // Clear existing material relationships first
             $dorabotka->small_material_id = null;
             $dorabotka->large_material_id = null;
             
-            // Set the appropriate material ID based on type
             if ($validatedData['material_type'] === 'SmallMaterial') {
                 $dorabotka->small_material_id = $validatedData['material_id'];
                 $dorabotka->material_type = SmallMaterial::class;
-                \Log::info('Set small material:', ['id' => $validatedData['material_id']]);
             } elseif ($validatedData['material_type'] === 'LargeFormatMaterial') {
                 $dorabotka->large_material_id = $validatedData['material_id'];
                 $dorabotka->material_type = LargeFormatMaterial::class;
-                \Log::info('Set large material:', ['id' => $validatedData['material_id']]);
             }
         } elseif (isset($validatedData['material_type']) && $validatedData['material_type'] === null) {
-            // If material_type is explicitly set to null, clear all material relationships
-            \Log::info('Clearing material relationships');
             $dorabotka->small_material_id = null;
             $dorabotka->large_material_id = null;
             $dorabotka->material_type = null;
         }
 
-        // Save the changes
         $dorabotka->save();
 
-        // Return success response
         return response()->json(['message' => 'Refinement updated successfully', 'refinement' => $dorabotka]);
     }
 
