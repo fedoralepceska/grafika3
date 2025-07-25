@@ -42,6 +42,7 @@
                                     placeholder="Search by offer ID..." 
                                     class="w-full text-black px-4 py-2 rounded border border-gray-300 focus:outline-none focus:border-blue-500" 
                                     @keyup.enter="searchOffers"
+                                    @input="debouncedSearch"
                                 />
                             </div>
                             <button class="btn create-order1 px-6" @click="searchOffers">
@@ -94,25 +95,23 @@
                                     placeholder="Enter validity days" 
                                     class="w-full text-black px-2 py-1.5 rounded"
                                     min="1"
+                                    @input="applyFilter"
                                 />
                             </div>
 
                             <!-- Date Order Filter -->
                             <div class="filter-group">
                                 <label class="block text-sm mb-2">Date Order</label>
-                                <select v-model="sortOrder" class="w-full text-black px-2 py-1.5 rounded">
+                                <select v-model="sortOrder" @change="applyFilter" class="w-full text-black px-2 py-1.5 rounded">
                                     <option value="desc">Newest to Oldest</option>
                                     <option value="asc">Oldest to Newest</option>
                                 </select>
                             </div>
                         </div>
 
-                        <div class="flex justify-between items-center mt-4">
+                        <div class="flex justify-end items-center mt-4">
                             <button @click="clearFilters" class="btn bg-gray-600 text-white px-6 hover:bg-gray-700">
                                 <i class="fa fa-times mr-2"></i>Clear Filters
-                            </button>
-                            <button @click="applyFilter" class="btn create-order1 px-6">
-                                <i class="fa fa-filter mr-2"></i>Apply Filters
                             </button>
                         </div>
                     </div>
@@ -219,7 +218,7 @@
                     <div class="flex space-x-2">
                         <!-- First Page Button -->
                         <Link
-                            :href="offers.first_page_url"
+                            :href="getPaginationUrl(offers.first_page_url)"
                             class="px-2 py-1 rounded"
                             :class="{
                                 'bg-gray-800 text-white': offers.current_page === 1,
@@ -234,7 +233,7 @@
                         <Link
                             v-for="link in offers.links"
                             :key="link.label"
-                            :href="link.url"
+                            :href="getPaginationUrl(link.url)"
                             class="px-2 py-1 rounded"
                             :class="{
                                 'bg-gray-800 text-white': link.active,
@@ -246,7 +245,7 @@
 
                         <!-- Last Page Button -->
                         <Link
-                            :href="offers.last_page_url"
+                            :href="getPaginationUrl(offers.last_page_url)"
                             class="px-2 py-1 rounded"
                             :class="{
                                 'bg-gray-800 text-white': offers.current_page === offers.last_page,
@@ -854,6 +853,9 @@ export default {
             clients: [],
             filteredClients: [],
             selectedClientName: '',
+            
+            // Debounce timer for search input
+            searchDebounceTimer: null,
         };
     },
 
@@ -889,6 +891,20 @@ export default {
                 item.name.toLowerCase().includes(this.itemSearchQuery.toLowerCase())
             );
         },
+    },
+
+    watch: {
+        // Watch for client search input changes to handle clearing
+        clientSearch(newValue) {
+            if (newValue === '') {
+                // If client search is cleared, also clear the client filter
+                if (this.filterClient !== '') {
+                    this.filterClient = '';
+                    this.selectedClientName = '';
+                    this.applyFilter();
+                }
+            }
+        }
     },
 
     methods: {
@@ -1340,6 +1356,7 @@ export default {
             this.clientSearch = client.name;
             this.selectedClientName = client.name;
             this.showClientDropdown = false;
+            this.applyFilter(); // Apply filter immediately when client is selected
         },
         
         handleClickOutside(event) {
@@ -1390,6 +1407,18 @@ export default {
             this.visitWithFilters(true); // Reset to page 1 when searching
         },
         
+        debouncedSearch() {
+            // Clear existing timer
+            if (this.searchDebounceTimer) {
+                clearTimeout(this.searchDebounceTimer);
+            }
+            
+            // Set new timer for debounced search
+            this.searchDebounceTimer = setTimeout(() => {
+                this.searchOffers();
+            }, 500); // 500ms delay
+        },
+        
         clearFilters() {
             this.searchQuery = '';
             this.filterClient = '';
@@ -1398,6 +1427,31 @@ export default {
             this.clientSearch = '';
             this.selectedClientName = '';
             this.visitWithFilters(true);
+        },
+        
+        getPaginationUrl(originalUrl) {
+            if (!originalUrl) return null;
+            
+            // Parse the original URL to get the base and page parameter
+            const url = new URL(originalUrl);
+            
+            // Add current filter parameters to the URL
+            const params = {
+                status: this.currentTab,
+                searchQuery: this.searchQuery,
+                filterClient: this.filterClient,
+                filterValidityDays: this.filterValidityDays,
+                sortOrder: this.sortOrder
+            };
+            
+            // Add filter parameters to the URL
+            Object.keys(params).forEach(key => {
+                if (params[key] !== '' && params[key] !== null && params[key] !== undefined) {
+                    url.searchParams.set(key, params[key]);
+                }
+            });
+            
+            return url.toString();
         },
 
         // Add a new method to fetch all catalog items
@@ -1485,6 +1539,11 @@ export default {
     beforeUnmount() {
         // Remove event listener when component is destroyed
         document.removeEventListener('click', this.handleClickOutside);
+        
+        // Clear any pending search timer
+        if (this.searchDebounceTimer) {
+            clearTimeout(this.searchDebounceTimer);
+        }
     },
 };
 </script>
