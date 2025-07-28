@@ -66,7 +66,7 @@
                                 <th>{{$t('price')}} (.ден)<div class="resizer" @mousedown="initResize($event, 4)"></div></th>
                                 <th>{{$t('price')}} + {{$t('VAT')}} (.ден)<div class="resizer" @mousedown="initResize($event, 5)"></div></th>
                                 <th>{{$t('comment')}}<div class="resizer" @mousedown="initResize($event, 6)"></div></th>
-                                <th></th>
+                                <th>{{$t('ACTIONS')}}</th>
                             </tr>
                             </thead>
                             <tbody>
@@ -80,8 +80,11 @@
                                 <th>{{ formatNumber(calculateTotalPriceWithVAT(receipt.articles)) }}</th>
                                 <th>{{receipt.comment ? receipt.comment: '/'}}</th>
                                 <th>
-                                    <div class="centered">
+                                    <div class="centered flex gap-2">
                                         <PriemInfoDialog :priem="receipt" />
+                                        <button @click="editReceipt(receipt.id)" class="btn blue">
+                                            {{ $t('Edit') }}
+                                        </button>
                                     </div>
                                 </th>
                             </tr>
@@ -188,6 +191,9 @@ export default {
         stopResize() {
             document.documentElement.removeEventListener('mousemove', this.resizeColumn);
             document.documentElement.removeEventListener('mouseup', this.stopResize);
+        },
+        editReceipt(receiptId) {
+            this.$inertia.visit(`/receipt/${receiptId}/edit`);
         }
     },
 };

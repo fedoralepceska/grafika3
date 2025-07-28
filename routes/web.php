@@ -295,9 +295,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
 //Routes for Priemnici
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/receipt', [\App\Http\Controllers\PriemnicaController::class, 'index'])->name('priemnica.index');
-    Route::get('/api/priemnica', [PriemnicaController::class, 'fetchPriemnica']);
-    Route::get('/receipt/create', [\App\Http\Controllers\PriemnicaController::class, 'create'])->name('priemnica.create');
-    Route::post('/receipt/create', [\App\Http\Controllers\PriemnicaController::class, 'store'])->name('priemnica.store');
+Route::get('/api/priemnica', [PriemnicaController::class, 'fetchPriemnica']);
+Route::get('/receipt/create', [\App\Http\Controllers\PriemnicaController::class, 'create'])->name('priemnica.create');
+Route::post('/receipt/create', [\App\Http\Controllers\PriemnicaController::class, 'store'])->name('priemnica.store');
+Route::get('/receipt/{id}/edit', [\App\Http\Controllers\PriemnicaController::class, 'edit'])->name('priemnica.edit');
+Route::put('/receipt/{id}', [\App\Http\Controllers\PriemnicaController::class, 'update'])->name('priemnica.update');
+Route::get('/api/receipt/{id}', [\App\Http\Controllers\PriemnicaController::class, 'show'])->name('priemnica.show');
 });
 
 //Routes for Refinements
