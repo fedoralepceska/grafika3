@@ -150,7 +150,7 @@
 
                         <td class="p-4 text-center">
                             <div class="flex space-x-2">
-                                <button @click="openEditDialog(item)" class="btn btn-secondary">
+                                <button @click="navigateToEdit(item.id)" class="btn btn-secondary">
                                     <i class="fas fa-edit"></i> {{ $t('Edit') }}
                                 </button>
                                 <button @click="deleteCatalogItem(item.id)" class="btn btn-danger">
@@ -227,483 +227,7 @@
                 </div>
             </div>
         </div>
-        <!-- Edit Dialog -->
-        <div v-if="showEditDialog" class="modal-backdrop">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h2>Edit Catalog Item</h2>
-                    <button @click="closeEditDialog" class="close-button">&times;</button>
-                </div>
-                <div class="modal-body">
-                    <form @submit.prevent="updateCatalogItem" class="space-y-6">
-                        <!-- Basic Information -->
-                        <div class="grid grid-cols-2 gap-6">
-                            <div class="space-y-4">
-                                <div>
-                                    <label class="text-white">{{ $t('name') }}</label>
-                                    <input v-model="editForm.name" type="text" class="w-full mt-1 rounded" required />
-                                </div>
 
-                                <div>
-                                    <label class="text-white">{{ $t('description') }}</label>
-                                    <textarea
-                                        v-model="editForm.description"
-                                        class="w-full mt-1 rounded"
-                                        rows="3"
-                                        placeholder="Enter item description..."
-                                    ></textarea>
-                                </div>
-
-                                <div>
-                                    <label class="text-white">{{ $t('machineP') }}</label>
-                                    <select v-model="editForm.machinePrint" class="w-full mt-1 rounded">
-                                        <option value="">{{ $t('selectMachine') }}</option>
-                                        <option v-for="machine in machinesPrint"
-                                                :key="machine.id"
-                                                :value="machine.name">
-                                            {{ machine.name }}
-                                        </option>
-                                    </select>
-                                </div>
-
-                                <div>
-                                    <label class="text-white">{{ $t('machineC') }}</label>
-                                    <select v-model="editForm.machineCut" class="w-full mt-1 rounded">
-                                        <option value="">{{ $t('selectMachine') }}</option>
-                                        <option v-for="machine in machinesCut"
-                                                :key="machine.id"
-                                                :value="machine.name">
-                                            {{ machine.name }}
-                                        </option>
-                                    </select>
-                                </div>
-
-                                <div>
-                                    <label class="text-white">{{ $t('category') }}</label>
-                                    <select
-                                        v-model="editForm.category"
-                                        class="w-full mt-1 rounded"
-                                    >
-                                        <option value="">{{ $t('selectCategory') }}</option>
-                                        <option v-for="category in categories"
-                                                :key="category"
-                                                :value="category"
-                                        >
-                                            {{ category.replace('_', ' ').split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ') }}
-                                        </option>
-                                    </select>
-                                </div>
-
-                                <div>
-                                    <label class="text-white">{{ $t('subcategory') }}</label>
-                                    <select
-                                        v-model="editForm.subcategory_id"
-                                        class="w-full mt-1 rounded"
-                                    >
-                                        <option value="">{{ $t('selectSubcategory') }}</option>
-                                        <option
-                                            v-for="subcategory in subcategories"
-                                            :key="subcategory.id"
-                                            :value="subcategory.id"
-                                        >
-                                            {{ subcategory.name }}
-                                        </option>
-                                    </select>
-                                </div>
-
-                                <div>
-                                    <label class="text-white">{{ $t('materialLargeFormat') }}</label>
-                                    <select v-model="editForm.large_material_id"
-                                            class="w-full mt-1 rounded"
-                                            :disabled="editForm.small_material_id !== null">
-
-                                        <option v-for="material in largeMaterials"
-                                                :key="material.id"
-                                                :value="String(material.id)"
-                                                :disabled="material.disabled">
-                                            <template v-if="material.type === 'category'">
-                                                <img v-if="material.icon" :src="`/storage/icons/${material.icon}`" alt="icon" style="width: 18px; height: 18px; margin-right: 4px;" />
-                                                [{{ $t('category') }}] {{ material.name }}
-                                            </template>
-                                            <template v-else>
-                                                {{ material.name }}
-                                            </template>
-                                        </option>
-                                    </select>
-                                    <button v-if="editForm.large_material_id"
-                                            @click.prevent="clearLargeMaterial"
-                                            class="text-sm text-red-500">
-                                        {{ $t('clearSelection') }}
-                                    </button>
-                                </div>
-
-                                <div>
-                                    <label class="text-white">{{ $t('materialSmallFormat') }}</label>
-                                    <select v-model="editForm.small_material_id"
-                                            class="w-full mt-1 rounded"
-                                            :disabled="editForm.large_material_id !== null">
-                                        <option v-for="material in smallMaterials"
-                                                :key="material.id"
-                                                :value="String(material.id)"
-                                                :disabled="material.disabled">
-                                            <template v-if="material.type === 'category'">
-                                                <img v-if="material.icon" :src="`/storage/icons/${material.icon}`" alt="icon" style="width: 18px; height: 18px; margin-right: 4px;" />
-                                                [{{ $t('category') }}] {{ material.name }}
-                                            </template>
-                                            <template v-else>
-                                                {{ material.name }}
-                                            </template>
-                                        </option>
-                                    </select>
-                                    <button v-if="editForm.small_material_id"
-                                            @click.prevent="clearSmallMaterial"
-                                            class="text-sm text-red-500">
-                                        {{ $t('clearSelection') }}
-                                    </button>
-                                </div>
-
-                                <!-- <div class="grid grid-cols-2 gap-4">
-                                    <div>
-                                        <label class="text-white">{{ $t('quantity') }}</label>
-                                        <input v-model="editForm.quantity" type="number" min="1"
-                                               class="w-full mt-1 rounded" required />
-                                    </div>
-                                    <div>
-                                        <label class="text-white">{{ $t('copies') }}</label>
-                                        <input v-model="editForm.copies" type="number" min="1"
-                                               class="w-full mt-1 rounded" required />
-                                    </div>
-                                </div> -->
-                                <div v-if="canViewPrice">
-                                    <label class="text-white">{{ $t('defaultPrice') }}</label>
-                                    <input
-                                        v-model="editForm.price"
-                                        type="number"
-                                        step="0.01"
-                                        min="0"
-                                        class="w-full mt-1 rounded"
-                                        required
-                                    />
-                                </div>
-                            </div>
-
-                            <!-- Right column with file upload -->
-                            <div class="space-y-4">
-                                <!-- File Section -->
-                                <div class="file-upload">
-                                    <h3 class="text-white text-lg font-semibold mb-4">{{ $t('fileUpload') }} (PNG, JPG, JPEG)</h3>
-                                    <div
-                                        class="upload-area"
-                                        @dragover.prevent
-                                        @drop.prevent="handleDrop"
-                                        @click="triggerFileInput"
-                                    >
-                                        <input
-                                            type="file"
-                                            id="edit-file-input"
-                                            class="hidden"
-                                            @change="handleFileInput"
-                                            accept=".pdf, .png, .jpg, .jpeg"
-                                        />
-                                        <div v-if="!previewUrl && !currentItemFile" class="placeholder-content">
-                                            <div class="upload-icon">
-                                                <span class="mdi mdi-cloud-upload text-4xl"></span>
-                                            </div>
-                                            <p class="upload-text">{{ $t('dragAndDrop') }}</p>
-                                            <p class="upload-text-sub">{{ $t('orClickToBrowse') }}</p>
-                                            <p class="file-types">{{ $t('supportedFormats') }}: PNG, JPG, JPEG</p>
-                                        </div>
-                                        <div v-else class="preview-container">
-                                            <img
-                                                v-if="isImage"
-                                                :src="previewUrl || '/storage/uploads/placeholder.jpeg'"
-                                                alt="Preview"
-                                                class="preview-image"
-                                            />
-                                            <div v-else class="pdf-preview">
-                                                <span class="mdi mdi-file-pdf text-4xl"></span>
-                                                <span class="pdf-name">{{ fileName || currentItemFile }}</span>
-                                            </div>
-                                            <div class="update-image-text">
-                                                <p class="text-sm text-ultra-light-gray">{{ $t('clickOrDragToUpdateImage') }}</p>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <!-- Template File Section -->
-                                <div class="mt-6">
-                                    <h3 class="text-white text-lg font-semibold mb-4">{{ $t('templateFilePdfOnly') }}</h3>
-                                    <div
-                                        class="upload-area"
-                                        @dragover.prevent
-                                        @drop.prevent="handleTemplateDrop"
-                                        @click="triggerTemplateFileInput"
-                                    >
-                                        <input
-                                            type="file"
-                                            id="edit-template-file-input"
-                                            class="hidden"
-                                            @change="handleTemplateFileInput"
-                                            accept=".pdf"
-                                        />
-                                        <div v-if="!currentTemplateFile && !editForm.template_file" class="placeholder-content">
-                                            <div class="upload-icon">
-                                                <span class="mdi mdi-cloud-upload text-4xl"></span>
-                                            </div>
-                                            <p class="upload-text">{{ $t('dragAndDropTemplatePdfHere') }}</p>
-                                            <p class="upload-text-sub">{{ $t('orClickToBrowse') }}</p>
-                                            <p class="file-types">{{ $t('supportedFormats') }}: PDF</p>
-                                        </div>
-                                        <div v-else class="preview-container">
-                                            <div class="pdf-preview">
-                                                <span class="mdi mdi-file-pdf text-4xl"></span>
-                                                <span class="pdf-name">{{ getTemplateFileName(currentTemplateFile) }}</span>
-                                            </div>
-                                            <div class="template-actions mt-2">
-                                                <button type="button" class="text-red-500 hover:text-red-700" @click.stop="removeTemplate">
-                                                    <i class="fas fa-trash mr-1"></i> {{ $t('removeTemplate') }}
-                                                </button>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <div class="p-2 border-dashed border-2 border-gray-500">
-                                    <div>
-                                        <label class="text-white block mb-2 font-bold">{{ $t('Additional options') }}</label>
-                                    </div>
-                                    <div class="flex items-center gap-8">
-                                    <div>
-                                        <input
-                                            type="checkbox"
-                                            id="is_for_offer"
-                                            v-model="editForm.is_for_offer"
-                                            class="rounded border-gray-300 text-indigo-600 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
-                                        />
-                                        <label for="is_for_offer" class="text-white ml-2">{{ $t('forOffer') }}</label>
-                                    </div>
-                                    <div>
-                                        <input
-                                            type="checkbox"
-                                            id="is_for_sales"
-                                            v-model="editForm.is_for_sales"
-                                            class="rounded border-gray-300 text-indigo-600 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
-                                        />
-                                        <label for="is_for_sales" class="text-white ml-2">{{ $t('forSales') }}</label>
-                                    </div>
-                                    </div>
-                                    <div class="col-span-2 mt-2">
-                                        <input
-                                            type="checkbox"
-                                            id="should_ask_questions"
-                                            v-model="editForm.should_ask_questions"
-                                            class="rounded border-gray-300 text-indigo-600 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
-                                        />
-                                        <label for="should_ask_questions" class="text-white ml-2">Ask questions before production</label>
-                                    </div>
-                                </div>
-
-                                <!-- Pricing Method Selection -->
-                                <div class="mt-4 p-2 border-dashed border-2 border-gray-500">
-                                    <label class="text-white block mb-2 font-bold">{{ $t('pricingMethod') }}</label>
-                                    <div class="space-y-2">
-                                        <div class="flex items-center">
-                                            <input
-                                                type="radio"
-                                                id="edit_pricing_quantity"
-                                                name="edit_pricing_method"
-                                                value="quantity"
-                                                v-model="editPricingMethod"
-                                                class="mr-2"
-                                            />
-                                            <label for="edit_pricing_quantity" class="text-white">{{ $t('priceByQuantity') }}</label>
-                                        </div>
-                                        <div class="flex items-center">
-                                            <input
-                                                type="radio"
-                                                id="edit_pricing_copies"
-                                                name="edit_pricing_method"
-                                                value="copies"
-                                                v-model="editPricingMethod"
-                                                class="mr-2"
-                                            />
-                                            <label for="edit_pricing_copies" class="text-white">{{ $t('priceByCopies') }}</label>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <!-- Questions Selection -->
-                                <QuestionsSelector
-                                    v-model="selectedQuestions"
-                                    :should-ask-questions="editForm.should_ask_questions"
-                                    :catalog-item-id="editForm.id"
-                                />
-
-                            </div>
-                        </div>
-
-                        <!-- Component Articles Section -->
-                        <div class="mt-6">
-                            <h3 class="text-white text-lg font-semibold mb-4">{{ $t('componentArticles') }}</h3>
-
-                            <!-- Products Section -->
-                            <div class="mb-6">
-                                <div class="flex justify-between items-center mb-4">
-                                    <h4 class="text-white text-md font-medium">{{ $t('products') }}</h4>
-                                    <button
-                                        type="button"
-                                        @click="addArticle('product')"
-                                        class="text-green-500 hover:text-green-700"
-                                    >
-                                        <span class="mdi mdi-plus-circle"></span> {{ $t('addProduct') }}
-                                    </button>
-                                </div>
-                                <div class="space-y-4">
-                                    <div v-for="(article, index) in productArticles" :key="index"
-                                         class="flex items-center space-x-4 light-gray p-4 rounded">
-                                        <div class="flex-1">
-                                            <label class="text-white mb-2 block">{{ $t('product') }}</label>
-                                            <CatalogArticleSelect
-                                                v-model="article.id"
-                                                :type="'product'"
-                                                @article-selected="handleArticleSelected($event, index, 'product')"
-                                                class="w-full"
-                                            />
-                                        </div>
-                                        <div class="w-32">
-                                            <label class="text-white mb-2 block">{{ $t('quantity') }}{{ article.unitLabel ? ` (${article.unitLabel})` : '' }}</label>
-                                            <input
-                                                v-model="article.quantity"
-                                                type="number"
-                                                min="0.01"
-                                                step="0.01"
-                                                class="w-full rounded option"
-                                                style="color: black;"
-                                                required
-                                            />
-                                        </div>
-                                        <button
-                                            type="button"
-                                            @click="removeArticle(index, 'product')"
-                                            class="text-red-500 hover:text-red-700 mt-8"
-                                        >
-                                            <span class="mdi mdi-delete"></span>
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <!-- Services Section -->
-                            <div>
-                                <div class="flex justify-between items-center mb-4">
-                                    <h4 class="text-white text-md font-medium">{{ $t('services') }}</h4>
-                                    <button
-                                        type="button"
-                                        @click="addArticle('service')"
-                                        class="text-green-500 hover:text-green-700"
-                                    >
-                                        <span class="mdi mdi-plus-circle"></span> {{ $t('addService') }}
-                                    </button>
-                                </div>
-                                <div class="space-y-4">
-                                    <div v-for="(article, index) in serviceArticles" :key="index"
-                                         class="flex items-center space-x-4 light-gray p-4 rounded">
-                                        <div class="flex-1">
-                                            <label class="text-white mb-2 block">{{ $t('service') }}</label>
-                                            <CatalogArticleSelect
-                                                v-model="article.id"
-                                                :type="'service'"
-                                                @article-selected="handleArticleSelected($event, index, 'service')"
-                                                class="w-full"
-                                            />
-                                        </div>
-                                        <div class="w-32">
-                                            <label class="text-white mb-2 block">{{ $t('quantity') }}{{ article.unitLabel ? ` (${article.unitLabel})` : '' }}</label>
-                                            <input
-                                                v-model="article.quantity"
-                                                type="number"
-                                                min="0.01"
-                                                step="0.01"
-                                                class="w-full rounded option"
-                                                style="color: black;"
-                                                required
-                                            />
-                                        </div>
-                                        <button
-                                            type="button"
-                                            @click="removeArticle(index, 'service')"
-                                            class="text-red-500 hover:text-red-700 mt-8"
-                                        >
-                                            <span class="mdi mdi-delete"></span>
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <!-- Cost Price Display -->
-                            <div v-if="canViewPrice" class="mt-4 p-4 bg-gray-700 rounded">
-                                <h4 class="text-white text-md font-medium mb-3">{{ $t('costSummary') }}</h4>
-                                <div class="space-y-2">
-                                    <div class="flex justify-between items-center">
-                                        <span class="text-gray-300">{{ $t('productsCost') }}:</span>
-                                        <span class="text-white">{{ displayProductsCost.toFixed(2) }} ден</span>
-                                    </div>
-                                    <div class="flex justify-between items-center">
-                                        <span class="text-gray-300">{{ $t('servicesCost') }}:</span>
-                                        <span class="text-white">{{ displayServicesCost.toFixed(2) }} ден</span>
-                                    </div>
-                                    <div class="flex justify-between items-center pt-2 border-t border-gray-600">
-                                        <span class="text-white font-semibold">{{ $t('totalCostPrice') }}:</span>
-                                        <span class="text-white font-semibold">{{ displayTotalCost.toFixed(2) }} ден</span>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Actions Section -->
-                        <div class="mt-6">
-                            <h3 class="text-white text-lg font-semibold mb-4">{{ $t('ACTIONS') }}</h3>
-                            <div class="space-y-4">
-                                <div v-for="(action, index) in editForm.actions" :key="index"
-                                     class="flex items-center space-x-4 bg-gray-700 p-4 rounded">
-                                    <div class="flex-1">
-                                        <select v-model="action.selectedAction" class="w-full rounded"
-                                                @change="handleActionChange(action)" required>
-                                            <option value="">Select Action</option>
-                                            <option v-for="availableAction in availableActionsForEdit(action)"
-                                                    :key="availableAction.id"
-                                                    :value="availableAction.id">
-                                                {{ availableAction.name }}
-                                            </option>
-                                        </select>
-                                    </div>
-                                    <div v-if="action.showQuantity" class="w-32">
-                                        <input v-model="action.quantity" type="number" min="0"
-                                               class="w-full rounded" placeholder="Quantity" required />
-                                    </div>
-                                    <button type="button" @click="removeAction(index)"
-                                            class="text-red-500 hover:text-red-700">
-                                        <i class="fas fa-trash"></i>
-                                    </button>
-                                </div>
-
-                                <button type="button" @click="addAction"
-                                        class="text-green-500 hover:text-green-700">
-                                    <i class="fas fa-plus-circle"></i> {{ $t('addAction') }}
-                                </button>
-                            </div>
-                        </div>
-
-                        <div class="flex justify-end space-x-4">
-                            <button type="submit" class="btn btn-primary">
-                                {{ $t('updateCatalogItem') }}
-                            </button>
-                        </div>
-                    </form>
-                </div>
-            </div>
-        </div>
         <!-- Client Prices Dialog -->
         <div v-if="showClientPricesDialog" class="modal-backdrop">
             <div class="modal-content">
@@ -1010,18 +534,12 @@ import MainLayout from "@/Layouts/MainLayout.vue";
 import Header from "@/Components/Header.vue";
 import { Link } from "@inertiajs/vue3";
 import { useToast } from "vue-toastification";
-import CatalogArticleSelect from "@/Components/CatalogArticleSelect.vue";
-import QuestionsSelector from "@/Components/QuestionsSelector.vue";
-import debounce from 'lodash.debounce';     
-import { computed } from 'vue';
 
 export default {
     components: {
         MainLayout,
         Header,
         Link,
-        CatalogArticleSelect,
-        QuestionsSelector
     },
     props: {
         catalogItems: Array,
@@ -1031,13 +549,9 @@ export default {
     data() {
         return {
             searchQuery: "",
-            debouncedSearch: null,
             selectedItem: null,
-            showEditDialog: false,
             showClientPricesDialog: false,
             showQuantityPricesDialog: false,
-            showTemplatePreview: false,
-            templatePreviewUrl: null,
             selectedItemForPrices: null,
             clients: [],
             clientPrices: [],
@@ -1058,56 +572,20 @@ export default {
                 quantity_to: null,
                 price: 0
             },
-            editForm: {
-                id: null,
-                name: '',
-                description: '',
-                machinePrint: '',
-                machineCut: '',
-                large_material_id: null,
-                small_material_id: null,
-                quantity: 1,
-                copies: 1,
-                actions: [],
-                is_for_offer: false,
-                is_for_sales: true,
-                category: '',
-                price: 0,
-                file: null,
-                template_file: null,
-                subcategory_id: null,
-                should_ask_questions: false
-            },
-            productArticles: [],
-            serviceArticles: [],
-            previewUrl: null,
-            currentTemplateFile: null,
-            removeTemplateFlag: false,
-            machinesPrint: [],
-            machinesCut: [],
-            largeMaterials: [],
-            smallMaterials: [],
-            actions: [],
-            fileName: '',
-            currentItemFile: null,
-            isImage: true,
-            categories: ['material', 'article', 'small_format'],
             quantityPricesPagination: {
                 current_page: 1,
                 total: 0,
                 per_page: 5,
                 last_page: 1
             },
-            hoveredItemId: null,
-            shouldShowPreviewOnTop: false,
-            removeTemplateFlag: false,
             showTemplatePreviewDialog: false,
+            templatePreviewUrl: null,
             subcategories: [],
             filters: {
                 category: '',
                 subcategory_id: ''
             },
-            editPricingMethod: 'quantity', // Default to quantity-based pricing
+            categories: ['material', 'article', 'small_format'],
             showDeleteDialog: false,
             deleteCodeError: '',
             pin: {
@@ -1116,23 +594,7 @@ export default {
                 digit3: '',
                 digit4: ''
             },
-            selectedQuestions: [],
         };
-    },
-    computed: {
-        displayProductsCost() {
-            return this.productArticles.reduce((total, article) => {
-                return total + (article.purchase_price || 0) * (article.quantity || 0);
-            }, 0);
-        },
-        displayServicesCost() {
-            return this.serviceArticles.reduce((total, article) => {
-                return total + (article.purchase_price || 0) * (article.quantity || 0);
-            }, 0);
-        },
-        displayTotalCost() {
-            return this.displayProductsCost + this.displayServicesCost;
-        },
     },
     methods: {
         fetchCatalogItems(page) {
@@ -1176,7 +638,11 @@ export default {
             });
         },
 
-        openEditDialog(item) {
+        async openEditDialog(item) {
+            // Show dialog immediately to give user feedback
+            this.editDialogLoading = true;
+            this.showEditDialog = true;
+            
             this.editForm = {
                 id: item.id,
                 name: item.name,
@@ -1211,28 +677,32 @@ export default {
                 this.editPricingMethod = 'quantity';
             }
 
-            // Initialize product and service articles from existing articles
-            this.productArticles = item.articles
-                .filter(article => article.type === 'product')
-                .map(article => ({
-                    id: article.id,
-                    name: article.name,
-                    type: article.type,
-                    purchase_price: article.purchase_price,
-                    unitLabel: article.unit_label,
-                    quantity: article.quantity
-                }));
+            if (item.articles && Array.isArray(item.articles)) {
+                this.productArticles = item.articles
+                    .filter(article => article.type === 'product')
+                    .map(article => ({
+                        id: article.id,
+                        name: article.name,
+                        type: article.type,
+                        purchase_price: article.purchase_price,
+                        unitLabel: article.unit_label,
+                        quantity: article.quantity
+                    }));
 
-            this.serviceArticles = item.articles
-                .filter(article => article.type === 'service')
-                .map(article => ({
-                    id: article.id,
-                    name: article.name,
-                    type: article.type,
-                    purchase_price: article.purchase_price,
-                    unitLabel: article.unit_label,
-                    quantity: article.quantity
-                }));
+                this.serviceArticles = item.articles
+                    .filter(article => article.type === 'service')
+                    .map(article => ({
+                        id: article.id,
+                        name: article.name,
+                        type: article.type,
+                        purchase_price: article.purchase_price,
+                        unitLabel: article.unit_label,
+                        quantity: article.quantity
+                    }));
+            } else {
+                this.productArticles = [];
+                this.serviceArticles = [];
+            }
 
             if (item.file && item.file !== 'placeholder.jpeg') {
                 this.previewUrl = `/storage/uploads/${item.file}`;
@@ -1241,11 +711,17 @@ export default {
             this.currentTemplateFile = item.template_file;
             this.removeTemplateFlag = false;
 
-            this.showEditDialog = true;
+            // Load form data only if not already loaded
+            if (!this.machinesPrint.length || !this.actions.length) {
+                await this.loadFormData();
+            }
+
+            this.editDialogLoading = false;
         },
 
         closeEditDialog() {
             this.showEditDialog = false;
+            this.editDialogLoading = false;
             this.editForm = {
                 id: null,
                 name: '',
@@ -1414,18 +890,44 @@ export default {
 
         async loadFormData() {
             try {
+                const timeout = new Promise((_, reject) => 
+                    setTimeout(() => reject(new Error('Request timeout')), 10000)
+                );
+                
                 // Fetch machines, actions, and subcategories data (materials are loaded in mounted())
-                const [machinesPrintRes, machinesCutRes, actionsRes, subcategoriesRes] = await Promise.all([
-                    axios.get('/get-machines-print'),
-                    axios.get('/get-machines-cut'),
-                    axios.get('/get-actions'),
-                    axios.get(route('subcategories.index'))
-                ]);
+                const requests = [
+                    Promise.race([axios.get('/get-machines-print'), timeout]),
+                    Promise.race([axios.get('/get-machines-cut'), timeout]),
+                    Promise.race([axios.get('/get-actions'), timeout]),
+                    Promise.race([axios.get(route('subcategories.index')), timeout])
+                ];
+                
+                const [machinesPrintRes, machinesCutRes, actionsRes, subcategoriesRes] = await Promise.allSettled(requests);
 
-                this.machinesPrint = machinesPrintRes.data;
-                this.machinesCut = machinesCutRes.data;
-                this.actions = actionsRes.data;
-                this.subcategories = subcategoriesRes.data;
+                // Handle successful responses
+                if (machinesPrintRes.status === 'fulfilled') {
+                    this.machinesPrint = machinesPrintRes.value.data;
+                } else {
+                    console.error('Failed to load machines print:', machinesPrintRes.reason);
+                }
+                
+                if (machinesCutRes.status === 'fulfilled') {
+                    this.machinesCut = machinesCutRes.value.data;
+                } else {
+                    console.error('Failed to load machines cut:', machinesCutRes.reason);
+                }
+                
+                if (actionsRes.status === 'fulfilled') {
+                    this.actions = actionsRes.value.data;
+                } else {
+                    console.error('Failed to load actions:', actionsRes.reason);
+                }
+                
+                if (subcategoriesRes.status === 'fulfilled') {
+                    this.subcategories = subcategoriesRes.value.data;
+                } else {
+                    console.error('Failed to load subcategories:', subcategoriesRes.reason);
+                }
             } catch (error) {
                 console.error('Error loading form data:', error);
                 const toast = useToast();
@@ -1593,7 +1095,6 @@ export default {
         },
 
         async handleClientChange() {
-            console.log('Client changed to:', this.quantityPriceForm.client_id);
             await this.loadQuantityPrices();
         },
 
@@ -1815,6 +1316,10 @@ export default {
         navigateToCatalogCreate() {
             this.$inertia.visit(route('catalog.create'));
         },
+
+        navigateToEdit(itemId) {
+            this.$inertia.visit(route('catalog.edit', itemId));
+        },
         applyFilters() {
             this.fetchCatalogItems(1);
         },
@@ -1921,12 +1426,10 @@ export default {
         },
     },
     async mounted() {
-        // Initialize debounced search
         this.debouncedSearch = debounce(() => {
             this.fetchCatalogItems(1);
         }, 300);
         
-        // Fetch large and small materials for dropdowns
         try {
             const [largeRes, smallRes] = await Promise.all([
                 axios.get('/api/materials/large-dropdown'),
@@ -1939,7 +1442,6 @@ export default {
             const toast = useToast();
             toast.error('Failed to load materials');
         }
-        this.loadFormData();
     },
 };
 </script>
@@ -2252,5 +1754,14 @@ tbody td {
 .template-preview,
 .preview-top {
     display: none;
+}
+
+.loading-spinner {
+    padding: 2rem;
+    color: $white;
+    
+    .fa-spinner {
+        color: $green;
+    }
 }
 </style>

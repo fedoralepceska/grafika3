@@ -505,8 +505,11 @@ class CatalogItemController extends Controller
             'largeMaterial',
             'smallMaterial',
             'largeMaterial.article',
-            'smallMaterial.article'
+            'smallMaterial.article',
+            'questions'
         ]);
+
+
 
         // Get large format materials and categories - same as in create method
         $largeMaterials = collect();
@@ -592,6 +595,9 @@ class CatalogItemController extends Controller
             ]);
         }
 
+        // Get subcategories
+        $subcategories = \App\Models\Subcategory::all();
+
         return Inertia::render('CatalogItem/Edit', [
             'catalogItem' => $catalogItem,
             'actions' => $actions,
@@ -599,6 +605,7 @@ class CatalogItemController extends Controller
             'smallMaterials' => $smallMaterials->values(),
             'machinesPrint' => $machinesPrint,
             'machinesCut' => $machinesCut,
+            'subcategories' => $subcategories,
         ]);
     }
 
