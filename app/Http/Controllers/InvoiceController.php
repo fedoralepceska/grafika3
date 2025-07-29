@@ -168,62 +168,130 @@ class InvoiceController extends Controller
                     continue; // Skip this job if no catalog item
                 }
 
-                $catalogItemArticle = DB::table('catalog_item_articles')
+                $catalogItemArticles = DB::table('catalog_item_articles')
                     ->select()
                     ->where('catalog_item_id', $job->catalogItem->id)
                     ->get();
                 
-                // Skip if no catalog item articles found
-                if ($catalogItemArticle->isEmpty()) {
+                // Process catalog item articles for stock consumption using actual requirements
+                if ($job->catalogItem && $job->catalogItem->articles()->exists()) {
+                    $articleRequirements = $job->catalogItem->calculateActualArticleRequirements($job);
+                    
+                    foreach ($articleRequirements as $requirement) {
+                        $article = $requirement['article'];
+                        $neededQuantity = $requirement['actual_required'];
+                        $unitType = $requirement['unit_type'];
+                        
+                        // If this article was selected from a category, we need to get the actual article to consume from
+                        $actualArticle = $article;
+                        if ($article->pivot->category_id) {
+                            // Re-resolve the category to get the current first available article
+                            $actualArticle = $job->catalogItem->getFirstArticleFromCategory(
+                                $article->pivot->category_id,
+                                null,
+                                $neededQuantity
+                            );
+                            if (!$actualArticle) {
+                                $errorMessages[] = "No available articles with sufficient stock in the selected category (ID: {$article->pivot->category_id}) for catalog item '{$job->catalogItem->name}'.";
+                                continue;
+                            }
+                        }
+                        
+                        // Check stock availability
+                        if (!$actualArticle->hasStock($neededQuantity)) {
+                            $errorMessages[] = "For the catalog item '{$job->catalogItem->name}', article '{$actualArticle->name}' ({$unitType}) needs {$neededQuantity} units, but only {$actualArticle->getCurrentStock()} are available in stock.";
+                            continue;
+                        }
+                        
+                        // Consume article stock
+                        $this->consumeArticleStock($actualArticle, $neededQuantity);
+                        
+                        \Log::info('Consumed article stock for invoice', [
+                            'invoice_id' => $invoiceId,
+                            'job_id' => $job->id,
+                            'article_id' => $actualArticle->id,
+                            'article_name' => $actualArticle->name,
+                            'unit_type' => $unitType,
+                            'consumed_quantity' => $neededQuantity,
+                            'catalog_standard' => $requirement['catalog_standard'],
+                            'job_square_meters' => $requirement['job_square_meters']
+                        ]);
+                    }
+                } else {
                     \Log::warning('No catalog item articles found for job', [
                         'job_id' => $job->id,
                         'catalog_item_id' => $job->catalogItem->id
                     ]);
-                    continue;
                 }
 
-                // Update Large Material
-                if ($job->large_material_id !== null) {
-                    $large_material = LargeFormatMaterial::with('article')->find($job->large_material_id);
-                    if ($large_material) {
-                    $neededQuantity = $catalogItemArticle[0]->quantity * $job->copies;
-                    if ($neededQuantity > (int) $large_material->quantity) {
-                        $errorMessages[] = "For the catalog item {$job->catalogItem->name} with material {$large_material->name}, you need {$neededQuantity} (quantity), but you only have {$large_material->quantity} in storage.";
+                // Only process legacy large/small material reduction if NO component articles exist
+                // Component articles take precedence over legacy material assignments
+                if (!($job->catalogItem && $job->catalogItem->articles()->exists())) {
+                    // Update Large Material (legacy fallback)
+                    if ($job->large_material_id !== null) {
+                        $large_material = LargeFormatMaterial::with('article')->find($job->large_material_id);
+                        if ($large_material) {
+                            // Check stock availability
+                            if ($job->copies > (int) $large_material->quantity) {
+                                $errorMessages[] = "For the catalog item {$job->catalogItem->name} with material {$large_material->name}, you need {$job->copies} units, but you only have {$large_material->quantity} in storage.";
+                            }
+                            
+                            // Consume material stock
+                            if ($large_material?->article?->in_square_meters === 1) {
+                                $large_material->quantity -= ($job->copies * ($job->width * $job->height / 1000000));
+                            } else {
+                                $large_material->quantity -= $job->copies;
+                            }
+                            $large_material->save();
+                            
+                            \Log::info('Used legacy large material stock reduction', [
+                                'job_id' => $job->id,
+                                'material_id' => $large_material->id,
+                                'material_name' => $large_material->name
+                            ]);
+                        } else {
+                            \Log::warning('Large material not found for job', [
+                                'job_id' => $job->id,
+                                'large_material_id' => $job->large_material_id
+                            ]);
+                        }
                     }
-                    if ($large_material?->article?->in_square_meters === 1) {
-                        $large_material->quantity -= ($job->copies * ($job->width * $job->height / 1000000));
-                    } else {
-                        $large_material->quantity -= $job->copies;
+                    
+                    // Update Small Material (legacy fallback)
+                    if ($job->small_material_id !== null) {
+                        $small_material = SmallMaterial::with('article')->find($job->small_material_id);
+                        if ($small_material) {
+                            // Check stock availability
+                            if ($job->copies > (int) $small_material->quantity) {
+                                $errorMessages[] = "For the catalog item '{$job->catalogItem->name}', which uses the material '{$small_material->name}', you need {$job->copies} units, but only {$small_material->quantity} are available in storage.";
+                            }
+                            
+                            // Consume material stock
+                            if ($small_material?->article?->in_square_meters === 1) {
+                                $small_material->quantity -= ($job->copies * ($job->width * $job->height / 1000000));
+                            } else {
+                                $small_material->quantity -= $job->copies;
+                            }
+                            $small_material->save();
+                            
+                            \Log::info('Used legacy small material stock reduction', [
+                                'job_id' => $job->id,
+                                'material_id' => $small_material->id,
+                                'material_name' => $small_material->name
+                            ]);
+                        } else {
+                            \Log::warning('Small material not found for job', [
+                                'job_id' => $job->id,
+                                'small_material_id' => $job->small_material_id
+                            ]);
+                        }
                     }
-                    $large_material->save();
-                    } else {
-                        \Log::warning('Large material not found for job', [
-                            'job_id' => $job->id,
-                            'large_material_id' => $job->large_material_id
-                        ]);
-                }
-                }
-                
-                // Update Small Material
-                if ($job->small_material_id !== null) {
-                    $small_material = SmallMaterial::with('article')->find($job->small_material_id);
-                    if ($small_material) {
-                    $neededQuantity = (int) $catalogItemArticle[0]->quantity * $job->copies;
-                    if ($neededQuantity > (int) $small_material->quantity) {
-                        $errorMessages[] = "For the catalog item '{$job->catalogItem->name}', which uses the material '{$small_material->name}', you need {$neededQuantity} units, but only {$small_material->quantity} are available in storage.";
-                    }
-                    if ($small_material?->article?->in_square_meters === 1) {
-                        $small_material->quantity -= ($job->copies * ($job->width * $job->height / 1000000));
-                    } else {
-                        $small_material->quantity -= $job->copies;
-                    }
-                    $small_material->save();
-                    } else {
-                        \Log::warning('Small material not found for job', [
-                            'job_id' => $job->id,
-                            'small_material_id' => $job->small_material_id
-                        ]);
-                    }
+                } else {
+                    \Log::info('Skipped legacy material stock reduction - using component articles instead', [
+                        'job_id' => $job->id,
+                        'catalog_item_id' => $job->catalogItem->id,
+                        'component_articles_count' => $job->catalogItem->articles()->count()
+                    ]);
                 }
 
                 if ($job->hasOriginalFiles()) {
@@ -983,6 +1051,40 @@ class InvoiceController extends Controller
                 'error' => 'Failed to create download',
                 'details' => $e->getMessage()
             ], 500);
+        }
+    }
+
+    /**
+     * Consume article stock when creating an invoice
+     */
+    private function consumeArticleStock($article, $quantity)
+    {
+        // For material-type articles, reduce the corresponding material quantity
+        if ($article->format_type == 1 && $article->smallMaterial) {
+            $material = $article->smallMaterial;
+            $material->quantity = max(0, $material->quantity - $quantity);
+            $material->save();
+        } elseif ($article->format_type == 2 && $article->largeFormatMaterial) {
+            $material = $article->largeFormatMaterial;
+            $material->quantity = max(0, $material->quantity - $quantity);
+            $material->save();
+        } elseif ($article->format_type == 3) {
+            $material = \App\Models\OtherMaterial::where('article_id', $article->id)->first();
+            if ($material) {
+                $material->quantity = max(0, $material->quantity - $quantity);
+                $material->save();
+            }
+        } else {
+            // For regular product/service articles, create a consumption record
+            // Create a consumption record (negative quantity in priemnica system)
+            $consumptionPriemnica = \App\Models\Priemnica::create([
+                'warehouse' => 1, // Default warehouse
+                'client_id' => null,
+                'comment' => "Invoice consumption - Article ID: {$article->id}"
+            ]);
+            
+            // Attach the article with negative quantity to track consumption
+            $consumptionPriemnica->articles()->attach($article->id, ['quantity' => -$quantity]);
         }
     }
 }

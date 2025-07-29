@@ -17,13 +17,33 @@
                  class="p-2 hover:bg-gray-700 cursor-pointer">
                 <div class="flex justify-between items-center">
                     <div>
-                        <div class="text-white font-medium">{{ article.name }}</div>
-                        <div class="text-sm text-gray-400">
-                            <span>Code: {{ article.code }}</span>
-                            <span class="ml-2">({{ getUnitLabel(article) }})</span>
-                        </div>
+                        <template v-if="article.type === 'category'">
+                            <div class="text-white font-medium">{{ article.name }}</div>
+                            <div class="text-sm text-gray-400">
+                                {{ article.article_count }} available article{{ article.article_count !== 1 ? 's' : '' }}
+                                <span v-if="article.first_article_name" class="ml-1">
+                                    (First: {{ article.first_article_name }})
+                                </span>
+                                <span v-if="article.current_stock" class="ml-2 text-blue-400">
+                                    Stock: {{ article.current_stock }}
+                                </span>
+                            </div>
+                        </template>
+                        <template v-else>
+                            <div class="text-white font-medium">{{ article.name }}</div>
+                            <div class="text-sm text-gray-400">
+                                <span>Code: {{ article.code }}</span>
+                                <span class="ml-2">({{ getUnitLabel(article) }})</span>
+                                <span v-if="article.current_stock" class="ml-2 text-blue-400">
+                                    Stock: {{ article.current_stock }}
+                                </span>
+                            </div>
+                        </template>
                     </div>
-                    <div class="text-sm text-green-400">
+                    <div v-if="article.type !== 'category'" class="text-sm text-green-400">
+                        {{ article.purchase_price }} ден
+                    </div>
+                    <div v-else class="text-sm text-green-400">
                         {{ article.purchase_price }} ден
                     </div>
                 </div>
@@ -112,28 +132,57 @@ export default {
         const selectArticle = (article) => {
             console.log('Selected article:', article);
             selectedArticle.value = article;
-            searchQuery.value = article.name;
-            showDropdown.value = false;
-            emit('update:modelValue', article.id);
-            emit('article-selected', {
-                ...article,
-                unitType: getUnitType(article),
-                unitLabel: getUnitLabel(article)
-            });
+            
+            if (article.type === 'category') {
+                searchQuery.value = article.name;
+                showDropdown.value = false;
+                emit('update:modelValue', article.id);
+                emit('article-selected', {
+                    ...article,
+                    unitType: getUnitType(article),
+                    unitLabel: getUnitLabel(article),
+                    purchase_price: article.purchase_price
+                });
+            } else {
+                searchQuery.value = article.name;
+                showDropdown.value = false;
+                emit('update:modelValue', article.id);
+                emit('article-selected', {
+                    ...article,
+                    unitType: getUnitType(article),
+                    unitLabel: getUnitLabel(article)
+                });
+            }
         };
 
         // Watch for changes in modelValue prop
         watch(() => props.modelValue, async (newValue) => {
             console.log('Model value changed:', newValue);
-            if (newValue && !selectedArticle.value) {
+            if (newValue) {
+                // Always reinitialize when modelValue changes, even if selectedArticle already exists
                 try {
-                    const response = await axios.get(`/articles/${newValue}`, {
-                        params: { type: props.type }
-                    });
-                    console.log('Fetched article:', response.data);
-                    const article = response.data;
-                    selectedArticle.value = article;
-                    searchQuery.value = article.name;
+                    // Check if it's a category selection
+                    if (String(newValue).startsWith('cat_')) {
+                        const categoryId = String(newValue).replace('cat_', '');
+                        const response = await axios.get(`/article-categories/${categoryId}`);
+                        console.log('Fetched category:', response.data);
+                        const category = response.data;
+                        selectedArticle.value = {
+                            id: newValue,
+                            name: `[Category] ${category.name}`,
+                            type: 'category',
+                            category_id: category.id
+                        };
+                        searchQuery.value = `[Category] ${category.name}`;
+                    } else {
+                        const response = await axios.get(`/articles/${newValue}`, {
+                            params: { type: props.type }
+                        });
+                        console.log('Fetched article:', response.data);
+                        const article = response.data;
+                        selectedArticle.value = article;
+                        searchQuery.value = article.name;
+                    }
                 } catch (error) {
                     console.error('Error fetching article:', error.response || error);
                 }
@@ -154,13 +203,30 @@ export default {
             document.addEventListener('click', handleClickOutside);
             // Initialize with existing article if modelValue is present
             if (props.modelValue) {
-                axios.get(`/articles/${props.modelValue}`).then(response => {
-                    const article = response.data;
-                    selectedArticle.value = article;
-                    searchQuery.value = article.name;
-                }).catch(error => {
-                    console.error('Error fetching initial article:', error);
-                });
+                // Check if it's a category selection
+                if (String(props.modelValue).startsWith('cat_')) {
+                    const categoryId = String(props.modelValue).replace('cat_', '');
+                    axios.get(`/article-categories/${categoryId}`).then(response => {
+                        const category = response.data;
+                        selectedArticle.value = {
+                            id: props.modelValue,
+                            name: `[Category] ${category.name}`,
+                            type: 'category',
+                            category_id: category.id
+                        };
+                        searchQuery.value = `[Category] ${category.name}`;
+                    }).catch(error => {
+                        console.error('Error fetching initial category:', error);
+                    });
+                } else {
+                    axios.get(`/articles/${props.modelValue}`).then(response => {
+                        const article = response.data;
+                        selectedArticle.value = article;
+                        searchQuery.value = article.name;
+                    }).catch(error => {
+                        console.error('Error fetching initial article:', error);
+                    });
+                }
             }
         });
 

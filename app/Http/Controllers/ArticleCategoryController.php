@@ -71,7 +71,8 @@ class ArticleCategoryController extends Controller
      */
     public function show(string $id)
     {
-        //
+        $category = ArticleCategory::findOrFail($id);
+        return response()->json($category);
     }
 
     /**

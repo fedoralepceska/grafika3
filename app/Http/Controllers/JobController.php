@@ -110,42 +110,47 @@ class JobController extends Controller
                     $job->question_answers = $request->input('question_answers');
                 }
 
-                // Calculate unit price based on hierarchy
-                $unitPrice = $priceCalculationService->calculateEffectivePrice(
+                // Calculate selling price based on hierarchy (what customer pays)
+                $sellingPrice = $priceCalculationService->calculateEffectivePrice(
                     $request->input('catalog_item_id'),
                     $request->input('client_id'),
                     $request->input('quantity')
                 );
 
+                // Calculate cost price based on actual component article requirements
+                // Create a temporary job object for calculations (before saving)
+                $tempJob = new Job();
+                $tempJob->quantity = $request->input('quantity');
+                $tempJob->copies = $request->input('copies');
+                $tempJob->width = $request->input('width', 0);
+                $tempJob->height = $request->input('height', 0);
+                
+                $totalCostPrice = $catalogItem->calculateJobCostPrice($tempJob);
+
                 \Log::info('Creating job from catalog item', [
                     'catalog_item_id' => $request->input('catalog_item_id'),
                     'client_id' => $request->input('client_id'),
                     'quantity' => $request->input('quantity'),
-                    'calculated_unit_price' => $unitPrice
+                    'copies' => $request->input('copies'),
+                    'width' => $request->input('width', 0),
+                    'height' => $request->input('height', 0),
+                    'calculated_cost_price' => $totalCostPrice,
+                    'calculated_selling_price' => $sellingPrice
                 ]);
 
-                // If hierarchy-based price exists, use it; otherwise fall back to the original calculation
-                if ($unitPrice !== null) {
-                    $job->price = $unitPrice; // Store the per-unit price
+                // Set the cost price (what it costs us to produce)
+                $job->price = $totalCostPrice;
+                
+                // Set the selling price (what customer pays)
+                if ($sellingPrice !== null) {
+                    $job->salePrice = $sellingPrice;
                 } else {
-                    // Original price calculation logic
-                    $smallMaterial = SmallMaterial::with('article')->find($request->input('small_material_id'));
-                    $largeMaterial = LargeFormatMaterial::with('article')->find($request->input('large_material_id'));
-                    $price = 0;
-
-                    if ($request->has('actions')) {
-                        foreach ($request->input('actions') as $action) {
-                            if (isset($action['quantity'])) {
-                                if (isset($smallMaterial)) {
-                                    $price = $price + ($action['quantity'] * $smallMaterial->article->price_1);
-                                }
-                                if (isset($largeMaterial)) {
-                                    $price = $price + ($action['quantity'] * $largeMaterial->article->price_1);
-                                }
-                            }
-                        }
-                    }
-                    $job->price = $price;
+                    // Fallback to default catalog item price * pricing multiplier
+                    $pricingMultiplier = $catalogItem->getPricingMultiplier(
+                        $request->input('quantity'),
+                        $request->input('copies')
+                    );
+                    $job->salePrice = ($catalogItem->price ?? 0) * $pricingMultiplier;
                 }
 
                 if ($request->input('large_material_id') !== null) {
@@ -162,15 +167,13 @@ class JobController extends Controller
                     }
                 }
 
-                // Check material availability and deduct quantities
+                // Check material availability (validation only - no stock reduction)
                 if ($largeMaterialId) {
                     $large_material = LargeFormatMaterial::find($largeMaterialId);
                     if ($large_material->quantity - $request->input('copies') < 0) {
                         throw new \Exception("Insufficient large material quantity.");
                     }
-                    // Deduct the material quantity
-                    $large_material->quantity -= $request->input('copies');
-                    $large_material->save();
+                    // Stock validation passed - no reduction during job creation
                 }
 
                 if ($smallMaterialId) {
@@ -178,9 +181,47 @@ class JobController extends Controller
                     if ($small_material->quantity - $request->input('copies') < 0) {
                         throw new \Exception("Insufficient small material quantity.");
                     }
-                    // Deduct the material quantity
-                    $small_material->quantity -= $request->input('copies');
-                    $small_material->save();
+                    // Stock validation passed - no reduction during job creation
+                }
+
+                // Step 1.5: Process catalog item articles and check stock availability
+                if ($catalogItem->articles()->exists()) {
+                    $articleRequirements = $catalogItem->calculateActualArticleRequirements($tempJob);
+                    
+                    foreach ($articleRequirements as $requirement) {
+                        $article = $requirement['article'];
+                        $requiredQuantity = $requirement['actual_required'];
+                        $unitType = $requirement['unit_type'];
+                        
+                        // If this article was selected from a category, we need to get the actual article to use
+                        $actualArticle = $article;
+                        if ($article->pivot->category_id) {
+                            // Re-resolve the category to get the current first available article
+                            $actualArticle = $catalogItem->getFirstArticleFromCategory(
+                                $article->pivot->category_id,
+                                null,
+                                $requiredQuantity
+                            );
+                            if (!$actualArticle) {
+                                throw new \Exception("No available articles with sufficient stock in the selected category (ID: {$article->pivot->category_id}).");
+                            }
+                        }
+                        
+                        // Check if the actual article has sufficient stock (validation only, no consumption)
+                        if (!$actualArticle->hasStock($requiredQuantity)) {
+                            throw new \Exception("Insufficient stock for article: {$actualArticle->name} ({$unitType}). Required: {$requiredQuantity}, Available: {$actualArticle->getCurrentStock()}");
+                        }
+                        
+                        \Log::info('Stock validation passed for article', [
+                            'article_id' => $actualArticle->id,
+                            'article_name' => $actualArticle->name,
+                            'unit_type' => $unitType,
+                            'required_quantity' => $requiredQuantity,
+                            'available_stock' => $actualArticle->getCurrentStock(),
+                            'catalog_standard' => $requirement['catalog_standard'],
+                            'job_square_meters' => $requirement['job_square_meters']
+                        ]);
+                    }
                 }
 
                 $job->save();
@@ -1067,28 +1108,18 @@ class JobController extends Controller
                         // Update selling price (salePrice)
                         $job->salePrice = $newSalePrice;
                         
-                        // Also scale the cost price (price) proportionally based on the pricing multiplier
-                        if ($job->price && $job->quantity > 0) {
-                            // Calculate the current pricing multiplier
-                            $currentMultiplier = $catalogItem->getPricingMultiplier($job->quantity, $job->copies);
-                            
-                            if ($currentMultiplier > 0) {
-                                $unitCostPrice = $job->price / $currentMultiplier;
-                                $job->price = $unitCostPrice * $pricingMultiplier;
-                                
-                                \Log::info('Scaled cost price for catalog job with new pricing method', [
-                                    'job_id' => $id,
-                                    'old_quantity' => $job->quantity,
-                                    'new_quantity' => $newQuantity,
-                                    'old_copies' => $job->copies,
-                                    'new_copies' => $newCopies,
-                                    'old_multiplier' => $currentMultiplier,
-                                    'new_multiplier' => $pricingMultiplier,
-                                    'unit_cost_price' => $unitCostPrice,
-                                    'new_cost_price' => $job->price
-                                ]);
-                            }
-                        }
+                        // Recalculate cost price based on actual component article requirements
+                        $job->quantity = $newQuantity;
+                        $job->copies = $newCopies;
+                        $newCostPrice = $catalogItem->calculateJobCostPrice($job);
+                        $job->price = $newCostPrice;
+                        
+                        \Log::info('Recalculated cost price for catalog job with new pricing method', [
+                            'job_id' => $id,
+                            'pricing_multiplier' => $pricingMultiplier,
+                            'new_cost_price' => $newCostPrice,
+                            'new_sale_price' => $newSalePrice
+                        ]);
                     }
                 } else {
                     \Log::info('Skipping price recalculation for manual job', [
@@ -1474,10 +1505,12 @@ class JobController extends Controller
             $perPage = $request->input('per_page', 10);
             $searchTerm = $request->input('search', '');
 
-            // Start with base query
+            // Start with base query including category relationships
             $query = CatalogItem::with([
                 'largeMaterial.article',
-                'smallMaterial.article'
+                'smallMaterial.article',
+                'largeMaterialCategory',
+                'smallMaterialCategory'
             ]);
 
             // Add optional search functionality
@@ -1497,6 +1530,8 @@ class JobController extends Controller
                     'machineCut' => $item->machineCut,
                     'largeMaterial' => $item->large_material_id,
                     'smallMaterial' => $item->small_material_id,
+                    'large_material_category_id' => $item->large_material_category_id,
+                    'small_material_category_id' => $item->small_material_category_id,
                     'quantity' => $item->quantity,
                     'copies' => $item->copies,
                     'file' => $item->file,
@@ -1721,6 +1756,8 @@ class JobController extends Controller
         // Return the ID of the first (oldest) available material
         return !empty($availableMaterials) ? $availableMaterials[0]->id : null;
     }
+
+
 
     /**
      * Upload multiple files to a job with batch processing and progress tracking

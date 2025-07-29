@@ -267,8 +267,13 @@ export default {
                     }
                 });
 
-                this.catalogItemsSmall = response.data.data.filter(c => c.smallMaterial !== null);
-                this.catalogItemsLarge = response.data.data.filter(c => c.largeMaterial !== null);
+                // Include catalog items with either individual materials or category assignments
+                this.catalogItemsSmall = response.data.data.filter(c => 
+                    c.smallMaterial !== null || c.small_material_category_id !== null
+                );
+                this.catalogItemsLarge = response.data.data.filter(c => 
+                    c.largeMaterial !== null || c.large_material_category_id !== null
+                );
                 this.totalPages = response.data.pagination.total_pages;
             } catch (error) {
                 console.error('Error fetching catalog items:', error.response?.data || error);
@@ -302,9 +307,12 @@ export default {
                 return;
             }
 
-            // Combine both small and large catalog items
+            // Combine both small and large catalog items, removing duplicates
             const allCatalogItems = [...this.catalogItemsSmall, ...this.catalogItemsLarge];
-            const selectedCatalogItems = allCatalogItems.filter(item =>
+            const uniqueCatalogItems = allCatalogItems.filter((item, index, self) => 
+                index === self.findIndex(i => i.id === item.id)
+            );
+            const selectedCatalogItems = uniqueCatalogItems.filter(item =>
                 this.selectedItems.includes(item.id)
             );
 
@@ -337,12 +345,24 @@ export default {
                         quantity: action.quantity
                     }));
 
+                    // Handle material vs category assignments  
+                    let largeMaterialData = item.largeMaterial;
+                    let smallMaterialData = item.smallMaterial;
+                    
+                    // If item has category assignments, send those instead
+                    if (item.large_material_category_id) {
+                        largeMaterialData = 'cat_' + item.large_material_category_id;
+                    }
+                    if (item.small_material_category_id) {
+                        smallMaterialData = 'cat_' + item.small_material_category_id;
+                    }
+
                     const response = await axios.post('/jobs', {
                         fromCatalog: true,
                         machinePrint: item.machinePrint,
                         machineCut: item.machineCut,
-                        large_material_id: item.largeMaterial,
-                        small_material_id: item.smallMaterial,
+                        large_material_id: largeMaterialData,
+                        small_material_id: smallMaterialData,
                         name: item.name,
                         quantity: item.quantity || 1, // Default to 1 if not set
                         copies: item.copies || 1, // Default to 1 if not set
@@ -369,7 +389,10 @@ export default {
             this.questionsModalAnswers = answers;
             const toast = useToast();
             const allCatalogItems = [...this.catalogItemsSmall, ...this.catalogItemsLarge];
-            const selectedCatalogItems = allCatalogItems.filter(item =>
+            const uniqueCatalogItems = allCatalogItems.filter((item, index, self) => 
+                index === self.findIndex(i => i.id === item.id)
+            );
+            const selectedCatalogItems = uniqueCatalogItems.filter(item =>
                 this.selectedItems.includes(item.id)
             );
             this.isCreatingJobs = true;
@@ -381,12 +404,24 @@ export default {
                         status: action.status,
                         quantity: action.quantity
                     }));
+                    // Handle material vs category assignments  
+                    let largeMaterialData = item.largeMaterial;
+                    let smallMaterialData = item.smallMaterial;
+                    
+                    // If item has category assignments, send those instead
+                    if (item.large_material_category_id) {
+                        largeMaterialData = 'cat_' + item.large_material_category_id;
+                    }
+                    if (item.small_material_category_id) {
+                        smallMaterialData = 'cat_' + item.small_material_category_id;
+                    }
+
                     const payload = {
                         fromCatalog: true,
                         machinePrint: item.machinePrint,
                         machineCut: item.machineCut,
-                        large_material_id: item.largeMaterial,
-                        small_material_id: item.smallMaterial,
+                        large_material_id: largeMaterialData,
+                        small_material_id: smallMaterialData,
                         name: item.name,
                         quantity: item.quantity || 1,
                         copies: item.copies || 1,

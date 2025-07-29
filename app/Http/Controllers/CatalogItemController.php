@@ -369,7 +369,18 @@ class CatalogItemController extends Controller
             'template_file' => 'nullable|mimes:pdf|max:20480',
             'price' => 'required|numeric|min:0',
             'articles' => 'nullable|array',
-            'articles.*.id' => 'required|exists:article,id',
+            'articles.*.id' => ['required', function ($attribute, $value, $fail) {
+                if (str_starts_with($value, 'cat_')) {
+                    $categoryId = str_replace('cat_', '', $value);
+                    if (!\App\Models\ArticleCategory::where('id', $categoryId)->exists()) {
+                        $fail('The selected article category does not exist.');
+                    }
+                } else {
+                    if (!\App\Models\Article::where('id', $value)->exists()) {
+                        $fail('The selected article does not exist.');
+                    }
+                }
+            }],
             'articles.*.quantity' => 'required|numeric|min:0.01',
             'subcategory_id' => 'nullable|exists:subcategories,id'
         ], [], [
@@ -457,9 +468,27 @@ class CatalogItemController extends Controller
             // Process articles if provided
             if ($request->has('articles')) {
                 foreach ($request->articles as $articleData) {
-                    $catalogItem->articles()->attach($articleData['id'], [
-                        'quantity' => $articleData['quantity']
-                    ]);
+                    $articleId = $articleData['id'];
+                    
+                    // If this is a category (starts with 'cat_'), resolve to first article but store category info
+                    if (str_starts_with($articleId, 'cat_')) {
+                        $categoryId = str_replace('cat_', '', $articleId);
+                        // Just check if articles have any stock (1 unit) during catalog item creation
+                        $firstArticle = $catalogItem->getFirstArticleFromCategory($categoryId, null, 1);
+                        if ($firstArticle) {
+                            $catalogItem->articles()->attach($firstArticle->id, [
+                                'quantity' => $articleData['quantity'],
+                                'category_id' => $categoryId // Store the original category selection
+                            ]);
+                        } else {
+                            throw new \Exception("No available articles with sufficient stock in the selected category.");
+                        }
+                    } else {
+                        // This is a regular article
+                        $catalogItem->articles()->attach($articleId, [
+                            'quantity' => $articleData['quantity']
+                        ]);
+                    }
                 }
                 // Calculate and update cost price
                 $catalogItem->calculateCostPrice();
@@ -506,8 +535,59 @@ class CatalogItemController extends Controller
             'smallMaterial',
             'largeMaterial.article',
             'smallMaterial.article',
+            'articles',
             'questions'
         ]);
+
+        // Transform articles to show original category selections
+        $getUnitLabel = function($article) {
+            if ($article->in_kilograms) return 'kg';
+            if ($article->in_meters) return 'm';
+            if ($article->in_square_meters) return 'm²';
+            if ($article->in_pieces) return 'pcs';
+            return '';
+        };
+        
+        $transformedArticles = $catalogItem->articles->map(function($article) use ($catalogItem, $getUnitLabel) {
+            if ($article->pivot->category_id) {
+                // This was originally a category selection, transform it back
+                $category = \App\Models\ArticleCategory::find($article->pivot->category_id);
+                
+                // Get the first available article from the category for display info
+                $firstArticle = $catalogItem->getFirstArticleFromCategory($article->pivot->category_id, null, 1);
+                
+                // For component articles, we need to determine the type from the resolved article, not the category
+                // The category type ('large'/'small') is for materials, but component articles need 'product'/'service'
+                $componentType = 'product'; // default
+                if ($firstArticle && $firstArticle->type) {
+                    $componentType = $firstArticle->type; // Use the actual article type (product/service)
+                }
+                
+                return [
+                    'id' => 'cat_' . $article->pivot->category_id,
+                    'name' => $category ? "[Category] {$category->name}" : 'Unknown Category',
+                    'type' => $componentType, // Use the resolved article type (product/service)
+                    'purchase_price' => $firstArticle ? $firstArticle->purchase_price : 0,
+                    'unit_label' => $firstArticle ? $getUnitLabel($firstArticle) : '',
+                    'quantity' => $article->pivot->quantity,
+                    'original_category_id' => $article->pivot->category_id,
+                    'resolved_article_id' => $article->id
+                ];
+            } else {
+                // This was an individual article selection
+                return [
+                    'id' => $article->id,
+                    'name' => $article->name,
+                    'type' => $article->type,
+                    'purchase_price' => $article->purchase_price,
+                    'unit_label' => $getUnitLabel($article),
+                    'quantity' => $article->pivot->quantity
+                ];
+            }
+        });
+
+        // Replace the articles collection with the transformed data
+        $catalogItem->setRelation('articles', $transformedArticles);
 
 
 
@@ -598,6 +678,15 @@ class CatalogItemController extends Controller
         // Get subcategories
         $subcategories = \App\Models\Subcategory::all();
 
+        // Transform material IDs back to category selections if they were originally categories
+        if ($catalogItem->large_material_category_id) {
+            $catalogItem->large_material_id = 'cat_' . $catalogItem->large_material_category_id;
+        }
+        
+        if ($catalogItem->small_material_category_id) {
+            $catalogItem->small_material_id = 'cat_' . $catalogItem->small_material_category_id;
+        }
+
         return Inertia::render('CatalogItem/Edit', [
             'catalogItem' => $catalogItem,
             'actions' => $actions,
@@ -659,7 +748,18 @@ class CatalogItemController extends Controller
                 'template_file' => 'nullable|mimes:pdf|max:20480',
                 'price' => 'required|numeric|min:0',
                 'articles' => 'nullable|array',
-                'articles.*.id' => 'required|exists:article,id',
+                'articles.*.id' => ['required', function ($attribute, $value, $fail) {
+                    if (str_starts_with($value, 'cat_')) {
+                        $categoryId = str_replace('cat_', '', $value);
+                        if (!\App\Models\ArticleCategory::where('id', $categoryId)->exists()) {
+                            $fail('The selected article category does not exist.');
+                        }
+                    } else {
+                        if (!\App\Models\Article::where('id', $value)->exists()) {
+                            $fail('The selected article does not exist.');
+                        }
+                    }
+                }],
                 'articles.*.quantity' => 'required|numeric|min:0.01',
                 'subcategory_id' => 'nullable|exists:subcategories,id'
             ]);
@@ -752,9 +852,27 @@ class CatalogItemController extends Controller
 
                     // Attach new articles with quantities
                     foreach ($articles as $articleData) {
-                        $catalogItem->articles()->attach($articleData['id'], [
-                            'quantity' => $articleData['quantity']
-                        ]);
+                        $articleId = $articleData['id'];
+                        
+                        // If this is a category (starts with 'cat_'), resolve to first article but store category info
+                        if (str_starts_with($articleId, 'cat_')) {
+                            $categoryId = str_replace('cat_', '', $articleId);
+                            // Just check if articles have any stock (1 unit) during catalog item update
+                            $firstArticle = $catalogItem->getFirstArticleFromCategory($categoryId, null, 1);
+                            if ($firstArticle) {
+                                $catalogItem->articles()->attach($firstArticle->id, [
+                                    'quantity' => $articleData['quantity'],
+                                    'category_id' => $categoryId // Store the original category selection
+                                ]);
+                            } else {
+                                throw new \Exception("No available articles with sufficient stock in the selected category.");
+                            }
+                        } else {
+                            // This is a regular article
+                            $catalogItem->articles()->attach($articleId, [
+                                'quantity' => $articleData['quantity']
+                            ]);
+                        }
                     }
 
                     // Recalculate cost price

@@ -51,4 +51,48 @@ class Article extends Model
     {
         return $this->hasOne(SmallMaterial::class, 'article_id');
     }
+
+    public function priemnicaArticles()
+    {
+        return $this->belongsToMany(Priemnica::class, 'priemnica_articles')->withPivot('quantity');
+    }
+
+    public function catalogItemArticles()
+    {
+        return $this->belongsToMany(CatalogItem::class, 'catalog_item_articles')->withPivot('quantity');
+    }
+
+    /**
+     * Calculate current available stock for this article
+     */
+    public function getCurrentStock()
+    {
+        // For material-type articles, check the corresponding material table
+        if ($this->format_type == 1 && $this->smallMaterial) {
+            return $this->smallMaterial->quantity ?? 0;
+        }
+        
+        if ($this->format_type == 2 && $this->largeFormatMaterial) {
+            return $this->largeFormatMaterial->quantity ?? 0;
+        }
+        
+        if ($this->format_type == 3) {
+            $otherMaterial = \App\Models\OtherMaterial::where('article_id', $this->id)->first();
+            return $otherMaterial ? $otherMaterial->quantity : 0;
+        }
+
+        // For regular product/service articles, calculate from priemnica minus consumption
+        $received = $this->priemnicaArticles()->sum('priemnica_articles.quantity');
+        $consumed = $this->catalogItemArticles()->sum('catalog_item_articles.quantity');
+        
+        return max(0, $received - $consumed);
+    }
+
+    /**
+     * Check if article has sufficient stock for the required quantity
+     */
+    public function hasStock($requiredQuantity = 1)
+    {
+        return $this->getCurrentStock() >= $requiredQuantity;
+    }
 }

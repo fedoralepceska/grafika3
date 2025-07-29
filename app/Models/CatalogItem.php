@@ -192,7 +192,7 @@ class CatalogItem extends Model
     public function articles()
     {
         return $this->belongsToMany(Article::class, 'catalog_item_articles')
-            ->withPivot('quantity')
+            ->withPivot('quantity', 'category_id')
             ->withTimestamps();
     }
 
@@ -211,6 +211,87 @@ class CatalogItem extends Model
         $this->save();
 
         return $totalCost;
+    }
+
+    // Method to calculate cost price including categories (for frontend display)
+    public function calculateDisplayCostPrice($productArticles = [], $serviceArticles = [])
+    {
+        $totalCost = 0;
+
+        // Calculate cost from product articles
+        foreach ($productArticles as $articleData) {
+            if (str_starts_with($articleData['id'], 'cat_')) {
+                // This is a category, get the first article's price
+                $categoryId = str_replace('cat_', '', $articleData['id']);
+                $firstArticle = $this->getFirstArticleFromCategory($categoryId, 'product');
+                if ($firstArticle) {
+                    $totalCost += ($firstArticle->purchase_price ?? 0) * ($articleData['quantity'] ?? 0);
+                }
+            } else {
+                // This is a regular article
+                $article = Article::find($articleData['id']);
+                if ($article) {
+                    $totalCost += ($article->purchase_price ?? 0) * ($articleData['quantity'] ?? 0);
+                }
+            }
+        }
+
+        // Calculate cost from service articles
+        foreach ($serviceArticles as $articleData) {
+            if (str_starts_with($articleData['id'], 'cat_')) {
+                // This is a category, get the first article's price
+                $categoryId = str_replace('cat_', '', $articleData['id']);
+                $firstArticle = $this->getFirstArticleFromCategory($categoryId, 'service');
+                if ($firstArticle) {
+                    $totalCost += ($firstArticle->purchase_price ?? 0) * ($articleData['quantity'] ?? 0);
+                }
+            } else {
+                // This is a regular article
+                $article = Article::find($articleData['id']);
+                if ($article) {
+                    $totalCost += ($article->purchase_price ?? 0) * ($articleData['quantity'] ?? 0);
+                }
+            }
+        }
+
+        return $totalCost;
+    }
+
+    // Method to get the first available article from a category (similar to getNextAvailableMaterial)
+    public function getFirstArticleFromCategory($categoryId, $type = null, $requiredQuantity = 1)
+    {
+        $category = ArticleCategory::with('articles')->find($categoryId);
+        
+        if (!$category || $category->articles->isEmpty()) {
+            return null;
+        }
+
+        // Filter by type if specified
+        $articles = $category->articles;
+        if ($type) {
+            $articles = $articles->where('type', $type);
+        }
+
+        // Get available articles with sufficient stock
+        $availableArticles = [];
+        
+        foreach ($articles as $article) {
+            if ($article->hasStock($requiredQuantity)) {
+                $availableArticles[] = $article;
+            }
+        }
+
+        if (empty($availableArticles)) {
+            return null; // No articles with sufficient stock
+        }
+
+        // Sort by creation date (oldest first for FIFO)
+        usort($availableArticles, function($a, $b) {
+            return $a->created_at <=> $b->created_at;
+        });
+
+        // Return the first (oldest) available article
+        return $availableArticles[0];
     }
 
     // Add this new relationship method
@@ -245,5 +326,86 @@ class CatalogItem extends Model
     public function questions()
     {
         return $this->belongsToMany(Question::class, 'catalog_item_questions');
+    }
+
+    /**
+     * Calculate actual article requirements for a job
+     * Handles all unit types: square meters, pieces, kilograms, linear meters
+     * Uses proportional scaling when actual usage exceeds catalog standard
+     */
+    public function calculateActualArticleRequirements($job)
+    {
+        $requirements = [];
+        
+        // Get the pricing multiplier (quantity or copies based on catalog item setting)
+        $multiplier = $this->getPricingMultiplier($job->quantity, $job->copies);
+        
+        // Calculate job dimensions if available
+        $jobSquareMeters = 0;
+        if ($job->width && $job->height) {
+            // Convert mm to meters
+            $jobSquareMeters = ($job->width / 1000) * ($job->height / 1000);
+        }
+        
+        foreach ($this->articles as $article) {
+            $catalogStandard = $article->pivot->quantity;
+            $actualRequired = 0;
+            
+            if ($article->in_square_meters) {
+                // For square meters: use actual job dimensions
+                if ($jobSquareMeters > 0) {
+                    $actualRequired = $jobSquareMeters * $multiplier;
+                } else {
+                    // Fallback to catalog standard if no job dimensions
+                    $actualRequired = $catalogStandard * $multiplier;
+                }
+            } else {
+                // For all other units (pcs, kg, meters): use catalog standard
+                $actualRequired = $catalogStandard * $multiplier;
+            }
+            
+            $requirements[] = [
+                'article_id' => $article->id,
+                'article' => $article,
+                'catalog_standard' => $catalogStandard,
+                'multiplier' => $multiplier,
+                'actual_required' => $actualRequired,
+                'job_square_meters' => $jobSquareMeters,
+                'unit_type' => $this->getArticleUnitType($article)
+            ];
+        }
+        
+        return $requirements;
+    }
+    
+    /**
+     * Get the primary unit type for an article
+     */
+    private function getArticleUnitType($article)
+    {
+        if ($article->in_square_meters) return 'square_meters';
+        if ($article->in_pieces) return 'pieces';
+        if ($article->in_kilograms) return 'kilograms';
+        if ($article->in_meters) return 'meters';
+        return 'unknown';
+    }
+    
+    /**
+     * Calculate total cost price for a job based on actual article requirements
+     */
+    public function calculateJobCostPrice($job)
+    {
+        $totalCost = 0;
+        $requirements = $this->calculateActualArticleRequirements($job);
+        
+        foreach ($requirements as $requirement) {
+            $article = $requirement['article'];
+            $actualRequired = $requirement['actual_required'];
+            $articlePrice = $article->purchase_price ?? 0;
+            
+            $totalCost += $actualRequired * $articlePrice;
+        }
+        
+        return $totalCost;
     }
 }
