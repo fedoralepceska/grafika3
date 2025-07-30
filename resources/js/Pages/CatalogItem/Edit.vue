@@ -548,22 +548,14 @@ export default {
     watch: {
         'editForm.should_ask_questions'(newValue) {
             if (newValue) {
-                // Reset questions data ready flag
-                this.questionsDataReady = false;
+                // Simple approach: just enable the questions selector
+                // Let the child component handle loading its own data
+                this.questionsDataReady = true;
                 
-                // If questions aren't already loaded, initialize them
-                if (this.selectedQuestions.length === 0) {
-                    if (this.catalogItem.questions && this.catalogItem.questions.length > 0) {
-                        this.selectedQuestions = this.catalogItem.questions.map(q => q.id);
-                    } else if (this.catalogItem.id) {
-                        this.loadExistingQuestions();
-                    }
+                // Only initialize if we have existing questions from props
+                if (this.catalogItem.questions && this.catalogItem.questions.length > 0 && this.selectedQuestions.length === 0) {
+                    this.selectedQuestions = this.catalogItem.questions.map(q => q.id);
                 }
-                
-                // Mark as ready after setting questions
-                this.$nextTick(() => {
-                    this.questionsDataReady = true;
-                });
             } else {
                 // Clear questions when checkbox is unchecked
                 this.selectedQuestions = [];
@@ -846,10 +838,24 @@ export default {
                 });
 
                 // Update catalog item questions if should_ask_questions is enabled
-                if (this.editForm.should_ask_questions) {
-                    await axios.post(`/questions/catalog-item/${this.editForm.id}`, {
-                        question_ids: this.selectedQuestions
-                    });
+                if (this.editForm.should_ask_questions && this.selectedQuestions.length > 0) {
+                    try {
+                        await axios.post(`/questions/catalog-item/${this.editForm.id}`, {
+                            question_ids: this.selectedQuestions
+                        });
+                    } catch (questionError) {
+                        console.warn('Failed to update questions, but catalog item was saved:', questionError);
+                        toast.warning('Catalog item saved, but failed to update questions');
+                    }
+                } else if (!this.editForm.should_ask_questions) {
+                    // Clear questions if checkbox is unchecked
+                    try {
+                        await axios.post(`/questions/catalog-item/${this.editForm.id}`, {
+                            question_ids: []
+                        });
+                    } catch (questionError) {
+                        console.warn('Failed to clear questions:', questionError);
+                    }
                 }
 
                 toast.success('Catalog item updated successfully');
@@ -898,16 +904,7 @@ export default {
             };
         },
 
-        async loadExistingQuestions() {
-            try {
-                const response = await axios.get(`/questions/catalog-item/${this.catalogItem.id}`);
-                this.selectedQuestions = response.data.map(q => q.id);
-                this.questionsDataReady = true;
-            } catch (error) {
-                console.error('Error loading existing questions:', error);
-                this.questionsDataReady = true; // Still mark as ready even if error
-            }
-        },
+
     },
 };
 </script>

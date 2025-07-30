@@ -70,13 +70,29 @@ const fetchAvailableQuestions = async () => {
   }
   
   loading.value = true;
+  
+  // Add timeout to prevent hanging
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+  
   try {
-    const response = await axios.get('/questions/active');
+    const response = await axios.get('/questions/active', {
+      signal: controller.signal,
+      timeout: 10000
+    });
     questionsCache.available = response.data;
     availableQuestions.value = response.data;
   } catch (error) {
-    console.error('Error fetching questions:', error);
+    if (error.name === 'AbortError') {
+      console.error('Request timed out while fetching questions:', error);
+    } else {
+      console.error('Error fetching questions:', error);
+    }
+    // Set empty array on error to prevent infinite loading
+    availableQuestions.value = [];
+    questionsCache.available = [];
   } finally {
+    clearTimeout(timeoutId);
     loading.value = false;
   }
 };
@@ -91,13 +107,28 @@ const fetchSelectedQuestions = async () => {
     return;
   }
   
+  // Add timeout to prevent hanging
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 8000); // 8 second timeout
+  
   try {
-    const response = await axios.get(`/questions/catalog-item/${props.catalogItemId}`);
+    const response = await axios.get(`/questions/catalog-item/${props.catalogItemId}`, {
+      signal: controller.signal,
+      timeout: 8000
+    });
     const selected = response.data.map(q => q.id);
     questionsCache.selected.set(cacheKey, selected);
     selectedQuestions.value = selected;
   } catch (error) {
-    console.error('Error fetching selected questions:', error);
+    if (error.name === 'AbortError') {
+      console.error('Request timed out while fetching selected questions:', error);
+    } else {
+      console.error('Error fetching selected questions:', error);
+    }
+    // Set empty array on error
+    selectedQuestions.value = [];
+  } finally {
+    clearTimeout(timeoutId);
   }
 };
 
@@ -106,9 +137,9 @@ watch(selectedQuestions, (newValue) => {
   emit('update:modelValue', newValue);
 }, { deep: true });
 
-// Optimized: Single watcher for shouldAskQuestions with async loading and debouncing
+// Simplified watcher for shouldAskQuestions
 let loadTimeout = null;
-watch(() => props.shouldAskQuestions, async (newValue) => {
+watch(() => props.shouldAskQuestions, (newValue) => {
   // Clear any pending loads
   if (loadTimeout) {
     clearTimeout(loadTimeout);
@@ -117,25 +148,17 @@ watch(() => props.shouldAskQuestions, async (newValue) => {
   if (newValue) {
     // Debounce the loading to prevent rapid toggling issues
     loadTimeout = setTimeout(() => {
-      nextTick(() => {
-        fetchAvailableQuestions();
-        // Don't fetch selected questions here - let parent handle via v-model
-      });
-    }, 100);
+      fetchAvailableQuestions();
+    }, 150);
   } else {
     selectedQuestions.value = [];
   }
-});
+}, { immediate: true });
 
 // Initialize from prop
 watch(() => props.modelValue, (newValue) => {
   selectedQuestions.value = [...newValue];
 }, { immediate: true });
-
-// Pre-load questions when component is created (for better UX)
-if (questionsCache.available === null) {
-  fetchAvailableQuestions();
-}
 
 // Cleanup timeouts on unmount
 onUnmounted(() => {

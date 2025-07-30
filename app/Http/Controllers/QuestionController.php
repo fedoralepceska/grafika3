@@ -20,6 +20,10 @@ class QuestionController extends Controller
             'active' => 'boolean'
         ]);
         $question = Question::create($data);
+        
+        // Clear cache when questions are modified
+        cache()->forget('questions.active');
+        
         return response()->json($question, 201);
     }
 
@@ -31,24 +35,40 @@ class QuestionController extends Controller
             'active' => 'boolean'
         ]);
         $question->update($data);
+        
+        // Clear cache when questions are modified
+        cache()->forget('questions.active');
+        
         return response()->json($question);
     }
 
     public function destroy(Question $question)
     {
         $question->delete();
+        
+        // Clear cache when questions are modified
+        cache()->forget('questions.active');
+        
         return response()->json(['message' => 'Deleted']);
     }
 
     public function enable(Question $question)
     {
         $question->update(['active' => true]);
+        
+        // Clear cache when questions are modified
+        cache()->forget('questions.active');
+        
         return response()->json($question);
     }
 
     public function disable(Question $question)
     {
         $question->update(['active' => false]);
+        
+        // Clear cache when questions are modified
+        cache()->forget('questions.active');
+        
         return response()->json($question);
     }
 
@@ -58,18 +78,38 @@ class QuestionController extends Controller
         foreach ($order as $index => $id) {
             Question::where('id', $id)->update(['order' => $index]);
         }
+        
+        // Clear cache when questions are modified
+        cache()->forget('questions.active');
+        
         return response()->json(['message' => 'Order updated']);
     }
 
     public function active()
     {
-        return response()->json(Question::active()->get());
+        // Add caching and limit results for better production performance
+        $questions = cache()->remember('questions.active', 300, function () {
+            return Question::active()
+                ->select('id', 'question', 'order') // Only select needed columns
+                ->limit(100) // Prevent excessive data transfer
+                ->get();
+        });
+        
+        return response()->json($questions);
     }
 
     public function getByCatalogItem($catalogItemId)
     {
-        $catalogItem = \App\Models\CatalogItem::findOrFail($catalogItemId);
-        return response()->json($catalogItem->questions);
+        // Use optimized query with caching
+        $questions = cache()->remember("catalog_item.{$catalogItemId}.questions", 300, function () use ($catalogItemId) {
+            return \App\Models\CatalogItem::findOrFail($catalogItemId)
+                ->questions()
+                ->select('questions.id', 'questions.question', 'questions.order')
+                ->orderBy('questions.order')
+                ->get();
+        });
+        
+        return response()->json($questions);
     }
 
     public function updateCatalogItemQuestions(Request $request, $catalogItemId)
@@ -81,6 +121,9 @@ class QuestionController extends Controller
 
         $catalogItem = \App\Models\CatalogItem::findOrFail($catalogItemId);
         $catalogItem->questions()->sync($data['question_ids'] ?? []);
+
+        // Clear specific catalog item questions cache
+        cache()->forget("catalog_item.{$catalogItemId}.questions");
 
         return response()->json(['message' => 'Questions updated successfully']);
     }
