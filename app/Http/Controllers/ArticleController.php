@@ -13,15 +13,43 @@ class ArticleController extends Controller
      */
     public function index(Request $request)
     {
-        $perPage = $request->query('per_page', 20); // Default to 10 items per page
+        $perPage = $request->query('per_page', 20);
         $search = $request->query('search', '');
+        $vatFilter = $request->query('vat_filter', '');
+        $unitFilter = $request->query('unit_filter', '');
 
-        // Query the articles with optional search filtering
+        // Query the articles with optional filtering
         $articlesQuery = Article::query();
 
+        // Search filter
         if ($search) {
-            $articlesQuery->where('name', 'like', "%{$search}%")
-                ->orWhere('code', 'like', "%{$search}%");
+            $articlesQuery->where(function($query) use ($search) {
+                $query->where('name', 'like', "%{$search}%")
+                      ->orWhere('code', 'like', "%{$search}%");
+            });
+        }
+
+        // VAT filter
+        if ($vatFilter) {
+            $articlesQuery->where('tax_type', $vatFilter);
+        }
+
+        // Unit filter
+        if ($unitFilter) {
+            switch ($unitFilter) {
+                case 'meters':
+                    $articlesQuery->where('in_meters', 1);
+                    break;
+                case 'kilograms':
+                    $articlesQuery->where('in_kilograms', 1);
+                    break;
+                case 'pieces':
+                    $articlesQuery->where('in_pieces', 1);
+                    break;
+                case 'square_meters':
+                    $articlesQuery->where('in_square_meters', 1);
+                    break;
+            }
         }
 
         $articles = $articlesQuery->paginate($perPage);

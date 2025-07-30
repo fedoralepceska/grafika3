@@ -330,7 +330,7 @@ export default {
                         break;
                     }
                     case "kilogram": {
-                        this.form.in_kilogram = true;
+                        this.form.in_kilograms = true;
                         break;
                     }
                     default: {

@@ -87,15 +87,12 @@
                                     </div>
                                     <div class="form-group gap-4">
                                         <label for="unit" class="mr-12">{{ $t('Unit') }}:</label>
-                                        <label>
-                                            <input type="checkbox" v-model="articleUnits.in_kilograms" @change="selectUnit('in_kilograms')" class="rounded"> {{ $t('Kg') }}
-                                        </label>
-                                        <label>
-                                            <input type="checkbox" v-model="articleUnits.in_meters" @change="selectUnit('in_meters')" class="rounded"> {{ $t('M') }}
-                                        </label>
-                                        <label>
-                                            <input type="checkbox" v-model="articleUnits.in_pieces" @change="selectUnit('in_pieces')" class="rounded"> {{ $t('Pcs') }}
-                                        </label>
+                                        <select v-model="selectedUnit" class="text-gray-700 rounded" >
+                                            <option value="kilogram">{{ $t('Kg') }}</option>
+                                            <option value="pieces">{{ $t('Pcs') }}</option>
+                                            <option value="meters">{{ $t('M') }}</option>
+                                            <option value="square_meters">{{ $t('square_meters') }}</option>
+                                        </select>
                                     </div>
                                     <!-- Category selection -->
                                     <div class="form-group gap-4">
@@ -233,12 +230,7 @@ export default {
             jobs: [],
             showEditForm: false,
             selectedArticleId: null,
-            articleUnits: {
-                in_kilograms: false,
-                in_meters: false,
-                in_pieces: false,
-                in_square_meters: false,
-            },
+            selectedUnit: 'meters',
             allCategories: [],
             availableCategories: [],
             selectedCategories: [],
@@ -285,12 +277,20 @@ export default {
     },
 
     methods: {
-        initializeCheckboxValues() {
-            if (this.article){
-            this.articleUnits.in_kilograms = this.article.in_kilograms===1;
-            this.articleUnits.in_meters = this.article.in_meters===1;
-            this.articleUnits.in_pieces = this.article.in_pieces===1;
-            this.articleUnits.in_square_meters = this.article.in_square_meters===1;
+        initializeUnitValue() {
+            if (this.article) {
+                // Use loose equality to handle both string and integer values from API
+                if (this.article.in_kilograms == 1) {
+                    this.selectedUnit = 'kilogram';
+                } else if (this.article.in_meters == 1) {
+                    this.selectedUnit = 'meters';
+                } else if (this.article.in_pieces == 1) {
+                    this.selectedUnit = 'pieces';
+                } else if (this.article.in_square_meters == 1) {
+                    this.selectedUnit = 'square_meters';
+                } else {
+                    this.selectedUnit = 'meters'; // default
+                }
             }
         },
         openDialog() {
@@ -302,19 +302,11 @@ export default {
         openEditForm(article) {
             this.selectedArticleId = article.id;
             this.showEditForm = true;
-            this.initializeCheckboxValues();
+            this.initializeUnitValue();
             this.fetchCategories();
             this.loadArticleCategories(article.id);
         },
-        selectUnit(selectedUnit) {
-            // Reset all units to false
-            this.articleUnits.in_kilograms = false;
-            this.articleUnits.in_meters = false;
-            this.articleUnits.in_pieces = false;
 
-            // Set the selected unit to true
-            this.articleUnits[selectedUnit] = true;
-        },
         async fetchCategories() {
             try {
                 const response = await axios.get('/api/article-categories');
@@ -371,9 +363,27 @@ export default {
         async updateArticle() {
             const toast = useToast();
             try {
-                this.article.in_kilograms = this.articleUnits.in_kilograms ? 1 : null;
-                this.article.in_meters = this.articleUnits.in_meters ? 1 : null;
-                this.article.in_pieces = this.articleUnits.in_pieces ? 1 : null;
+                // Reset all unit fields first
+                this.article.in_kilograms = null;
+                this.article.in_meters = null;
+                this.article.in_pieces = null;
+                this.article.in_square_meters = null;
+
+                // Set the selected unit
+                switch (this.selectedUnit) {
+                    case "meters":
+                        this.article.in_meters = 1;
+                        break;
+                    case "square_meters":
+                        this.article.in_square_meters = 1;
+                        break;
+                    case "pieces":
+                        this.article.in_pieces = 1;
+                        break;
+                    case "kilogram":
+                        this.article.in_kilograms = 1;
+                        break;
+                }
 
                 // Add categories to the update payload
                 this.article.categories = this.selectedCategories;

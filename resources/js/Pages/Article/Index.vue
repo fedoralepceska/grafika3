@@ -8,15 +8,52 @@
                         <h2 class="sub-title">
                             {{ $t('allArticles') }}
                         </h2>
-                        <div class="search-container p-3 flex">
-                            <input type="text" class="text-black rounded" style="width: 320px" v-model="search" @keyup="fetchArticles" placeholder="Search by Article Code or Name">
-                            <div class="centered mr-1 ml-4 ">{{ $t('articlesPerPage') }}</div>
-                            <div class="ml-3">
-                                <select v-model="perPage" class="rounded text-black" @change="fetchArticles">
-                                    <option value="20">{{ $t('twentyPerPage') }}</option>
-                                    <option value="40">{{ $t('fortyPerPage') }}</option>
-                                    <option value="60">{{ $t('sixtyPerPage') }}</option>
-                                </select>
+                        <div class="controls-section">
+                            <div class="controls-grid">
+                                <div class="control-item">
+                                    <label class="control-label">Search Articles</label>
+                                    <input 
+                                        type="text" 
+                                        class="control-input" 
+                                        v-model="search" 
+                                        @keyup="fetchArticles(1)" 
+                                        placeholder="Search by Article Code or Name">
+                                </div>
+                                <div class="control-item">
+                                    <label class="control-label">{{ $t('articlesPerPage') }}</label>
+                                    <select v-model="perPage" class="control-select" @change="fetchArticles(1)">
+                                        <option value="20">{{ $t('twentyPerPage') }}</option>
+                                        <option value="40">{{ $t('fortyPerPage') }}</option>
+                                        <option value="60">{{ $t('sixtyPerPage') }}</option>
+                                    </select>
+                                </div>
+                                <div class="control-item">
+                                    <label class="control-label">{{ $t('VAT') }}</label>
+                                    <select v-model="vatFilter" class="control-select" @change="fetchArticles(1)">
+                                        <option value="">All VAT Types</option>
+                                        <option value="1">DDV A (18%)</option>
+                                        <option value="2">DDV B (5%)</option>
+                                        <option value="3">DDV C (10%)</option>
+                                    </select>
+                                </div>
+                                <div class="control-item">
+                                    <label class="control-label">{{ $t('Unit') }}</label>
+                                    <select v-model="unitFilter" class="control-select" @change="fetchArticles(1)">
+                                        <option value="">All Units</option>
+                                        <option value="meters">Meters (m)</option>
+                                        <option value="kilograms">Kilograms (kg)</option>
+                                        <option value="pieces">Pieces (pcs)</option>
+                                        <option value="square_meters">Square Meters (m²)</option>
+                                    </select>
+                                </div>
+                                <div class="control-item clear-btn-container">
+                                    <button @click="clearFilters" class="clear-filters-btn">
+                                        <svg class="clear-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                                        </svg>
+                                        Clear All
+                                    </button>
+                                </div>
                             </div>
                         </div>
                         <table class="excel-table">
@@ -54,8 +91,22 @@
                             </tbody>
                         </table>
                         <div class="button-container mt-2 gap-2">
-                            <SecondaryButton class="delete" type="submit" @click="deleteArticle">{{ $t('Delete') }}</SecondaryButton>
-                            <ArticleEdit :article="selectedArticles[0]"/>
+                            <div class="button-with-tooltip">
+                                <SecondaryButton class="delete" disabled type="submit" @click="handleDelete">{{ $t('Delete') }}</SecondaryButton>
+                                
+                            </div>
+                            <div class="button-with-tooltip">
+                                <SecondaryButton 
+                                    v-if="selectedArticles.length === 0"
+                                    class="px-3 blue disabled-edit" 
+                                    disabled>
+                                    {{ $t('Edit') }}
+                                </SecondaryButton>
+                                <ArticleEdit v-else :article="selectedArticles[0]"/>
+                                <div v-if="selectedArticles.length === 0" class="tooltip">
+                                    Please select an article to edit
+                                </div>
+                            </div>
                             <PrimaryButton @click="navigateToArticles">{{ $t('addArticle') }}</PrimaryButton>
                         </div>
                         <Pagination :pagination="articles" @pagination-change-page="fetchArticles"/>
@@ -74,6 +125,7 @@ import Pagination from "@/Components/Pagination.vue";
 import axios from "axios";
 import Header from "@/Components/Header.vue";
 import ArticleEdit from "@/Pages/Article/ArticleEdit.vue";
+import { useToast } from "vue-toastification";
 
 export default {
     components: {
@@ -90,6 +142,8 @@ export default {
             perPage: 20,
             articles: {},
             selectedArticles: [],
+            vatFilter: '',
+            unitFilter: '',
         };
     },
     methods: {
@@ -97,21 +151,33 @@ export default {
             const params = {
                 page,
                 per_page: this.perPage,
-                search: this.search
+                search: this.search,
+                vat_filter: this.vatFilter,
+                unit_filter: this.unitFilter
             };
             const response = await axios.get('/articles', { params });
             this.articles = response.data;
         },
+        clearFilters() {
+            this.vatFilter = '';
+            this.unitFilter = '';
+            this.search = '';
+            this.fetchArticles(1);
+        },
         getUnit(article) {
             if (article !== null) {
-                if (article?.in_meters === 1) {
-                    return 'Meters'
+                // Check for both integer and string values to handle API data type variations
+                if (article?.in_meters == 1) {
+                    return 'm'
                 }
-                else if (article?.in_kilograms === 1) {
-                    return 'Kilograms'
+                else if (article?.in_kilograms == 1) {
+                    return 'kg'
                 }
-                else if (article?.in_pieces === 1) {
-                    return 'Pieces'
+                else if (article?.in_pieces == 1) {
+                    return 'pcs'
+                }
+                else if (article?.in_square_meters == 1) {
+                    return 'm²'
                 }
             }
             else {
@@ -120,13 +186,13 @@ export default {
         },
         getVAT(article) {
             if (article !== null) {
-                if (article?.tax_type === 1) {
+                if (article?.tax_type === "1") {
                     return 'DDV A (18%)'
                 }
-                else if (article?.tax_type === 2) {
+                else if (article?.tax_type === "2") {
                     return 'DDV B (5%)'
                 }
-                else if (article?.tax_type === 3) {
+                else if (article?.tax_type === "3") {
                     return 'DDV C (10%)'
                 }
             }
@@ -144,6 +210,19 @@ export default {
         },
         navigateToArticles(){
             this.$inertia.visit(`/articles/create`);
+        },
+        handleDelete() {
+            if (this.selectedArticles.length === 0) {
+                return; // Tooltip will show the message
+            }
+            
+            if (this.selectedArticles.length === 1) {
+                this.deleteArticle(this.selectedArticles[0]);
+            } else {
+                // Handle multiple article deletion if needed
+                const toast = useToast();
+                toast.info(`Selected ${this.selectedArticles.length} articles. Multiple deletion not implemented yet.`);
+            }
         },
     },
 
@@ -265,5 +344,169 @@ export default {
     display: flex;
     flex-direction: row;
     align-items: center;
+}
+
+/* Compact Professional Controls Section */
+.controls-section {
+    padding: 5px;
+    margin-bottom: 10px;
+}
+
+.controls-grid {
+    display: grid;
+    grid-template-columns: 2fr 1fr 1fr 1fr auto;
+    gap: 20px;
+    align-items: end;
+}
+
+.control-item {
+    display: flex;
+    flex-direction: column;
+}
+
+.clear-btn-container {
+    align-self: end;
+}
+
+.control-label {
+    display: block;
+    color: #ffffff;
+    font-size: 14px;
+    font-weight: 500;
+    margin-bottom: 8px;
+    opacity: 0.9;
+}
+
+.control-input, 
+.control-select {
+    border: 2px solid rgba(255, 255, 255, 0.2);
+    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.95);
+    color: #333;
+    font-size: 14px;
+    transition: all 0.2s ease;
+}
+
+.control-select {
+    cursor: pointer;
+}
+
+.control-input:focus, 
+.control-select:focus {
+    outline: none;
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.control-select:hover {
+    border-color: rgba(255, 255, 255, 0.3);
+}
+
+.clear-filters-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 12px 16px;
+    background: $red;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+}
+
+.clear-filters-btn:hover {
+    background: darkred;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(239, 68, 68, 0.2);
+}
+
+/* Disabled Edit Button */
+.disabled-edit {
+    opacity: 0.6;
+}
+
+.disabled-edit:hover {
+    background-color: $blue !important;
+    transform: none !important;
+}
+
+/* Tooltip System */
+.button-with-tooltip {
+    position: relative;
+    display: inline-block;
+}
+
+.tooltip {
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    margin-bottom: 8px;
+    padding: 8px 12px;
+    background: rgba(0, 0, 0, 0.9);
+    color: white;
+    font-size: 13px;
+    border-radius: 6px;
+    white-space: nowrap;
+    opacity: 0;
+    visibility: hidden;
+    transition: all 0.3s ease;
+    z-index: 1000;
+    pointer-events: none;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+.tooltip::after {
+    content: '';
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    border: 5px solid transparent;
+    border-top-color: rgba(0, 0, 0, 0.9);
+}
+
+.button-with-tooltip:hover .tooltip {
+    opacity: 1;
+    visibility: visible;
+    transform: translateX(-50%) translateY(-2px);
+}
+
+.clear-icon {
+    width: 14px;
+    height: 14px;
+}
+
+/* Responsive Design */
+@media (max-width: 1200px) {
+    .controls-grid {
+        grid-template-columns: 1fr 1fr 1fr;
+        gap: 16px;
+    }
+    
+    .clear-btn-container {
+        grid-column: span 3;
+        justify-self: end;
+    }
+}
+
+@media (max-width: 768px) {
+    .controls-grid {
+        grid-template-columns: 1fr;
+        gap: 16px;
+    }
+    
+    .clear-btn-container {
+        grid-column: span 1;
+        justify-self: stretch;
+    }
+    
+    .clear-filters-btn {
+        justify-content: center;
+    }
 }
 </style>
