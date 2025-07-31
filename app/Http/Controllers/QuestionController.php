@@ -100,11 +100,17 @@ class QuestionController extends Controller
 
     public function getByCatalogItem($catalogItemId)
     {
-        // Use optimized query with caching
+        // Use optimized query with caching - avoid loading CatalogItem model to prevent expensive appends
         $questions = cache()->remember("catalog_item.{$catalogItemId}.questions", 300, function () use ($catalogItemId) {
-            return \App\Models\CatalogItem::findOrFail($catalogItemId)
-                ->questions()
-                ->select('questions.id', 'questions.question', 'questions.order')
+            // First verify the catalog item exists without loading it
+            if (!\App\Models\CatalogItem::where('id', $catalogItemId)->exists()) {
+                throw new \Illuminate\Database\Eloquent\ModelNotFoundException();
+            }
+            
+            // Query questions directly through the pivot table to avoid loading CatalogItem model
+            return \App\Models\Question::select('questions.id', 'questions.question', 'questions.order')
+                ->join('catalog_item_questions', 'questions.id', '=', 'catalog_item_questions.question_id')
+                ->where('catalog_item_questions.catalog_item_id', $catalogItemId)
                 ->orderBy('questions.order')
                 ->get();
         });
