@@ -311,12 +311,18 @@ class CatalogItemController extends Controller
             ]);
         }
 
+        // Get all active questions for the inline selector
+        $availableQuestions = \App\Models\Question::active()
+            ->select('id', 'question', 'order')
+            ->get();
+
         return Inertia::render('CatalogItem/Create', [
             'actions' => $actions,
             'largeMaterials' => $largeMaterials->values(),
             'smallMaterials' => $smallMaterials->values(),
             'machinesPrint' => $machinesPrint,
             'machinesCut' => $machinesCut,
+            'availableQuestions' => $availableQuestions,
         ]);
     }
 
@@ -678,6 +684,11 @@ class CatalogItemController extends Controller
         // Get subcategories
         $subcategories = \App\Models\Subcategory::all();
 
+        // Get all active questions for the inline selector
+        $availableQuestions = \App\Models\Question::active()
+            ->select('id', 'question', 'order')
+            ->get();
+
         // Transform material IDs back to category selections if they were originally categories
         if ($catalogItem->large_material_category_id) {
             $catalogItem->large_material_id = 'cat_' . $catalogItem->large_material_category_id;
@@ -695,6 +706,7 @@ class CatalogItemController extends Controller
             'machinesPrint' => $machinesPrint,
             'machinesCut' => $machinesCut,
             'subcategories' => $subcategories,
+            'availableQuestions' => $availableQuestions,
         ]);
     }
 

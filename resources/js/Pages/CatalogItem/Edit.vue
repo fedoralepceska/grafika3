@@ -282,15 +282,26 @@
                             </div>
 
                             <!-- Questions Selection -->
-                            <Transition name="slide-fade">
-                                <QuestionsSelector
-                                    v-if="shouldShowQuestionsSelector"
-                                    :key="`questions-${editForm.id}-${editForm.should_ask_questions}`"
-                                    v-model="selectedQuestions"
-                                    :should-ask-questions="editForm.should_ask_questions"
-                                    :catalog-item-id="editForm.id"
-                                />
-                            </Transition>
+                            <div v-if="editForm.should_ask_questions" class="p-4 border-dashed border-2 border-gray-500 dark-gray">
+                                <h4 class="text-white text-md font-medium mb-4">Select Questions for This Item</h4>
+                                <div v-if="availableQuestions.length === 0" class="text-gray-400">
+                                    No questions available
+                                </div>
+                                <div v-else class="space-y-2">
+                                    <div v-for="question in availableQuestions" :key="question.id" class="flex items-center">
+                                        <input
+                                            type="checkbox"
+                                            :id="`question-${question.id}`"
+                                            :value="question.id"
+                                            v-model="selectedQuestions"
+                                            class="mr-3 h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded"
+                                        />
+                                        <label :for="`question-${question.id}`" class="text-white text-sm cursor-pointer">
+                                            {{ question.question }}
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
 
@@ -471,14 +482,13 @@ import MainLayout from "@/Layouts/MainLayout.vue";
 import Header from "@/Components/Header.vue";
 import { useToast } from "vue-toastification";
 import CatalogArticleSelect from "@/Components/CatalogArticleSelect.vue";
-import QuestionsSelector from "@/Components/QuestionsSelector.vue";
+
 
 export default {
     components: {
         MainLayout,
         Header,
-        CatalogArticleSelect,
-        QuestionsSelector
+        CatalogArticleSelect
     },
     props: {
         catalogItem: Object,
@@ -488,6 +498,7 @@ export default {
         machinesPrint: Array,
         machinesCut: Array,
         subcategories: Array,
+        availableQuestions: Array,
     },
     data() {
         return {
@@ -499,7 +510,6 @@ export default {
             productArticles: [],
             serviceArticles: [],
             selectedQuestions: [],
-            questionsDataReady: false,
             editForm: {
                 id: this.catalogItem.id,
                 name: this.catalogItem.name,
@@ -540,26 +550,13 @@ export default {
         displayTotalCost() {
             return this.displayProductsCost + this.displayServicesCost;
         },
-        shouldShowQuestionsSelector() {
-            // Only show the selector when questions are enabled and data is ready
-            return this.editForm.should_ask_questions && this.questionsDataReady;
-        },
+
     },
     watch: {
         'editForm.should_ask_questions'(newValue) {
-            if (newValue) {
-                // Simple approach: just enable the questions selector
-                // Let the child component handle loading its own data
-                this.questionsDataReady = true;
-                
-                // Only initialize if we have existing questions from props
-                if (this.catalogItem.questions && this.catalogItem.questions.length > 0 && this.selectedQuestions.length === 0) {
-                    this.selectedQuestions = this.catalogItem.questions.map(q => q.id);
-                }
-            } else {
+            if (!newValue) {
                 // Clear questions when checkbox is unchecked
                 this.selectedQuestions = [];
-                this.questionsDataReady = false;
             }
         }
     },
@@ -578,9 +575,6 @@ export default {
         if (this.catalogItem.questions && this.catalogItem.questions.length > 0) {
             this.selectedQuestions = this.catalogItem.questions.map(q => q.id);
         }
-        
-        // Mark questions data as ready
-        this.questionsDataReady = true;
 
         // Initialize product and service articles from existing articles
         if (this.catalogItem.articles && Array.isArray(this.catalogItem.articles)) {

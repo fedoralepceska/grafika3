@@ -204,10 +204,26 @@
                                 </div>
                                 
                                 <!-- Questions Selection -->
-                                <QuestionsSelector
-                                    v-model="selectedQuestions"
-                                    :should-ask-questions="form.should_ask_questions"
-                                />
+                                <div v-if="form.should_ask_questions" class="p-4 border-dashed border-2 border-gray-500 dark-gray">
+                                    <h4 class="text-white text-md font-medium mb-4">Select Questions for This Item</h4>
+                                    <div v-if="availableQuestions.length === 0" class="text-gray-400">
+                                        No questions available
+                                    </div>
+                                    <div v-else class="space-y-2">
+                                        <div v-for="question in availableQuestions" :key="question.id" class="flex items-center">
+                                            <input
+                                                type="checkbox"
+                                                :id="`question-${question.id}`"
+                                                :value="question.id"
+                                                v-model="selectedQuestions"
+                                                class="mr-3 h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded"
+                                            />
+                                            <label :for="`question-${question.id}`" class="text-white text-sm cursor-pointer">
+                                                {{ question.question }}
+                                            </label>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
 
@@ -487,7 +503,7 @@ import { Link } from '@inertiajs/vue3';
 import { useToast } from 'vue-toastification';
 import Checkbox from '@/Components/inputs/Checkbox.vue';
 import CatalogArticleSelect from '@/Components/CatalogArticleSelect.vue';
-import QuestionsSelector from '@/Components/QuestionsSelector.vue';
+
 import CreateSubcategoryDialog from '@/Components/CreateSubcategoryDialog.vue';
 import ViewSubcategoriesDialog from '@/Components/ViewSubcategoriesDialog.vue';
 import useRoleCheck from '@/Composables/useRoleCheck';
@@ -500,7 +516,7 @@ export default {
         Link,
         Checkbox,
         CatalogArticleSelect,
-        QuestionsSelector,
+
         CreateSubcategoryDialog,
         ViewSubcategoriesDialog
     },
@@ -521,6 +537,7 @@ export default {
         smallMaterials: Array,
         machinesPrint: Array,
         machinesCut: Array,
+        availableQuestions: Array,
     },
 
     data() {
@@ -598,6 +615,12 @@ export default {
             deep: true,
             handler() {
                 this.calculateCostPrice();
+            }
+        },
+        'form.should_ask_questions'(newValue) {
+            if (!newValue) {
+                // Clear questions when checkbox is unchecked
+                this.selectedQuestions = [];
             }
         }
     },
@@ -927,6 +950,11 @@ export default {
     align-items: center;
     min-height: 20vh;
     min-width: 80vh;
+}
+
+// Additional styles for inline questions selector
+.dark-gray {
+    background-color: #1f2937;
 }
 .light-gray{
     background-color: $light-gray;
