@@ -8,24 +8,63 @@
                         <h2 class="sub-title">
                             {{ $t('listOfLargeMaterials') }}
                         </h2>
-                        <div class=" flex justify-between gap-4 pb-10">
-                            <div class=" flex gap-4">
-                                <div class="search flex gap-2">
-                                    <input v-model="searchQuery" placeholder="Enter material name" class="text-black" style="width: 50vh; border-radius: 3px" @keyup.enter="searchMaterials" />
-                                    <button class="btn create-order1" @click="searchMaterials">{{ $t('search') }}</button>
+                        <div class="controls-section">
+                            <div class="controls-grid">
+                                <div class="control-item">
+                                    <label class="control-label">Search Materials</label>
+                                    <input 
+                                        type="text" 
+                                        class="control-input" 
+                                        v-model="searchQuery" 
+                                        @keyup="fetchLargeMaterials(1)" 
+                                        placeholder="Search by Material Name">
                                 </div>
-                                <div class="flex gap-2">
-                                    <div class="status">
-                                        <label class="pr-3">{{ $t('perPage') }}</label>
-                                        <select v-model="filterStatus" class="text-black rounded" @change="fetchLargeMaterials" style="width: 80px" >
-                                            <option value="20">20</option>
-                                            <option value="40">40</option>
-                                            <option value="100">100</option>
-                                        </select>
+                                <div class="control-item">
+                                    <label class="control-label">{{ $t('perPage') }}</label>
+                                    <select v-model="filterStatus" class="control-select" @change="fetchLargeMaterials(1)">
+                                        <option value="20">20</option>
+                                        <option value="40">40</option>
+                                        <option value="100">100</option>
+                                    </select>
+                                </div>
+                                <div class="control-item">
+                                    <label class="control-label">{{ $t('Unit') }}</label>
+                                    <select v-model="unitFilter" class="control-select" @change="fetchLargeMaterials(1)">
+                                        <option value="">All Units</option>
+                                        <option value="meters">Meters (m)</option>
+                                        <option value="kilograms">Kilograms (kg)</option>
+                                        <option value="pieces">Pieces (pcs)</option>
+                                        <option value="square_meters">Square Meters (m²)</option>
+                                    </select>
+                                </div>
+                                <div class="control-item">
+                                    <label class="control-label">Quantity Range</label>
+                                    <div class="quantity-range">
+                                        <input 
+                                            type="number" 
+                                            class="control-input quantity-input" 
+                                            v-model="quantityMin" 
+                                            @input="fetchLargeMaterials(1)"
+                                            placeholder="Min">
+                                        <span class="range-separator">-</span>
+                                        <input 
+                                            type="number" 
+                                            class="control-input quantity-input" 
+                                            v-model="quantityMax" 
+                                            @input="fetchLargeMaterials(1)"
+                                            placeholder="Max">
                                     </div>
                                 </div>
+                                <div class="control-item clear-btn-container">
+                                    <button @click="clearFilters" class="clear-filters-btn">
+                                        <svg class="clear-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                                        </svg>
+                                        Clear All
+                                    </button>
+                                </div>
                             </div>
-                            <div class="button flex gap-3">
+                            <div class="print-buttons">
                                 <button @click="printMaterials" class="btn create-order">
                                     {{ $t('printMaterials') }} <i class="fa-solid fa-print"></i>
                                 </button>
@@ -83,6 +122,9 @@ export default {
             largeMaterials: {},
             searchQuery: '',
             filterStatus: 20,
+            unitFilter: '',
+            quantityMin: '',
+            quantityMax: '',
         };
     },
     mounted() {
@@ -115,6 +157,9 @@ export default {
                 page,
                 per_page: this.filterStatus,
                 search_query: this.searchQuery,
+                unit_filter: this.unitFilter,
+                quantity_min: this.quantityMin,
+                quantity_max: this.quantityMax,
             };
             try {
                 const response = await axios.get('/materials/large', { params });
@@ -125,6 +170,13 @@ export default {
         },
         searchMaterials() {
             this.fetchLargeMaterials();
+        },
+        clearFilters() {
+            this.unitFilter = '';
+            this.quantityMin = '';
+            this.quantityMax = '';
+            this.searchQuery = '';
+            this.fetchLargeMaterials(1);
         },
         async printMaterials() {
             const params = {
@@ -315,5 +367,146 @@ select {
     display: flex;
     flex-direction: row;
     align-items: center;
+}
+
+/* Enhanced Controls Section */
+.controls-section {
+    padding: 5px;
+    margin-bottom: 10px;
+}
+
+.controls-grid {
+    display: grid;
+    grid-template-columns: 2fr 1fr 1fr 2fr auto;
+    gap: 20px;
+    align-items: end;
+    margin-bottom: 15px;
+}
+
+.control-item {
+    display: flex;
+    flex-direction: column;
+}
+
+.clear-btn-container {
+    align-self: end;
+}
+
+.control-label {
+    display: block;
+    color: #ffffff;
+    font-size: 14px;
+    font-weight: 500;
+    margin-bottom: 8px;
+    opacity: 0.9;
+}
+
+.control-input, 
+.control-select {
+    border: 2px solid rgba(255, 255, 255, 0.2);
+    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.95);
+    color: #333;
+    font-size: 14px;
+    transition: all 0.2s ease;
+    padding: 8px 12px;
+}
+
+.control-select {
+    cursor: pointer;
+}
+
+.control-input:focus, 
+.control-select:focus {
+    outline: none;
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.control-select:hover {
+    border-color: rgba(255, 255, 255, 0.3);
+}
+
+.quantity-range {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.quantity-input {
+    flex: 1;
+    min-width: 80px;
+}
+
+.range-separator {
+    color: #ffffff;
+    font-weight: bold;
+    opacity: 0.7;
+}
+
+.clear-filters-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 12px 16px;
+    background: $red;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+}
+
+.clear-filters-btn:hover {
+    background: darkred;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(239, 68, 68, 0.2);
+}
+
+.clear-icon {
+    width: 14px;
+    height: 14px;
+}
+
+.print-buttons {
+    display: flex;
+    gap: 12px;
+    justify-content: flex-end;
+}
+
+/* Responsive Design */
+@media (max-width: 1200px) {
+    .controls-grid {
+        grid-template-columns: 1fr 1fr 1fr;
+        gap: 16px;
+    }
+    
+    .clear-btn-container {
+        grid-column: span 3;
+        justify-self: end;
+    }
+}
+
+@media (max-width: 768px) {
+    .controls-grid {
+        grid-template-columns: 1fr;
+        gap: 16px;
+    }
+    
+    .clear-btn-container {
+        grid-column: span 1;
+        justify-self: stretch;
+    }
+    
+    .clear-filters-btn {
+        justify-content: center;
+    }
+    
+    .print-buttons {
+        justify-content: center;
+    }
 }
 </style>

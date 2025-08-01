@@ -22,11 +22,38 @@ class SmallMaterialController extends Controller
     {
         $perPage = $request->query('per_page', 20);
         $searchQuery = $request->query('search_query', '');
+        $unitFilter = $request->query('unit_filter', '');
+        $quantityMin = $request->query('quantity_min', '');
+        $quantityMax = $request->query('quantity_max', '');
 
         $smallMaterialsQuery = SmallMaterial::query()
             ->with(['article'])
             ->when($searchQuery, function ($query, $searchQuery) {
                 $query->where('name', 'like', "%{$searchQuery}%");
+            })
+            ->when($unitFilter, function ($query, $unitFilter) {
+                $query->whereHas('article', function ($q) use ($unitFilter) {
+                    switch ($unitFilter) {
+                        case 'meters':
+                            $q->where('in_meters', 1);
+                            break;
+                        case 'kilograms':
+                            $q->where('in_kilograms', 1);
+                            break;
+                        case 'pieces':
+                            $q->where('in_pieces', 1);
+                            break;
+                        case 'square_meters':
+                            $q->where('in_square_meters', 1);
+                            break;
+                    }
+                });
+            })
+            ->when($quantityMin, function ($query, $quantityMin) {
+                $query->where('quantity', '>=', $quantityMin);
+            })
+            ->when($quantityMax, function ($query, $quantityMax) {
+                $query->where('quantity', '<=', $quantityMax);
             });
 
         $smallMaterials = $smallMaterialsQuery->paginate($perPage);
