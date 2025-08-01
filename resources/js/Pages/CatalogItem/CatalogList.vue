@@ -30,6 +30,7 @@
                             class="rounded p-2 bg-gray-700 text-white w-full"
                             style="width: 420px;"
                             @input="debouncedSearch"
+                            @keyup.enter="performSearch"
                             />
                     </div>
                     <div class="w-48">
@@ -534,6 +535,7 @@ import MainLayout from "@/Layouts/MainLayout.vue";
 import Header from "@/Components/Header.vue";
 import { Link } from "@inertiajs/vue3";
 import { useToast } from "vue-toastification";
+import debounce from "lodash.debounce";
 
 export default {
     components: {
@@ -612,6 +614,10 @@ export default {
                     only: ['catalogItems', 'pagination']
                 }
             );
+        },
+
+        performSearch() {
+            this.fetchCatalogItems(1);
         },
 
         openActionsDialog(item) {
@@ -1324,6 +1330,7 @@ export default {
             this.fetchCatalogItems(1);
         },
         clearFilters() {
+            this.searchQuery = '';
             this.filters = {
                 category: '',
                 subcategory_id: ''
