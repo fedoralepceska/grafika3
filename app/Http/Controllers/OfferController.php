@@ -121,7 +121,7 @@ class OfferController extends Controller
     public function create()
     {
         $clients = Client::select('id', 'name')->with('contacts')->get();
-        $catalogItems = CatalogItem::with(['largeMaterial', 'smallMaterial'])
+        $catalogItems = CatalogItem::with(['largeMaterial', 'smallMaterial', 'largeMaterialCategory', 'smallMaterialCategory'])
             ->where('is_for_offer', true)
             ->get()
             ->map(function ($item) {
@@ -138,6 +138,14 @@ class OfferController extends Controller
                     'small_material' => $item->smallMaterial ? [
                         'id' => $item->smallMaterial->id,
                         'name' => $item->smallMaterial->name
+                    ] : null,
+                    'large_material_category' => $item->largeMaterialCategory ? [
+                        'id' => $item->largeMaterialCategory->id,
+                        'name' => $item->largeMaterialCategory->name
+                    ] : null,
+                    'small_material_category' => $item->smallMaterialCategory ? [
+                        'id' => $item->smallMaterialCategory->id,
+                        'name' => $item->smallMaterialCategory->name
                     ] : null,
                 ];
             });
@@ -338,9 +346,9 @@ class OfferController extends Controller
 
     public function edit(Offer $offer)
     {
-        $offer->load(['client', 'contact', 'catalogItems.largeMaterial', 'catalogItems.smallMaterial']);
+        $offer->load(['client', 'contact', 'catalogItems.largeMaterial', 'catalogItems.smallMaterial', 'catalogItems.largeMaterialCategory', 'catalogItems.smallMaterialCategory']);
         $clients = Client::select('id', 'name')->with('contacts')->get();
-        $catalogItems = CatalogItem::with(['largeMaterial', 'smallMaterial'])
+        $catalogItems = CatalogItem::with(['largeMaterial', 'smallMaterial', 'largeMaterialCategory', 'smallMaterialCategory'])
             ->where('is_for_offer', true)
             ->get()
             ->map(function ($item) {
@@ -357,6 +365,14 @@ class OfferController extends Controller
                     'small_material' => $item->smallMaterial ? [
                         'id' => $item->smallMaterial->id,
                         'name' => $item->smallMaterial->name
+                    ] : null,
+                    'large_material_category' => $item->largeMaterialCategory ? [
+                        'id' => $item->largeMaterialCategory->id,
+                        'name' => $item->largeMaterialCategory->name
+                    ] : null,
+                    'small_material_category' => $item->smallMaterialCategory ? [
+                        'id' => $item->smallMaterialCategory->id,
+                        'name' => $item->smallMaterialCategory->name
                     ] : null,
                 ];
             });

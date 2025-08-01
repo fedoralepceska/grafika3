@@ -26,7 +26,7 @@ class CatalogItemController extends Controller
 
     public function fetchAllForOffer()
     {
-        $catalogItems = CatalogItem::with(['largeMaterial', 'smallMaterial'])
+        $catalogItems = CatalogItem::with(['largeMaterial', 'smallMaterial', 'largeMaterialCategory', 'smallMaterialCategory'])
             ->where('is_for_offer', true)
             ->get()
             ->map(function ($item) {
@@ -44,6 +44,14 @@ class CatalogItemController extends Controller
                     'small_material' => $item->smallMaterial ? [
                         'id' => $item->smallMaterial->id,
                         'name' => $item->smallMaterial->name
+                    ] : null,
+                    'large_material_category' => $item->largeMaterialCategory ? [
+                        'id' => $item->largeMaterialCategory->id,
+                        'name' => $item->largeMaterialCategory->name
+                    ] : null,
+                    'small_material_category' => $item->smallMaterialCategory ? [
+                        'id' => $item->smallMaterialCategory->id,
+                        'name' => $item->smallMaterialCategory->name
                     ] : null,
                 ];
             });

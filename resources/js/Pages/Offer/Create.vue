@@ -301,7 +301,7 @@
                                                 <div class="catalog-item-details">
                                                     <div class="catalog-item-name">{{ item.name }}</div>
                                                     <div class="catalog-item-material">
-                                                        Material: {{ item.large_material?.name || 'N/A' }}
+                                                        Material: {{ item.large_material?.name || item.large_material_category?.name || 'N/A' }}
                                                     </div>
                                                 </div>
                                                 <div class="catalog-item-price">
@@ -340,7 +340,7 @@
                                                 <div class="p-2">
                                                     <h3 class="font-medium text-gray-900 text-sm mb-1 truncate">{{ item.name }}</h3>
                                                     <p class="text-xs text-gray-500 mb-1 truncate">
-                                                        Material: {{ item.large_material?.name || 'N/A' }}
+                                                        Material: {{ item.large_material?.name || item.large_material_category?.name || 'N/A' }}
                                                     </p>
                                                     <div class="text-xs font-medium text-gray-900">
                                                         {{ item.price ? `${item.price} ден` : 'Price not set' }}
@@ -375,7 +375,7 @@
                                                 <div class="catalog-item-details">
                                                     <div class="catalog-item-name">{{ item.name }}</div>
                                                     <div class="catalog-item-material">
-                                                        Material: {{ item.small_material?.name || 'N/A' }}
+                                                        Material: {{ item.small_material?.name || item.small_material_category?.name || 'N/A' }}
                                                     </div>
                                                 </div>
                                                 <div class="catalog-item-price">
@@ -414,7 +414,7 @@
                                                 <div class="p-2">
                                                     <h3 class="font-medium text-gray-900 text-sm mb-1 truncate">{{ item.name }}</h3>
                                                     <p class="text-xs text-gray-500 mb-1 truncate">
-                                                        Material: {{ item.small_material?.name || 'N/A' }}
+                                                        Material: {{ item.small_material?.name || item.small_material_category?.name || 'N/A' }}
                                                     </p>
                                                     <div class="text-xs font-medium text-gray-900">
                                                         {{ item.price ? `${item.price} ден` : 'Price not set' }}
@@ -578,10 +578,16 @@ export default {
             );
         },
         largeMaterialItems() {
-            return this.catalogItems.filter(item => item.large_material && !item.small_material);
+            return this.catalogItems.filter(item => 
+                (item.large_material && !item.small_material && !item.small_material_category) || 
+                (item.large_material_category && !item.small_material && !item.small_material_category)
+            );
         },
         smallMaterialItems() {
-            return this.catalogItems.filter(item => item.small_material && !item.large_material);
+            return this.catalogItems.filter(item => 
+                (item.small_material && !item.large_material && !item.large_material_category) || 
+                (item.small_material_category && !item.large_material && !item.large_material_category)
+            );
         },
         progressWidth() {
             return `${(this.currentStep + 1) * (100 / this.steps.length)}%`;
@@ -614,6 +620,8 @@ export default {
                 file: item.file,
                 large_material: item.large_material,
                 small_material: item.small_material,
+                large_material_category: item.large_material_category,
+                small_material_category: item.small_material_category,
                 isCustomItem: false, // Indicate if it's a custom item
             });
             
