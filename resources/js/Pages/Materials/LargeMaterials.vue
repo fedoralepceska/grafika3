@@ -93,7 +93,7 @@
                                 </tr>
                                 </tbody>
                             </table>
-                            <Pagination :pagination="largeMaterials" />
+                            <Pagination :pagination="largeMaterials" @pagination-change-page="fetchLargeMaterials"/>
                         </div>
                     </div>
                 </div>
