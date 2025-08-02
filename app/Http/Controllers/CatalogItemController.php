@@ -505,6 +505,7 @@ class CatalogItemController extends Controller
                     }
                 }
                 // Calculate and update cost price
+                $catalogItem->load('articles');
                 $catalogItem->calculateCostPrice();
             }
 
@@ -896,6 +897,7 @@ class CatalogItemController extends Controller
                     }
 
                     // Recalculate cost price
+                    $catalogItem->load('articles');
                     $catalogItem->calculateCostPrice();
                 }
 

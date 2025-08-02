@@ -173,11 +173,11 @@ class InvoiceController extends Controller
                     ->where('catalog_item_id', $job->catalogItem->id)
                     ->get();
                 
-                // Process catalog item articles for stock consumption using actual requirements
+                // Process catalog item articles for stock consumption using new material calculation
                 if ($job->catalogItem && $job->catalogItem->articles()->exists()) {
-                    $articleRequirements = $job->catalogItem->calculateActualArticleRequirements($job);
+                    $materialRequirements = $job->catalogItem->calculateMaterialRequirements($job);
                     
-                    foreach ($articleRequirements as $requirement) {
+                    foreach ($materialRequirements as $requirement) {
                         $article = $requirement['article'];
                         $neededQuantity = $requirement['actual_required'];
                         $unitType = $requirement['unit_type'];
@@ -205,17 +205,6 @@ class InvoiceController extends Controller
                         
                         // Consume article stock
                         $this->consumeArticleStock($actualArticle, $neededQuantity);
-                        
-                        \Log::info('Consumed article stock for invoice', [
-                            'invoice_id' => $invoiceId,
-                            'job_id' => $job->id,
-                            'article_id' => $actualArticle->id,
-                            'article_name' => $actualArticle->name,
-                            'unit_type' => $unitType,
-                            'consumed_quantity' => $neededQuantity,
-                            'catalog_standard' => $requirement['catalog_standard'],
-                            'job_square_meters' => $requirement['job_square_meters']
-                        ]);
                     }
                 } else {
                     \Log::warning('No catalog item articles found for job', [

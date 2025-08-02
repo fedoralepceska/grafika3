@@ -329,16 +329,12 @@ class CatalogItem extends Model
     }
 
     /**
-     * Calculate actual article requirements for a job
-     * Handles all unit types: square meters, pieces, kilograms, linear meters
-     * Uses proportional scaling when actual usage exceeds catalog standard
+     * Calculate material requirements for a job (for stock deduction)
+     * Separate calculation logic for quantity-based vs copies-based pricing
      */
-    public function calculateActualArticleRequirements($job)
+    public function calculateMaterialRequirements($job)
     {
         $requirements = [];
-        
-        // Get the pricing multiplier (quantity or copies based on catalog item setting)
-        $multiplier = $this->getPricingMultiplier($job->quantity, $job->copies);
         
         // Calculate job dimensions if available
         $jobSquareMeters = 0;
@@ -347,35 +343,180 @@ class CatalogItem extends Model
             $jobSquareMeters = ($job->width / 1000) * ($job->height / 1000);
         }
         
+        if ($this->articles->isEmpty()) {
+            return $requirements; // Return empty array if no articles
+        }
+        
         foreach ($this->articles as $article) {
-            $catalogStandard = $article->pivot->quantity;
+            // Check if pivot relationship exists and has quantity
+            if (!$article->pivot || !isset($article->pivot->quantity)) {
+                continue; // Skip this article if pivot data is missing
+            }
+            
+            $catalogQuantity = $article->pivot->quantity;
             $actualRequired = 0;
             
-            if ($article->in_square_meters) {
-                // For square meters: use actual job dimensions
+            if ($this->by_copies) {
+                // Copies-based: copies × job_square_meters × component_article_quantity_per_sqm
                 if ($jobSquareMeters > 0) {
-                    $actualRequired = $jobSquareMeters * $multiplier;
+                    $actualRequired = $job->copies * $jobSquareMeters * $catalogQuantity;
                 } else {
-                    // Fallback to catalog standard if no job dimensions
-                    $actualRequired = $catalogStandard * $multiplier;
+                    // Fallback: use copies × catalog standard if no job dimensions
+                    $actualRequired = $job->copies * $catalogQuantity;
                 }
             } else {
-                // For all other units (pcs, kg, meters): use catalog standard
-                $actualRequired = $catalogStandard * $multiplier;
+                // Quantity-based: quantity × component_article_quantity
+                $actualRequired = $job->quantity * $catalogQuantity;
             }
             
             $requirements[] = [
                 'article_id' => $article->id,
                 'article' => $article,
-                'catalog_standard' => $catalogStandard,
-                'multiplier' => $multiplier,
+                'catalog_quantity' => $catalogQuantity,
                 'actual_required' => $actualRequired,
                 'job_square_meters' => $jobSquareMeters,
+                'pricing_method' => $this->getPricingMethod(),
                 'unit_type' => $this->getArticleUnitType($article)
             ];
         }
         
         return $requirements;
+    }
+
+    /**
+     * Calculate cost requirements for a job (for pricing)
+     * Separate calculation logic for quantity-based vs copies-based pricing
+     */
+    public function calculateCostRequirements($job)
+    {
+        $requirements = [];
+        
+        // Calculate job dimensions if available
+        $jobSquareMeters = 0;
+        if ($job->width && $job->height) {
+            // Convert mm to meters
+            $jobSquareMeters = ($job->width / 1000) * ($job->height / 1000);
+        }
+        
+        if ($this->articles->isEmpty()) {
+            return $requirements; // Return empty array if no articles
+        }
+        
+        foreach ($this->articles as $article) {
+            // Check if pivot relationship exists and has quantity
+            if (!$article->pivot || !isset($article->pivot->quantity)) {
+                continue; // Skip this article if pivot data is missing
+            }
+            
+            $catalogQuantity = $article->pivot->quantity;
+            $articlePrice = $article->purchase_price ?? 0;
+            $actualRequired = 0;
+            $totalCost = 0;
+            
+            if ($this->by_copies) {
+                // Copies-based: copies × job_square_meters × component_article_quantity_per_sqm × price
+                if ($jobSquareMeters > 0) {
+                    $actualRequired = $job->copies * $jobSquareMeters * $catalogQuantity;
+                } else {
+                    // Fallback: use copies × catalog standard if no job dimensions
+                    $actualRequired = $job->copies * $catalogQuantity;
+                }
+            } else {
+                // Quantity-based: quantity × component_article_quantity × price
+                $actualRequired = $job->quantity * $catalogQuantity;
+            }
+            
+            $totalCost = $actualRequired * $articlePrice;
+            
+            $requirements[] = [
+                'article_id' => $article->id,
+                'article' => $article,
+                'catalog_quantity' => $catalogQuantity,
+                'actual_required' => $actualRequired,
+                'article_price' => $articlePrice,
+                'total_cost' => $totalCost,
+                'job_square_meters' => $jobSquareMeters,
+                'pricing_method' => $this->getPricingMethod(),
+                'unit_type' => $this->getArticleUnitType($article)
+            ];
+        }
+        
+        return $requirements;
+    }
+
+    /**
+     * Calculate actual article requirements for a job (backward compatibility)
+     * @deprecated Use calculateMaterialRequirements() or calculateCostRequirements() instead
+     */
+    public function calculateActualArticleRequirements($job)
+    {
+        return $this->calculateMaterialRequirements($job);
+    }
+
+    /**
+     * Calculate total cost price for a job based on new cost calculation logic
+     */
+    public function calculateJobCostPrice($job)
+    {
+        $totalCost = 0;
+        $costRequirements = $this->calculateCostRequirements($job);
+        
+        foreach ($costRequirements as $requirement) {
+            $totalCost += $requirement['total_cost'];
+        }
+        
+        return $totalCost;
+    }
+
+    /**
+     * Resolve category to actual article ID
+     * When a catalog item has a category (large_material_category_id or small_material_category_id),
+     * we need to get the first available article from that category
+     */
+    public function resolveCategoryToArticleId($categoryId)
+    {
+        if (!$categoryId) {
+            return null;
+        }
+
+        $category = ArticleCategory::with('articles')->find($categoryId);
+        
+        if (!$category || $category->articles->isEmpty()) {
+            return null;
+        }
+
+        // Get the first available article from the category
+        foreach ($category->articles as $article) {
+            if ($article->hasStock(1)) { // Check if article has at least 1 unit in stock
+                return $article->id;
+            }
+        }
+
+        // If no articles have stock, return the first article anyway
+        return $category->articles->first()->id;
+    }
+
+    /**
+     * Get the actual material IDs, resolving categories if necessary
+     */
+    public function getResolvedMaterialIds()
+    {
+        $largeMaterialId = $this->large_material_id;
+        $smallMaterialId = $this->small_material_id;
+
+        // If we have a category instead of direct material, resolve it
+        if ($this->large_material_category_id && !$largeMaterialId) {
+            $largeMaterialId = $this->resolveCategoryToArticleId($this->large_material_category_id);
+        }
+
+        if ($this->small_material_category_id && !$smallMaterialId) {
+            $smallMaterialId = $this->resolveCategoryToArticleId($this->small_material_category_id);
+        }
+
+        return [
+            'large_material_id' => $largeMaterialId,
+            'small_material_id' => $smallMaterialId
+        ];
     }
     
     /**
@@ -390,22 +531,5 @@ class CatalogItem extends Model
         return 'unknown';
     }
     
-    /**
-     * Calculate total cost price for a job based on actual article requirements
-     */
-    public function calculateJobCostPrice($job)
-    {
-        $totalCost = 0;
-        $requirements = $this->calculateActualArticleRequirements($job);
-        
-        foreach ($requirements as $requirement) {
-            $article = $requirement['article'];
-            $actualRequired = $requirement['actual_required'];
-            $articlePrice = $article->purchase_price ?? 0;
-            
-            $totalCost += $actualRequired * $articlePrice;
-        }
-        
-        return $totalCost;
-    }
+
 }

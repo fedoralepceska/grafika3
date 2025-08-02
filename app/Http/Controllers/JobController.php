@@ -66,31 +66,49 @@ class JobController extends Controller
                 $job->machineCut = $request->input('machineCut');
                 
                 // Handle category resolution for materials
-                $catalogItem = CatalogItem::find($request->input('catalog_item_id'));
+                $catalogItem = CatalogItem::with('articles')->find($request->input('catalog_item_id'));
                 $largeMaterialId = null;
                 $smallMaterialId = null;
                 
                 // Resolve large material or category
-                if ($catalogItem->large_material_category_id) {
-                    // This catalog item uses a category, select next available material
+                if ($request->input('large_material_category_id')) {
+                    // Frontend sent a category ID directly
+                    $largeMaterialId = $this->getNextAvailableMaterial($request->input('large_material_category_id'), 'large', $request->input('copies'));
+                    if (!$largeMaterialId) {
+                        throw new \Exception("No available materials in the selected large material category.");
+                    }
+                } elseif ($request->input('selectedMaterial')) {
+                    // Frontend sent a specific material ID
+                    $largeMaterialId = $request->input('selectedMaterial');
+                } elseif ($catalogItem->large_material_category_id) {
+                    // Catalog item has a category, select next available material
                     $largeMaterialId = $this->getNextAvailableMaterial($catalogItem->large_material_category_id, 'large', $request->input('copies'));
                     if (!$largeMaterialId) {
                         throw new \Exception("No available materials in the selected large material category.");
                     }
                 } elseif ($catalogItem->large_material_id) {
-                    // This catalog item uses a specific material
+                    // Catalog item has a specific material
                     $largeMaterialId = $catalogItem->large_material_id;
                 }
                 
                 // Resolve small material or category
-                if ($catalogItem->small_material_category_id) {
-                    // This catalog item uses a category, select next available material
+                if ($request->input('small_material_category_id')) {
+                    // Frontend sent a category ID directly
+                    $smallMaterialId = $this->getNextAvailableMaterial($request->input('small_material_category_id'), 'small', $request->input('copies'));
+                    if (!$smallMaterialId) {
+                        throw new \Exception("No available materials in the selected small material category.");
+                    }
+                } elseif ($request->input('selectedMaterialsSmall')) {
+                    // Frontend sent a specific material ID
+                    $smallMaterialId = $request->input('selectedMaterialsSmall');
+                } elseif ($catalogItem->small_material_category_id) {
+                    // Catalog item has a category, select next available material
                     $smallMaterialId = $this->getNextAvailableMaterial($catalogItem->small_material_category_id, 'small', $request->input('copies'));
                     if (!$smallMaterialId) {
                         throw new \Exception("No available materials in the selected small material category.");
                     }
                 } elseif ($catalogItem->small_material_id) {
-                    // This catalog item uses a specific material
+                    // Catalog item has a specific material
                     $smallMaterialId = $catalogItem->small_material_id;
                 }
                 
@@ -153,42 +171,13 @@ class JobController extends Controller
                     $job->salePrice = ($catalogItem->price ?? 0) * $pricingMultiplier;
                 }
 
-                if ($request->input('large_material_id') !== null) {
-                    $large_material = LargeFormatMaterial::find($request->input('large_material_id'));
-                    if ($large_material->quantity - $request->input('copies') < 0) {
-                        throw new \Exception("Insufficient large material quantity.");
-                    }
-                }
 
-                if ($request->input('small_material_id') !== null) {
-                    $small_material = SmallMaterial::find($request->input('small_material_id'));
-                    if ($small_material->quantity - $request->input('copies') < 0) {
-                        throw new \Exception("Insufficient small material quantity.");
-                    }
-                }
 
-                // Check material availability (validation only - no stock reduction)
-                if ($largeMaterialId) {
-                    $large_material = LargeFormatMaterial::find($largeMaterialId);
-                    if ($large_material->quantity - $request->input('copies') < 0) {
-                        throw new \Exception("Insufficient large material quantity.");
-                    }
-                    // Stock validation passed - no reduction during job creation
-                }
-
-                if ($smallMaterialId) {
-                    $small_material = SmallMaterial::find($smallMaterialId);
-                    if ($small_material->quantity - $request->input('copies') < 0) {
-                        throw new \Exception("Insufficient small material quantity.");
-                    }
-                    // Stock validation passed - no reduction during job creation
-                }
-
-                // Step 1.5: Process catalog item articles and check stock availability
+                // Step 1.5: Process catalog item articles and check stock availability using new material calculation
                 if ($catalogItem->articles()->exists()) {
-                    $articleRequirements = $catalogItem->calculateActualArticleRequirements($tempJob);
+                    $materialRequirements = $catalogItem->calculateMaterialRequirements($tempJob);
                     
-                    foreach ($articleRequirements as $requirement) {
+                    foreach ($materialRequirements as $requirement) {
                         $article = $requirement['article'];
                         $requiredQuantity = $requirement['actual_required'];
                         $unitType = $requirement['unit_type'];
@@ -211,16 +200,6 @@ class JobController extends Controller
                         if (!$actualArticle->hasStock($requiredQuantity)) {
                             throw new \Exception("Insufficient stock for article: {$actualArticle->name} ({$unitType}). Required: {$requiredQuantity}, Available: {$actualArticle->getCurrentStock()}");
                         }
-                        
-                        \Log::info('Stock validation passed for article', [
-                            'article_id' => $actualArticle->id,
-                            'article_name' => $actualArticle->name,
-                            'unit_type' => $unitType,
-                            'required_quantity' => $requiredQuantity,
-                            'available_stock' => $actualArticle->getCurrentStock(),
-                            'catalog_standard' => $requirement['catalog_standard'],
-                            'job_square_meters' => $requirement['job_square_meters']
-                        ]);
                     }
                 }
 
