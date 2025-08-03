@@ -922,6 +922,11 @@ export default {
                     }
                 }
 
+                // Recalculate cost if this is a catalog-based job and dimensions were updated
+                if (updatedJob.catalog_item_id && response.data.dimensions && response.data.dimensions.total_width_mm > 0) {
+                    await this.recalculateJobCost(updatedJob);
+                }
+
                 // Use thumbnails from upload response immediately if available
                 if (response.data.thumbnails && response.data.thumbnails.length > 0) {
                     // Initialize imageLoadError and imageLoaded for each thumbnail
@@ -1606,6 +1611,52 @@ export default {
             }
             if (!this.cuttingUploadProgress[jobId]) {
                 this.cuttingUploadProgress[jobId] = 0;
+            }
+        },
+
+        async recalculateJobCost(job) {
+            try {
+                // Call the backend to recalculate cost with new dimensions
+                const response = await axios.post('/jobs/recalculate-cost', {
+                    job_id: job.id,
+                    width: job.width,
+                    height: job.height,
+                    quantity: job.quantity,
+                    copies: job.copies
+                });
+
+                // Update the job with new cost
+                const updatedJob = {
+                    ...job,
+                    price: response.data.price,
+                    salePrice: response.data.salePrice
+                };
+
+                // Update in jobsWithPrices
+                const index = this.jobsWithPrices.findIndex(j => j.id === job.id);
+                if (index !== -1) {
+                    this.jobsWithPrices[index] = updatedJob;
+                } else {
+                    this.jobsWithPrices.push(updatedJob);
+                }
+
+                // Also update in updatedJobs if it exists
+                if (this.updatedJobs) {
+                    const updatedIndex = this.updatedJobs.findIndex(j => j.id === job.id);
+                    if (updatedIndex !== -1) {
+                        this.updatedJobs[updatedIndex] = updatedJob;
+                    } else {
+                        this.updatedJobs.push(updatedJob);
+                    }
+                }
+
+                // Emit the update
+                this.$emit('job-updated', updatedJob);
+
+                // Force reactivity update
+                this.$forceUpdate();
+            } catch (error) {
+                console.error('Error recalculating job cost:', error);
             }
         },
     },

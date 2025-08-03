@@ -495,6 +495,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
 });
 
 Route::post('/jobs/questions-for-catalog-items', [\App\Http\Controllers\JobController::class, 'getQuestionsForCatalogItems']);
+Route::post('/jobs/recalculate-cost', [\App\Http\Controllers\JobController::class, 'recalculateJobCost'])->name('jobs.recalculateCost');
 
 // Material dropdown API endpoints
 Route::get('/api/materials/large-dropdown', [LargeFormatMaterialController::class, 'largeDropdown']);

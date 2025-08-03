@@ -236,7 +236,8 @@ export default {
 
                 const index = this.jobs.findIndex(j => j.id === job.id);
                 if (index !== -1) {
-                    this.jobs[index] = {
+                    // Update job with new file and dimensions
+                    const updatedJob = {
                         ...job,
                         file: tempJob.file,
                         width: tempJob.width || job.width || 0,
@@ -248,6 +249,13 @@ export default {
                         isPlaceholder: false,
                         needsFile: false,
                     };
+
+                    this.jobs[index] = updatedJob;
+
+                    // Recalculate cost if this is a catalog-based job
+                    if (updatedJob.catalog_item_id) {
+                        await this.recalculateJobCost(updatedJob);
+                    }
                 }
 
                 const toast = useToast();
@@ -256,6 +264,34 @@ export default {
                 const toast = useToast();
                 toast.error('Failed to upload file');
                 console.error('Error uploading placeholder file:', error);
+            }
+        },
+
+        async recalculateJobCost(job) {
+            try {
+                // Call the backend to recalculate cost with new dimensions
+                const response = await axios.post('/jobs/recalculate-cost', {
+                    job_id: job.id,
+                    width: job.width,
+                    height: job.height,
+                    quantity: job.quantity,
+                    copies: job.copies
+                });
+
+                // Update the job with new cost
+                const index = this.jobs.findIndex(j => j.id === job.id);
+                if (index !== -1) {
+                    this.jobs[index] = {
+                        ...this.jobs[index],
+                        price: response.data.price,
+                        salePrice: response.data.salePrice
+                    };
+                }
+
+                // Force reactivity update
+                this.$forceUpdate();
+            } catch (error) {
+                console.error('Error recalculating job cost:', error);
             }
         },
     },

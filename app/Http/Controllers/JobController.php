@@ -669,6 +669,74 @@ class JobController extends Controller
         return response()->json(['jobs' => $jobs]);
     }
 
+    public function recalculateJobCost(Request $request)
+    {
+        try {
+            $request->validate([
+                'job_id' => 'required|exists:jobs,id',
+                'width' => 'required|numeric|min:0',
+                'height' => 'required|numeric|min:0',
+                'quantity' => 'required|integer|min:1',
+                'copies' => 'required|integer|min:1',
+            ]);
+
+            $job = Job::find($request->input('job_id'));
+            
+            if (!$job) {
+                return response()->json(['error' => 'Job not found'], 404);
+            }
+
+            // Update job dimensions
+            $job->width = $request->input('width');
+            $job->height = $request->input('height');
+            $job->quantity = $request->input('quantity');
+            $job->copies = $request->input('copies');
+            $job->save();
+
+            $priceCalculationService = app()->make(PriceCalculationService::class);
+
+            // Calculate selling price based on hierarchy (what customer pays)
+            $sellingPrice = $priceCalculationService->calculateEffectivePrice(
+                $job->catalog_item_id,
+                $job->client_id,
+                $job->quantity
+            );
+
+            // Calculate cost price using new component article system
+            $costPrice = 0;
+            
+            if ($job->catalog_item_id) {
+                $catalogItem = CatalogItem::with('articles')->find($job->catalog_item_id);
+                if ($catalogItem) {
+                    $costPrice = $catalogItem->calculateJobCostPrice($job);
+                }
+            }
+
+            // Update job prices
+            $job->price = $costPrice;
+            if ($sellingPrice !== null) {
+                $job->salePrice = $sellingPrice;
+            }
+            $job->save();
+
+            return response()->json([
+                'price' => $costPrice,
+                'salePrice' => $sellingPrice,
+                'message' => 'Job cost recalculated successfully'
+            ]);
+
+        } catch (\Exception $e) {
+            \Log::error('Error recalculating job cost:', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            return response()->json([
+                'error' => 'Failed to recalculate job cost',
+                'details' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
     private function calculateTotalPrice($job)
     {
         // This method is kept for backwards compatibility but should not be used for catalog items
