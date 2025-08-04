@@ -596,6 +596,8 @@ export default {
                 digit3: '',
                 digit4: ''
             },
+            largeMaterials: [],
+            smallMaterials: [],
         };
     },
     methods: {
@@ -1438,16 +1440,18 @@ export default {
         }, 300);
         
         try {
-            const [largeRes, smallRes] = await Promise.all([
+            const [largeRes, smallRes, subcategoriesRes] = await Promise.all([
                 axios.get('/api/materials/large-dropdown'),
-                axios.get('/api/materials/small-dropdown')
+                axios.get('/api/materials/small-dropdown'),
+                axios.get(route('subcategories.index'))
             ]);
             this.largeMaterials = largeRes.data;
             this.smallMaterials = smallRes.data;
+            this.subcategories = subcategoriesRes.data;
         } catch (error) {
-            console.error('Error fetching materials:', error);
+            console.error('Error fetching data:', error);
             const toast = useToast();
-            toast.error('Failed to load materials');
+            toast.error('Failed to load data');
         }
     },
 };

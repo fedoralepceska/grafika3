@@ -60,41 +60,44 @@
                                 </select>
                             </div>
 
-                            <div>
-                                <label class="text-white block mb-2 font-semibold">{{ $t('category') }}</label>
-                                <select
-                                    v-model="editForm.category"
-                                    class="w-full rounded dark-gray text-white border-gray-600"
-                                >
-                                    <option value="">{{ $t('selectCategory') }}</option>
-                                    <option value="material">Material</option>
-                                    <option value="article">Article</option>
-                                    <option value="small_format">Small Format</option>
-                                </select>
-                            </div>
-
-                            <div>
-                                <label class="text-white block mb-2 font-semibold">{{ $t('subcategory') }}</label>
-                                <select
-                                    v-model="editForm.subcategory_id"
-                                    class="w-full rounded dark-gray text-white border-gray-600"
-                                >
-                                    <option value="">{{ $t('selectSubcategory') }}</option>
-                                    <option
-                                        v-for="subcategory in subcategories"
-                                        :key="subcategory.id"
-                                        :value="subcategory.id"
+                            <div class="flex flex-row gap-4">
+                                <div class="flex-1">
+                                    <label class="text-white block mb-2 font-semibold">{{ $t('category') }}</label>
+                                    <select
+                                        v-model="editForm.category"
+                                        class="w-full rounded dark-gray text-white border-gray-600"
                                     >
-                                        {{ subcategory.name }}
-                                    </option>
-                                </select>
+                                        <option value="">{{ $t('selectCategory') }}</option>
+                                        <option value="material">Large Material</option>
+                                        <option value="small_format">Small Material</option>
+                                        <option value="article">Article</option>
+                                    </select>
+                                </div>
+
+                                <div class="flex-1">
+                                    <label class="text-white block mb-2 font-semibold">{{ $t('subcategory') }} ({{ $t('optional') }})</label>
+                                    <select
+                                        v-model="editForm.subcategory_id"
+                                        class="w-full rounded dark-gray text-white border-gray-600"
+                                    >
+                                        <option value="">{{ $t('selectSubcategory') }}</option>
+                                        <option
+                                            v-for="subcategory in subcategories"
+                                            :key="subcategory.id"
+                                            :value="subcategory.id"
+                                        >
+                                            {{ subcategory.name }}
+                                        </option>
+                                    </select>
+                                </div>
                             </div>
 
                             <div>
-                                <label class="text-white block mb-2 font-semibold">{{ $t('materialLargeFormat') }}</label>
+                                <label class="text-white block mb-2 font-semibold">{{ $t('materialLargeFormat') }} - large format</label>
                                 <select v-model="editForm.large_material_id"
                                         class="w-full rounded dark-gray text-white border-gray-600"
-                                        :disabled="editForm.small_material_id !== null">
+                                        :disabled="isLargeMaterialDisabled"
+                                        @change="handleLargeMaterialChange">
                                     <option value="">{{ $t('selectMaterial') }}</option>
                                     <option v-for="material in largeMaterials"
                                             :key="material.id"
@@ -113,7 +116,8 @@
                                 <label class="text-white block mb-2 font-semibold">{{ $t('materialSmallFormat') }}</label>
                                 <select v-model="editForm.small_material_id"
                                         class="w-full rounded dark-gray text-white border-gray-600"
-                                        :disabled="editForm.large_material_id !== null">
+                                        :disabled="isSmallMaterialDisabled"
+                                        @change="handleSmallMaterialChange">
                                     <option value="">{{ $t('selectMaterial') }}</option>
                                     <option v-for="material in smallMaterials"
                                             :key="material.id"
@@ -550,13 +554,51 @@ export default {
         displayTotalCost() {
             return this.displayProductsCost + this.displayServicesCost;
         },
-
+        isLargeMaterialDisabled() {
+            // If category is 'small_format', disable large material
+            if (this.editForm.category === 'small_format') {
+                return true;
+            }
+            // If category is 'material', only allow large material
+            if (this.editForm.category === 'material') {
+                return false;
+            }
+            // If category is 'article', allow both but only one can be selected
+            if (this.editForm.category === 'article') {
+                return false;
+            }
+            // Default: disable if no category selected
+            return !this.editForm.category;
+        },
+        isSmallMaterialDisabled() {
+            // If category is 'material', disable small material
+            if (this.editForm.category === 'material') {
+                return true;
+            }
+            // If category is 'small_format', only allow small material
+            if (this.editForm.category === 'small_format') {
+                return false;
+            }
+            // If category is 'article', allow both but only one can be selected
+            if (this.editForm.category === 'article') {
+                return false;
+            }
+            // Default: disable if no category selected
+            return !this.editForm.category;
+        }
     },
     watch: {
         'editForm.should_ask_questions'(newValue) {
             if (!newValue) {
                 // Clear questions when checkbox is unchecked
                 this.selectedQuestions = [];
+            }
+        },
+        'editForm.category'(newValue, oldValue) {
+            // Clear materials when category changes
+            if (newValue !== oldValue) {
+                this.editForm.large_material_id = null;
+                this.editForm.small_material_id = null;
             }
         }
     },
@@ -608,6 +650,20 @@ export default {
 
         clearSmallMaterial() {
             this.editForm.small_material_id = null;
+        },
+
+        handleLargeMaterialChange() {
+            // If category is 'article' and large material is selected, deselect small material
+            if (this.editForm.category === 'article' && this.editForm.large_material_id) {
+                this.editForm.small_material_id = null;
+            }
+        },
+
+        handleSmallMaterialChange() {
+            // If category is 'article' and small material is selected, deselect large material
+            if (this.editForm.category === 'article' && this.editForm.small_material_id) {
+                this.editForm.large_material_id = null;
+            }
         },
 
         availableActions(currentAction) {

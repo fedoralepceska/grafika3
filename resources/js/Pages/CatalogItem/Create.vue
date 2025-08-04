@@ -54,7 +54,7 @@
                                     </select>
                                 </div>
                                 <div>
-                                    <label class="text-white">{{ $t('subcategory') }}</label>
+                                    <label class="text-white">{{ $t('subcategory') }} ({{ $t('optional') }})</label>
                                     <div class="flex items-center gap-2">
                                         <select
                                             v-model="form.subcategory_id"
@@ -116,11 +116,24 @@
 
                             <div class="space-y-4">
                                 <div>
-                                    <label class="text-white">{{ $t('materialLargeFormat') }}</label>
+                                    <label class="text-white">{{ $t('category') }}</label>
+                                    <select
+                                        v-model="form.category"
+                                        class="w-full mt-1 rounded"
+                                    >
+                                        <option value="">{{ $t('selectCategory') }}</option>
+                                        <option value="material">Large Material</option>
+                                        <option value="small_format">Small Material</option>
+                                        <option value="article">Article</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="text-white">{{ $t('materialLargeFormat') }} - large format</label>
                                     <select
                                         v-model="form.large_material_id"
                                         class="w-full mt-1 rounded"
-                                        :disabled="form.small_material_id !== null"
+                                        :disabled="isLargeMaterialDisabled"
+                                        @change="handleLargeMaterialChange"
                                     >
                                         <option value="">{{ $t('selectMaterial') }}</option>
                                         <option v-for="material in largeMaterials"
@@ -141,7 +154,8 @@
                                     <select
                                         v-model="form.small_material_id"
                                         class="w-full mt-1 rounded"
-                                        :disabled="form.large_material_id !== null"
+                                        :disabled="isSmallMaterialDisabled"
+                                        @change="handleSmallMaterialChange"
                                     >
                                         <option value="">{{ $t('selectMaterial') }}</option>
                                         <option v-for="material in smallMaterials"
@@ -157,21 +171,6 @@
                                     </select>
                                 </div>
 
-                                <div>
-                                    <label class="text-white">{{ $t('category') }}</label>
-                                    <select
-                                        v-model="form.category"
-                                        class="w-full mt-1 rounded"
-                                    >
-                                        <option value="">{{ $t('selectCategory') }}</option>
-                                        <option v-for="category in categories"
-                                                :key="category"
-                                                :value="category"
-                                        >
-                                            {{ category.replace('_', ' ').split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ') }}
-                                        </option>
-                                    </select>
-                                </div>
                                 <div>
                                     <label class="text-white">{{ $t('defaultPrice') }}</label>
                                     <input
@@ -601,6 +600,38 @@ export default {
         },
         displayTotalCost() {
             return this.displayProductsCost + this.displayServicesCost;
+        },
+        isLargeMaterialDisabled() {
+            // If category is 'small_format', disable large material
+            if (this.form.category === 'small_format') {
+                return true;
+            }
+            // If category is 'material', only allow large material
+            if (this.form.category === 'material') {
+                return false;
+            }
+            // If category is 'article', allow both but only one can be selected
+            if (this.form.category === 'article') {
+                return false;
+            }
+            // Default: disable if no category selected
+            return !this.form.category;
+        },
+        isSmallMaterialDisabled() {
+            // If category is 'material', disable small material
+            if (this.form.category === 'material') {
+                return true;
+            }
+            // If category is 'small_format', only allow small material
+            if (this.form.category === 'small_format') {
+                return false;
+            }
+            // If category is 'article', allow both but only one can be selected
+            if (this.form.category === 'article') {
+                return false;
+            }
+            // Default: disable if no category selected
+            return !this.form.category;
         }
     },
 
@@ -621,6 +652,13 @@ export default {
             if (!newValue) {
                 // Clear questions when checkbox is unchecked
                 this.selectedQuestions = [];
+            }
+        },
+        'form.category'(newValue, oldValue) {
+            // Clear materials when category changes
+            if (newValue !== oldValue) {
+                this.form.large_material_id = null;
+                this.form.small_material_id = null;
             }
         }
     },
@@ -926,6 +964,20 @@ export default {
             this.subcategories = this.subcategories.filter(s => s.id !== subcategoryId);
             if (this.form.subcategory_id === subcategoryId) {
                 this.form.subcategory_id = null;
+            }
+        },
+
+        handleLargeMaterialChange() {
+            // If category is 'article' and large material is selected, deselect small material
+            if (this.form.category === 'article' && this.form.large_material_id) {
+                this.form.small_material_id = null;
+            }
+        },
+
+        handleSmallMaterialChange() {
+            // If category is 'article' and small material is selected, deselect large material
+            if (this.form.category === 'article' && this.form.small_material_id) {
+                this.form.large_material_id = null;
             }
         },
     },
