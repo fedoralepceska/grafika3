@@ -188,7 +188,8 @@ class CatalogItemController extends Controller
                         'next' => $catalogItems->hasMorePages()
                     ]
                 ],
-                'canViewPrice' => !auth()->user()->hasRole('Rabotnik')
+                'canViewPrice' => !auth()->user()->hasRole('Rabotnik'),
+                'canDelete' => !auth()->user()->hasRole('Rabotnik')
             ]);
         } catch (\Exception $e) {
             \Log::error('Error in getCatalogItems:', [
@@ -716,6 +717,7 @@ class CatalogItemController extends Controller
             'machinesCut' => $machinesCut,
             'subcategories' => $subcategories,
             'availableQuestions' => $availableQuestions,
+            'canViewCostSummary' => !auth()->user()->hasRole('Rabotnik'),
         ]);
     }
 

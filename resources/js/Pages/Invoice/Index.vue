@@ -48,7 +48,7 @@
                     </div>
                     <div v-if="invoices.data">
                         <div class="border mb-2" v-for="invoice in invoices.data" :key="invoice.id">
-                            <div class="bg-white text-black flex justify-between" style="line-height: normal">
+                            <div class="text-black flex justify-between order-info" style="line-height: normal">
                                 <div class="p-2 bold" style="font-size: 16px">{{invoice.invoice_title}}</div>
                                 <div class="flex" style="font-size: 12px">
                                     <button class="flex items-center p-1" @click="viewJobs(invoice.id)">
@@ -419,6 +419,15 @@ export default {
 };
 </script>
 <style scoped lang="scss">
+
+.border:nth-child(odd) .order-info {
+    background-color: white;
+}
+
+.border:nth-child(even) .order-info {
+    background-color: rgba(255, 255, 255, 0.65);
+}
+ 
 .info {
 
     min-width: 0;

@@ -21,6 +21,7 @@
                 <div class="flex justify-between items-center mb-4">
                     <h2 class="sub-title">{{ $t('catalogItems') }}</h2>
                 </div>
+
                 <div class="flex gap-4 mb-4">
                     <div class="flex-1">
                         <input
@@ -154,7 +155,11 @@
                                 <button @click="navigateToEdit(item.id)" class="btn btn-secondary">
                                     <i class="fas fa-edit"></i> {{ $t('Edit') }}
                                 </button>
-                                <button @click="deleteCatalogItem(item.id)" class="btn btn-danger">
+                                <button 
+                                    v-if="canDelete" 
+                                    @click="deleteCatalogItem(item.id)" 
+                                    class="btn btn-danger"
+                                >
                                     <i class="fas fa-trash"></i> {{ $t('Delete') }}
                                 </button>
                             </div>
@@ -537,6 +542,7 @@ import { Link } from "@inertiajs/vue3";
 import { useToast } from "vue-toastification";
 import debounce from "lodash.debounce";
 
+
 export default {
     components: {
         MainLayout,
@@ -547,6 +553,7 @@ export default {
         catalogItems: Array,
         pagination: Object,
         canViewPrice: Boolean,
+        canDelete: Boolean,
     },
     data() {
         return {

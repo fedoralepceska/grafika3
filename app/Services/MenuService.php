@@ -102,25 +102,6 @@ class MenuService
                 ],
                 [
                     'href' => '',
-                    'title' => 'Articles',
-                    'icon' => 'fa-regular fa-newspaper',
-                    'child' => [
-                        [
-                            'href' => '/articles',
-                            'title' => 'View all articles',
-                        ],
-                        [
-                            'href' => '/articles/create',
-                            'title' => 'Add new article',
-                        ],
-                        [
-                            'href' => '/article-categories',
-                            'title' => 'Article Categories',
-                        ],
-                    ],
-                ],
-                [
-                    'href' => '',
                     'title' => 'Catalog',
                     'icon' => 'fa-solid fa-book-open',
                     'child' => [

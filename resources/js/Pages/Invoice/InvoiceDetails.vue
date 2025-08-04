@@ -104,7 +104,7 @@
                             <div class="jobDetails p-2">
                                 <div class="border">
                                     <div class=" flex gap-10">
-                                        <div class="invoice-title bg-white text-black bold p-3">
+                                        <div class="invoice-title bg-[#7DC068] text-black bold p-3">
                                             #{{index+1}} {{job.name}}
                                         </div>
                                         <!-- Show multiple thumbnails or single legacy image -->
@@ -196,10 +196,10 @@
                                     <div class="jobInfo relative">
                                         <div class="jobShippingInfo" style="line-height: normal">
                                             <div class=" bg-white text-black bold ">
-                                                <div class="flex" style="align-items: center;">
+                                                <!-- <div class="flex" style="align-items: center;">
                                                     <img src="/images/shipping.png" class="w-10 h-10 pr-1" alt="Shipping">
                                                     {{$t('Shipping')}}
-                                                </div>
+                                                </div> -->
                                                 <div class="ultra-light-gray p-2 text-white">
                                                     {{$t('shippingTo')}}: <span class="bold">{{job.shippingInfo}}</span>
                                                 </div>

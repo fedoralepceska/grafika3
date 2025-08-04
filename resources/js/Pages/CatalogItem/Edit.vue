@@ -138,7 +138,7 @@
                                     v-model="editForm.price"
                                     type="number"
                                     step="0.01"
-                                    min="0"
+                                    min="0.00001"
                                     class="w-full rounded dark-gray text-white border-gray-600"
                                     required
                                 />
@@ -342,8 +342,8 @@
                                         <input
                                             v-model="article.quantity"
                                             type="number"
-                                            min="0.01"
-                                            step="0.01"
+                                            min="0.00001"
+                                            step="0.0001"
                                             class="w-full rounded dark-gray text-white border-gray-500"
                                             required
                                         />
@@ -388,8 +388,8 @@
                                         <input
                                             v-model="article.quantity"
                                             type="number"
-                                            min="0.01"
-                                            step="0.01"
+                                            min="0.00001"
+                                            step="0.0001"
                                             class="w-full rounded dark-gray text-white border-gray-500"
                                             required
                                         />
@@ -406,7 +406,7 @@
                         </div>
 
                         <!-- Cost Price Display -->
-                        <div class="p-4 dark-gray">
+                        <div v-if="canViewCostSummary" class="p-4 dark-gray">
                             <h4 class="text-white text-lg font-medium mb-3">{{ $t('costSummary') }}</h4>
                             <div class="space-y-2">
                                 <div class="flex justify-between items-center">
@@ -444,7 +444,7 @@
                                     </select>
                                 </div>
                                 <div v-if="action.showQuantity" class="w-32">
-                                    <input v-model="action.quantity" type="number" min="0"
+                                    <input v-model="action.quantity" type="number" min="0.00001" step="0.0001"
                                            class="w-full rounded dark-gray text-white border-gray-500" 
                                            placeholder="Quantity" required />
                                 </div>
@@ -488,6 +488,7 @@ import { useToast } from "vue-toastification";
 import CatalogArticleSelect from "@/Components/CatalogArticleSelect.vue";
 
 
+
 export default {
     components: {
         MainLayout,
@@ -503,6 +504,7 @@ export default {
         machinesCut: Array,
         subcategories: Array,
         availableQuestions: Array,
+        canViewCostSummary: Boolean,
     },
     data() {
         return {
