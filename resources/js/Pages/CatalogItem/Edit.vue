@@ -75,7 +75,7 @@
                                 </div>
 
                                 <div class="flex-1">
-                                    <label class="text-white block mb-2 font-semibold">{{ $t('subcategory') }} ({{ $t('optional') }})</label>
+                                    <label class="text-white block mb-2 font-semibold">{{ $t('subcategory') }} ({{ $t('optional for listing') }})</label>
                                     <select
                                         v-model="editForm.subcategory_id"
                                         class="w-full rounded dark-gray text-white border-gray-600"
@@ -138,7 +138,6 @@
                                     v-model="editForm.price"
                                     type="number"
                                     step="0.01"
-                                    min="0.00001"
                                     class="w-full rounded dark-gray text-white border-gray-600"
                                     required
                                 />
@@ -342,7 +341,7 @@
                                         <input
                                             v-model="article.quantity"
                                             type="number"
-                                            min="0.00001"
+                                          
                                             step="0.0001"
                                             class="w-full rounded dark-gray text-white border-gray-500"
                                             required
@@ -388,7 +387,7 @@
                                         <input
                                             v-model="article.quantity"
                                             type="number"
-                                            min="0.00001"
+                                       
                                             step="0.0001"
                                             class="w-full rounded dark-gray text-white border-gray-500"
                                             required
@@ -444,7 +443,7 @@
                                     </select>
                                 </div>
                                 <div v-if="action.showQuantity" class="w-32">
-                                    <input v-model="action.quantity" type="number" min="0.00001" step="0.0001"
+                                    <input v-model="action.quantity" type="number" step="0.0001"
                                            class="w-full rounded dark-gray text-white border-gray-500" 
                                            placeholder="Quantity" required />
                                 </div>

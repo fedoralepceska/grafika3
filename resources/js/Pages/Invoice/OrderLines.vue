@@ -1632,6 +1632,16 @@ export default {
                     salePrice: response.data.salePrice
                 };
 
+                // Log component breakdown for debugging
+                if (response.data.component_breakdown && response.data.component_breakdown.length > 0) {
+                    console.log('Job cost calculation breakdown:', {
+                        job_id: job.id,
+                        component_count: response.data.component_count,
+                        total_cost: response.data.price,
+                        breakdown: response.data.component_breakdown
+                    });
+                }
+
                 // Update in jobsWithPrices
                 const index = this.jobsWithPrices.findIndex(j => j.id === job.id);
                 if (index !== -1) {

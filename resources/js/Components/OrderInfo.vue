@@ -74,7 +74,7 @@
                         </div>
                         <div class="form-field">
                             <label>{{ $t('Price') }} *</label>
-                            <input type="number" v-model="catalogData.price" step="0.01" min="0.00001" class="input-field" :placeholder="$t('Enter price')">
+                            <input type="number" v-model="catalogData.price" step="0.01" class="input-field" :placeholder="$t('Enter price')">
                         </div>
                     </div>
                     <div class="form-row">
@@ -178,7 +178,7 @@
                                 </div>
                                 <div v-if="action.selectedAction?.isMaterialized" class="action-quantity">
                                     <label>{{ $t('Quantity') }}</label>
-                                    <input type="number" min="0.00001" step="0.0001" v-model="action.quantity" class="input-field" style="width: 30%;" :placeholder="getUnit(action.selectedAction)">
+                                    <input type="number" step="0.01" v-model="action.quantity" class="input-field" style="width: 30%;" :placeholder="getUnit(action.selectedAction)">
                                 </div>
                                 <div class="action-controls">
                                     <button v-if="index === catalogData.actions.length - 1" type="button" @click="addCatalogAction" class="add-btn">
@@ -255,7 +255,7 @@
                                         />
                                     </div>
                                     <div class="article-quantity">
-                                        <input v-model="article.quantity" type="number" min="0.00001" step="0.0001" class="input-field" style="width: 50px;"
+                                        <input v-model="article.quantity" type="number" step="0.01" class="input-field" style="width: 50px;"
                                                :placeholder="$t('Quantity') + (article.unitLabel ? ` (${article.unitLabel})` : '')" />
                                     </div>
                                     <button type="button" @click="removeArticle(index, 'service')" class="remove-btn">
@@ -483,7 +483,7 @@
                     </div>
                     <div v-if="action.selectedAction?.isMaterialized" class="form-group mt-2 p-2 text-black sameRow">
                         <label class="label-fixed-width">{{ $t('actionQuantity') }}</label>
-                        <input type="number" min="0.00001" step="0.0001" v-model="action.quantity">
+                        <input type="number" step="0.01" v-model="action.quantity">
                     </div>
                 </div>
                 <div class="form-group mt-2 p-2 text-black sameRow">

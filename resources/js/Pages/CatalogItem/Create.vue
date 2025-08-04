@@ -54,7 +54,7 @@
                                     </select>
                                 </div>
                                 <div>
-                                    <label class="text-white">{{ $t('subcategory') }} ({{ $t('optional') }})</label>
+                                    <label class="text-white">{{ $t('subcategory') }} ({{ $t('optional for listing') }})</label>
                                     <div class="flex items-center gap-2">
                                         <select
                                             v-model="form.subcategory_id"

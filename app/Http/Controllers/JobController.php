@@ -704,11 +704,26 @@ class JobController extends Controller
 
             // Calculate cost price using new component article system
             $costPrice = 0;
+            $componentBreakdown = [];
             
             if ($job->catalog_item_id) {
                 $catalogItem = CatalogItem::with('articles')->find($job->catalog_item_id);
                 if ($catalogItem) {
                     $costPrice = $catalogItem->calculateJobCostPrice($job);
+                    
+                    // Get detailed breakdown for response
+                    $costRequirements = $catalogItem->calculateCostRequirements($job);
+                    foreach ($costRequirements as $requirement) {
+                        $componentBreakdown[] = [
+                            'article_id' => $requirement['article_id'],
+                            'article_name' => $requirement['article']->name ?? 'Unknown',
+                            'catalog_quantity' => $requirement['catalog_quantity'],
+                            'actual_required' => $requirement['actual_required'],
+                            'article_price' => $requirement['article_price'],
+                            'total_cost' => $requirement['total_cost'],
+                            'unit_type' => $requirement['unit_type']
+                        ];
+                    }
                 }
             }
 
@@ -722,6 +737,8 @@ class JobController extends Controller
             return response()->json([
                 'price' => $costPrice,
                 'salePrice' => $sellingPrice,
+                'component_count' => count($componentBreakdown),
+                'component_breakdown' => $componentBreakdown,
                 'message' => 'Job cost recalculated successfully'
             ]);
 

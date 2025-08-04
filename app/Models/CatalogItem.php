@@ -386,6 +386,20 @@ class CatalogItem extends Model
     /**
      * Calculate cost requirements for a job (for pricing)
      * Separate calculation logic for quantity-based vs copies-based pricing
+     * 
+     * This method handles multiple component articles by:
+     * 1. Iterating through all articles associated with this catalog item
+     * 2. Calculating individual cost for each article based on job parameters
+     * 3. Returning an array of all cost requirements that will be summed
+     * 
+     * Formula for each component article:
+     * - Quantity-based: job.quantity × component_article_quantity × article_price
+     * - Copies-based: job.copies × job_square_meters × component_article_quantity_per_sqm × article_price
+     * 
+     * The total job cost is the sum of all component article costs.
+     * 
+     * @param Job $job The job object with dimensions, quantity, and copies
+     * @return array Array of cost requirements for each component article
      */
     public function calculateCostRequirements($job)
     {
@@ -455,15 +469,42 @@ class CatalogItem extends Model
 
     /**
      * Calculate total cost price for a job based on new cost calculation logic
+     * Handles multiple component articles by summing their individual costs
      */
     public function calculateJobCostPrice($job)
     {
         $totalCost = 0;
         $costRequirements = $this->calculateCostRequirements($job);
+        $componentBreakdown = [];
         
         foreach ($costRequirements as $requirement) {
             $totalCost += $requirement['total_cost'];
+            
+            // Store breakdown for debugging/logging
+            $componentBreakdown[] = [
+                'article_id' => $requirement['article_id'],
+                'article_name' => $requirement['article']->name ?? 'Unknown',
+                'catalog_quantity' => $requirement['catalog_quantity'],
+                'actual_required' => $requirement['actual_required'],
+                'article_price' => $requirement['article_price'],
+                'total_cost' => $requirement['total_cost'],
+                'unit_type' => $requirement['unit_type']
+            ];
         }
+        
+        // Log detailed breakdown for debugging
+        \Log::info('Job cost calculation breakdown', [
+            'job_id' => $job->id,
+            'catalog_item_id' => $this->id,
+            'catalog_item_name' => $this->name,
+            'job_quantity' => $job->quantity,
+            'job_copies' => $job->copies,
+            'job_square_meters' => ($job->width / 1000) * ($job->height / 1000),
+            'pricing_method' => $this->getPricingMethod(),
+            'component_count' => count($componentBreakdown),
+            'total_cost' => $totalCost,
+            'component_breakdown' => $componentBreakdown
+        ]);
         
         return $totalCost;
     }
