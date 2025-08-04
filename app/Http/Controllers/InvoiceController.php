@@ -116,6 +116,15 @@ class InvoiceController extends Controller
             'jobs' => 'array',
         ]);
 
+        // Check if jobs are provided
+        $jobs = $request->jobs;
+        if (!$jobs || empty($jobs)) {
+            return response()->json([
+                'error' => 'Cannot create an order without jobs. Please add at least one job before creating the order.',
+                'message' => 'No jobs provided'
+            ], 422);
+        }
+
         $invoiceData = $request->all();
 
         // Create the invoice
