@@ -1815,7 +1815,7 @@ class JobController extends Controller
             // Validate the request
             $request->validate([
                 'files' => 'required|array',
-                'files.*' => 'required|mimes:pdf|max:20480', // 20MB max per file
+                'files.*' => 'required|mimes:pdf|max:153600', // 150MB max per file
             ]);
 
             // Find the job
@@ -2892,7 +2892,7 @@ class JobController extends Controller
         try {
             $request->validate([
                 'files' => 'required|array',
-                'files.*' => 'required|mimes:pdf,svg,dxf,cdr,ai|max:20480', // 20MB max per file
+                'files.*' => 'required|mimes:pdf,svg,dxf,cdr,ai|max:153600', // 150MB max per file
             ]);
 
             $job = Job::findOrFail($id);
