@@ -396,7 +396,7 @@ class CatalogItemController extends Controller
                     }
                 }
             }],
-            'articles.*.quantity' => 'required|numeric|min:0.01',
+            'articles.*.quantity' => 'required|numeric|min:0.0000',
             'subcategory_id' => 'nullable|exists:subcategories,id'
         ], [], [
             'large_material_id' => 'large material',
@@ -783,7 +783,7 @@ class CatalogItemController extends Controller
                         }
                     }
                 }],
-                'articles.*.quantity' => 'required|numeric|min:0.01',
+                'articles.*.quantity' => 'required|numeric|min:0.0000',
                 'subcategory_id' => 'nullable|exists:subcategories,id'
             ]);
 

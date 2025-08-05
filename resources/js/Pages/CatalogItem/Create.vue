@@ -259,8 +259,7 @@
                                             <input
                                                 v-model="article.quantity"
                                                 type="number"
-                                                min="0.01"
-                                                step="0.01"
+                                                step="0.0001"
                                                 class="w-full rounded option"
                                                 required
                                             />
@@ -305,8 +304,7 @@
                                             <input
                                                 v-model="article.quantity"
                                                 type="number"
-                                                min="0.01"
-                                                step="0.01"
+                                                step="0.0001"
                                                 class="w-full rounded option"
                                                 required
                                             />
