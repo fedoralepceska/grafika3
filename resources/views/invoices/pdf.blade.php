@@ -152,15 +152,33 @@
                 <td class="tahoma" style="background-color: #F0EFEF; padding-left: 5px; border-bottom: 1px solid #cccccc; margin: 0; font-size: 9.5pt">Производ</td>
                 <td colspan="3"> {{ $job->name }}</td>
             </tr>
+
             @if($job->articles && $job->articles->count() > 0)
                 <tr>
-                    <td class="tahoma" style="background-color: #F0EFEF; padding-left: 5px; border-bottom: 1px solid #cccccc;">Материјали:</td>
+                    <td class="tahoma" style="background-color: #F0EFEF; padding-left: 5px; border-bottom: 1px solid #cccccc;">Оддел:</td>
                     <td colspan="3">
-                        @foreach($job->articles as $article)
-                        {{ $article->name }} 
-                            <!-- {{ $article->name }} ({{ $article->pivot->quantity }} {{ $article->in_square_meters ? 'm²' : ($article->in_pieces ? 'ком.' : ($article->in_kilograms ? 'кг' : ($article->in_meters ? 'м' : 'ед.'))) }}) -->
-                            @if(!$loop->last),@endif
-                        @endforeach
+                        @php
+                            // Determine department based on article types (small vs large materials)
+                            $hasLargeFormat = false;
+                            $hasSmallFormat = false;
+                            foreach($job->articles as $article) {
+                                if($article->largeFormatMaterial) {
+                                    $hasLargeFormat = true;
+                                }
+                                if($article->smallMaterial) {
+                                    $hasSmallFormat = true;
+                                }
+                            }
+                        @endphp
+                        @if($hasLargeFormat && $hasSmallFormat)
+                            Large Format, Small Format
+                        @elseif($hasLargeFormat)
+                            Large Format
+                        @elseif($hasSmallFormat)
+                            Small Format
+                        @else
+                            Mixed Format
+                        @endif
                     </td>
                 </tr>
             @elseif($job->small_material)
@@ -179,7 +197,35 @@
                 <td colspan="3"> {{ $job->machinePrint }}</td>
             </tr>
             @if($job->articles && $job->articles->count() > 0)
-                <!-- Articles are shown above -->
+                <tr>
+                    <td class="tahoma" style="background-color: #F0EFEF; padding-left: 5px; border-bottom: 1px solid #cccccc;">Тип на материјал:</td>
+                    <td colspan="3">
+                        @php
+                            $materialNames = [];
+                            foreach($job->articles as $article) {
+                                // Check if article has categories first
+                                if($article->categories && $article->categories->count() > 0) {
+                                    foreach($article->categories as $category) {
+                                        if(!in_array($category->name, $materialNames)) {
+                                            $materialNames[] = $category->name;
+                                        }
+                                    }
+                                } else {
+                                    // Fallback to material names if no categories
+                                    if($article->largeFormatMaterial) {
+                                        $materialNames[] = $article->largeFormatMaterial->name;
+                                    } elseif($article->smallMaterial) {
+                                        $materialNames[] = $article->smallMaterial->name;
+                                    } else {
+                                        $materialNames[] = $article->name;
+                                    }
+                                }
+                            }
+                            $materialNames = array_unique($materialNames);
+                        @endphp
+                        {{ implode(', ', $materialNames) }}
+                    </td>
+                </tr>
             @elseif($job->small_material)
                 <tr>
                     <td class="tahoma" style="background-color: #F0EFEF; padding-left: 5px; border-bottom: 1px solid #cccccc;">Тип на материјал:</td>
@@ -328,8 +374,8 @@
                 <div  class="bolder tahoma" style="margin-top: 10px; font-size: 9.5pt; color: #3f3f3f">
                     ART BOARD {{ $index + 1 }}<span class="opensans bolder" style="color: #333333; font-size: 10pt" >:</span>
                 </div>
-        <div style="text-align: center; height: 440px;">
-                    <img src="{{ $thumbnailPath }}" alt="Job Image {{ $index + 1 }}" style="max-height: 375px; min-height: 375px; vertical-align: middle;">
+                <div class="image-box" style="text-align: center; max-height: 415px; overflow: hidden; display: flex; align-items: center; justify-content: center;">
+            <img src="{{ $thumbnailPath }}" alt="Job Image {{ $index + 1 }}" style="max-width: 100%; max-height: 375px; object-fit: contain; vertical-align: middle;">
         </div>
 
         <table style="width: 100%; text-align: center; letter-spacing: 0.5px">
