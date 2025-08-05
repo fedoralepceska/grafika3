@@ -17,6 +17,7 @@
                     <Header title="invoice" subtitle="InvoiceReview" icon="List.png" link="orders"/>
                     <div class="flex pt-4">
                         <div class="buttons pt-3">
+                            <button class="btn go-back" @click="goBack">Go Back <span class="mdi mdi-arrow-left"></span></button>
                             <button class="btn download-order" @click="downloadAllProofs">Download All Proofs <span class="mdi mdi-cloud-download"></span></button>
                             <button v-if="!invoice.LockedNote" class="btn"><AddLockNoteDialog :invoice="invoice"/></button>
                             <button v-if="invoice.LockedNote" class="btn lock-order" @click="unlockOrder(invoice.id)">Unlock Order <span class="mdi mdi-lock-open"></span></button>
@@ -586,6 +587,16 @@ export default {
         },
         getCuttingFileExtension(filePath) {
             return filePath.split('.').pop() || '';
+        },
+        
+        goBack() {
+            // Use browser's back functionality
+            if (window.history.length > 1) {
+                window.history.back();
+            } else {
+                // Fallback to a default route if no history
+                this.$inertia.visit('/orders');
+            }
         }
 
     },
@@ -780,7 +791,7 @@ export default {
     background-color: $blue;
     color: white;
 }
-.go-to-steps{
+.go-to-steps, .go-back{
     background-color: $orange;
     color: white;
 }
