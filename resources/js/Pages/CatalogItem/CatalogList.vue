@@ -153,14 +153,17 @@
                         <td class="p-4 text-center">
                             <div class="flex space-x-2">
                                 <button @click="navigateToEdit(item.id)" class="btn btn-secondary">
-                                    <i class="fas fa-edit"></i> {{ $t('Edit') }}
+                                    <i class="fas fa-edit"></i>
+                                </button>
+                                <button @click="openCopyDialog(item)" class="btn btn-secondary">
+                                    <i class="fas fa-copy"></i>
                                 </button>
                                 <button 
                                     v-if="canDelete" 
                                     @click="deleteCatalogItem(item.id)" 
                                     class="btn btn-danger"
                                 >
-                                    <i class="fas fa-trash"></i> {{ $t('Delete') }}
+                                    <i class="fas fa-trash"></i> 
                                 </button>
                             </div>
                         </td>
@@ -532,6 +535,70 @@
                 </div>
             </div>
         </div>
+
+        <!-- Copy Catalog Item Dialog -->
+        <div v-if="showCopyDialog" class="modal-backdrop" @click="closeCopyDialog">
+            <div class="modal-content" @click.stop>
+                <div class="modal-header">
+                    <h2 class="text-xl font-semibold">Copy Catalog Item</h2>
+                    <button @click="closeCopyDialog" class="close-button" aria-label="Close dialog">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div class="space-y-4">
+                        <div>
+                            <p class="text-white mb-4 text-center">
+                                You are copying "{{ selectedItemForCopy?.name }}"
+                                <br>
+                                <span class="text-sm text-gray-400">
+                                    This will create a new catalog item with all the same data (files, actions, questions, component articles) and reference the same template file. Only the name will be different.
+                                </span>
+                            </p>
+                            
+                            <div class="mb-4">
+                                <label for="copy-item-name" class="block text-white text-sm font-bold mb-2">
+                                    New Catalog Item Name
+                                </label>
+                                <input
+                                    id="copy-item-name"
+                                    v-model="copyForm.name"
+                                    type="text"
+                                    class="w-full p-3 bg-gray-600 border border-gray-500 rounded-md text-white"
+                                    placeholder="Enter a unique name for the new catalog item"
+                                    @keyup.enter="confirmCopy"
+                                    @keyup.esc="closeCopyDialog"
+                                    @input="validateCopyName"
+                                    ref="copyNameInput"
+                                    aria-describedby="copy-form-error"
+                                />
+                                <p v-if="copyFormError" id="copy-form-error" class="text-red-500 text-sm mt-2">
+                                    {{ copyFormError }}
+                                </p>
+                                <p v-else class="text-gray-400 text-sm mt-2">
+                                    The name must be unique among all catalog items.
+                                </p>
+                            </div>
+                        </div>
+
+                        <div class="flex justify-end space-x-2">
+                            <button
+                                @click="closeCopyDialog"
+                                class="px-4 py-2 btn-secondary text-white rounded"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                @click="confirmCopy"
+                                :disabled="!copyForm.name.trim() || isCopying || copyFormError"
+                                class="px-4 py-2 btn-primary text-white rounded"
+                                :class="{ 'opacity-50 cursor-not-allowed': !copyForm.name.trim() || isCopying || copyFormError }"
+                            >
+                                {{ isCopying ? 'Copying...' : 'Copy Catalog Item' }}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
     </MainLayout>
 </template>
 
@@ -605,6 +672,13 @@ export default {
             },
             largeMaterials: [],
             smallMaterials: [],
+            showCopyDialog: false,
+            selectedItemForCopy: null,
+            copyForm: {
+                name: ''
+            },
+            copyFormError: '',
+            isCopying: false
         };
     },
     methods: {
@@ -1440,6 +1514,83 @@ export default {
                 toast.error('Failed to delete the catalog item. Please try again.');
             }
         },
+
+        openCopyDialog(item) {
+            this.selectedItemForCopy = item;
+            this.copyForm.name = ''; // Clear previous name
+            this.copyFormError = '';
+            this.showCopyDialog = true;
+            this.$nextTick(() => {
+                this.$refs.copyNameInput.focus();
+            });
+        },
+
+        closeCopyDialog() {
+            this.showCopyDialog = false;
+            this.selectedItemForCopy = null;
+            this.copyForm.name = '';
+            this.copyFormError = '';
+            this.isCopying = false;
+        },
+
+        async confirmCopy() {
+            if (!this.copyForm.name.trim()) {
+                this.copyFormError = 'Name cannot be empty.';
+                return;
+            }
+
+            // Check if the name already exists in the current catalog items
+            const trimmedName = this.copyForm.name.trim();
+            const existingItem = this.catalogItems.find(item => 
+                item.name.toLowerCase() === trimmedName.toLowerCase()
+            );
+
+            if (existingItem) {
+                this.copyFormError = 'A catalog item with this name already exists.';
+                return;
+            }
+
+            const toast = useToast();
+            
+            try {
+                this.isCopying = true; // Set loading state
+                const response = await axios.post(route('catalog.copy', this.selectedItemForCopy.id), {
+                    name: trimmedName
+                });
+
+                if (response.data.success) {
+                    toast.success(`Catalog item copied successfully! New item ID: ${response.data.new_item_id}`);
+                    this.closeCopyDialog();
+                    this.fetchCatalogItems();
+                } else {
+                    toast.error(response.data.message || 'Failed to copy catalog item.');
+                }
+            } catch (error) {
+                if (error.response?.status === 422 && error.response?.data?.errors?.name) {
+                    this.copyFormError = error.response.data.errors.name[0];
+                } else if (error.response?.data?.message) {
+                    toast.error(error.response.data.message);
+                } else {
+                    toast.error('Failed to copy catalog item.');
+                    console.error('Error copying catalog item:', error);
+                }
+            } finally {
+                this.isCopying = false; // Reset loading state
+            }
+        },
+
+        validateCopyName() {
+            const trimmedName = this.copyForm.name.trim();
+            const existingItem = this.catalogItems.find(item => 
+                item.name.toLowerCase() === trimmedName.toLowerCase()
+            );
+
+            if (existingItem) {
+                this.copyFormError = 'A catalog item with this name already exists.';
+            } else {
+                this.copyFormError = '';
+            }
+        }
     },
     async mounted() {
         this.debouncedSearch = debounce(() => {
@@ -1522,6 +1673,12 @@ tbody td {
     background-color: #4a5568;
     color: white;
 }
+
+.btn-primary {
+    background-color: $green;
+    color: white;
+}
+
 .btn-clear{
     background-color: $light-gray;
     color: white;

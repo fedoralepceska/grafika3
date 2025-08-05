@@ -13,6 +13,7 @@ use Inertia\Inertia;
 use ReflectionClass;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 class CatalogItemController extends Controller
 
@@ -948,6 +949,118 @@ class CatalogItemController extends Controller
         } catch (\Exception $e) {
             DB::rollBack();
             return redirect()->route('catalog.index')->with('error', 'Failed to delete catalog item.');
+        }
+    }
+
+    /**
+     * Copy a catalog item with all its data except the name
+     * 
+     * This method creates a new catalog item that is an exact copy of the original,
+     * including files, templates, actions, questions, and component articles.
+     * Only the name is different and must be provided by the user.
+     * 
+     * Note: Template files are referenced rather than copied to save storage space.
+     * 
+     * @param Request $request
+     * @param int $id The ID of the catalog item to copy
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function copy(Request $request, $id)
+    {
+        try {
+            DB::beginTransaction();
+            
+            // Find the original catalog item
+            $originalItem = CatalogItem::with(['articles', 'questions'])->findOrFail($id);
+            
+            // Validate the new name
+            $request->validate([
+                'name' => 'required|string|max:255|unique:catalog_items,name'
+            ], [
+                'name.required' => 'The catalog item name is required.',
+                'name.unique' => 'A catalog item with this name already exists.',
+                'name.max' => 'The catalog item name cannot exceed 255 characters.'
+            ]);
+            
+            // Create a new catalog item with the same data except name
+            $newItem = $originalItem->replicate();
+            $newItem->name = trim($request->input('name'));
+            $newItem->save();
+            
+            // Copy the file if it exists
+            if ($originalItem->file && $originalItem->file !== 'placeholder.jpeg') {
+                $fileExtension = pathinfo($originalItem->file, PATHINFO_EXTENSION);
+                $newFileName = time() . '_' . Str::slug($request->input('name')) . '.' . $fileExtension;
+                
+                // Copy the file
+                if (Storage::disk('public')->exists('uploads/' . $originalItem->file)) {
+                    Storage::disk('public')->copy('uploads/' . $originalItem->file, 'uploads/' . $newFileName);
+                    $newItem->file = $newFileName;
+                }
+            }
+            
+            // Copy the template file if it exists
+            if ($originalItem->template_file) {
+                // Instead of copying the template file, just reference the same file
+                // This saves storage space and is more efficient
+                $newItem->template_file = $originalItem->template_file;
+            }
+            
+            // Copy articles with their quantities and category information
+            if ($originalItem->articles->isNotEmpty()) {
+                foreach ($originalItem->articles as $article) {
+                    $pivotData = [
+                        'quantity' => $article->pivot->quantity
+                    ];
+                    
+                    // Preserve category information if it exists
+                    if (isset($article->pivot->category_id)) {
+                        $pivotData['category_id'] = $article->pivot->category_id;
+                    }
+                    
+                    $newItem->articles()->attach($article->id, $pivotData);
+                }
+                
+                // Recalculate cost price for the new item
+                $newItem->load('articles');
+                $newItem->calculateCostPrice();
+            }
+            
+            // Copy questions if the original item has questions
+            if ($originalItem->should_ask_questions && $originalItem->questions->isNotEmpty()) {
+                $questionIds = $originalItem->questions->pluck('id')->toArray();
+                $newItem->questions()->attach($questionIds);
+            }
+            
+            $newItem->save();
+            
+            DB::commit();
+            
+            return response()->json([
+                'success' => true,
+                'message' => 'Catalog item copied successfully',
+                'new_item_id' => $newItem->id
+            ]);
+            
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            DB::rollBack();
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed',
+                'errors' => $e->errors()
+            ], 422);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            \Log::error('Error copying catalog item:', [
+                'original_item_id' => $id,
+                'message' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to copy catalog item: ' . $e->getMessage()
+            ], 500);
         }
     }
 
