@@ -2,7 +2,7 @@
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import MainLayout from "@/Layouts/MainLayout.vue";
 import { Head } from '@inertiajs/vue3';
-import LatestOrders from "@/Pages/Invoice/LatestOrders.vue";
+import DashboardOrders from "@/Pages/Invoice/DashboardOrders.vue";
 import StatusBox from "@/Components/StatusBox.vue";
 </script>
 
@@ -40,8 +40,8 @@ import StatusBox from "@/Components/StatusBox.vue";
                     <span class="text">PRODUCTION DASHBOARD</span>
                 </a>
             </nav>
-            <div class="px-12">
-                <LatestOrders></LatestOrders>
+            <div class="pl-10 flex-1">
+                <DashboardOrders></DashboardOrders>
             </div>
         </div>
 
@@ -126,16 +126,39 @@ export default {
     justify-content: space-around;
     padding: 15px;
     width: 100%;
+    flex-wrap: wrap;
+    gap: 8px;
+
+    /* Responsive adjustments for status boxes container */
+    @media (max-width: 639px) {
+        padding: 8px;
+        gap: 4px;
+        flex-direction: column;
+    }
+
+    @media (min-width: 640px) and (max-width: 1023px) {
+        padding: 12px;
+        gap: 6px;
+        flex-wrap: wrap;
+    }
+
+    @media (min-width: 1024px) {
+        padding: 15px;
+        gap: 8px;
+    }
 }
+
 .sidebar-menu {
     background-color: $background-color; /* Dark background */
     color: white;
     list-style: none;
     width: fit-content;
 }
+
 .dark-gray{
     background-color: $dark-gray;
 }
+
 .menu-item {
     display: flex;
     flex-direction: column;
@@ -147,23 +170,51 @@ export default {
     background-color: $light-gray; /* Slightly lighter than the sidebar for contrast */
     height: 100px;
     margin-bottom: 20px;
+    transition: all 0.3s ease;
+
+    /* Responsive menu items */
+    @media (max-width: 639px) {
+        padding: 8px 20px;
+        height: 80px;
+        margin-bottom: 15px;
+    }
+
+    @media (min-width: 640px) and (max-width: 1023px) {
+        padding: 10px 25px;
+        height: 90px;
+        margin-bottom: 18px;
+    }
 }
+
 .items{
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
 }
+
 .menu-item .text {
     font-size: 1em;
     text-transform: uppercase;
     letter-spacing: 0.05em;
+
+    /* Responsive text sizing */
+    @media (max-width: 639px) {
+        font-size: 0.8em;
+    }
+
+    @media (min-width: 640px) and (max-width: 1023px) {
+        font-size: 0.9em;
+    }
 }
 
 /* Hover effect */
 .menu-item:hover {
     background-color: $ultra-light-gray;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
 }
+
 .text {
     text-align: center;
     margin-left: 10px;
@@ -172,8 +223,47 @@ export default {
 .flex {
     display: flex;
     flex-direction: row;
+
+    /* Responsive flex layout */
+    @media (max-width: 1023px) {
+        flex-direction: column;
+    }
+}
+
+/* Responsive padding for the main content area */
+@media (max-width: 639px) {
+    .flex {
+        padding: 15px !important;
+    }
+}
+
+@media (min-width: 640px) and (max-width: 1023px) {
+    .flex {
+        padding: 20px !important;
+    }
+}
+
+@media (min-width: 1024px) {
+    .flex {
+        padding: 25px !important;
+    }
+}
+
+/* Responsive sidebar menu */
+@media (max-width: 1023px) {
+    .sidebar-menu {
+        width: 100%;
+        margin-bottom: 20px;
+    }
+}
+
+/* Responsive content area */
+@media (max-width: 1023px) {
+    .px-12 {
+        padding-left: 0 !important;
+        padding-right: 0 !important;
+    }
 }
 
 /* Adjustments for responsive design or specific styling might be necessary. */
-
 </style>

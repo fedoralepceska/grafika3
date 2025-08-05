@@ -83,6 +83,7 @@ Route::middleware(['auth', 'verified'])->group(function() {
     Route::put('/orders', [InvoiceController::class, 'store'])->name('invoices.store');
     Route::post('/orders', [InvoiceController::class, 'store'])->name('invoices.store');
     Route::get('/orders/{id}', [InvoiceController::class, 'show'])->name('invoices.show');
+    Route::get('/orders/{id}/details', [InvoiceController::class, 'getOrderDetails'])->name('invoices.getOrderDetails');
     Route::put('/orders/update-note-flag', [InvoiceController::class, 'updateNoteProperty'])->name('invoices.updateNoteProperty');
     Route::put('/orders/update-locked-note', [InvoiceController::class, 'updateLockedNote'])->name('invoices.updateLockedNote');
     Route::put('/orders/{id}', [InvoiceController::class, 'update'])->name('invoices.update');

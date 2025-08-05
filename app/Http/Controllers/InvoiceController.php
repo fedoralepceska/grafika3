@@ -498,6 +498,20 @@ class InvoiceController extends Controller
         return response()->json($invoices);
     }
 
+    public function getOrderDetails($id)
+    {
+        $invoice = Invoice::with([
+            'jobs.small_material.smallFormatMaterial', 
+            'jobs.large_material',
+            'jobs.actions',
+            'jobs.articles',
+            'user', 
+            'client'
+        ])->findOrFail($id);
+
+        return response()->json($invoice);
+    }
+
     public function countToday() {
         $count = Invoice::whereDate('created_at', Carbon::today())->count();
         return response()->json(['count' => $count]);

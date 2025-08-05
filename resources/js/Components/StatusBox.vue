@@ -39,11 +39,11 @@ export default {
     align-items: center;
     background-color: $light-gray;
     border-radius: 2px;
-    padding-bottom: 10px;
+    padding: 10px;
     justify-content: left;
     flex-grow: 1; /* Makes the boxes grow to fill the container */
     margin: 0 5px;
-    height: 25vh;
+    height: 15vh;
 
 }
 

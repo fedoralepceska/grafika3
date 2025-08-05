@@ -8,7 +8,8 @@
                         :class="{
                             'circle': true,
                             'dark-gray': job.status === 'Not started yet',
-                            'green': job.status === 'Completed' || 'In progress',
+                            'green': job.status === 'Completed',
+                            'blue': job.status === 'In progress',
                             'disabled' : true,
                         }"
                     >
@@ -86,8 +87,16 @@ export default {
             }
         },
         actions(id) {
+            // First try to get actions from the job prop (from invoice data)
+            if (this.job && this.job.actions && this.job.actions.length > 0) {
+                return this.job.actions.map(action => ({
+                    name: action.name,
+                    status: action.status,
+                }));
+            }
+            
+            // Fallback to fetching from API
             const job = this.newJobs.find(job => job.id === id);
-            // Check if the job exists
             if (job) {
                 const jobActions = job.actions;
 
@@ -113,6 +122,11 @@ export default {
             const allCompleted = jobActions.every(action => action.status === 'Completed');
             if (allCompleted) {
                 return 'completed';
+            }
+            // Check if any action is in progress
+            const anyInProgress = jobActions.some(action => action.status === 'In progress');
+            if (anyInProgress) {
+                return 'in_progress';
             }
             // In all other cases, return not_started (idle/dark-gray)
             return 'not_started';
