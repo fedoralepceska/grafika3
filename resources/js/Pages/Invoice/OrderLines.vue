@@ -332,6 +332,22 @@
                     </td>
                 </div>
 
+                <!-- MATERIALS SECTION -->
+                <div v-if="job.articles && job.articles.length > 0">
+                    <td>
+                        <div class="blue p-1 pl-1 w-[40rem] text-white bg-gray-700" @click="toggleMaterials(job.id)" style="cursor: pointer">
+                            {{$t('MATERIALS')}} ⏷
+                        </div>
+                        <transition name="slide-fade">
+                            <div v-if="showMaterials === job.id" class="ultra-light-blue text-white pb-1">
+                                <div v-for="(article, articleIndex) in job.articles" :key="articleIndex" class="bg-gray-700 pl-1 w-full text-left">
+                                    <span>{{articleIndex + 1}}. {{ article.name }} ({{ article.pivot.quantity }} {{ article.in_square_meters ? 'm²' : (article.in_pieces ? 'ком.' : (article.in_kilograms ? 'кг' : (article.in_meters ? 'м' : 'ед.'))) }})</span>
+                                </div>
+                            </div>
+                        </transition>
+                    </td>
+                </div>
+
                 <!-- SHIPPING INFO -->
                 <div class="flex justify-between">
                     <td class="flex items-center bg-gray-200 text-black" style="padding: 0 5px 0 0;">
@@ -473,6 +489,7 @@ export default {
     data() {
         return {
             showActions: null,
+            showMaterials: null,
             jobsWithPrices: [],
             editingJob: null,
             editingField: null,
@@ -814,6 +831,10 @@ export default {
 
         toggleActions(jobId) {
             this.showActions = this.showActions === jobId ? null : jobId;
+        },
+
+        toggleMaterials(jobId) {
+            this.showMaterials = this.showMaterials === jobId ? null : jobId;
         },
 
         // Removed handleFileDrop - now using handleMultipleFiles for all uploads
@@ -2919,6 +2940,14 @@ input, select {
     i {
         font-size: 1rem;
     }
+}
+
+.blue {
+    color: #007bff;
+}
+
+.ultra-light-blue {
+    color: #b3d9ff;
 }
 
 </style>

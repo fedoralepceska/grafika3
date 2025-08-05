@@ -152,13 +152,23 @@
                 <td class="tahoma" style="background-color: #F0EFEF; padding-left: 5px; border-bottom: 1px solid #cccccc; margin: 0; font-size: 9.5pt">Производ</td>
                 <td colspan="3"> {{ $job->name }}</td>
             </tr>
-            @if($job->small_material)
+            @if($job->articles && $job->articles->count() > 0)
+                <tr>
+                    <td class="tahoma" style="background-color: #F0EFEF; padding-left: 5px; border-bottom: 1px solid #cccccc;">Материјали:</td>
+                    <td colspan="3">
+                        @foreach($job->articles as $article)
+                        {{ $article->name }} 
+                            <!-- {{ $article->name }} ({{ $article->pivot->quantity }} {{ $article->in_square_meters ? 'm²' : ($article->in_pieces ? 'ком.' : ($article->in_kilograms ? 'кг' : ($article->in_meters ? 'м' : 'ед.'))) }}) -->
+                            @if(!$loop->last),@endif
+                        @endforeach
+                    </td>
+                </tr>
+            @elseif($job->small_material)
                 <tr>
                     <td class="tahoma" style="background-color: #F0EFEF; padding-left: 5px; border-bottom: 1px solid #cccccc;">Оддел:</td>
                     <td colspan="3">Small Format</td>
                 </tr>
-            @endif
-            @if($job->large_material)
+            @elseif($job->large_material)
                 <tr>
                     <td class="tahoma" style="background-color: #F0EFEF; padding-left: 5px; border-bottom: 1px solid #cccccc;">Оддел:</td>
                     <td colspan="3">Large Format</td>
@@ -168,13 +178,14 @@
                 <td class="tahoma" style="background-color: #F0EFEF; padding-left: 5px; border-bottom: 1px solid #cccccc;;">Машина</td>
                 <td colspan="3"> {{ $job->machinePrint }}</td>
             </tr>
-            @if($job->small_material)
+            @if($job->articles && $job->articles->count() > 0)
+                <!-- Articles are shown above -->
+            @elseif($job->small_material)
                 <tr>
                     <td class="tahoma" style="background-color: #F0EFEF; padding-left: 5px; border-bottom: 1px solid #cccccc;">Тип на материјал:</td>
                     <td colspan="3">{{ $job->small_material->name }}</td>
                 </tr>
-            @endif
-            @if($job->large_material)
+            @elseif($job->large_material)
                 <tr>
                     <td class="tahoma" style="background-color: #F0EFEF; padding-left: 5px; border-bottom: 1px solid #cccccc;">Тип на материјал:</td>
                     <td colspan="3">{{ $job->large_material->name }}</td>

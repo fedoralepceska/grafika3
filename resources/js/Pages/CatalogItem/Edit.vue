@@ -92,6 +92,8 @@
                                 </div>
                             </div>
 
+                            <!-- Material selection fields hidden - now using articles from catalog item -->
+                            <!--
                             <div>
                                 <label class="text-white block mb-2 font-semibold">{{ $t('materialLargeFormat') }} - large format</label>
                                 <select v-model="editForm.large_material_id"
@@ -131,6 +133,7 @@
                                     {{ $t('clearSelection') }}
                                 </button>
                             </div>
+                            -->
 
                             <div>
                                 <label class="text-white block mb-2 font-semibold">{{ $t('defaultPrice') }}</label>
@@ -146,8 +149,9 @@
 
                         <!-- Right column with file upload -->
                         <div class="space-y-6">
+                            <div class="flex w-full gap-4">
                             <!-- File Section -->
-                            <div class="file-upload">
+                            <div class="file-upload flex-1">
                                 <h3 class="text-white text-lg font-semibold mb-4">{{ $t('fileUpload') }} (PNG, JPG, JPEG)</h3>
                                 <div
                                     class="upload-area"
@@ -184,7 +188,7 @@
                             </div>
 
                             <!-- Template File Section -->
-                            <div>
+                            <div class="file-upload flex-1">
                                 <h3 class="text-white text-lg font-semibold mb-4">{{ $t('templateFilePdfOnly') }}</h3>
                                 <div
                                     class="upload-area"
@@ -203,7 +207,7 @@
                                         <div class="upload-icon">
                                             <span class="mdi mdi-cloud-upload text-4xl"></span>
                                         </div>
-                                        <p class="upload-text">{{ $t('dragAndDropTemplatePdfHere') }}</p>
+                                        <p class="upload-text text-[14px]">{{ $t('dragAndDropTemplatePdfHere') }}</p>
                                         <p class="upload-text-sub">{{ $t('orClickToBrowse') }}</p>
                                         <p class="file-types">{{ $t('supportedFormats') }}: PDF</p>
                                     </div>
@@ -219,6 +223,7 @@
                                         </div>
                                     </div>
                                 </div>
+                            </div>
                             </div>
 
                             <!-- Additional Options -->
@@ -1030,12 +1035,11 @@ export default {
 }
 
 .upload-text {
-    font-size: 1.1rem;
     font-weight: 500;
 }
 
 .upload-text-sub {
-    font-size: 0.9rem;
+   
     color: #9ca3af;
 }
 

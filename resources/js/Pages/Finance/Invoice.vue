@@ -92,7 +92,13 @@
                                         <div>
                                             {{$t('material')}}:
                                             <span class="bold">
-                                            <span v-if="job.large_material_id">{{ job.large_material?.name }}</span>
+                                            <span v-if="job.articles && job.articles.length > 0">
+                                                <span v-for="(article, index) in job.articles" :key="article.id">
+                                                    {{ article.name }} ({{ article.pivot.quantity }} {{ article.in_square_meters ? 'm²' : (article.in_pieces ? 'ком.' : (article.in_kilograms ? 'кг' : (article.in_meters ? 'м' : 'ед.'))) }})
+                                                    <span v-if="index < job.articles.length - 1">, </span>
+                                                </span>
+                                            </span>
+                                            <span v-else-if="job.large_material_id">{{ job.large_material?.name }}</span>
                                             <span v-else>{{ job?.small_material?.name }}</span>
                                          </span>
                                         </div>

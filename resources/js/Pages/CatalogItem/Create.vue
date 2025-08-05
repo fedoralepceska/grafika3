@@ -53,36 +53,6 @@
                                         </option>
                                     </select>
                                 </div>
-                                <div>
-                                    <label class="text-white">{{ $t('subcategory') }} ({{ $t('optional for listing') }})</label>
-                                    <div class="flex items-center gap-2">
-                                        <select
-                                            v-model="form.subcategory_id"
-                                            class="w-full mt-1 rounded"
-                                        >
-                                            <option value="">{{ $t('selectSubcategory') }}</option>
-                                            <option
-                                                v-for="subcategory in subcategories"
-                                                :key="subcategory.id"
-                                                :value="subcategory.id"
-                                            >
-                                                {{ subcategory.name }}
-                                            </option>
-                                        </select>
-                                    
-                                        <div class="flex flex-row items-center gap-5">
-                                            <div class="p-2">
-                                                <CreateSubcategoryDialog @created="handleSubcategoryCreated" />
-                                            </div>
-                                            <div>
-                                                <ViewSubcategoriesDialog 
-                                                    @updated="handleSubcategoryUpdated"
-                                                    @deleted="handleSubcategoryDeleted"
-                                                />
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
                                 
                                 <!-- Pricing Method Selection -->
                                 <div class="mt-4 p-2 border-dashed border-2 border-gray-500">
@@ -128,6 +98,38 @@
                                     </select>
                                 </div>
                                 <div>
+                                    <label class="text-white">{{ $t('subcategory') }} ({{ $t('optional for listing') }})</label>
+                                    <div class="flex items-center gap-2">
+                                        <select
+                                            v-model="form.subcategory_id"
+                                            class="w-full mt-1 rounded"
+                                        >
+                                            <option value="">{{ $t('selectSubcategory') }}</option>
+                                            <option
+                                                v-for="subcategory in subcategories"
+                                                :key="subcategory.id"
+                                                :value="subcategory.id"
+                                            >
+                                                {{ subcategory.name }}
+                                            </option>
+                                        </select>
+                                    
+                                        <div class="flex flex-row items-center gap-5">
+                                            <div class="p-2">
+                                                <CreateSubcategoryDialog @created="handleSubcategoryCreated" />
+                                            </div>
+                                            <div>
+                                                <ViewSubcategoriesDialog 
+                                                    @updated="handleSubcategoryUpdated"
+                                                    @deleted="handleSubcategoryDeleted"
+                                                />
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <!-- Material selection fields hidden - now using articles from catalog item -->
+                                <!--
+                                <div>
                                     <label class="text-white">{{ $t('materialLargeFormat') }} - large format</label>
                                     <select
                                         v-model="form.large_material_id"
@@ -170,6 +172,7 @@
                                         </option>
                                     </select>
                                 </div>
+                                -->
 
                                 <div>
                                     <label class="text-white">{{ $t('defaultPrice') }}</label>

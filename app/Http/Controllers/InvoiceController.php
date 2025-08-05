@@ -182,8 +182,21 @@ class InvoiceController extends Controller
                     ->where('catalog_item_id', $job->catalogItem->id)
                     ->get();
                 
-                // Process catalog item articles for stock consumption using new material calculation
-                if ($job->catalogItem && $job->catalogItem->articles()->exists()) {
+                // Process articles for stock consumption - check both job articles and catalog item articles
+                $articlesToConsume = [];
+                
+                // First, check if job has direct article assignments
+                if ($job->articles && $job->articles->count() > 0) {
+                    foreach ($job->articles as $jobArticle) {
+                        $articlesToConsume[] = [
+                            'article' => $jobArticle,
+                            'quantity' => $jobArticle->pivot->quantity,
+                            'source' => 'job_direct'
+                        ];
+                    }
+                }
+                // If no direct job articles, fall back to catalog item articles
+                elseif ($job->catalogItem && $job->catalogItem->articles()->exists()) {
                     $materialRequirements = $job->catalogItem->calculateMaterialRequirements($job);
                     
                     foreach ($materialRequirements as $requirement) {
@@ -206,19 +219,40 @@ class InvoiceController extends Controller
                             }
                         }
                         
-                        // Check stock availability
-                        if (!$actualArticle->hasStock($neededQuantity)) {
-                            $errorMessages[] = "For the catalog item '{$job->catalogItem->name}', article '{$actualArticle->name}' ({$unitType}) needs {$neededQuantity} units, but only {$actualArticle->getCurrentStock()} are available in stock.";
-                            continue;
-                        }
-                        
-                        // Consume article stock
-                        $this->consumeArticleStock($actualArticle, $neededQuantity);
+                        $articlesToConsume[] = [
+                            'article' => $actualArticle,
+                            'quantity' => $neededQuantity,
+                            'source' => 'catalog_item'
+                        ];
                     }
                 } else {
-                    \Log::warning('No catalog item articles found for job', [
+                    \Log::warning('No articles found for job', [
                         'job_id' => $job->id,
-                        'catalog_item_id' => $job->catalogItem->id
+                        'catalog_item_id' => $job->catalogItem->id ?? null
+                    ]);
+                }
+                
+                // Process all articles for stock consumption
+                foreach ($articlesToConsume as $articleData) {
+                    $article = $articleData['article'];
+                    $neededQuantity = $articleData['quantity'];
+                    $source = $articleData['source'];
+                    
+                    // Check stock availability
+                    if (!$article->hasStock($neededQuantity)) {
+                        $errorMessages[] = "For the job '{$job->name}', article '{$article->name}' needs {$neededQuantity} units, but only {$article->getCurrentStock()} are available in stock.";
+                        continue;
+                    }
+                    
+                    // Consume article stock
+                    $this->consumeArticleStock($article, $neededQuantity);
+                    
+                    \Log::info('Consumed article stock for job', [
+                        'job_id' => $job->id,
+                        'article_id' => $article->id,
+                        'article_name' => $article->name,
+                        'quantity_consumed' => $neededQuantity,
+                        'source' => $source
                     ]);
                 }
 

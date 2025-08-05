@@ -65,55 +65,12 @@ class JobController extends Controller
                 $job->machinePrint = $request->input('machinePrint');
                 $job->machineCut = $request->input('machineCut');
                 
-                // Handle category resolution for materials
+                // Handle articles from catalog item
                 $catalogItem = CatalogItem::with('articles')->find($request->input('catalog_item_id'));
-                $largeMaterialId = null;
-                $smallMaterialId = null;
                 
-                // Resolve large material or category
-                if ($request->input('large_material_category_id')) {
-                    // Frontend sent a category ID directly
-                    $largeMaterialId = $this->getNextAvailableMaterial($request->input('large_material_category_id'), 'large', $request->input('copies'));
-                    if (!$largeMaterialId) {
-                        throw new \Exception("No available materials in the selected large material category.");
-                    }
-                } elseif ($request->input('selectedMaterial')) {
-                    // Frontend sent a specific material ID
-                    $largeMaterialId = $request->input('selectedMaterial');
-                } elseif ($catalogItem->large_material_category_id) {
-                    // Catalog item has a category, select next available material
-                    $largeMaterialId = $this->getNextAvailableMaterial($catalogItem->large_material_category_id, 'large', $request->input('copies'));
-                    if (!$largeMaterialId) {
-                        throw new \Exception("No available materials in the selected large material category.");
-                    }
-                } elseif ($catalogItem->large_material_id) {
-                    // Catalog item has a specific material
-                    $largeMaterialId = $catalogItem->large_material_id;
-                }
-                
-                // Resolve small material or category
-                if ($request->input('small_material_category_id')) {
-                    // Frontend sent a category ID directly
-                    $smallMaterialId = $this->getNextAvailableMaterial($request->input('small_material_category_id'), 'small', $request->input('copies'));
-                    if (!$smallMaterialId) {
-                        throw new \Exception("No available materials in the selected small material category.");
-                    }
-                } elseif ($request->input('selectedMaterialsSmall')) {
-                    // Frontend sent a specific material ID
-                    $smallMaterialId = $request->input('selectedMaterialsSmall');
-                } elseif ($catalogItem->small_material_category_id) {
-                    // Catalog item has a category, select next available material
-                    $smallMaterialId = $this->getNextAvailableMaterial($catalogItem->small_material_category_id, 'small', $request->input('copies'));
-                    if (!$smallMaterialId) {
-                        throw new \Exception("No available materials in the selected small material category.");
-                    }
-                } elseif ($catalogItem->small_material_id) {
-                    // Catalog item has a specific material
-                    $smallMaterialId = $catalogItem->small_material_id;
-                }
-                
-                $job->large_material_id = $largeMaterialId;
-                $job->small_material_id = $smallMaterialId;
+                // Set legacy material fields to null (we'll use articles instead)
+                $job->large_material_id = null;
+                $job->small_material_id = null;
                 $job->name = $request->input('name');
                 $job->quantity = $request->input('quantity');
                 $job->copies = $request->input('copies');
@@ -204,6 +161,42 @@ class JobController extends Controller
                 }
 
                 $job->save();
+
+                // Step 1.6: Attach articles from catalog item to job
+                if ($catalogItem->articles()->exists()) {
+                    $materialRequirements = $catalogItem->calculateMaterialRequirements($tempJob);
+                    
+                    foreach ($materialRequirements as $requirement) {
+                        $article = $requirement['article'];
+                        $requiredQuantity = $requirement['actual_required'];
+                        
+                        // If this article was selected from a category, we need to get the actual article to use
+                        $actualArticle = $article;
+                        if ($article->pivot->category_id) {
+                            // Re-resolve the category to get the current first available article
+                            $actualArticle = $catalogItem->getFirstArticleFromCategory(
+                                $article->pivot->category_id,
+                                null,
+                                $requiredQuantity
+                            );
+                            if (!$actualArticle) {
+                                throw new \Exception("No available articles with sufficient stock in the selected category (ID: {$article->pivot->category_id}).");
+                            }
+                        }
+                        
+                        // Attach the actual article to the job with the required quantity
+                        $job->articles()->attach($actualArticle->id, [
+                            'quantity' => $requiredQuantity
+                        ]);
+                        
+                        \Log::info('Attached article to job', [
+                            'job_id' => $job->id,
+                            'article_id' => $actualArticle->id,
+                            'article_name' => $actualArticle->name,
+                            'quantity' => $requiredQuantity
+                        ]);
+                    }
+                }
 
                 // Step 2: Retrieve Catalog Item Actions
                 if ($request->has('actions')) {
@@ -385,8 +378,6 @@ class JobController extends Controller
     {
         try {
             $validatedData = $request->validate([
-                'selectedMaterial' => 'nullable|exists:large_format_materials,id',
-                'selectedMaterialsSmall' => 'nullable|exists:small_material,id',
                 'name' => 'nullable|string',
                 'quantity' => 'required|integer|min:1',
                 'copies' => 'required|integer|min:1',
@@ -421,8 +412,6 @@ class JobController extends Controller
 
             foreach ($jobsToUpdate as $job) {
                 $updateData = [
-                    'large_material_id' => $request->input('selectedMaterial'),
-                    'small_material_id' => $request->input('selectedMaterialsSmall'),
                     'name' => $request->input('name'),
                     'machineCut' => $request->input('selectedMachineCut'),
                     'machinePrint' => $request->input('selectedMachinePrint'),
@@ -445,21 +434,29 @@ class JobController extends Controller
                     $updateData['salePrice'] = $unitPrice * $pricingMultiplier; // Selling price from hierarchy
                 }
 
-                // Calculate cost price from materials and actions
+                // Calculate cost price from articles and actions
                 $costPrice = 0;
-                $smallMaterial = SmallMaterial::with('article')->find($request->input('selectedMaterialsSmall'));
-                $largeMaterial = LargeFormatMaterial::with('article')->find($request->input('selectedMaterial'));
+                
+                // Get articles from catalog item if available
+                $catalogItem = CatalogItem::with('articles')->find($request->input('catalog_item_id'));
+                if ($catalogItem && $catalogItem->articles()->exists()) {
+                    $tempJob = new Job();
+                    $tempJob->quantity = $request->input('quantity');
+                    $tempJob->copies = $request->input('copies');
+                    $tempJob->width = $job->width ?: 0;
+                    $tempJob->height = $job->height ?: 0;
+                    
+                    $costRequirements = $catalogItem->calculateCostRequirements($tempJob);
+                    foreach ($costRequirements as $requirement) {
+                        $costPrice += $requirement['total_cost'];
+                    }
+                }
 
                 if ($request->has('jobsWithActions')) {
                     foreach ($request->input('jobsWithActions') as $jobWithActions) {
                         foreach ($jobWithActions['actions'] as $action) {
                             if (isset($action['quantity'])) {
-                                if (isset($smallMaterial)) {
-                                    $costPrice = $costPrice + ($action['quantity'] * $smallMaterial->article->price_1);
-                                }
-                                if (isset($largeMaterial)) {
-                                    $costPrice = $costPrice + ($action['quantity'] * $largeMaterial->article->price_1);
-                                }
+                                // Cost calculation for actions will be handled by articles
                             }
                         }
                     }

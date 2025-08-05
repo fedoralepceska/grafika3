@@ -111,7 +111,7 @@ class Job extends Model
         'invoice_id'
     ];
 
-    protected $with = ['actions', 'invoice'];
+    protected $with = ['actions', 'invoice', 'articles'];
 
     protected $appends = ['effective_catalog_item_id', 'effective_client_id'];
 
@@ -176,6 +176,14 @@ class Job extends Model
     public function large_material()
     {
         return $this->belongsTo(LargeFormatMaterial::class, 'large_material_id');
+    }
+
+    // New relationship for multiple articles
+    public function articles()
+    {
+        return $this->belongsToMany(Article::class, 'job_articles')
+            ->withPivot('quantity')
+            ->withTimestamps();
     }
 
     public function getTotalPriceAttribute(): float|int

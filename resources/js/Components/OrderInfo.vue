@@ -117,7 +117,8 @@
                     </div>
                 </div>
 
-                <!-- Step 3: Materials -->
+                <!-- Step 3: Materials (Hidden - now using articles from catalog item) -->
+                <!--
                 <div v-if="currentStep === 2" class="step-panel">
                     <div class="step-title">
                         <i class="mdi mdi-texture"></i>
@@ -157,6 +158,7 @@
                         </div>
                     </div>
                 </div>
+                -->
 
                 <!-- Step 4: Actions -->
                 <div v-if="currentStep === 3" class="step-panel">
@@ -326,16 +328,24 @@
                             </div>
                             
                             <div class="summary-card">
-                                <h4>{{ $t('Material') }}</h4>
+                                <h4>{{ $t('Materials') }}</h4>
                                 <div class="summary-details">
-                                    <div v-if="catalogData.selectedLargeMaterial">
-                                        <strong>{{ $t('Large Format') }}:</strong> {{ catalogData.selectedLargeMaterial.name }}
+                                    <div v-if="catalogData.productArticles.length > 0 || catalogData.serviceArticles.length > 0">
+                                        <div v-if="catalogData.productArticles.length > 0">
+                                            <strong>{{ $t('Products') }}:</strong>
+                                            <div v-for="article in catalogData.productArticles" :key="article.id" class="ml-2">
+                                                • {{ article.name }} ({{ article.quantity }} {{ article.in_square_meters ? 'm²' : (article.in_pieces ? 'ком.' : (article.in_kilograms ? 'кг' : (article.in_meters ? 'м' : 'ед.'))) }})
+                                            </div>
+                                        </div>
+                                        <div v-if="catalogData.serviceArticles.length > 0">
+                                            <strong>{{ $t('Services') }}:</strong>
+                                            <div v-for="article in catalogData.serviceArticles" :key="article.id" class="ml-2">
+                                                • {{ article.name }} ({{ article.quantity }} {{ article.in_square_meters ? 'm²' : (article.in_pieces ? 'ком.' : (article.in_kilograms ? 'кг' : (article.in_meters ? 'м' : 'ед.'))) }})
+                                            </div>
+                                        </div>
                                     </div>
-                                    <div v-if="catalogData.selectedSmallMaterial">
-                                        <strong>{{ $t('Small Format') }}:</strong> {{ catalogData.selectedSmallMaterial.name }}
-                                    </div>
-                                    <div v-if="!catalogData.selectedLargeMaterial && !catalogData.selectedSmallMaterial">
-                                        {{ $t('No material selected') }}
+                                    <div v-else>
+                                        {{ $t('No materials selected') }}
                                     </div>
                                 </div>
                             </div>
@@ -437,6 +447,8 @@
                     </select>
                 </div>
 
+                <!-- Material selection fields hidden - now using articles from catalog item -->
+                <!--
                 <div class="form-group mt-2 p-2 text-black sameRow">
                     <label class="label-fixed-width">{{ $t('material') }}</label>
                     <select v-model="selectedMaterial" :disabled="selectedMaterialSmall !== ''" class="select-fixed-width">
@@ -469,6 +481,7 @@
                     <button v-if="selectedMaterialSmall !== ''" @click="clearSelection('selectedMaterialSmall')" class="removeBtn"><span class="mdi mdi-minus-circle"></span></button>
 
                 </div>
+                -->
 
                 <div v-for="(action, index) in actions" :key="index">
                     <div class="form-group mt-2 p-2 text-black sameRow">
@@ -568,8 +581,6 @@ export default {
     },
     data() {
         return {
-            selectedMaterial: '',
-            selectedMaterialSmall: '',
             selectedMachineCut: '',
             selectedMachinePrint: '',
             shippingDetails: '',
@@ -580,8 +591,6 @@ export default {
             selectedJobs: [],
             actions: [{}],
             actionOptions: this.generateActionOptions(),
-            largeMaterials: [],
-            materialsSmall: [],
             machinesPrint: [],
             machinesCut: [],
             refinements: this.getRefinements(),
@@ -593,8 +602,6 @@ export default {
                 copies: 1,
                 machinePrint: '',
                 machineCut: '',
-                selectedLargeMaterial: '',
-                selectedSmallMaterial: '',
                 actions: [{ selectedAction: '', quantity: 0 }],
                 productArticles: [],
                 serviceArticles: []
@@ -606,11 +613,9 @@ export default {
             wizardSteps: [
                 { title: 'Basic Information' },
                 { title: 'Machine Selection' },
-                { title: 'Material Selection' },
                 { title: 'Actions & Refinements' },
                 { title: 'Component Articles' }
             ],
-            materialType: 'large',
             showSummary: false
         }
     },
@@ -623,7 +628,6 @@ export default {
                    this.catalogData.price > 0 &&
                    this.catalogData.quantity > 0 &&
                    this.catalogData.copies > 0 &&
-                   (this.catalogData.selectedLargeMaterial !== '' || this.catalogData.selectedSmallMaterial !== '') &&
                    this.catalogData.actions.some(action => action.selectedAction !== '') &&
                    this.selectedJobIds.length > 0 && // Must have at least one job selected
                    this.clientId; // Must have a client selected
@@ -643,22 +647,9 @@ export default {
         }
     },
     watch: {
-        materialType(newType) {
-            if (newType === 'large') {
-                this.catalogData.selectedSmallMaterial = '';
-            } else if (newType === 'small') {
-                this.catalogData.selectedLargeMaterial = '';
-            }
-        }
+        // Material type watcher removed - now using articles
     },
     async mounted() {
-        // Fetch large and small materials for dropdowns
-        const [largeRes, smallRes] = await Promise.all([
-            axios.get('/api/materials/large-dropdown'),
-            axios.get('/api/materials/small-dropdown')
-        ]);
-        this.largeMaterials = largeRes.data;
-        this.materialsSmall = smallRes.data;
         this.fetchMachines();
     },
     methods: {
@@ -761,10 +752,8 @@ export default {
                     jobIds = this.jobs.filter(j => !j.isPlaceholder).map(j => j.id);
                 }
                 axios.post('/sync-all-jobs', {
-                    selectedMaterial: this.selectedMaterial.id,
                     selectedMachinePrint: this.selectedMachinePrint,
                     selectedMachineCut: this.selectedMachineCut,
-                    selectedMaterialsSmall: this.selectedMaterialSmall.id,
                     quantity: this.quantity,
                     copies: this.copies,
                     shipping: store.state.shippingDetails,
@@ -878,31 +867,9 @@ export default {
                     selectedMachineCut: this.catalogData.machineCut,
                     quantity: this.catalogData.quantity,
                     copies: this.catalogData.copies,
-                    selectedMaterial: this.catalogData.selectedLargeMaterial,
-                    selectedMaterialsSmall: this.catalogData.selectedSmallMaterial,
-                    large_material_category_id: this.catalogData.largeMaterialCategory,
                     client_id: this.clientId,
                     catalog_item_id: null,
                 };
-
-                // Handle materials (category vs individual)
-                if (this.catalogData.selectedLargeMaterial) {
-                    if (this.catalogData.selectedLargeMaterial.type === 'category') {
-                        syncData.selectedMaterial = null;
-                        syncData.large_material_category_id = this.catalogData.selectedLargeMaterial.id.replace('cat_', '');
-                    } else {
-                        syncData.selectedMaterial = this.catalogData.selectedLargeMaterial.id;
-                    }
-                }
-
-                if (this.catalogData.selectedSmallMaterial) {
-                    if (this.catalogData.selectedSmallMaterial.type === 'category') {
-                        syncData.selectedMaterialsSmall = null;
-                        syncData.small_material_category_id = this.catalogData.selectedSmallMaterial.id.replace('cat_', '');
-                    } else {
-                        syncData.selectedMaterialsSmall = this.catalogData.selectedSmallMaterial.id;
-                    }
-                }
 
                 // Create jobsWithActions for selected jobs only
                 const jobsWithActions = jobIds.map(jobId => {
@@ -954,7 +921,6 @@ export default {
                 this.currentStep = 0;
                 this.showSummary = false;
                 this.selectedJobIds = [];
-                this.materialType = 'large';
                 this.activeTab = 'products';
                 
                 // Reset all catalog data to initial state
@@ -966,8 +932,6 @@ export default {
                     copies: 1,
                     machinePrint: '',
                     machineCut: '',
-                    selectedLargeMaterial: '',
-                    selectedSmallMaterial: '',
                     actions: [{ selectedAction: '', quantity: 0 }],
                     productArticles: [],
                     serviceArticles: []
