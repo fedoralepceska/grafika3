@@ -538,7 +538,7 @@
 
         <!-- Copy Catalog Item Dialog -->
         <div v-if="showCopyDialog" class="modal-backdrop" @click="closeCopyDialog">
-            <div class="modal-content" @click.stop>
+            <div class="modal-content" @click.stop style="pointer-events: auto;">
                 <div class="modal-header">
                     <h2 class="text-xl font-semibold">Copy Catalog Item</h2>
                     <button @click="closeCopyDialog" class="close-button" aria-label="Close dialog">&times;</button>
@@ -588,9 +588,10 @@
                             </button>
                             <button
                                 @click="confirmCopy"
-                                :disabled="!copyForm.name.trim() || isCopying || copyFormError"
+                                :disabled="!copyForm.name.trim() || isCopying || copyFormError.length > 0"
                                 class="px-4 py-2 btn-primary text-white rounded"
-                                :class="{ 'opacity-50 cursor-not-allowed': !copyForm.name.trim() || isCopying || copyFormError }"
+                                :class="{ 'opacity-50 cursor-not-allowed': !copyForm.name.trim() || isCopying || copyFormError.length > 0 }"
+                                style="pointer-events: auto;"
                             >
                                 {{ isCopying ? 'Copying...' : 'Copy Catalog Item' }}
                             </button>
@@ -1581,6 +1582,13 @@ export default {
 
         validateCopyName() {
             const trimmedName = this.copyForm.name.trim();
+            
+            // If name is empty, clear error
+            if (!trimmedName) {
+                this.copyFormError = '';
+                return;
+            }
+            
             const existingItem = this.catalogItems.find(item => 
                 item.name.toLowerCase() === trimmedName.toLowerCase()
             );
@@ -1590,6 +1598,14 @@ export default {
             } else {
                 this.copyFormError = '';
             }
+        }
+    },
+    watch: {
+        'copyForm.name': {
+            handler() {
+                this.validateCopyName();
+            },
+            immediate: false
         }
     },
     async mounted() {
@@ -1611,7 +1627,7 @@ export default {
             const toast = useToast();
             toast.error('Failed to load data');
         }
-    },
+    }
 };
 </script>
 
@@ -1765,6 +1781,8 @@ tbody td {
     overflow-y: auto;
     border-radius: 8px;
     padding: 20px;
+    position: relative;
+    z-index: 1001;
 }
 
 .modal-header {
@@ -1938,5 +1956,12 @@ tbody td {
     .fa-spinner {
         color: $green;
     }
+}
+
+// Ensure copy dialog button is clickable
+.modal-content button {
+    position: relative;
+    z-index: 1002;
+    pointer-events: auto !important;
 }
 </style>
