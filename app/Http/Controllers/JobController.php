@@ -793,6 +793,7 @@ class JobController extends Controller
         return response()->json([
             'invoices' => $invoices, // Include invoices in the response
             'actionId' => $actionId,
+            'currentUserId' => auth()->id(), // Include current user ID
         ]);
     }
 

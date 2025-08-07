@@ -122,12 +122,15 @@
                                         </div>
                                         <button
                                             v-if="canEndJob(job)"
-                                            :class="['red', 'p-2', 'rounded', { 'disabled' : invoice.onHold }]"
+                                            :class="['red', 'p-2', 'rounded', { 'disabled' : invoice.onHold || !canCurrentUserEndJob(job) }]"
                                             @click="endJob(job)"
-                                            :disabled="invoice.onHold"
+                                            :disabled="invoice.onHold || !canCurrentUserEndJob(job)"
                                         >
                                             <strong>{{ $t('endJob') }}</strong>
                                         </button>
+                                        <div v-if="canEndJob(job) && !canCurrentUserEndJob(job)" class="text-xs text-gray-400 mt-1">
+                                            Started by another user
+                                        </div>
                                     </template>
                                     <template v-else>
                                         <button
@@ -283,29 +286,11 @@ export default {
             showPreviewModal: false,
             currentFileIndex: null,
             currentJob: null,
+            currentUserId: null,
         };
     },
     created() {
         this.fetchJobs();
-        
-        // Set up periodic sync of action statuses
-        this.syncInterval = setInterval(() => {
-            // Get unique action IDs from all jobs
-            const actionIds = new Set();
-            this.invoices.forEach(invoice => {
-                invoice.jobs.forEach(job => {
-                    const action = job.actions.find(a => a.name === this.actionId);
-                    if (action && action.id) {
-                        actionIds.add(action.id);
-                    }
-                });
-            });
-            
-            // Sync each action status
-            actionIds.forEach(actionId => {
-                this.syncActionStatus(actionId);
-            });
-        }, 5000); // Sync every 5 seconds
     },
     beforeMount() {
         // Load job disabled status from localStorage
@@ -316,11 +301,6 @@ export default {
     },
     
     beforeUnmount() {
-        // Clean up intervals
-        if (this.syncInterval) {
-            clearInterval(this.syncInterval);
-        }
-        
         // Clean up timers
         Object.keys(this.timers).forEach(actionId => {
             clearInterval(this.timers[actionId]);
@@ -402,6 +382,21 @@ export default {
             return job.started || this.timers[actionId] !== undefined;
         },
 
+        canCurrentUserEndJob(job) {
+            const { id: actionId } = this.getActionId(job);
+            const action = job.actions.find(a => a.id === actionId);
+            
+            // Check if the current user started this action
+            if (action && action.started_by && this.currentUserId) {
+                return action.started_by === this.currentUserId;
+            }
+            
+            // If no started_by info or no current user ID, allow the action (server will validate)
+            return true;
+        },
+
+
+
         fetchJobs() {
             const url = `/actions/${this.actionId}/jobs`;
             console.log('Fetching jobs from:', url);
@@ -421,6 +416,7 @@ export default {
                     });
 
                     this.id = response.data?.actionId;
+                    this.currentUserId = response.data?.currentUserId;
                     
                     console.log('Processed invoices:', this.invoices);
                     
