@@ -135,7 +135,7 @@
                         </div>
                     </div>
                 </div>
-                <Pagination :pagination="invoices"/>
+                <AdvancedPagination :pagination="invoices" :preserveParams="preserveParams"/>
             </div>
 
             <!-- Multiple Files Modal -->
@@ -226,14 +226,14 @@
 <script>
 import MainLayout from "@/Layouts/MainLayout.vue";
 import Header from "@/Components/Header.vue";
-import Pagination from "@/Components/Pagination.vue"
+import AdvancedPagination from "@/Components/AdvancedPagination.vue"
 import axios from 'axios';
 import {reactive} from "vue";
 import OrderJobDetails from "@/Pages/Invoice/OrderJobDetails.vue";
 import ViewLockDialog from "@/Components/ViewLockDialog.vue";
 
 export default {
-    components: {Header, MainLayout,Pagination,OrderJobDetails, ViewLockDialog },
+    components: {Header, MainLayout, AdvancedPagination, OrderJobDetails, ViewLockDialog },
     props:{
       invoices:Object,
     },
@@ -256,12 +256,40 @@ export default {
             currentFileIndex: null,
         };
     },
+    computed: {
+        preserveParams() {
+            const params = {};
+            
+            if (this.searchQuery) {
+                params.searchQuery = this.searchQuery;
+            }
+            if (this.filterStatus && this.filterStatus !== 'All') {
+                params.status = this.filterStatus;
+            }
+            if (this.sortOrder) {
+                params.sortOrder = this.sortOrder;
+            }
+            if (this.filterClient && this.filterClient !== 'All') {
+                params.client = this.filterClient;
+            }
+            
+            return params;
+        }
+    },
     mounted() {
         this.localInvoices = this.invoices.data.slice();
         this.fetchUniqueClients()
         this.invoices.data.forEach(invoice => {
             this.iconStates[invoice.id] = false;
         });
+        
+        const urlParams = new URLSearchParams(window.location.search);
+        this.searchQuery = urlParams.get('searchQuery') || '';
+        this.filterStatus = urlParams.get('status') || 'All';
+        this.filterClient = urlParams.get('client') || 'All';
+        this.sortOrder = urlParams.get('sortOrder') || 'desc';
+        
+
     },
     methods: {
         getImageUrl(id) {
@@ -294,25 +322,33 @@ export default {
             try {
                 const response = await axios.get('/orders', {
                     params: {
-                        searchQuery: encodeURIComponent(this.searchQuery),
+                        searchQuery: this.searchQuery,
                         status: this.filterStatus,
                         sortOrder: this.sortOrder,
                         client: this.filterClient,
                     },
                 });
                 this.localInvoices = response.data;
+                
+                // Build URL with current filters
                 let redirectUrl = '/orders';
+                const params = [];
+                
                 if (this.searchQuery) {
-                    redirectUrl += `?searchQuery=${encodeURIComponent(this.searchQuery)}`;
+                    params.push(`searchQuery=${encodeURIComponent(this.searchQuery)}`);
                 }
-                if (this.filterStatus) {
-                    redirectUrl += `${this.searchQuery ? '&' : '?'}status=${this.filterStatus}`;
+                if (this.filterStatus && this.filterStatus !== 'All') {
+                    params.push(`status=${this.filterStatus}`);
                 }
                 if (this.sortOrder) {
-                    redirectUrl += `${this.searchQuery || this.filterStatus ? '&' : '?'}sortOrder=${this.sortOrder}`;
+                    params.push(`sortOrder=${this.sortOrder}`);
                 }
-                if (this.filterClient) {
-                    redirectUrl += `${this.searchQuery || this.filterStatus || this.sortOrder ? '&' : '?'}client=${this.filterClient}`;
+                if (this.filterClient && this.filterClient !== 'All') {
+                    params.push(`client=${encodeURIComponent(this.filterClient)}`);
+                }
+                
+                if (params.length > 0) {
+                    redirectUrl += '?' + params.join('&');
                 }
 
                 this.$inertia.visit(redirectUrl);
@@ -322,9 +358,18 @@ export default {
         },
         async searchInvoices() {
             try {
-                const response = await axios.get(`?searchQuery=${encodeURIComponent(this.searchQuery)}`);
+                const response = await axios.get('/orders', {
+                    params: {
+                        searchQuery: this.searchQuery
+                    }
+                });
                 this.localInvoices = response.data;
-                this.$inertia.visit(`/orders?searchQuery=${this.searchQuery}`);
+                
+                // Navigate to search results
+                const searchUrl = this.searchQuery 
+                    ? `/orders?searchQuery=${encodeURIComponent(this.searchQuery)}`
+                    : '/orders';
+                this.$inertia.visit(searchUrl);
             } catch (error) {
                 console.error(error);
             }
@@ -415,6 +460,7 @@ export default {
                 this.currentFileIndex++;
             }
         },
+
     },
 };
 </script>
