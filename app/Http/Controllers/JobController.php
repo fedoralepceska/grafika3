@@ -871,8 +871,20 @@ class JobController extends Controller
                 if (isset($jobsWithActions[$job->id])) {
                     $jobsForInvoice[$index] = $jobsWithActions[$job->id];
 
-                    // Sort the actions for the current job
-                    $sortedActions = collect($job->actions)->sortBy('id')->values()->toArray();
+                    // Sort the actions for the current job and ensure proper date formatting
+                    $sortedActions = collect($job->actions)->sortBy('id')->values()->map(function($action) {
+                        return [
+                            'id' => $action->id,
+                            'name' => $action->name,
+                            'status' => $action->status,
+                            'started_at' => $action->started_at ? $action->started_at->toISOString() : null,
+                            'ended_at' => $action->ended_at ? $action->ended_at->toISOString() : null,
+                            'started_by' => $action->started_by,
+                            'hasNote' => $action->hasNote,
+                            'quantity' => $action->pivot->quantity ?? null,
+                            'pivot' => $action->pivot
+                        ];
+                    })->toArray();
 
                     $jobsForInvoice[$index]->actions = $sortedActions;
                 }
@@ -883,6 +895,7 @@ class JobController extends Controller
         return response()->json([
             'invoices' => $invoices, // Include invoices in the response
             'actionId' => $actionId,
+            'currentUserId' => auth()->id(), // Include current user ID
         ]);
     }
 
@@ -1479,63 +1492,192 @@ class JobController extends Controller
 
     public function fireStartJobEvent(Request $request) {
         try {
-            // Retrieve job and invoice IDs from the request
-            $jobId = $request->input('job');
-            $invoiceId = $request->input('invoice');
             $actionId = $request->input('action');
-
-            // Find existing job and invoice
-            $job = Job::findOrFail($jobId);
-            $invoice = Invoice::findOrFail($invoiceId);
-
-            // Update job information and save
-            $job->started_by = auth()->id();
-            $job->save();
-
-            // Create a new record in the workers_analytics table
+            
+            \Log::info('fireStartJobEvent called', [
+                'action_id' => $actionId,
+                'request_data' => $request->all(),
+                'user_id' => auth()->id()
+            ]);
+            
+            // Find the action and start it
+            $action = \App\Models\JobAction::findOrFail($actionId);
+            
+            \Log::info('Action found', [
+                'action_id' => $action->id,
+                'action_name' => $action->name,
+                'current_status' => $action->status
+            ]);
+            
+            // Check if action is already in progress
+            if ($action->isInProgress()) {
+                \Log::warning('Action already in progress', ['action_id' => $actionId]);
+                return response()->json(['error' => 'Action is already in progress'], 400);
+            }
+            
+            // Check if action is already completed
+            if ($action->isCompleted()) {
+                \Log::warning('Action already completed', ['action_id' => $actionId]);
+                return response()->json(['error' => 'Action is already completed'], 400);
+            }
+            
+            // Start the action
+            $action->startAction(auth()->id());
+            
+            \Log::info('Action started', [
+                'action_id' => $action->id,
+                'new_status' => $action->status,
+                'started_at' => $action->started_at
+            ]);
+            
+            // Create analytics record
             DB::table('workers_analytics')->insert([
-                'invoice_id' => $invoiceId,
-                'job_id' => $jobId,
+                'invoice_id' => $request->input('invoice'),
+                'job_id' => $request->input('job'),
                 'action_id' => $actionId,
                 'user_id' => auth()->id(),
-                'time_spent' => 0, // Initially set to 0
+                'time_spent' => 0,
                 'created_at' => now(),
                 'updated_at' => now(),
             ]);
-
-            // Dispatch the JobStarted event with both job and invoice
-            event(new JobStarted($job, $invoice));
+            
+            // Find job and invoice for event
+            $job = Job::findOrFail($request->input('job'));
+            $invoice = Invoice::findOrFail($request->input('invoice'));
+            
+            \Log::info('Starting job action', [
+                'action_id' => $actionId,
+                'job_id' => $job->id,
+                'invoice_id' => $invoice->id,
+                'action_status' => $action->status,
+                'started_at' => $action->started_at
+            ]);
+            
+            // Update job status to "In progress"
+            $job->update(['status' => 'In progress']);
+            
+            // Update invoice status based on all job actions
+            $this->updateInvoiceStatus($invoice);
+            
+            // Dispatch the JobStarted event
+            try {
+                event(new JobStarted($job, $invoice));
+                \Log::info('JobStarted event dispatched successfully');
+            } catch (\Exception $e) {
+                \Log::error('Error dispatching JobStarted event', [
+                    'error' => $e->getMessage(),
+                    'job_id' => $job->id,
+                    'invoice_id' => $invoice->id
+                ]);
+                // Don't fail the entire request if event dispatch fails
+            }
+            
+            $responseData = [
+                'success' => true,
+                'action' => [
+                    'id' => $action->id,
+                    'name' => $action->name,
+                    'status' => $action->status
+                ],
+                'started_at' => $action->started_at ? $action->started_at->toISOString() : null
+            ];
+            
+            \Log::info('Sending success response', [
+                'response_data' => $responseData
+            ]);
+            
+            return response()->json($responseData);
         } catch (\Exception $e) {
-            // Handle exceptions
+            \Log::error('Error in fireStartJobEvent', [
+                'action_id' => $actionId ?? 'unknown',
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            
             return response()->json(['error' => $e->getMessage()], 500);
         }
     }
 
     public function fireEndJobEvent(Request $request) {
-        $jobData = $request->input('job');
-        $invoiceData = $request->input('invoice');
-        $actionId = $request->input('action');
-        $time_spent = $request->input('time_spent');
-
-        // Find the matching record in the workers_analytics table
-        $workerAnalytics = DB::table('workers_analytics')->where('job_id', $jobData['id'])
-            ->where('invoice_id', $invoiceData['id'])
-            ->where('action_id', $actionId)
-            ->where('user_id', auth()->id())
-            ->first();
-
-        // If the record exists, update the time_spent
-        if ($workerAnalytics) {
-            $workerAnalytics->time_spent = $time_spent;
-            $workerAnalytics->save();
+        try {
+            $actionId = $request->input('action');
+            $time_spent = $request->input('time_spent');
+            
+            // Find the action and end it
+            $action = \App\Models\JobAction::findOrFail($actionId);
+            
+            // Check if action is in progress
+            if (!$action->isInProgress()) {
+                return response()->json(['error' => 'Action is not in progress'], 400);
+            }
+            
+            // Check if the current user started the action
+            if ($action->started_by !== auth()->id()) {
+                return response()->json(['error' => 'Only the user who started the action can end it'], 403);
+            }
+            
+            // End the action
+            $action->endAction();
+            
+            // Update analytics record
+            $workerAnalytics = DB::table('workers_analytics')
+                ->where('job_id', $request->input('job'))
+                ->where('invoice_id', $request->input('invoice'))
+                ->where('action_id', $actionId)
+                ->where('user_id', auth()->id())
+                ->first();
+                
+            if ($workerAnalytics) {
+                DB::table('workers_analytics')
+                    ->where('id', $workerAnalytics->id)
+                    ->update(['time_spent' => $time_spent]);
+            }
+            
+            // Find job and invoice for event
+            $job = Job::findOrFail($request->input('job'));
+            $invoice = Invoice::findOrFail($request->input('invoice'));
+            
+            \Log::info('Ending job action', [
+                'action_id' => $actionId,
+                'job_id' => $job->id,
+                'invoice_id' => $invoice->id,
+                'action_status' => $action->status
+            ]);
+            
+            // Update job status based on all actions
+            $this->updateJobStatus($job);
+            
+            // Refresh job to get updated status
+            $job->refresh();
+            
+            \Log::info('Job status updated', [
+                'job_id' => $job->id,
+                'new_job_status' => $job->status
+            ]);
+            
+            // Update invoice status based on all job actions
+            $this->updateInvoiceStatus($invoice);
+            
+            // Refresh invoice to get updated status
+            $invoice->refresh();
+            
+            \Log::info('Invoice status updated', [
+                'invoice_id' => $invoice->id,
+                'new_invoice_status' => $invoice->status
+            ]);
+            
+            // Dispatch the JobEnded event
+            event(new JobEnded($job, $invoice));
+            
+            return response()->json([
+                'success' => true,
+                'action' => $action,
+                'ended_at' => $action->ended_at ? $action->ended_at->toISOString() : null,
+                'duration' => $action->getDurationInSeconds()
+            ]);
+        } catch (\Exception $e) {
+            return response()->json(['error' => $e->getMessage()], 500);
         }
-
-        // Create job and invoice instances
-        $job = new Job($jobData);
-        $invoice = new Invoice($invoiceData);
-
-        // Dispatch the JobEnded event with both job and invoice
-        event(new JobEnded($job, $invoice));
     }
 
     public function insertAnalytics(Request $request) {
@@ -1555,6 +1697,250 @@ class JobController extends Controller
         if ($workerAnalytics) {
             $workerAnalytics->time_spent = $time_spent;
             $workerAnalytics->save();
+        }
+    }
+
+    public function getActionStatus(Request $request, $actionId) {
+        try {
+            $action = \App\Models\JobAction::findOrFail($actionId);
+            
+            // Check for abandoned actions (running for more than 24 hours)
+            if ($action->isInProgress() && $action->started_at) {
+                $hoursSinceStart = $action->started_at->diffInHours(now());
+                if ($hoursSinceStart > 24) {
+                    // Auto-complete abandoned actions
+                    $action->endAction();
+                    
+                    // Update related job and invoice statuses
+                    $jobs = $action->jobs()->get();
+                    foreach ($jobs as $job) {
+                        $this->updateJobStatus($job);
+                        $invoice = $job->invoice;
+                        if ($invoice) {
+                            $this->updateInvoiceStatus($invoice);
+                        }
+                    }
+                    
+                    \Log::warning("Auto-completed abandoned action", [
+                        'action_id' => $actionId,
+                        'started_at' => $action->started_at,
+                        'hours_running' => $hoursSinceStart
+                    ]);
+                }
+            }
+            
+            return response()->json([
+                'success' => true,
+                'action' => [
+                    'id' => $action->id,
+                    'name' => $action->name,
+                    'status' => $action->status,
+                    'started_at' => $action->started_at ? $action->started_at->toISOString() : null,
+                    'ended_at' => $action->ended_at ? $action->ended_at->toISOString() : null,
+                    'started_by' => $action->started_by,
+                    'duration' => $action->getDurationInSeconds(),
+                    'is_in_progress' => $action->isInProgress(),
+                    'is_completed' => $action->isCompleted(),
+                    'is_not_started' => $action->isNotStarted(),
+                    'hours_running' => $action->started_at ? $action->started_at->diffInHours(now()) : 0
+                ]
+            ]);
+        } catch (\Exception $e) {
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
+    }
+
+    /**
+     * Update job status based on the status of all its actions
+     */
+    private function updateJobStatus(Job $job): void
+    {
+        try {
+            // Get all actions for this job with proper loading
+            $actions = $job->actions()->get();
+            
+            if ($actions->isEmpty()) {
+                $job->update(['status' => 'Not started yet']);
+                return;
+            }
+            
+            // Debug: Log all action statuses
+            \Log::info('Action statuses for job', [
+                'job_id' => $job->id,
+                'action_statuses' => $actions->pluck('status')->toArray(),
+                'action_names' => $actions->pluck('name')->toArray(),
+                'has_in_progress' => $actions->contains('status', 'In progress') || $actions->contains('status', 'In Progress'),
+                'all_completed' => $actions->every('status', 'Completed'),
+                'has_started_actions' => $actions->contains('status', 'In progress') || $actions->contains('status', 'In Progress') || $actions->contains('status', 'Completed')
+            ]);
+            
+            // Check if any action is in progress
+            $hasInProgress = $actions->contains('status', 'In progress') || $actions->contains('status', 'In Progress');
+            if ($hasInProgress) {
+                $job->update(['status' => 'In progress']);
+                \Log::info('Job status set to In progress', ['job_id' => $job->id]);
+                return;
+            }
+            
+            // Check if all actions are completed
+            $allCompleted = $actions->every('status', 'Completed');
+            if ($allCompleted) {
+                $job->update(['status' => 'Completed']);
+                \Log::info('Job status set to Completed', ['job_id' => $job->id]);
+                return;
+            }
+            
+            // Check if any actions have been started (either in progress or completed)
+            $hasStartedActions = $actions->contains('status', 'In progress') || 
+                                $actions->contains('status', 'In Progress') || 
+                                $actions->contains('status', 'Completed');
+            
+            if ($hasStartedActions) {
+                // If some actions have been started but not all are completed, keep as "In progress"
+                $job->update(['status' => 'In progress']);
+                \Log::info('Job status set to In progress (some actions started)', ['job_id' => $job->id]);
+                return;
+            }
+            
+            // Default to "Not started yet" only if no actions have been started
+            $job->update(['status' => 'Not started yet']);
+            \Log::info('Job status set to Not started yet', ['job_id' => $job->id]);
+        } catch (\Exception $e) {
+            \Log::error('Error updating job status', [
+                'job_id' => $job->id,
+                'error' => $e->getMessage()
+            ]);
+            // Default to "Not started yet" on error
+            $job->update(['status' => 'Not started yet']);
+        }
+    }
+
+    /**
+     * Update invoice status based on the status of all jobs and their actions
+     */
+    private function updateInvoiceStatus(Invoice $invoice): void
+    {
+        try {
+            // Get all jobs for this invoice with proper loading
+            $jobs = $invoice->jobs()->get();
+            
+            if ($jobs->isEmpty()) {
+                $invoice->update(['status' => 'Not started yet']);
+                return;
+            }
+            
+            // Debug: Log all job statuses
+            \Log::info('Job statuses for invoice', [
+                'invoice_id' => $invoice->id,
+                'job_statuses' => $jobs->pluck('status')->toArray(),
+                'job_ids' => $jobs->pluck('id')->toArray()
+            ]);
+            
+            // Check if any job is in progress
+            $hasInProgress = $jobs->contains('status', 'In progress');
+            if ($hasInProgress) {
+                $invoice->update(['status' => 'In progress']);
+                \Log::info('Invoice status set to In progress', ['invoice_id' => $invoice->id]);
+                return;
+            }
+            
+            // Check if all jobs are completed
+            $allCompleted = $jobs->every('status', 'Completed');
+            if ($allCompleted) {
+                $invoice->update(['status' => 'Completed']);
+                \Log::info('Invoice status set to Completed', ['invoice_id' => $invoice->id]);
+                return;
+            }
+            
+            // Default to "Not started yet"
+            $invoice->update(['status' => 'Not started yet']);
+            \Log::info('Invoice status set to Not started yet', ['invoice_id' => $invoice->id]);
+        } catch (\Exception $e) {
+            \Log::error('Error updating invoice status', [
+                'invoice_id' => $invoice->id,
+                'error' => $e->getMessage()
+            ]);
+            // Default to "Not started yet" on error
+            $invoice->update(['status' => 'Not started yet']);
+        }
+    }
+
+    /**
+     * Public method to manually update invoice status
+     */
+    public function updateInvoiceStatusManually(Request $request, $invoiceId)
+    {
+        try {
+            $invoice = Invoice::findOrFail($invoiceId);
+            $this->updateInvoiceStatus($invoice);
+            
+            return response()->json([
+                'success' => true,
+                'message' => 'Invoice status updated successfully',
+                'new_status' => $invoice->status
+            ]);
+        } catch (\Exception $e) {
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
+    }
+
+    /**
+     * Test endpoint to check response format
+     */
+    public function testStartJobResponse(Request $request)
+    {
+        try {
+            return response()->json([
+                'success' => true,
+                'message' => 'Test response working',
+                'timestamp' => now()->toISOString(),
+                'timezone' => config('app.timezone'),
+                'current_time' => now()->format('Y-m-d H:i:s'),
+                'current_time_utc' => now()->utc()->format('Y-m-d H:i:s')
+            ]);
+        } catch (\Exception $e) {
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
+    }
+
+    /**
+     * Debug method to check status of all actions and jobs for an invoice
+     */
+    public function debugInvoiceStatus(Request $request, $invoiceId)
+    {
+        try {
+            $invoice = Invoice::findOrFail($invoiceId);
+            $jobs = $invoice->jobs()->with('actions')->get();
+            
+            $debugData = [
+                'invoice_id' => $invoice->id,
+                'invoice_status' => $invoice->status,
+                'jobs' => []
+            ];
+            
+            foreach ($jobs as $job) {
+                $jobData = [
+                    'job_id' => $job->id,
+                    'job_status' => $job->status,
+                    'actions' => []
+                ];
+                
+                foreach ($job->actions as $action) {
+                    $jobData['actions'][] = [
+                        'action_id' => $action->id,
+                        'action_name' => $action->name,
+                        'action_status' => $action->status,
+                        'started_at' => $action->started_at,
+                        'ended_at' => $action->ended_at
+                    ];
+                }
+                
+                $debugData['jobs'][] = $jobData;
+            }
+            
+            return response()->json($debugData);
+        } catch (\Exception $e) {
+            return response()->json(['error' => $e->getMessage()], 500);
         }
     }
 

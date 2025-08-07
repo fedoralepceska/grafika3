@@ -12,10 +12,10 @@ class LogJobStarted
     public function handle(JobStarted $event)
     {
         $file = $event->job->file;
-        $started_by = $event->job->startedByUser->name;
+        $started_by = $event->job->startedByUser?->name ?? 'Unknown User';
         $action = "Job with file $file started by $started_by!";
 
-        $performedBy = $event->job->updated_by ?? '1';
+        $performedBy = $event->job->updated_by ?? auth()->id() ?? '1';
 
         HistoryLog::create([
             'invoice_id' => $event->invoice->id,
