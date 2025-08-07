@@ -135,7 +135,7 @@
                             </div>
                             -->
 
-                            <div>
+                            <div v-if="canViewPrice">
                                 <label class="text-white block mb-2 font-semibold">{{ $t('defaultPrice') }}</label>
                                 <input
                                     v-model="editForm.price"
@@ -509,6 +509,7 @@ export default {
         subcategories: Array,
         availableQuestions: Array,
         canViewCostSummary: Boolean,
+        canViewPrice: Boolean,
     },
     data() {
         return {

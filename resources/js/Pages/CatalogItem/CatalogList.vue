@@ -41,12 +41,9 @@
                             @change="applyFilters"
                         >
                             <option value="">{{ $t('allCategories') }}</option>
-                            <option v-for="category in categories"
-                                    :key="category"
-                                    :value="category"
-                            >
-                                {{ category.replace('_', ' ').split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ') }}
-                            </option>
+                            <option value="material">Large Format</option>
+                                        <option value="small_format">Small Format</option>
+                                        <option value="article">Article</option>
                         </select>
                     </div>
                     <div class="w-48">
@@ -81,8 +78,8 @@
                         <th class="p-4">{{ $t('preview') }}</th>
                         <th class="p-4">{{ $t('name') }}</th>
                         <th class="p-4">{{ $t('template') }}</th>
+                        <th class="p-4">{{ $t('category') }}</th>
                         <th class="p-4">{{ $t('subcategory') }}</th>
-                        <th class="p-4">{{ $t('material') }}</th>
                         <th v-if="canViewPrice" class="p-4">{{ $t('defaultPrice') }}</th>
                         <th v-if="canViewPrice" class="p-4">{{ $t('clientPrices') }}</th>
                         <th v-if="canViewPrice" class="p-4">{{ $t('quantityPrices') }}</th>
@@ -134,10 +131,10 @@
                             </div>
                             <span v-else class="text-gray-500">{{ $t('noTemplate') }}</span>
                         </td>
-                        <td class="p-4">{{ item.subcategory_name || 'N/A' }}</td>
                         <td class="p-4">
-                            {{ item.material || 'N/A' }}
+                            {{ formatCategory(item.category) }}
                         </td>
+                        <td class="p-4">{{ item.subcategory_name || 'N/A' }}</td>
                         <td v-if="canViewPrice" class="p-4">{{ formatPrice(item.price) }}</td>
                         <td v-if="canViewPrice" class="p-4">
                             <button @click="openClientPricesDialog(item)" class="btn btn-secondary">
@@ -1111,6 +1108,18 @@ export default {
                 style: 'currency',
                 currency: 'MKD'
             }).format(price);
+        },
+
+        formatCategory(category) {
+            if (!category) return 'N/A';
+            
+            const categoryMap = {
+                'material': 'Large Format',
+                'small_format': 'Small Format', 
+                'article': 'Article'
+            };
+            
+            return categoryMap[category] || category;
         },
 
         async openClientPricesDialog(item) {

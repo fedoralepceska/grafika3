@@ -719,6 +719,7 @@ class CatalogItemController extends Controller
             'subcategories' => $subcategories,
             'availableQuestions' => $availableQuestions,
             'canViewCostSummary' => !auth()->user()->hasRole('Rabotnik'),
+            'canViewPrice' => !auth()->user()->hasRole('Rabotnik'),
         ]);
     }
 
