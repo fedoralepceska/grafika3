@@ -253,6 +253,13 @@
                                             >
                                                 Small Format Materials
                                             </button>
+                                            <button
+                                                type="button"
+                                                @click="activeTab = 'article'"
+                                                :class="['tab-button', activeTab === 'article' ? 'active' : '']"
+                                            >
+                                                Articles
+                                            </button>
                                         </div>
                                         <div class="flex items-center mr-4 space-x-2">
                                             <button
@@ -299,7 +306,7 @@
                                                 <div class="catalog-item-details">
                                                     <div class="catalog-item-name">{{ item.name }}</div>
                                                     <div class="catalog-item-material">
-                                                        Material: {{ item.large_material?.name || 'N/A' }}
+                                                        Material: {{ getMaterialDisplay(item) }}
                                                     </div>
                                                 </div>
                                                 <div class="catalog-item-price">
@@ -336,7 +343,7 @@
                                                 <div class="p-2">
                                                     <h3 class="font-medium text-gray-900 text-sm mb-1 truncate">{{ item.name }}</h3>
                                                     <p class="text-xs text-gray-500 mb-1 truncate">
-                                                        Material: {{ item.large_material?.name || 'N/A' }}
+                                                        Material: {{ getMaterialDisplay(item) }}
                                                     </p>
                                                     <div class="text-xs font-medium text-gray-900">
                                                         {{ item.price ? `${item.price} ден` : 'Price not set' }}
@@ -369,7 +376,7 @@
                                                 <div class="catalog-item-details">
                                                     <div class="catalog-item-name">{{ item.name }}</div>
                                                     <div class="catalog-item-material">
-                                                        Material: {{ item.small_material?.name || 'N/A' }}
+                                                        Material: {{ getMaterialDisplay(item) }}
                                                     </div>
                                                 </div>
                                                 <div class="catalog-item-price">
@@ -406,7 +413,77 @@
                                                 <div class="p-2">
                                                     <h3 class="font-medium text-gray-900 text-sm mb-1 truncate">{{ item.name }}</h3>
                                                     <p class="text-xs text-gray-500 mb-1 truncate">
-                                                        Material: {{ item.small_material?.name || 'N/A' }}
+                                                        Material: {{ getMaterialDisplay(item) }}
+                                                    </p>
+                                                    <div class="text-xs font-medium text-gray-900">
+                                                        {{ item.price ? `${item.price} ден` : 'Price not set' }}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Articles Tab -->
+                                    <div v-if="activeTab === 'article'" class="space-y-2">
+                                        <div v-if="articleItems.length === 0" class="empty-state">
+                                            No articles available
+                                        </div>
+
+                                        <!-- List View -->
+                                        <div v-if="viewMode === 'list'" class="space-y-2">
+                                            <div v-for="item in filteredArticleItems"
+                                                :key="item.id"
+                                                class="catalog-item"
+                                                @click="toggleItemSelection(item)"
+                                            >
+                                                <input
+                                                    type="checkbox"
+                                                    :value="item.id"
+                                                    :checked="isItemSelected(item.id)"
+                                                    class="h-4 w-4 rounded border-gray-300 checkbox-green"
+                                                    @click.stop
+                                                />
+                                                <div class="catalog-item-details">
+                                                    <div class="catalog-item-name">{{ item.name }}</div>
+                                                    <div class="catalog-item-material">
+                                                        Articles: {{ getArticlesDisplay(item) }}
+                                                    </div>
+                                                </div>
+                                                <div class="catalog-item-price">
+                                                    {{ item.price ? `${item.price} ден` : 'Price not set' }}
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <!-- Card View -->
+                                        <div v-else class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-8 gap-3">
+                                            <div v-for="item in filteredArticleItems"
+                                                :key="item.id"
+                                                class="catalog-card"
+                                                @click="toggleItemSelection(item)"
+                                            >
+                                                <div class="catalog-card-image">
+                                                    <input
+                                                        type="checkbox"
+                                                        :value="item.id"
+                                                        :checked="isItemSelected(item.id)"
+                                                        class="absolute top-2 left-2 h-4 w-4 rounded border-gray-300 checkbox-green z-10"
+                                                        @click.stop
+                                                    />
+                                                    <div v-if="isPlaceholder(item.file)" class="w-full h-full no-image">
+                                                        NO IMAGE
+                                                    </div>
+                                                    <img
+                                                        v-else
+                                                        :src="getFileUrl(item.file)"
+                                                        :alt="item.name"
+                                                        class="w-full h-full object-cover"
+                                                    />
+                                                </div>
+                                                <div class="p-2">
+                                                    <h3 class="font-medium text-gray-900 text-sm mb-1 truncate">{{ item.name }}</h3>
+                                                    <p class="text-xs text-gray-500 mb-1 truncate">
+                                                        Articles: {{ getArticlesDisplay(item) }}
                                                     </p>
                                                     <div class="text-xs font-medium text-gray-900">
                                                         {{ item.price ? `${item.price} ден` : 'Price not set' }}
@@ -574,10 +651,25 @@ export default {
             );
         },
         largeMaterialItems() {
-            return this.catalogItems.filter(item => item.large_material && !item.small_material);
+            return this.catalogItems.filter(item => 
+                item.category === 'material'
+            );
         },
         smallMaterialItems() {
-            return this.catalogItems.filter(item => item.small_material && !item.large_material);
+            return this.catalogItems.filter(item => 
+                item.category === 'small_format'
+            );
+        },
+        articleItems() {
+            return this.catalogItems.filter(item => 
+                item.category === 'article' || 
+                (item.articles && item.articles.length > 0)
+            );
+        },
+        filteredArticleItems() {
+            return this.articleItems.filter(item =>
+                item.name.toLowerCase().includes(this.searchQuery.toLowerCase())
+            );
         },
         progressWidth() {
             return `${(this.currentStep + 1) * (100 / this.steps.length)}%`;
@@ -715,7 +807,8 @@ export default {
                 file: item.file,
                 large_material: item.large_material,
                 small_material: item.small_material,
-                isCustomItem: false // Indicate if it's a custom item
+                isCustomItem: false, // Indicate if it's a custom item
+                articles: item.articles // Add articles to the item
             });
             
             // Add the unique selection ID to track this particular selection
@@ -799,12 +892,28 @@ export default {
                 large_material: null,
                 small_material: null,
                 isCustomItem: true,
+                articles: [] // No articles for custom items
             });
             this.selectedItems.push(uniqueId);
 
             this.closeCustomItemModal();
             const toast = useToast();
             toast.success(`Custom item "${this.customItem.name}" added.`);
+        },
+
+        getMaterialDisplay(item) {
+            // For articles, show all article names
+            if (item.articles && item.articles.length > 0) {
+                return item.articles.map(article => article.name).join(', ');
+            }
+            return 'N/A';
+        },
+
+        getArticlesDisplay(item) {
+            if (item.articles && item.articles.length > 0) {
+                return item.articles.map(article => `${article.name} (${article.quantity})`).join(', ');
+            }
+            return 'N/A';
         }
     }
 };
