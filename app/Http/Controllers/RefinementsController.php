@@ -10,10 +10,35 @@ use Inertia\Inertia;
 
 class RefinementsController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        $dorabotki = Dorabotka::with(['smallMaterial.article', 'largeFormatMaterial.article'])->get();
-        return Inertia::render('Refinements/Index', ['refinements' => $dorabotki]);
+        $search = $request->query('search');
+        $perPage = (int) $request->query('per_page', 10);
+
+        $query = Dorabotka::with(['smallMaterial.article', 'largeFormatMaterial.article']);
+
+        if (!empty($search)) {
+            $search = trim($search);
+            $query->where(function ($q) use ($search) {
+                $q->where('name', 'like', "%{$search}%")
+                    ->orWhereHas('smallMaterial', function ($qq) use ($search) {
+                        $qq->where('name', 'like', "%{$search}%");
+                    })
+                    ->orWhereHas('largeFormatMaterial', function ($qq) use ($search) {
+                        $qq->where('name', 'like', "%{$search}%");
+                    });
+            });
+        }
+
+        $dorabotki = $query->orderByDesc('id')->paginate($perPage)->withQueryString();
+
+        return Inertia::render('Refinements/Index', [
+            'refinements' => $dorabotki,
+            'filters' => [
+                'search' => $request->query('search', ''),
+                'perPage' => $perPage,
+            ],
+        ]);
     }
 
     public function store(Request $request)

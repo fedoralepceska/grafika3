@@ -8,7 +8,25 @@
                         <h2 class="sub-title">
                             {{ $t('allRefinements') }}
                         </h2>
-                        <div class="flex justify-end pr-3 pb-8">
+                        <div class="flex justify-between items-center pr-3 pb-8 gap-4">
+                            <div class="flex-1 max-w-md">
+                                <input
+                                    v-model="searchQuery"
+                                    @input="debouncedSearch"
+                                    @keyup.enter="applyFilter(1)"
+                                    type="text"
+                                    placeholder="Search by name or material..."
+                                    class="w-full text-black px-4 py-2 rounded border border-gray-300 focus:outline-none focus:border-blue-500"
+                                />
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <span class="text-sm">Per page</span>
+                                <select v-model.number="perPage" @change="applyFilter(1)" class="text-black px-2 py-2 rounded border border-gray-300">
+                                    <option :value="10">10</option>
+                                    <option :value="20">20</option>
+                                    <option :value="50">50</option>
+                                </select>
+                            </div>
                             <AddRefinementDialog :refinement="Refinements"/>
                         </div>
                         
@@ -30,7 +48,7 @@
                                 </tr>
                                 </thead>
                                 <tbody>
-                                <tr v-for="refinement in refinements" :key="refinement.id" class="table-row">
+                                <tr v-for="refinement in refinements?.data || []" :key="refinement.id" class="table-row">
                                     <td class="table-cell id-cell">{{ refinement.id }}</td>
                                     <td class="table-cell name-cell">{{ refinement.name }}</td>
                                     <td class="table-cell material-cell">{{ getMaterial(refinement) }}</td>
@@ -69,9 +87,13 @@
                             </table>
                         </div>
 
-                        <!--
-                                                <Pagination />
-                        -->
+                        <div class="mt-4 px-3">
+                            <Pagination
+                                v-if="refinements && refinements.links"
+                                :pagination="refinements"
+                                @pagination-change-page="handlePageChange"
+                            />
+                        </div>
                     </div>
                 </div>
             </div>
@@ -110,11 +132,15 @@ export default {
     },
     props: {
         refinements: Object,
+        filters: Object,
     },
     data() {
         return {
             currentEditingRefinement: null,
             isOpeningDialog: false,
+            searchQuery: this.filters?.search || '',
+            perPage: this.filters?.perPage || 10,
+            searchDebounceTimer: null,
         };
     },
     mounted() {
@@ -123,7 +149,26 @@ export default {
             console.log('Refinements Index component mounted');
         });
     },
+    computed: {},
     methods: {
+        visitWithFilters(page = 1) {
+            const params = {
+                search: this.searchQuery || undefined,
+                per_page: this.perPage,
+                page
+            };
+            this.$inertia.get('/refinements', params, { preserveState: true, preserveScroll: true, replace: true });
+        },
+        applyFilter(page = 1) {
+            this.visitWithFilters(page);
+        },
+        debouncedSearch() {
+            if (this.searchDebounceTimer) clearTimeout(this.searchDebounceTimer);
+            this.searchDebounceTimer = setTimeout(() => this.applyFilter(1), 400);
+        },
+        handlePageChange(page) {
+            this.visitWithFilters(page);
+        },
         getUnit(refinement) {
             const small = refinement?.small_material;
             const large = refinement?.large_format_material;
