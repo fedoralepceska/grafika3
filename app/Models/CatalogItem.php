@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
@@ -297,7 +298,14 @@ class CatalogItem extends Model
     // Add this new relationship method
     public function subcategory(): BelongsTo
     {
+        // Legacy single subcategory column for backward compatibility
         return $this->belongsTo(Subcategory::class);
+    }
+
+    public function subcategories(): BelongsToMany
+    {
+        return $this->belongsToMany(Subcategory::class, 'catalog_item_subcategory')
+            ->withTimestamps();
     }
 
     // Method to get the pricing method (quantity or copies)

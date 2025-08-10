@@ -100,19 +100,14 @@
                                 <div>
                                     <label class="text-white">{{ $t('subcategory') }} ({{ $t('optional for listing') }})</label>
                                     <div class="flex items-center gap-2">
-                                        <select
-                                            v-model="form.subcategory_id"
-                                            class="w-full mt-1 rounded"
-                                        >
-                                            <option value="">{{ $t('selectSubcategory') }}</option>
-                                            <option
-                                                v-for="subcategory in subcategories"
-                                                :key="subcategory.id"
-                                                :value="subcategory.id"
-                                            >
-                                                {{ subcategory.name }}
-                                            </option>
-                                        </select>
+                                        <MultiSelect
+                                            v-model="form.subcategory_ids"
+                                            :options="subcategories"
+                                            label-key="name"
+                                            value-key="id"
+                                            :placeholder="$t('selectSubcategory')"
+                                            :search-placeholder="$t('Search')"
+                                        />
                                     
                                         <div class="flex flex-row items-center gap-5">
                                             <div class="p-2">
@@ -503,6 +498,7 @@ import { Link } from '@inertiajs/vue3';
 import { useToast } from 'vue-toastification';
 import Checkbox from '@/Components/inputs/Checkbox.vue';
 import CatalogArticleSelect from '@/Components/CatalogArticleSelect.vue';
+import MultiSelect from '@/Components/inputs/MultiSelect.vue';
 
 import CreateSubcategoryDialog from '@/Components/CreateSubcategoryDialog.vue';
 import ViewSubcategoriesDialog from '@/Components/ViewSubcategoriesDialog.vue';
@@ -516,6 +512,7 @@ export default {
         Link,
         Checkbox,
         CatalogArticleSelect,
+        MultiSelect,
 
         CreateSubcategoryDialog,
         ViewSubcategoriesDialog
@@ -559,7 +556,8 @@ export default {
                 price: '0',
                 articles: [],
                 template_file: null,
-                subcategory_id: null,
+                subcategory_id: null, // legacy, not sent
+                subcategory_ids: [],
                 should_ask_questions: false
             },
             pricingMethod: 'quantity', // Default to quantity-based pricing
@@ -912,6 +910,13 @@ export default {
             });
 
             try {
+                // Append multiple subcategories as array
+                if (Array.isArray(this.form.subcategory_ids)) {
+                    this.form.subcategory_ids.forEach((id, idx) => {
+                        formData.append(`subcategory_ids[${idx}]`, id);
+                    });
+                }
+
                 const response = await axios.post(route('catalog.store'), formData, {
                     headers: { 'Content-Type': 'multipart/form-data' },
                 });

@@ -76,19 +76,14 @@
 
                                 <div class="flex-1">
                                     <label class="text-white block mb-2 font-semibold">{{ $t('subcategory') }} ({{ $t('optional for listing') }})</label>
-                                    <select
-                                        v-model="editForm.subcategory_id"
-                                        class="w-full rounded dark-gray text-white border-gray-600"
-                                    >
-                                        <option value="">{{ $t('selectSubcategory') }}</option>
-                                        <option
-                                            v-for="subcategory in subcategories"
-                                            :key="subcategory.id"
-                                            :value="subcategory.id"
-                                        >
-                                            {{ subcategory.name }}
-                                        </option>
-                                    </select>
+                                    <MultiSelect
+                                        v-model="editForm.subcategory_ids"
+                                        :options="subcategories"
+                                        label-key="name"
+                                        value-key="id"
+                                        :placeholder="$t('selectSubcategory')"
+                                        :search-placeholder="$t('Search')"
+                                    />
                                 </div>
                             </div>
 
@@ -490,6 +485,7 @@ import MainLayout from "@/Layouts/MainLayout.vue";
 import Header from "@/Components/Header.vue";
 import { useToast } from "vue-toastification";
 import CatalogArticleSelect from "@/Components/CatalogArticleSelect.vue";
+import MultiSelect from "@/Components/inputs/MultiSelect.vue";
 
 
 
@@ -497,7 +493,8 @@ export default {
     components: {
         MainLayout,
         Header,
-        CatalogArticleSelect
+        CatalogArticleSelect,
+        MultiSelect
     },
     props: {
         catalogItem: Object,
@@ -510,6 +507,7 @@ export default {
         availableQuestions: Array,
         canViewCostSummary: Boolean,
         canViewPrice: Boolean,
+        selectedSubcategoryIds: Array,
     },
     data() {
         return {
@@ -541,7 +539,8 @@ export default {
                 is_for_sales: this.catalogItem.is_for_sales,
                 file: null,
                 template_file: this.catalogItem.template_file,
-                subcategory_id: this.catalogItem.subcategory_id,
+                subcategory_id: this.catalogItem.subcategory_id, // legacy, not sent
+                subcategory_ids: (this.selectedSubcategoryIds || []),
                 category: this.catalogItem.category,
                 should_ask_questions: Boolean(this.catalogItem.should_ask_questions)
             }
@@ -843,7 +842,7 @@ export default {
                     if ([
                         'large_material_id', 'large_material_category_id',
                         'small_material_id', 'small_material_category_id',
-                        'actions', 'file', 'template_file', 'should_ask_questions'
+                        'actions', 'file', 'template_file', 'should_ask_questions', 'subcategory_ids'
                     ].includes(key)) return;
                     
                     if (key === 'price') {
@@ -862,6 +861,11 @@ export default {
                 formData.append('copies', 1);
                 
                 formData.append('actions', JSON.stringify(this.editForm.actions));
+
+                // Append multiple subcategories
+                if (Array.isArray(this.editForm.subcategory_ids)) {
+                    formData.append('subcategory_ids', JSON.stringify(this.editForm.subcategory_ids));
+                }
 
                 // Combine product and service articles
                 const articles = [

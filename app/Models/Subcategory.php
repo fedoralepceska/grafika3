@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 class Subcategory extends Model
 {
@@ -12,8 +13,9 @@ class Subcategory extends Model
 
     protected $fillable = ['name'];
 
-    public function catalogItems(): HasMany
+    public function catalogItems(): BelongsToMany
     {
-        return $this->hasMany(CatalogItem::class);
+        return $this->belongsToMany(CatalogItem::class, 'catalog_item_subcategory')
+            ->withTimestamps();
     }
 }

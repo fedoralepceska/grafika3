@@ -68,12 +68,14 @@ class CatalogItemController extends Controller
             $searchTerm = $request->input('search', '');
             $category = $request->input('category', '');
             $subcategoryId = $request->input('subcategory_id');
+            $subcategoryIds = $request->input('subcategory_ids', []);
 
             // Start with base query
             $query = CatalogItem::with([
                 'largeMaterial',
                 'smallMaterial',
-                'subcategory'
+                'subcategory',
+                'subcategories'
             ]);
 
             // Add search functionality
@@ -81,7 +83,7 @@ class CatalogItemController extends Controller
                 $query->where(function($q) use ($searchTerm) {
                     $q->where('name', 'like', "%{$searchTerm}%")
                       ->orWhere('description', 'like', "%{$searchTerm}%")
-                      ->orWhereHas('subcategory', function($q) use ($searchTerm) {
+                      ->orWhereHas('subcategories', function($q) use ($searchTerm) {
                           $q->where('name', 'like', "%{$searchTerm}%");
                       });
                 });
@@ -92,9 +94,18 @@ class CatalogItemController extends Controller
                 $query->where('category', $category);
             }
 
-            // Add subcategory filter
+            // Add subcategory filter (supports multi)
             if (!empty($subcategoryId)) {
-                $query->where('subcategory_id', $subcategoryId);
+                $query->whereHas('subcategories', function($q) use ($subcategoryId) {
+                    $q->where('subcategories.id', $subcategoryId);
+                });
+            } elseif (!empty($subcategoryIds) && is_array($subcategoryIds)) {
+                $ids = array_filter(array_map('intval', $subcategoryIds));
+                if (!empty($ids)) {
+                    $query->whereHas('subcategories', function($q) use ($ids) {
+                        $q->whereIn('subcategories.id', $ids);
+                    });
+                }
             }
 
             // Paginate the results
@@ -144,6 +155,8 @@ class CatalogItemController extends Controller
                         'id' => $item->subcategory->id,
                         'name' => $item->subcategory->name
                     ] : null,
+                    'subcategory_ids' => $item->subcategories->pluck('id')->values()->all(),
+                    'subcategory_names' => $item->subcategories->pluck('name')->values()->all(),
                     'articles' => $item->articles->map(function($article) {
                         return [
                             'id' => $article->id,
@@ -333,6 +346,8 @@ class CatalogItemController extends Controller
             'machinesPrint' => $machinesPrint,
             'machinesCut' => $machinesCut,
             'availableQuestions' => $availableQuestions,
+            // Provide subcategories list for multi-select on create
+            'subcategories' => \App\Models\Subcategory::select('id', 'name')->get(),
         ]);
     }
 
@@ -398,7 +413,8 @@ class CatalogItemController extends Controller
                 }
             }],
             'articles.*.quantity' => 'required|numeric|min:0.0000',
-            'subcategory_id' => 'nullable|exists:subcategories,id'
+            'subcategory_ids' => 'nullable|array',
+            'subcategory_ids.*' => 'integer|exists:subcategories,id'
         ], [], [
             'large_material_id' => 'large material',
             'small_material_id' => 'small material', 
@@ -416,7 +432,7 @@ class CatalogItemController extends Controller
         DB::beginTransaction();
         try {
             // Clean up the request data before creating the catalog item
-            $createData = $request->except(['actions', 'articles', 'template_file']);
+            $createData = $request->except(['actions', 'articles', 'template_file', 'subcategory_ids']);
             
             // Ensure material ID fields are properly null if empty
             $createData['large_material_id'] = $createData['large_material_id'] ?: null;
@@ -513,6 +529,18 @@ class CatalogItemController extends Controller
 
             $catalogItem->save();
 
+            // Sync multiple subcategories if provided
+            $subcategoryIds = $request->input('subcategory_ids', []);
+            if (is_string($subcategoryIds)) {
+                $decoded = json_decode($subcategoryIds, true);
+                if (json_last_error() === JSON_ERROR_NONE) {
+                    $subcategoryIds = $decoded;
+                }
+            }
+            if (is_array($subcategoryIds) && !empty($subcategoryIds)) {
+                $catalogItem->subcategories()->sync($subcategoryIds);
+            }
+
             DB::commit();
             \Log::info('Stored catalog item actions:', ['actions' => $catalogItem->actions]);
 
@@ -553,7 +581,8 @@ class CatalogItemController extends Controller
             'largeMaterial.article',
             'smallMaterial.article',
             'articles',
-            'questions'
+            'questions',
+            'subcategories'
         ]);
 
         // Transform articles to show original category selections
@@ -717,6 +746,8 @@ class CatalogItemController extends Controller
             'machinesPrint' => $machinesPrint,
             'machinesCut' => $machinesCut,
             'subcategories' => $subcategories,
+            // Provide preselected IDs for multi-select
+            'selectedSubcategoryIds' => $catalogItem->subcategories->pluck('id')->values(),
             'availableQuestions' => $availableQuestions,
             'canViewCostSummary' => !auth()->user()->hasRole('Rabotnik'),
             'canViewPrice' => !auth()->user()->hasRole('Rabotnik'),
@@ -730,10 +761,16 @@ class CatalogItemController extends Controller
             $actions = json_decode($request->input('actions'), true);
             $articles = json_decode($request->input('articles'), true);
 
-            // Handle subcategory_id before merging other data
-            $subcategoryId = $request->input('subcategory_id');
-            if ($subcategoryId === 'null' || $subcategoryId === '' || $subcategoryId === null) {
-                $subcategoryId = null;
+            // Handle multi subcategories
+            $subcategoryIds = $request->input('subcategory_ids');
+            if (is_string($subcategoryIds)) {
+                $decoded = json_decode($subcategoryIds, true);
+                if (json_last_error() === JSON_ERROR_NONE) {
+                    $subcategoryIds = $decoded;
+                }
+            }
+            if (!is_array($subcategoryIds)) {
+                $subcategoryIds = [];
             }
 
             // The frontend already processes category vs material logic and sends the correct field names
@@ -745,7 +782,7 @@ class CatalogItemController extends Controller
                 'is_for_sales' => filter_var($request->input('is_for_sales'), FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE),
                 'by_quantity' => filter_var($request->input('by_quantity'), FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE),
                 'by_copies' => filter_var($request->input('by_copies'), FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE),
-                'subcategory_id' => $subcategoryId,
+                'subcategory_ids' => $subcategoryIds,
                 'actions' => $actions,
                 'articles' => $articles
             ]);
@@ -786,7 +823,8 @@ class CatalogItemController extends Controller
                     }
                 }],
                 'articles.*.quantity' => 'required|numeric|min:0.0000',
-                'subcategory_id' => 'nullable|exists:subcategories,id'
+                 'subcategory_ids' => 'nullable|array',
+                 'subcategory_ids.*' => 'integer|exists:subcategories,id'
             ]);
 
             DB::beginTransaction();
@@ -839,7 +877,7 @@ class CatalogItemController extends Controller
                 }
 
                 // Update the catalog item without actions, file, and template_file first
-                $updateData = $request->except(['actions', 'file', 'articles', 'template_file', 'remove_template']);
+                $updateData = $request->except(['actions', 'file', 'articles', 'template_file', 'remove_template', 'subcategory_ids']);
                 
                 // Handle empty strings as null for material/category fields
                 $updateData['large_material_id'] = $request->input('large_material_id') ?: null;
@@ -906,6 +944,11 @@ class CatalogItemController extends Controller
                 }
 
                 $catalogItem->save();
+
+                // Sync subcategories
+                if ($request->has('subcategory_ids')) {
+                    $catalogItem->subcategories()->sync($subcategoryIds);
+                }
 
                 DB::commit();
 

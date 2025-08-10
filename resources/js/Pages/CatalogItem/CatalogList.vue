@@ -47,20 +47,15 @@
                         </select>
                     </div>
                     <div class="w-48">
-                        <select
-                            v-model="filters.subcategory_id"
-                            class="rounded p-2 bg-gray-700 text-white w-full"
+                        <MultiSelect
+                            v-model="filters.subcategory_ids"
+                            :options="subcategories"
+                            label-key="name"
+                            value-key="id"
+                            :placeholder="$t('allSubcategories')"
+                            :search-placeholder="$t('Search')"
                             @change="applyFilters"
-                        >
-                            <option value="">{{ $t('allSubcategories') }}</option>
-                            <option
-                                v-for="subcategory in subcategories"
-                                :key="subcategory.id"
-                                :value="subcategory.id"
-                            >
-                                {{ subcategory.name }}
-                            </option>
-                        </select>
+                        />
                     </div>
                     <div>
                         <button 
@@ -134,7 +129,20 @@
                         <td class="p-4">
                             {{ formatCategory(item.category) }}
                         </td>
-                        <td class="p-4">{{ item.subcategory_name || 'N/A' }}</td>
+                        <td class="p-4">
+                            <span v-if="item.subcategory_names && item.subcategory_names.length">
+                                {{ item.subcategory_names[0] }}
+                                <Tooltip
+                                  v-if="item.subcategory_names.length > 1"
+                                  :content="item.subcategory_names.slice(1).join(', ')"
+                                  :title="$t('More subcategories')"
+                                  placement="top"
+                                >
+                                  <span class="ml-1 text-gray-400 hover:text-white cursor-help align-middle">+{{ item.subcategory_names.length - 1 }}</span>
+                                </Tooltip>
+                            </span>
+                            <span v-else>{{ item.subcategory_name || 'N/A' }}</span>
+                        </td>
                         <td v-if="canViewPrice" class="p-4">{{ formatPrice(item.price) }}</td>
                         <td v-if="canViewPrice" class="p-4">
                             <button @click="openClientPricesDialog(item)" class="btn btn-secondary">
@@ -606,6 +614,8 @@ import Header from "@/Components/Header.vue";
 import { Link } from "@inertiajs/vue3";
 import { useToast } from "vue-toastification";
 import debounce from "lodash.debounce";
+import MultiSelect from "@/Components/inputs/MultiSelect.vue";
+import Tooltip from "@/Components/Tooltip.vue";
 
 
 export default {
@@ -613,13 +623,15 @@ export default {
         MainLayout,
         Header,
         Link,
+        MultiSelect,
+        Tooltip,
     },
-    props: {
-        catalogItems: Array,
-        pagination: Object,
-        canViewPrice: Boolean,
-        canDelete: Boolean,
-    },
+        props: {
+        	catalogItems: Array,
+        	pagination: Object,
+        	canViewPrice: Boolean,
+        	canDelete: Boolean,
+        },
     data() {
         return {
             searchQuery: "",
@@ -657,7 +669,7 @@ export default {
             subcategories: [],
             filters: {
                 category: '',
-                subcategory_id: ''
+                subcategory_ids: []
             },
             categories: ['material', 'article', 'small_format'],
             showDeleteDialog: false,
@@ -687,7 +699,7 @@ export default {
                     search: this.searchQuery,
                     page: page || this.pagination.current_page,
                     category: this.filters.category,
-                    subcategory_id: this.filters.subcategory_id
+                    subcategory_ids: this.filters.subcategory_ids
                 },
                 {
                     preserveState: true,
@@ -1426,7 +1438,7 @@ export default {
             this.searchQuery = '';
             this.filters = {
                 category: '',
-                subcategory_id: ''
+                subcategory_ids: []
             };
             this.fetchCatalogItems(1);
         },
