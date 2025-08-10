@@ -428,30 +428,43 @@
                     <div class="bg-gray-800 p-6">
                         <h3 class="text-white text-xl font-semibold mb-6">{{ $t('ACTIONS') }}</h3>
                         <div class="space-y-4">
-                            <div v-for="(action, index) in editForm.actions" :key="index"
-                                 class="flex items-center space-x-4 bg-gray-700 p-4 ">
-                                <div class="flex-1">
-                                    <select v-model="action.selectedAction" 
-                                            class="w-full rounded dark-gray text-white border-gray-500"
-                                            @change="handleActionChange(action)" required>
-                                        <option value="">Select Action</option>
-                                        <option v-for="availableAction in availableActions(action)"
-                                                :key="availableAction.id"
-                                                :value="availableAction.id">
-                                            {{ availableAction.name }}
-                                        </option>
-                                    </select>
-                                </div>
-                                <div v-if="action.showQuantity" class="w-32">
-                                    <input v-model="action.quantity" type="number" step="0.0001"
-                                           class="w-full rounded dark-gray text-white border-gray-500" 
-                                           placeholder="Quantity" required />
-                                </div>
-                                <button type="button" @click="removeAction(index)"
-                                        class="text-red-500 hover:text-red-700">
-                                    <i class="fas fa-trash"></i>
-                                </button>
-                            </div>
+                            <draggable
+                                v-model="editForm.actions"
+                                item-key="_key"
+                                handle=".drag-handle"
+                                ghost-class="drag-ghost"
+                                chosen-class="drag-chosen"
+                                drag-class="drag-dragging"
+                            >
+                                <template #item="{ element: action, index }">
+                                    <div class="flex items-center space-x-4 bg-gray-700 p-4">
+                                        <div class="cursor-move drag-handle text-gray-300 pr-2">
+                                            <i class="fas fa-grip-vertical"></i>
+                                        </div>
+                                        <div class="flex-1">
+                                            <select v-model="action.selectedAction"
+                                                    class="w-full rounded dark-gray text-white border-gray-500"
+                                                    @change="handleActionChange(action)" required>
+                                                <option value="">Select Action</option>
+                                                <option v-for="availableAction in availableActions(action)"
+                                                        :key="availableAction.id"
+                                                        :value="availableAction.id">
+                                                    {{ availableAction.name }}
+                                                </option>
+                                            </select>
+                                        </div>
+                                        <div v-if="action.showQuantity" class="w-32">
+                                            <input v-model="action.quantity" type="number" step="0.0001"
+                                                   class="w-full rounded dark-gray text-white border-gray-500"
+                                                   placeholder="Quantity" required />
+                                        </div>
+                                        <button type="button" @click="removeAction(index)"
+                                                class="text-red-500 hover:text-red-700">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </div>
+                                </template>
+                            </draggable>
 
                             <button type="button" @click="addAction"
                                     class="text-green-500 hover:text-green-700">
@@ -486,6 +499,7 @@ import Header from "@/Components/Header.vue";
 import { useToast } from "vue-toastification";
 import CatalogArticleSelect from "@/Components/CatalogArticleSelect.vue";
 import MultiSelect from "@/Components/inputs/MultiSelect.vue";
+import draggable from 'vuedraggable';
 
 
 
@@ -494,7 +508,8 @@ export default {
         MainLayout,
         Header,
         CatalogArticleSelect,
-        MultiSelect
+        MultiSelect,
+        draggable
     },
     props: {
         catalogItem: Object,
@@ -528,12 +543,13 @@ export default {
                 large_material_id: this.catalogItem.large_material_id ? String(this.catalogItem.large_material_id) : null,
                 small_material_id: this.catalogItem.small_material_id ? String(this.catalogItem.small_material_id) : null,
                 price: this.catalogItem.price,
-                actions: this.catalogItem.actions?.map(action => ({
+                actions: this.catalogItem.actions?.map((action, idx) => ({
                     selectedAction: action.action_id?.id || action.id,
                     quantity: action.quantity,
                     showQuantity: action.quantity !== null,
                     action_id: action.action_id || action,
-                    isMaterialized: action.isMaterialized
+                    isMaterialized: action.isMaterialized,
+                    _key: `${Date.now()}_${idx}_${Math.random().toString(36).slice(2)}`
                 })) || [],
                 is_for_offer: this.catalogItem.is_for_offer,
                 is_for_sales: this.catalogItem.is_for_sales,
@@ -685,7 +701,8 @@ export default {
             this.editForm.actions.push({
                 selectedAction: '',
                 quantity: 0,
-                showQuantity: false
+                showQuantity: false,
+                _key: `${Date.now()}_${Math.random().toString(36).slice(2)}`
             });
         },
 
@@ -971,6 +988,16 @@ export default {
 </script>
 
 <style scoped lang="scss">
+/* Draggable visual helpers */
+.drag-ghost {
+    opacity: 0.5;
+}
+.drag-chosen {
+    background-color: rgba(31, 41, 55, 0.8);
+}
+.drag-dragging {
+    cursor: grabbing;
+}
 .btn {
     padding: 9px 12px;
     border: none;
