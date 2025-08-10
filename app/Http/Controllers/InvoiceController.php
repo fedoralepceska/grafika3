@@ -568,12 +568,12 @@ class InvoiceController extends Controller
         $invoice->comment = $comment;
         $invoice->save();
 
-        $selectedActions = $request->selectedActions;
+        $selectedPairs = $request->selectedPairs ?? [];
 
         // Get all job IDs associated with the invoice
         $jobIds = $invoice->jobs->pluck('id')->toArray();
 
-        // Find all jobs based on the IDs
+        // Get all job actions for those jobs
         $jobActionIds = DB::table('job_job_action')
             ->whereIn('job_id', $jobIds)
             ->pluck('job_action_id')
@@ -581,14 +581,18 @@ class InvoiceController extends Controller
 
         $jobActions = JobAction::whereIn('id', $jobActionIds)->get();
 
-        // Loop through each job action
+        // Reset all actions involved in this invoice's jobs to 0 first
         foreach ($jobActions as $jobAction) {
-            // Check if the action is in the selected actions
-            if (in_array($jobAction->name, $selectedActions)) {
-                // Update the hasNote property on the action
-                $jobAction->hasNote = true;
-                $jobAction->save();
-            }
+            $jobAction->hasNote = 0;
+            $jobAction->save();
+        }
+
+        // Set hasNote only for selected action names (derived from selectedPairs)
+        if (!empty($selectedPairs)) {
+            $selectedActionNames = collect($selectedPairs)->pluck('action_name')->unique()->values();
+            JobAction::whereIn('id', $jobActionIds)
+                ->whereIn('name', $selectedActionNames)
+                ->update(['hasNote' => 1]);
         }
 
         // Return a response, could be the updated invoice, a success message, etc.

@@ -824,7 +824,12 @@ class JobController extends Controller
             ->get();
 
         foreach ($jobs as $job) {
-            $job->hasNote = $action->hasNote;
+            // Determine hasNote based on the specific action row for this action name
+            $job->hasNote = (bool) DB::table('job_actions')
+                ->join('job_job_action', 'job_actions.id', '=', 'job_job_action.job_action_id')
+                ->where('job_job_action.job_id', $job->job_id)
+                ->where('job_actions.name', $actionId)
+                ->value('job_actions.hasNote');
 
             // Fetch actions associated with the current job from job_job_action table
             $actionsForJob = DB::table('job_job_action')
@@ -887,6 +892,16 @@ class JobController extends Controller
                     })->toArray();
 
                     $jobsForInvoice[$index]->actions = $sortedActions;
+
+                    // Derive job-level hasNote for the CURRENT action board only
+                    $hasNoteForCurrentAction = false;
+                    foreach ($sortedActions as $sa) {
+                        if ($sa['name'] === $actionId) {
+                            $hasNoteForCurrentAction = (bool) ($sa['hasNote'] ?? false);
+                            break;
+                        }
+                    }
+                    $jobsForInvoice[$index]->hasNote = $hasNoteForCurrentAction;
                 }
             }
             $invoice->jobs = $jobsForInvoice;
@@ -977,6 +992,26 @@ class JobController extends Controller
                     $jobsForInvoice[$index] = $jobsWithActions[$job->id];
                 }
             }
+            // Compute job.hasNote for this machine context (machine name is the action name here)
+            foreach ($jobsForInvoice as $index => $job) {
+                $actionsForJob = DB::table('job_job_action')
+                    ->join('job_actions', 'job_job_action.job_action_id', '=', 'job_actions.id')
+                    ->where('job_job_action.job_id', $job->id)
+                    ->select('job_actions.*')
+                    ->get();
+
+                $jobsForInvoice[$index]->actions = $actionsForJob;
+
+                $hasNoteForMachine = false;
+                foreach ($actionsForJob as $a) {
+                    if (($a->name ?? null) === $machineName && ($a->hasNote ?? false)) {
+                        $hasNoteForMachine = true;
+                        break;
+                    }
+                }
+                $jobsForInvoice[$index]->hasNote = $hasNoteForMachine;
+            }
+
             $invoice->jobs = $jobsForInvoice;
         }
 

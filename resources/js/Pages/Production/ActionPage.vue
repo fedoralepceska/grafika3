@@ -60,7 +60,7 @@
                             </tr>
                         </thead>
                         <tbody v-for="(job, jobIndex) in invoice.jobs" :key="jobIndex">
-                            <tr v-if="invoice.comment && !acknowledged && !job.hasNote">
+                            <tr v-if="invoice.comment && !acknowledged && hasNoteForCurrentAction(job)">
                                 <td :colspan="9 + (hasWaitingJobs ? 1 : 0) + (hasNextSteps ? 1 : 0)" class="orange">
                                     <button @click="openModal">
                                     <i class="fa-solid fa-arrow-down"></i>
@@ -70,7 +70,7 @@
                                 </td>
                             </tr>
                             <tr :class="{
-                                'orange2' :  invoice.comment && !acknowledged && !job.hasNote
+                                'orange2' :  invoice.comment && !acknowledged && hasNoteForCurrentAction(job)
                             }">
                                 <td class="bg-white !text-black"><strong>#{{jobIndex+1}}</strong></td>
                                 <td class="image-cell">
@@ -349,6 +349,10 @@ export default {
         }
     },
     methods: {
+        hasNoteForCurrentAction(job) {
+            const action = job?.actions?.find(a => a?.name === this.actionId);
+            return action && (action.hasNote === 1 || action.hasNote === true);
+        },
         getActionId(job) {
             const actionIndex = job?.actions?.findIndex(action => action?.name === this?.actionId);
             const action = job?.actions?.[actionIndex];
