@@ -57,6 +57,26 @@
                         </div>
                     </div>
                 </div>
+                <!-- Pagination Controls for Small -->
+                <div class="pagination-container flex justify-between items-center m-2">
+                    <button
+                        @click="prevPageSmall"
+                        :disabled="currentPageSmall === 1"
+                        class="pagination-button"
+                    >
+                        Previous
+                    </button>
+                    <span class="page-info">
+                        Page {{ currentPageSmall }} of {{ totalPagesSmall }}
+                    </span>
+                    <button
+                        @click="nextPageSmall"
+                        :disabled="currentPageSmall === totalPagesSmall"
+                        class="pagination-button"
+                    >
+                        Next
+                    </button>
+                </div>
             </TabV2>
             <TabV2 title="Large Material">
                 <div class="search-container mb-4">
@@ -114,31 +134,29 @@
                         </div>
                     </div>
                 </div>
+                <!-- Pagination Controls for Large -->
+                <div class="pagination-container flex justify-between items-center m-2">
+                    <button
+                        @click="prevPageLarge"
+                        :disabled="currentPageLarge === 1"
+                        class="pagination-button"
+                    >
+                        Previous
+                    </button>
+                    <span class="page-info">
+                        Page {{ currentPageLarge }} of {{ totalPagesLarge }}
+                    </span>
+                    <button
+                        @click="nextPageLarge"
+                        :disabled="currentPageLarge === totalPagesLarge"
+                        class="pagination-button"
+                    >
+                        Next
+                    </button>
+                </div>
             </TabV2>
         </TabsWrapperSwitch>
-        <div class="catalog-grid">
-        </div>
-
-        <!-- Pagination Controls -->
-        <div class="pagination-container flex justify-between items-center m-2">
-            <button
-                @click="prevPage"
-                :disabled="currentPage === 1"
-                class="pagination-button"
-            >
-                Previous
-            </button>
-            <span class="page-info">
-                Page {{ currentPage }} of {{ totalPages }}
-            </span>
-            <button
-                @click="nextPage"
-                :disabled="currentPage === totalPages"
-                class="pagination-button"
-            >
-                Next
-            </button>
-        </div>
+        <div class="catalog-grid"></div>
 
         <!-- Item Details Modal -->
         <div v-if="selectedItemDetails" class="modal-backdrop">
@@ -159,12 +177,12 @@
                             <span class="detail-value">{{ selectedItemDetails.machineCut }}</span>
                         </div>
                         <div class="detail-row">
-                            <span class="detail-label">Large Material ID:</span>
-                            <span class="detail-value">{{ selectedItemDetails.largeMaterial }}</span>
+                            <span class="detail-label">Material:</span>
+                            <span class="detail-value">{{ selectedItemDetails.material || 'N/A' }}</span>
                         </div>
                         <div class="detail-row">
-                            <span class="detail-label">Small Material ID:</span>
-                            <span class="detail-value">{{ selectedItemDetails.smallMaterial || 'N/A' }}</span>
+                            <span class="detail-label">Category:</span>
+                            <span class="detail-value">{{ selectedItemDetails.category }}</span>
                         </div>
                         <div class="detail-row">
                             <span class="detail-label">Quantity:</span>
@@ -244,9 +262,12 @@ export default {
             selectedItems: [],
             searchTerm: '',
             selectedItemDetails: null,
-            currentPage: 1,
+            // Separate pagination states
+            currentPageSmall: 1,
+            currentPageLarge: 1,
             itemsPerPage: 10,
-            totalPages: 0,
+            totalPagesSmall: 0,
+            totalPagesLarge: 0,
             showImageModal: false,
             selectedImageUrl: null,
             questionsModalVisible: false,
@@ -259,22 +280,30 @@ export default {
     methods: {
         async fetchCatalogItems() {
             try {
-                const response = await axios.get('/catalog-items', {
-                    params: {
-                        page: this.currentPage,
-                        per_page: this.itemsPerPage,
-                        search: this.searchTerm
-                    }
-                });
+                // Fetch small and large in parallel with separate paginations
+                const [smallRes, largeRes] = await Promise.all([
+                    axios.get('/catalog-items', {
+                        params: {
+                            page: this.currentPageSmall,
+                            per_page: this.itemsPerPage,
+                            search: this.searchTerm,
+                            category: 'small_format'
+                        }
+                    }),
+                    axios.get('/catalog-items', {
+                        params: {
+                            page: this.currentPageLarge,
+                            per_page: this.itemsPerPage,
+                            search: this.searchTerm,
+                            category: 'material'
+                        }
+                    })
+                ]);
 
-                // Include catalog items with either individual materials or category assignments
-                this.catalogItemsSmall = response.data.data.filter(c => 
-                    c.smallMaterial !== null || c.small_material_category_id !== null
-                );
-                this.catalogItemsLarge = response.data.data.filter(c => 
-                    c.largeMaterial !== null || c.large_material_category_id !== null
-                );
-                this.totalPages = response.data.pagination.total_pages;
+                this.catalogItemsSmall = smallRes.data.data;
+                this.totalPagesSmall = smallRes.data.pagination.total_pages;
+                this.catalogItemsLarge = largeRes.data.data;
+                this.totalPagesLarge = largeRes.data.pagination.total_pages;
             } catch (error) {
                 console.error('Error fetching catalog items:', error.response?.data || error);
                 const toast = useToast();
@@ -345,17 +374,9 @@ export default {
                         quantity: action.quantity
                     }));
 
-                    // Handle material vs category assignments  
-                    let largeMaterialData = item.largeMaterial;
-                    let smallMaterialData = item.smallMaterial;
-                    
-                    // If item has category assignments, send those instead
-                    if (item.large_material_category_id) {
-                        largeMaterialData = 'cat_' + item.large_material_category_id;
-                    }
-                    if (item.small_material_category_id) {
-                        smallMaterialData = 'cat_' + item.small_material_category_id;
-                    }
+                    // Use unified IDs from backend (already 'cat_#' for categories)
+                    let largeMaterialData = item.large_material_id || null;
+                    let smallMaterialData = item.small_material_id || null;
 
                     const response = await axios.post('/jobs', {
                         fromCatalog: true,
@@ -404,17 +425,9 @@ export default {
                         status: action.status,
                         quantity: action.quantity
                     }));
-                    // Handle material vs category assignments  
-                    let largeMaterialData = item.largeMaterial;
-                    let smallMaterialData = item.smallMaterial;
-                    
-                    // If item has category assignments, send those instead
-                    if (item.large_material_category_id) {
-                        largeMaterialData = 'cat_' + item.large_material_category_id;
-                    }
-                    if (item.small_material_category_id) {
-                        smallMaterialData = 'cat_' + item.small_material_category_id;
-                    }
+                    // Use unified IDs from backend (already 'cat_#' for categories)
+                    let largeMaterialData = item.large_material_id || null;
+                    let smallMaterialData = item.small_material_id || null;
 
                     const payload = {
                         fromCatalog: true,
@@ -446,16 +459,30 @@ export default {
             }
         },
 
-        prevPage() {
-            if (this.currentPage > 1) {
-                this.currentPage--;
+        prevPageSmall() {
+            if (this.currentPageSmall > 1) {
+                this.currentPageSmall--;
                 this.fetchCatalogItems();
             }
         },
 
-        nextPage() {
-            if (this.currentPage < this.totalPages) {
-                this.currentPage++;
+        nextPageSmall() {
+            if (this.currentPageSmall < this.totalPagesSmall) {
+                this.currentPageSmall++;
+                this.fetchCatalogItems();
+            }
+        },
+
+        prevPageLarge() {
+            if (this.currentPageLarge > 1) {
+                this.currentPageLarge--;
+                this.fetchCatalogItems();
+            }
+        },
+
+        nextPageLarge() {
+            if (this.currentPageLarge < this.totalPagesLarge) {
+                this.currentPageLarge++;
                 this.fetchCatalogItems();
             }
         },
@@ -495,7 +522,8 @@ export default {
 
     watch: {
         searchTerm() {
-            this.currentPage = 1;
+            this.currentPageSmall = 1;
+            this.currentPageLarge = 1;
             this.fetchCatalogItems();
         }
     },

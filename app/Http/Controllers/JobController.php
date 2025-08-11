@@ -1986,6 +1986,7 @@ class JobController extends Controller
             $page = $request->input('page', 1);
             $perPage = $request->input('per_page', 10);
             $searchTerm = $request->input('search', '');
+            $category = $request->input('category', '');
 
             // Start with base query including category relationships
             $query = CatalogItem::with([
@@ -2000,20 +2001,47 @@ class JobController extends Controller
                 $query->where('name', 'like', "%{$searchTerm}%");
             }
 
+            // Optional category filter (e.g., 'material' or 'small_format')
+            if (!empty($category)) {
+                $query->where('category', $category);
+            }
+
             // Paginate the results
             $catalogItems = $query->paginate($perPage, ['*'], 'page', $page);
 
-            // Transform paginated items
+            // Transform paginated items to align with offers API shape
             $transformedItems = $catalogItems->getCollection()->map(function($item) {
+                // Human-readable material display
+                $materialDisplay = 'N/A';
+                if ($item->large_material_category_id) {
+                    $category = \App\Models\ArticleCategory::find($item->large_material_category_id);
+                    $materialDisplay = $category ? "[Category] {$category->name} (Large)" : 'N/A';
+                } elseif ($item->large_material_id) {
+                    $largeMaterialName = $item->largeMaterial ? $item->largeMaterial->name : null;
+                    $materialDisplay = $largeMaterialName ? "{$largeMaterialName} (Large)" : 'N/A';
+                } elseif ($item->small_material_category_id) {
+                    $category = \App\Models\ArticleCategory::find($item->small_material_category_id);
+                    $materialDisplay = $category ? "[Category] {$category->name} (Small)" : 'N/A';
+                } elseif ($item->small_material_id) {
+                    $smallMaterialName = $item->smallMaterial ? $item->smallMaterial->name : null;
+                    $materialDisplay = $smallMaterialName ? "{$smallMaterialName} (Small)" : 'N/A';
+                }
+
                 return [
                     'id' => $item->id,
                     'name' => $item->name,
                     'machinePrint' => $item->machinePrint,
                     'machineCut' => $item->machineCut,
+                    // Unified IDs (string or cat_#) similar to CatalogItemController@index
+                    'large_material_id' => $item->large_material_category_id ? 'cat_' . $item->large_material_category_id : ($item->large_material_id ? (string)$item->large_material_id : null),
+                    'small_material_id' => $item->small_material_category_id ? 'cat_' . $item->small_material_category_id : ($item->small_material_id ? (string)$item->small_material_id : null),
+                    // Keep legacy fields for backward compatibility
                     'largeMaterial' => $item->large_material_id,
                     'smallMaterial' => $item->small_material_id,
                     'large_material_category_id' => $item->large_material_category_id,
                     'small_material_category_id' => $item->small_material_category_id,
+                    'category' => $item->category,
+                    'material' => $materialDisplay,
                     'quantity' => $item->quantity,
                     'copies' => $item->copies,
                     'file' => $item->file,
