@@ -974,7 +974,7 @@ class CatalogItemController extends Controller
         }
     }
 
-    public function destroy($id)
+    public function destroy(Request $request, $id)
     {
         try {
             DB::beginTransaction();
@@ -988,10 +988,18 @@ class CatalogItemController extends Controller
             
             DB::commit();
             
+            // Return JSON/204 for AJAX/API requests to avoid Inertia redirect conflicts
+            if ($request->ajax() || $request->expectsJson() || $request->wantsJson()) {
+                return response()->noContent();
+            }
+
             return redirect()->route('catalog.index')->with('success', 'Catalog item deleted successfully.');
             
         } catch (\Exception $e) {
             DB::rollBack();
+            if ($request->ajax() || $request->expectsJson() || $request->wantsJson()) {
+                return response()->json(['message' => 'Failed to delete catalog item.'], 500);
+            }
             return redirect()->route('catalog.index')->with('error', 'Failed to delete catalog item.');
         }
     }
@@ -1111,7 +1119,7 @@ class CatalogItemController extends Controller
     /**
      * Permanently delete a catalog item (use with caution)
      */
-    public function forceDelete($id)
+    public function forceDelete(Request $request, $id)
     {
         try {
             DB::beginTransaction();
@@ -1141,10 +1149,16 @@ class CatalogItemController extends Controller
             
             DB::commit();
             
+            if ($request->ajax() || $request->expectsJson() || $request->wantsJson()) {
+                return response()->noContent();
+            }
             return redirect()->route('catalog.index')->with('success', 'Catalog item permanently deleted.');
             
         } catch (\Exception $e) {
             DB::rollBack();
+            if ($request->ajax() || $request->expectsJson() || $request->wantsJson()) {
+                return response()->json(['message' => 'Failed to permanently delete catalog item.'], 500);
+            }
             return redirect()->route('catalog.index')->with('error', 'Failed to permanently delete catalog item.');
         }
     }
