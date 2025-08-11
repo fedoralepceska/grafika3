@@ -1,8 +1,10 @@
 <template>
     <div class="dashboard-orders">
         <div class="dashboard-layout" :class="{ 'with-sidebar': selectedOrder }">
+            <!-- Left column stacking both lists -->
+            <div class="orders-stack" :class="{ 'with-sidebar': selectedOrder }">
             <!-- Orders List -->
-            <div class="orders-container" :class="{ 'with-sidebar': selectedOrder }">
+            <div class="orders-container">
                 <div class="orders-header">
                     <h2 class="text-xl font-semibold text-white mb-4">Latest Orders</h2>
                     <div class="search-filters">
@@ -63,7 +65,7 @@
                     </div>
                 </div>
 
-                <!-- Pagination -->
+                <!-- Pagination: Latest Orders -->
                 <div class="pagination-container" v-if="orders.last_page > 1">
                     <div class="pagination">
                         <button 
@@ -87,6 +89,71 @@
                         </button>
                     </div>
                 </div>
+            </div>
+
+            <!-- Completed Orders Section -->
+            <div class="orders-container compact mt-2">
+                <div class="orders-header">
+                    <h2 class="text-xl font-semibold text-white mb-4">Completed Orders</h2>
+                </div>
+
+                <div class="orders-list" v-if="completedOrders.data && completedOrders.data.length > 0">
+                    <div 
+                        v-for="order in completedOrders.data" 
+                        :key="`completed-${order.id}`" 
+                        @click="openOrderDetails(order)"
+                    >
+                        <div class="order-header">
+                            <div class="detail-item">
+                                <span class="label">Order:</span>
+                                <span class="value">#{{ order.id }}</span>
+                            </div>
+                            <div class="detail-item">
+                                <div class="label">Order Title:</div>
+                                <div class="value" :title="order.invoice_title">{{ order.invoice_title }}</div>
+                            </div>
+                            <div class="detail-item">
+                                <span class="label">Client:</span>
+                                <span class="value" :title="order.client?.name || 'N/A'">{{ order.client?.name || 'N/A' }}</span>
+                            </div>
+                            <div class="detail-item status">
+                                <span class="status-badge status-completed">Completed</span>
+                            </div>
+                        </div>
+                        
+                    </div>
+                </div>
+                <div v-else class="no-orders">
+                    <div class="no-orders-content">
+                        <i class="fa-solid fa-inbox"></i>
+                        <h3>No completed orders</h3>
+                        <p>There are no completed orders to display at the moment.</p>
+                    </div>
+                </div>
+
+                <!-- Pagination: Completed Orders -->
+                <div class="pagination-container" v-if="completedOrders.last_page > 1">
+                    <div class="pagination">
+                        <button 
+                            @click="changeCompletedPage(completedOrders.current_page - 1)"
+                            :disabled="completedOrders.current_page === 1"
+                            class="pagination-btn"
+                        >
+                            Previous
+                        </button>
+                        <span class="pagination-info">
+                            Page {{ completedOrders.current_page }} of {{ completedOrders.last_page }}
+                        </span>
+                        <button 
+                            @click="changeCompletedPage(completedOrders.current_page + 1)"
+                            :disabled="completedOrders.current_page === completedOrders.last_page"
+                            class="pagination-btn"
+                        >
+                            Next
+                        </button>
+                    </div>
+                </div>
+            </div>
             </div>
 
             <!-- Order Details Sidebar -->
@@ -246,6 +313,13 @@ export default {
                 per_page: 10,
                 total: 0
             },
+            completedOrders: {
+                data: [],
+                current_page: 1,
+                last_page: 1,
+                per_page: 5,
+                total: 0
+            },
             selectedOrder: null,
             searchQuery: '',
             statusFilter: '',
@@ -255,6 +329,7 @@ export default {
     },
     mounted() {
         this.fetchOrders();
+        this.fetchCompletedOrders();
         // Add ESC key listener
         document.addEventListener('keydown', this.handleKeydown);
     },
@@ -268,21 +343,37 @@ export default {
             try {
                 const params = {
                     page: this.orders.current_page,
-                    per_page: 10
+                    per_page: this.orders.per_page
                 };
 
                 if (this.searchQuery) {
                     params.searchQuery = this.searchQuery;
                 }
 
-                if (this.statusFilter) {
-                    params.status = this.statusFilter;
-                }
-
-                const response = await axios.get('/orders', { params });
+                // Always exclude completed orders from latest list (handled server-side)
+                const response = await axios.get('/orders/latest-open', { params });
                 this.orders = response.data;
             } catch (error) {
                 console.error('Error fetching orders:', error);
+            }
+        },
+
+        async fetchCompletedOrders() {
+            try {
+                const params = {
+                    page: this.completedOrders.current_page,
+                    per_page: this.completedOrders.per_page
+                };
+
+                if (this.searchQuery) {
+                    params.searchQuery = this.searchQuery;
+                }
+
+                // Status is forced to Completed on server
+                const response = await axios.get('/orders/completed', { params });
+                this.completedOrders = response.data;
+            } catch (error) {
+                console.error('Error fetching completed orders:', error);
             }
         },
 
@@ -290,7 +381,9 @@ export default {
             clearTimeout(this.searchTimeout);
             this.searchTimeout = setTimeout(() => {
                 this.orders.current_page = 1;
+                this.completedOrders.current_page = 1;
                 this.fetchOrders();
+                this.fetchCompletedOrders();
             }, 300);
         },
 
@@ -298,6 +391,13 @@ export default {
             if (page >= 1 && page <= this.orders.last_page) {
                 this.orders.current_page = page;
                 this.fetchOrders();
+            }
+        },
+
+        changeCompletedPage(page) {
+            if (page >= 1 && page <= this.completedOrders.last_page) {
+                this.completedOrders.current_page = page;
+                this.fetchCompletedOrders();
             }
         },
 
@@ -436,14 +536,17 @@ export default {
     overflow-x: hidden;
     
     &.with-sidebar {
-        .orders-container {
-            flex: 0 0 calc(100% - 500px);
-        }
-        
+        .orders-stack { flex: 0 0 calc(100% - 500px); }
         .order-sidebar {
             flex: 0 0 500px;
         }
     }
+}
+
+.orders-stack {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
 }
 
 .orders-container {
@@ -454,6 +557,12 @@ export default {
     background-color: $light-gray;
     min-width: 400px;
     transition: all 0.3s ease;
+}
+
+.orders-container.compact {
+    height: auto;
+    overflow: visible;
+    padding: 0.5rem 0.75rem;
 }
 
 .orders-header {
@@ -510,6 +619,8 @@ export default {
     gap: 0.5rem;
     margin-bottom: 2rem;
 }
+
+.orders-container.compact .orders-list { margin-bottom: 0.5rem; }
 
 .order-item {
     background-color: $light-gray;
