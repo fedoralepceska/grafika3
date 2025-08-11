@@ -89,13 +89,17 @@
                     >
                         <td class="p-4">
                             <div class="jobImg-container">
-                                <img
-                                    v-if="!isPlaceholder(item.file)"
-                                    :src="getFileUrl(item.file)"
-                                    alt="Item Preview"
-                                    class="jobImg thumbnail"
-                                    style="cursor: pointer;"
-                                />
+                                <template v-if="!isPlaceholder(item.file)">
+                                    <img
+                                        :src="getFileUrl(item.file)"
+                                        alt="Item Preview"
+                                        class="jobImg thumbnail"
+                                        style="cursor: pointer;"
+                                        @mouseenter="showHover(item.file, $event)"
+                                        @mouseleave="hideHover"
+                                        @mousemove="moveHover($event)"
+                                    />
+                                </template>
                                 <div v-else class="jobImg thumbnail no-image">
                                     NO IMAGE
                                 </div>
@@ -606,6 +610,10 @@
             </div>
         </div>
     </MainLayout>
+    <!-- Floating image hover overlay -->
+    <div v-if="hoveredImageUrl" class="image-hover-overlay" :style="overlayStyle">
+        <img :src="hoveredImageUrl" alt="Preview" />
+    </div>
 </template>
 
 <script>
@@ -689,9 +697,26 @@ export default {
             },
             copyFormError: '',
             isCopying: false
+            ,
+            hoveredImageUrl: null,
+            hoverPosition: { x: 0, y: 0 },
+            hoverMaxSize: 420
         };
     },
     methods: {
+        showHover(file, evt) {
+            this.hoveredImageUrl = this.getFileUrl(file);
+            this.moveHover(evt);
+        },
+        hideHover() {
+            this.hoveredImageUrl = null;
+        },
+        moveHover(evt) {
+            // Offset so the overlay doesn't cover the cursor
+            const offsetX = 24;
+            const offsetY = 24;
+            this.hoverPosition = { x: evt.clientX + offsetX, y: evt.clientY + offsetY };
+        },
         fetchCatalogItems(page) {
             this.$inertia.get(
                 route('catalog.index'),
@@ -1621,6 +1646,33 @@ export default {
             }
         }
     },
+    computed: {
+        overlayStyle() {
+            // Keep overlay within viewport bounds
+            const maxWidth = this.hoverMaxSize;
+            const maxHeight = this.hoverMaxSize;
+            const padding = 16;
+            const viewportWidth = window.innerWidth;
+            const viewportHeight = window.innerHeight;
+
+            let x = this.hoverPosition.x;
+            let y = this.hoverPosition.y;
+
+            if (x + maxWidth + padding > viewportWidth) {
+                x = viewportWidth - maxWidth - padding;
+            }
+            if (y + maxHeight + padding > viewportHeight) {
+                y = viewportHeight - maxHeight - padding;
+            }
+
+            return {
+                '--hover-x': x + 'px',
+                '--hover-y': y + 'px',
+                width: maxWidth + 'px',
+                height: maxHeight + 'px'
+            };
+        }
+    },
     watch: {
         'copyForm.name': {
             handler() {
@@ -1907,6 +1959,7 @@ tbody td {
 
 .jobImg-container {
     margin: 0 1rem;
+    position: relative;
 }
 
 .jobImg {
@@ -1931,13 +1984,29 @@ tbody td {
     text-align: center;
 }
 
-.thumbnail {
-    &:hover {
-        transform: scale(3);
-        box-shadow: 0 0 10px rgba(0,0,0,0.5);
-        position: relative;
-        z-index: 1000;
-    }
+.thumbnail {}
+
+// Global hover overlay that follows the cursor
+.image-hover-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    transform: translate(var(--hover-x), var(--hover-y));
+    background-color: rgba(0, 0, 0, 0.85);
+    padding: 8px;
+    border-radius: 6px;
+    box-shadow: 0 10px 24px rgba(0,0,0,0.45);
+    z-index: 2000;
+    pointer-events: none; // avoid stealing hover from thumbnail
+    max-width: 420px;
+    max-height: 420px;
+}
+
+.image-hover-overlay img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: contain; // preserve aspect ratio
 }
 
 .template-container {
