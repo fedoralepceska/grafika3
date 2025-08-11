@@ -10,7 +10,7 @@
     <transition name="fade">
       <div
         v-if="show && content"
-        class="absolute z-50 bg-gray-900 text-white text-xs rounded px-3 py-2 shadow-lg border border-gray-700 whitespace-normal break-words"
+        class="absolute z-[9999] bg-gray-900 text-white text-xs rounded px-3 py-2 shadow-lg border border-gray-700 whitespace-normal break-words pointer-events-none"
         :class="positionClasses"
         :style="{ maxWidth }"
         role="tooltip"

@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Dorabotka;
 use App\Models\LargeFormatMaterial;
 use App\Models\SmallMaterial;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 
@@ -31,6 +32,22 @@ class RefinementsController extends Controller
         }
 
         $dorabotki = $query->orderByDesc('id')->paginate($perPage)->withQueryString();
+
+        // Add computed flag indicating whether this refinement has any active (not finished) job actions
+        // A job_action is considered active if ended_at IS NULL (covers not started and in progress)
+        $names = $dorabotki->getCollection()->pluck('name')->filter()->unique()->values();
+        if ($names->isNotEmpty()) {
+            $activeNames = DB::table('job_actions')
+                ->whereIn('name', $names)
+                ->whereNull('ended_at')
+                ->pluck('name')
+                ->unique();
+
+            $dorabotki->getCollection()->transform(function ($item) use ($activeNames) {
+                $item->has_active_job_actions = $item->name ? $activeNames->contains($item->name) : false;
+                return $item;
+            });
+        }
 
         return Inertia::render('Refinements/Index', [
             'refinements' => $dorabotki,
@@ -79,6 +96,22 @@ class RefinementsController extends Controller
 
         $dorabotka = Dorabotka::find($id);
 
+        if (!$dorabotka) {
+            return response()->json(['error' => 'Refinement not found'], 404);
+        }
+
+        // Prevent updating when there are active job actions using this refinement name
+        $hasActive = DB::table('job_actions')
+            ->where('name', $dorabotka->name)
+            ->whereNull('ended_at')
+            ->exists();
+
+        if ($hasActive) {
+            return response()->json([
+                'error' => 'This refinement cannot be edited because there are active job actions using it.'
+            ], 422);
+        }
+
         if (isset($validatedData['name'])) {
             $dorabotka->name = $validatedData['name'];
         }
@@ -118,12 +151,64 @@ class RefinementsController extends Controller
             if (!$dorabotka) {
                 return response()->json(['error' => 'Refinement not found'], 404);
             }
-            
+
+            // Check usage counts to inform user before soft-delete
+            $activeJobActionsCount = DB::table('job_actions')
+                ->where('name', $dorabotka->name)
+                ->whereNull('ended_at')
+                ->count();
+
+            // Catalog items referencing this refinement by name inside JSON 'actions'
+            $catalogItemsCount = DB::table('catalog_items')
+                ->whereJsonContains('actions', [
+                    'action_id' => [ 'name' => $dorabotka->name ]
+                ])
+                ->count();
+
+            // Proceed with soft delete
             $dorabotka->delete();
-            return response()->json(['message' => 'Refinement deleted successfully']);
+            return response()->json([
+                'message' => 'Refinement deleted successfully',
+                'soft_deleted' => true,
+                'usage' => [
+                    'active_job_actions' => $activeJobActionsCount,
+                    'catalog_items' => $catalogItemsCount,
+                ]
+            ]);
         } catch (\Exception $e) {
             return response()->json(['error' => 'Failed to delete refinement'], 500);
         }
+    }
+
+    public function usage($id)
+    {
+        $dorabotka = Dorabotka::find($id);
+        if (!$dorabotka) {
+            return response()->json(['error' => 'Refinement not found'], 404);
+        }
+
+        $activeJobActionsCount = DB::table('job_actions')
+            ->where('name', $dorabotka->name)
+            ->whereNull('ended_at')
+            ->count();
+
+        $jobActionsTotal = DB::table('job_actions')
+            ->where('name', $dorabotka->name)
+            ->count();
+
+        $catalogItemsCount = DB::table('catalog_items')
+            ->whereJsonContains('actions', [
+                'action_id' => [ 'name' => $dorabotka->name ]
+            ])
+            ->count();
+
+        return response()->json([
+            'usage' => [
+                'active_job_actions' => $activeJobActionsCount,
+                'job_actions_total' => $jobActionsTotal,
+                'catalog_items' => $catalogItemsCount,
+            ]
+        ]);
     }
 
     public function getRefinements()

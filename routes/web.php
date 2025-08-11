@@ -312,6 +312,7 @@ Route::get('/api/receipt/{id}', [\App\Http\Controllers\PriemnicaController::clas
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/refinements', [\App\Http\Controllers\RefinementsController::class, 'index'])->name('refinements.index');
     Route::get('/refinements/all', [\App\Http\Controllers\RefinementsController::class, 'getRefinements'])->name('refinements.getRefinements');
+    Route::get('/refinements/{refinement}/usage', [\App\Http\Controllers\RefinementsController::class, 'usage'])->name('refinements.usage');
     Route::post('/refinements/create', [\App\Http\Controllers\RefinementsController::class, 'store'])->name('refinements.store');
     Route::put('/refinements/{refinement}', [\App\Http\Controllers\RefinementsController::class, 'update'])->name('refinements.update');
     Route::delete('/refinements/{id}', [\App\Http\Controllers\RefinementsController::class, 'destroy'])->name('refinements.destroy');

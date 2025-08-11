@@ -57,20 +57,24 @@
                                     </td>
                                     <td class="table-cell action-cell">
                                         <div class="action-buttons">
-                                            <button 
-                                                class="edit-btn" 
-                                                @click="openEditDialog(refinement)"
-                                                title="Edit refinement"
-                                            >
-                                                <svg class="edit-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                                    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
-                                                    <path d="m18.5 2.5 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
-                                                </svg>
-                                                Edit
-                                            </button>
+                                            <Tooltip :content="refinement.has_active_job_actions ? 'Editing is disabled because there are active job actions with this refinement.' : ''" placement="top">
+                                                <button 
+                                                    class="edit-btn" 
+                                                    :disabled="refinement.has_active_job_actions"
+                                                    @click="!refinement.has_active_job_actions && openEditDialog(refinement)"
+                                                    :aria-disabled="refinement.has_active_job_actions ? 'true' : 'false'"
+                                                    :aria-label="refinement.has_active_job_actions ? 'Editing is disabled because there are active job actions with this refinement.' : 'Edit refinement'"
+                                                >
+                                                    <svg class="edit-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                                                        <path d="m18.5 2.5 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                                                    </svg>
+                                                    Edit
+                                                </button>
+                                            </Tooltip>
                                             <button 
                                                 class="delete-btn" 
-                                                @click="deleteRefinement(refinement)"
+                                                @click="promptDelete(refinement)"
                                                 title="Delete refinement"
                                             >
                                                 <svg class="delete-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -94,6 +98,12 @@
                                 @pagination-change-page="handlePageChange"
                             />
                         </div>
+                        <ConfirmRefinementDelete 
+                            :visible="confirmDeleteVisible"
+                            :refinement="pendingDeleteRefinement"
+                            @close="confirmDeleteVisible = false; pendingDeleteRefinement = null;"
+                            @confirmed="onDeleteConfirmed"
+                        />
                     </div>
                 </div>
             </div>
@@ -114,10 +124,14 @@ import CardStatementUpdateDialog from "@/Components/CardStatementUpdateDialog.vu
 import PriemInfoDialog from "@/Components/PriemInfoDialog.vue";
 import AddRefinementDialog from "@/Components/AddRefinementDialog.vue";
 import EditRefinementDialog from "@/Components/EditRefinementDialog.vue";
+import Tooltip from "@/Components/Tooltip.vue";
+import ConfirmRefinementDelete from "@/Components/ConfirmRefinementDelete.vue";
 
 export default {
     components: {
         EditRefinementDialog,
+        Tooltip,
+        ConfirmRefinementDelete,
         AddRefinementDialog,
         CardStatementUpdateDialog,
         UpdateClientDialog,
@@ -137,6 +151,8 @@ export default {
     data() {
         return {
             currentEditingRefinement: null,
+            confirmDeleteVisible: false,
+            pendingDeleteRefinement: null,
             isOpeningDialog: false,
             searchQuery: this.filters?.search || '',
             perPage: this.filters?.perPage || 10,
@@ -271,6 +287,15 @@ export default {
                 // You can add an error toast notification here
                 alert('Error deleting refinement. Please try again.');
             }
+        },
+        promptDelete(refinement) {
+            this.pendingDeleteRefinement = refinement;
+            this.confirmDeleteVisible = true;
+        },
+        async onDeleteConfirmed() {
+            this.confirmDeleteVisible = false;
+            this.pendingDeleteRefinement = null;
+            await this.refreshRefinements();
         }
     },
 };
@@ -394,7 +419,7 @@ select{
 .table-container {
     border: 1px solid #dddddd;
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
-    overflow: hidden;
+    overflow: visible;
     margin-top: 20px;
 }
 
@@ -511,6 +536,21 @@ select{
     align-items: center;
     gap: 6px;
     box-shadow: 0 2px 4px rgba(66, 153, 225, 0.3);
+}
+
+/* Strong disabled styling for better affordance */
+.edit-btn:disabled,
+.edit-btn[disabled] {
+    background: #4a5568; /* gray-700 */
+    opacity: 0.65;
+    cursor: not-allowed;
+    box-shadow: none;
+    filter: grayscale(25%);
+}
+
+.edit-btn:disabled:hover,
+.edit-btn[disabled]:hover {
+    background: #4a5568;
 }
 
 
