@@ -2472,7 +2472,17 @@ class JobController extends Controller
             if ($index === 0) {
                 $imageFilename = pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME) . '.jpg';
                 $imagePath = storage_path('app/public/uploads/' . $imageFilename);
-                copy($tempImagePath, $imagePath); // Copy temp image to uploads
+                // Create a resized, compressed preview image to minimize storage and speed up UI
+                $previewImagick = new \Imagick();
+                $previewImagick->readImage($tempImagePath);
+                $previewImagick->setImageFormat('jpg');
+                $previewImagick->setImageCompression(\Imagick::COMPRESSION_JPEG);
+                $previewImagick->setImageCompressionQuality(70);
+                $previewImagick->stripImage();
+                // Limit preview to 800x800 while preserving aspect ratio
+                $previewImagick->thumbnailImage(800, 800, true, true);
+                $previewImagick->writeImage($imagePath);
+                $previewImagick->clear();
                 $firstFilePreview = $imageFilename;
             }
             
@@ -3132,6 +3142,9 @@ class JobController extends Controller
             $imagick = new \Imagick();
             $imagick->readImage($imagePath);
             $imagick->setImageFormat('jpg');
+            $imagick->setImageCompression(\Imagick::COMPRESSION_JPEG);
+            $imagick->setImageCompressionQuality(70);
+            $imagick->stripImage();
             $imagick->resizeImage(200, 200, \Imagick::FILTER_LANCZOS, 1, true); // Resize to thumbnail size
             
             // Create thumbnail in memory
@@ -3562,6 +3575,9 @@ class JobController extends Controller
                 return null; // No thumbnail for other types
             }
             $imagick->setImageFormat('jpg');
+            $imagick->setImageCompression(\Imagick::COMPRESSION_JPEG);
+            $imagick->setImageCompressionQuality(70);
+            $imagick->stripImage();
             $imagick->resizeImage(200, 200, \Imagick::FILTER_LANCZOS, 1, true);
             $thumbnailBlob = $imagick->getImageBlob();
             $imagick->clear();
