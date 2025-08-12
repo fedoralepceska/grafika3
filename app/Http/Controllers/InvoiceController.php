@@ -498,6 +498,45 @@ class InvoiceController extends Controller
         return response()->json($invoices);
     }
 
+    /**
+     * Return latest orders that are NOT completed, paginated independently for dashboard.
+     */
+    public function latestOpenOrders(Request $request)
+    {
+        $query = Invoice::with(['jobs', 'user', 'client']);
+
+        // Reuse generic search filters but do not apply a status from request here
+        $this->applySearch($query, $request, null);
+
+        // Exclude completed orders explicitly
+        $query->where('status', '!=', 'Completed');
+
+        $query->orderBy('created_at', 'desc');
+
+        $perPage = (int)($request->input('per_page', 10));
+        $invoices = $query->paginate($perPage);
+
+        return response()->json($invoices);
+    }
+
+    /**
+     * Return completed orders only, paginated (separate from latest list).
+     */
+    public function completedOrders(Request $request)
+    {
+        $query = Invoice::with(['jobs', 'user', 'client']);
+
+        // Reuse generic search filters but pin status to Completed regardless of request
+        $this->applySearch($query, $request, null);
+
+        $query->where('status', 'Completed')->orderBy('created_at', 'desc');
+
+        $perPage = (int)($request->input('per_page', 5));
+        $invoices = $query->paginate($perPage);
+
+        return response()->json($invoices);
+    }
+
     public function getOrderDetails($id)
     {
         $invoice = Invoice::with([

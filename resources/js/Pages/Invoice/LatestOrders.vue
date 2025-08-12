@@ -2,7 +2,7 @@
 <template>
     <div class="container">
         <div class="invoices-container">
-            <div v-for="invoice in latestInvoices" :key="invoice.id" class="box">
+            <div v-for="invoice in latestInvoices" :key="invoice.id" class="box" @click="selectInvoice(invoice)">
                 <div class="invoice-card">
                     <div class="invoice-details">
                         <div class="header">
@@ -31,7 +31,7 @@
                         </div>
                         <div class="status flex" :style="{ background: statusColor(invoice.status) }">
                             <p>{{ invoice.status }}</p>
-                            <button @click="viewInvoice(invoice.id)">
+                            <button @click.stop="viewInvoice(invoice.id)">
                                 <i class="fa fa-eye bg-gray-50 p-2 rounded text-black" aria-hidden="true"></i>
                             </button>
                         </div>
@@ -39,11 +39,34 @@
                 </div>
                 <div class="image-box">
                     <div class="job-images">
-                        <img v-for="job in invoice.jobs" :src="getImageUrl(invoice.id, job.id)">
+                        <img v-for="job in invoice.jobs" :key="job.id" :src="getImageUrl(invoice.id, job.id)">
                     </div>
                 </div>
             </div>
         </div>
+
+        <aside class="order-sidebar">
+            <div v-if="selectedInvoice" class="sidebar-content">
+                <div class="sidebar-header">
+                    <h3 class="sidebar-title">Order: #{{ selectedInvoice.id }}</h3>
+                    <div class="mt-1 mb-1 px-2 rounded-full" :class="statusClass(selectedInvoice.status)">
+                        {{ selectedInvoice.status }}
+                    </div>
+                </div>
+                <div class="detail-info">
+                    <div><strong>Title:</strong> {{ selectedInvoice.invoice_title }}</div>
+                    <div><strong>Client:</strong> {{ selectedInvoice.client?.name }}</div>
+                </div>
+                <div class="detail-info">
+                    <div><strong>Start Date:</strong> {{ selectedInvoice.start_date }}</div>
+                    <div><strong>End Date:</strong> {{ selectedInvoice.end_date }}</div>
+                </div>
+            </div>
+            <div v-else class="sidebar-placeholder">
+                <i class="fa-solid fa-info-circle"></i>
+                <p>Select an order to view details</p>
+            </div>
+        </aside>
     </div>
 </template>
 
@@ -53,7 +76,8 @@ export default {
     data() {
         return {
             latestInvoices: [],
-            jobImages: []
+            jobImages: [],
+            selectedInvoice: null,
         }
     },
     methods: {
@@ -65,6 +89,9 @@ export default {
                     this.jobImages = this.latestInvoices.flatMap(invoice => invoice.jobs.map(job => job.imageData));
                 })
                 .catch(error => console.error('Error fetching invoices:', error));
+        },
+        selectInvoice(invoice) {
+            this.selectedInvoice = invoice;
         },
         getImageUrl(invoiceId, id) {
             const invoice = this.latestInvoices.find(i => i.id === invoiceId);
@@ -80,6 +107,18 @@ export default {
                     return '#408a0b'
             }
         },
+        statusClass(status) {
+            switch (status) {
+                case 'Not started yet':
+                    return 'status-not-started';
+                case 'In progress':
+                    return 'status-in-progress';
+                case 'Completed':
+                    return 'status-completed';
+                default:
+                    return 'status-default';
+            }
+        },
         viewInvoice(id) {
             this.$inertia.visit(`/orders/${id}`);
         },
@@ -92,16 +131,18 @@ export default {
 
 <style scoped lang="scss">
 .container {
-    width: 90%;
+    width: 100%;
     display: flex;
-    flex-direction: column;
+    flex-direction: row;
     background-color: $dark-gray;
 }
 
 .invoices-container {
     display: flex;
     flex-direction: column;
-    width: calc(100% - 20vh);
+    flex: 1 1 auto;
+    min-width: 0;
+    padding-right: 12px;
 }
 
 .invoice-card {
@@ -167,4 +208,64 @@ export default {
     padding: 0.5rem;
     justify-content: space-between;
 }
+
+/* Sidebar reservation */
+.order-sidebar {
+    flex: 0 0 500px;
+    background-color: $dark-gray;
+    border: 1px solid rgba(255, 255, 255, 0.45);
+    box-shadow: -10px 0 10px rgba(0, 0, 0, 0.7);
+    max-height: 100%;
+    overflow-y: auto;
+}
+
+.sidebar-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid $light-gray;
+    background-color: $light-gray;
+    padding: 0 0.4rem;
+}
+
+.sidebar-title {
+    color: $white;
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin: 0.2rem 0;
+}
+
+.sidebar-content {
+    padding: 0.5rem;
+}
+
+.sidebar-placeholder {
+    display: flex;
+    height: 100%;
+    min-height: 240px;
+    align-items: center;
+    justify-content: center;
+    color: $ultra-light-gray;
+    gap: 0.5rem;
+
+    i { font-size: 1.2rem; }
+    p { margin: 0; }
+}
+
+.detail-info {
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+    gap: 0.5rem;
+    padding: 0.25rem 0.5rem;
+    color: $white;
+
+    strong { color: $ultra-light-gray; }
+}
+
+.status-not-started { background-color: #a36a03; color: $white; }
+.status-in-progress { background-color: #0073a9; color: $white; }
+.status-completed { background-color: #408a0b; color: $white; }
+.status-default { background-color: $dark-gray; color: $white; }
 </style>
+

@@ -79,6 +79,8 @@ Route::middleware(['auth', 'verified'])->group(function() {
     Route::get('/allInvoices',  [InvoiceController::class, 'allFaktura'])->name('invoices.allFaktura');
     Route::post('/generate-invoice',  [InvoiceController::class, 'generateInvoice'])->name('invoices.generateInvoice');
     Route::get('orders/latest', [InvoiceController::class, 'latest'])->name('invoices.latest');
+    Route::get('orders/latest-open', [InvoiceController::class, 'latestOpenOrders'])->name('invoices.latestOpen');
+    Route::get('orders/completed', [InvoiceController::class, 'completedOrders'])->name('invoices.completed');
     Route::get('/orders/create', [InvoiceController::class, 'create'])->name('invoices.create');
     Route::put('/orders', [InvoiceController::class, 'store'])->name('invoices.store');
     Route::post('/orders', [InvoiceController::class, 'store'])->name('invoices.store');

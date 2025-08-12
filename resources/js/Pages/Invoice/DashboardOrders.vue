@@ -1,8 +1,10 @@
 <template>
     <div class="dashboard-orders">
-        <div class="dashboard-layout" :class="{ 'with-sidebar': selectedOrder }">
+        <div class="dashboard-layout">
+            <!-- Left column stacking both lists -->
+            <div class="orders-stack">
             <!-- Orders List -->
-            <div class="orders-container" :class="{ 'with-sidebar': selectedOrder }">
+            <div class="orders-container">
                 <div class="orders-header">
                     <h2 class="text-xl font-semibold text-white mb-4">Latest Orders</h2>
                     <div class="search-filters">
@@ -17,42 +19,37 @@
                             <option value="">All Status</option>
                             <option value="Not started yet">Not started yet</option>
                             <option value="In progress">In progress</option>
-                            <option value="Completed">Completed</option>
                         </select>
                     </div>
                 </div>
 
                 <!-- Orders List (Inline) -->
                 <div class="orders-list" v-if="orders.data && orders.data.length > 0">
+                    <!-- Global Labels Row -->
+                    <div class="orders-labels">
+                        <div class="label-column order-id">Order #</div>
+                        <div class="label-column order-title">Order Title</div>
+                        <div class="label-column client">Client</div>
+                        <div class="label-column status">Status</div>
+                    </div>
+                    
                     <div 
                         v-for="order in orders.data" 
                         :key="order.id" 
-                        
+                        class="order-row"
                         @click="openOrderDetails(order)"
                     >
-                        <div class="order-header">
-                            <div class="detail-item">
-                                <span class="label">Order:</span>
-                                <span class="value">#{{ order.id }}</span>
-                            </div>
-                            <div class="detail-item">
-                                <div class="label">Order Title:</div>
-                                <div class="value" :title="order.invoice_title">{{ order.invoice_title }}</div>
-                            </div>
-                            <div class="detail-item">
-                                <span class="label">Client:</span>
-                                <span class="value" :title="order.client?.name || 'N/A'">{{ order.client?.name || 'N/A' }}</span>
-                            </div>
-                            <div class="detail-item status">
-                                <span 
-                                    class="status-badge"
-                                    :class="getStatusClass(order.status)"
-                                >
-                                    {{ order.status }}
-                                </span>
-                            </div>
+                        <div class="order-id">#{{ order.id }}</div>
+                        <div class="order-title" :title="order.invoice_title">{{ order.invoice_title }}</div>
+                        <div class="client" :title="order.client?.name || 'N/A'">{{ order.client?.name || 'N/A' }}</div>
+                        <div class="status">
+                            <span 
+                                class="status-badge"
+                                :class="getStatusClass(order.status)"
+                            >
+                                {{ order.status }}
+                            </span>
                         </div>
-                        
                     </div>
                 </div>
                 <div v-else class="no-orders">
@@ -63,7 +60,7 @@
                     </div>
                 </div>
 
-                <!-- Pagination -->
+                <!-- Pagination: Latest Orders -->
                 <div class="pagination-container" v-if="orders.last_page > 1">
                     <div class="pagination">
                         <button 
@@ -89,131 +86,208 @@
                 </div>
             </div>
 
-            <!-- Order Details Sidebar -->
-            <div 
-                v-if="selectedOrder"
-                class="order-sidebar"
-                :class="{ 'sidebar-open': selectedOrder }"
-            >
-                <div class="sidebar-header">
-                    <h3 class="sidebar-title">Order: #{{ selectedOrder.id }}</h3>
-                    <div class="mt-1 mb-1 px-2 rounded-full" :class="getStatusClass(selectedOrder.status)">
-                                    {{ selectedOrder.status }}
-                    </div>
-                    <div class="sidebar-actions">
-                        <button @click="viewFullOrder" class="view-full-btn" title="View Full Order">
-                            <i class="fa-solid fa-external-link-alt"></i>
-                        </button>
-                        <button @click="closeOrderDetails" class="close-btn" title="Close (ESC)">
-                            <i class="fa-solid fa-times"></i>
-                        </button>
+            <!-- Completed Orders Section -->
+            <div class="orders-container compact mt-2">
+                <div class="orders-header">
+                    <h2 class="text-xl font-semibold text-white mb-4">Completed Orders</h2>
+                    <div class="search-filters">
+                        <input 
+                            v-model="completedSearchQuery" 
+                            @input="debounceCompletedSearch"
+                            type="text" 
+                            placeholder="Search completed orders..." 
+                            class="search-input"
+                        />
                     </div>
                 </div>
 
-                <div v-if="selectedOrder" class="sidebar-content">
-                    <!-- Order Info -->
-                        <div class="detail-info">
-                            <div> <strong>Title:</strong> {{ selectedOrder.invoice_title }}</div>
-                            <div><strong>Client:</strong> {{ selectedOrder.client?.name }}</div>
+                <div class="orders-list" v-if="completedOrders.data && completedOrders.data.length > 0">
+                    <!-- Global Labels Row -->
+                    <div class="orders-labels">
+                        <div class="label-column order-id">Order #</div>
+                        <div class="label-column order-title">Order Title</div>
+                        <div class="label-column client">Client</div>
+                        <div class="label-column status">Status</div>
+                    </div>
+                    
+                    <div 
+                        v-for="order in completedOrders.data" 
+                        :key="`completed-${order.id}`" 
+                        class="order-row"
+                        @click="openOrderDetails(order)"
+                    >
+                        <div class="order-id">#{{ order.id }}</div>
+                        <div class="order-title" :title="order.invoice_title">{{ order.invoice_title }}</div>
+                        <div class="client" :title="order.client?.name || 'N/A'">{{ order.client?.name || 'N/A' }}</div>
+                        <div class="status">
+                            <span class="status-badge status-completed">Completed</span>
                         </div>
-                        <div class="detail-info">
-                            <div><strong>Start Date:</strong> {{ formatDate(selectedOrder.start_date) }}</div>
-                            <div><strong>End Date:</strong> {{ formatDate(selectedOrder.end_date) }}</div>
-                           </div>
-                    <!-- Files Section -->
-                    <div class="files-section">
-                        <h4 class="section-title">Files</h4>
-                        <div class="files-carousel" v-if="selectedOrder.jobs && selectedOrder.jobs.length > 0">
-                            <div 
-                                v-for="job in selectedOrder.jobs" 
-                                :key="job.id"
-                                class="border-1 border-gray-500 rounded-md"
-                            >   
-                                <!-- Carousel for this job's files -->
-                                <div class="carousel-container" v-if="hasMultipleFiles(job) || (job.file && job.file !== 'placeholder.jpeg')">
-                                    <div class="carousel-image-container">
-                                        <!-- New system: Multiple files -->
-                                        <div v-if="hasMultipleFiles(job)" class="carousel-slide">
-                                            <div class="image-container">
-                                                <img 
-                                                    :src="getThumbnailUrl(job.id, currentFileIndex[job.id] || 0)" 
-                                                    :alt="'File ' + ((currentFileIndex[job.id] || 0) + 1)"
-                                                    class="carousel-image"
-                                                    :data-job-id="job.id"
-                                                    :data-file-index="currentFileIndex[job.id] || 0"
-                                                    @error="handleThumbnailError"
-                                                    @load="handleImageLoad"
-                                                />
+                    </div>
+                </div>
+                <div v-else class="no-orders">
+                    <div class="no-orders-content">
+                        <i class="fa-solid fa-inbox"></i>
+                        <h3>No completed orders</h3>
+                        <p>There are no completed orders to display at the moment.</p>
+                    </div>
+                </div>
+
+                <!-- Pagination: Completed Orders -->
+                <div class="pagination-container" v-if="completedOrders.last_page > 1">
+                    <div class="pagination">
+                        <button 
+                            @click="changeCompletedPage(completedOrders.current_page - 1)"
+                            :disabled="completedOrders.current_page === 1"
+                            class="pagination-btn"
+                        >
+                            Previous
+                        </button>
+                        <span class="pagination-info">
+                            Page {{ completedOrders.current_page }} of {{ completedOrders.last_page }}
+                        </span>
+                        <button 
+                            @click="changeCompletedPage(completedOrders.current_page + 1)"
+                            :disabled="completedOrders.current_page === completedOrders.last_page"
+                            class="pagination-btn"
+                        >
+                            Next
+                        </button>
+                    </div>
+                </div>
+            </div>
+            </div>
+
+            <!-- Order Details Sidebar (always present; placeholder when no selection) -->
+            <div class="order-sidebar" :class="{ 'sidebar-open': selectedOrder }">
+                <div class="order-sidebar-inner">
+                    <template v-if="selectedOrder">
+                        <div class="sidebar-header">
+                            <h3 class="sidebar-title">Order: #{{ selectedOrder.id }}</h3>
+                            <div class="mt-1 mb-1 px-2 rounded-full" :class="getStatusClass(selectedOrder.status)">
+                                {{ selectedOrder.status }}
+                            </div>
+                            <div class="sidebar-actions">
+                                <button @click="viewFullOrder" class="view-full-btn" title="View Full Order">
+                                    <i class="fa-solid fa-external-link-alt"></i>
+                                </button>
+                                <button @click="closeOrderDetails" class="close-btn" title="Close (ESC)">
+                                    <i class="fa-solid fa-times"></i>
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="sidebar-content">
+                            <!-- Order Info -->
+                            <div class="detail-info">
+                                <div> <strong>Title:</strong> {{ selectedOrder.invoice_title }}</div>
+                                <div><strong>Client:</strong> {{ selectedOrder.client?.name }}</div>
+                            </div>
+                            <div class="detail-info">
+                                <div><strong>Start Date:</strong> {{ formatDate(selectedOrder.start_date) }}</div>
+                                <div><strong>End Date:</strong> {{ formatDate(selectedOrder.end_date) }}</div>
+                               </div>
+                            <!-- Files Section -->
+                            <div class="files-section">
+                                <h4 class="section-title">Files</h4>
+                                <div class="files-carousel" v-if="selectedOrder.jobs && selectedOrder.jobs.length > 0">
+                                    <div 
+                                        v-for="job in selectedOrder.jobs" 
+                                        :key="job.id"
+                                        class="border-1 border-gray-500 rounded-md"
+                                    >   
+                                        <!-- Carousel for this job's files -->
+                                        <div class="carousel-container" v-if="hasMultipleFiles(job) || (job.file && job.file !== 'placeholder.jpeg')">
+                                            <div class="carousel-image-container">
+                                                <!-- New system: Multiple files -->
+                                                <div v-if="hasMultipleFiles(job)" class="carousel-slide">
+                                                    <div class="image-container">
+                                                        <img 
+                                                            :src="getThumbnailUrl(job.id, currentFileIndex[job.id] || 0)" 
+                                                            :alt="'File ' + ((currentFileIndex[job.id] || 0) + 1)"
+                                                            class="carousel-image"
+                                                            :data-job-id="job.id"
+                                                            :data-file-index="currentFileIndex[job.id] || 0"
+                                                            @error="handleThumbnailError"
+                                                            @load="handleImageLoad"
+                                                        />
+                                                    </div>
+                                                    <div class="carousel-info">
+                                                        <span class="file-counter">{{ (currentFileIndex[job.id] || 0) + 1 }} of {{ getJobFiles(job).length }}</span>
+                                                    </div>
+                                                </div>
+                                                <!-- Legacy system: Single file -->
+                                                <div v-else-if="job.file && job.file !== 'placeholder.jpeg'" class="carousel-slide">
+                                                    <img 
+                                                        :src="getLegacyImageUrl(job)" 
+                                                        alt="Job Image" 
+                                                        class="carousel-image"
+                                                    />
+                                                    <div class="carousel-info">
+                                                        <span class="file-counter">1 of 1</span>
+                                                    </div>
+                                                </div>
                                             </div>
-                                            <div class="carousel-info">
-                                                <span class="file-counter">{{ (currentFileIndex[job.id] || 0) + 1 }} of {{ getJobFiles(job).length }}</span>
+                                            
+                                            <!-- Navigation buttons -->
+                                            <div class="carousel-nav" v-if="hasMultipleFiles(job) && getJobFiles(job).length > 1">
+                                                <button 
+                                                    @click="previousFile(job.id)"
+                                                    :disabled="(currentFileIndex[job.id] || 0) === 0"
+                                                    class="nav-btn prev-btn"
+                                                >
+                                                    <i class="fa-solid fa-chevron-left"></i>
+                                                </button>
+                                                <button 
+                                                    @click="nextFile(job.id)"
+                                                    :disabled="(currentFileIndex[job.id] || 0) === getJobFiles(job).length - 1"
+                                                    class="nav-btn next-btn"
+                                                >
+                                                    <i class="fa-solid fa-chevron-right"></i>
+                                                </button>
                                             </div>
                                         </div>
-                                        <!-- Legacy system: Single file -->
-                                        <div v-else-if="job.file && job.file !== 'placeholder.jpeg'" class="carousel-slide">
-                                            <img 
-                                                :src="getLegacyImageUrl(job)" 
-                                                alt="Job Image" 
-                                                class="carousel-image"
-                                            />
-                                            <div class="carousel-info">
-                                                <span class="file-counter">1 of 1</span>
-                                            </div>
+                                        
+                                        <!-- No files placeholder -->
+                                        <div v-else class="no-files-placeholder">
+                                            <i class="fa-solid fa-image"></i>
+                                            <span>No files</span>
                                         </div>
-                                    </div>
-                                    
-                                    <!-- Navigation buttons -->
-                                    <div class="carousel-nav" v-if="hasMultipleFiles(job) && getJobFiles(job).length > 1">
-                                        <button 
-                                            @click="previousFile(job.id)"
-                                            :disabled="(currentFileIndex[job.id] || 0) === 0"
-                                            class="nav-btn prev-btn"
-                                        >
-                                            <i class="fa-solid fa-chevron-left"></i>
-                                        </button>
-                                        <button 
-                                            @click="nextFile(job.id)"
-                                            :disabled="(currentFileIndex[job.id] || 0) === getJobFiles(job).length - 1"
-                                            class="nav-btn next-btn"
-                                        >
-                                            <i class="fa-solid fa-chevron-right"></i>
-                                        </button>
                                     </div>
                                 </div>
-                                
-                                <!-- No files placeholder -->
-                                <div v-else class="no-files-placeholder">
-                                    <i class="fa-solid fa-image"></i>
-                                    <span>No files</span>
+                                <div v-else class="no-files">
+                                    <i class="fa-solid fa-file"></i>
+                                    <span>No files uploaded</span>
+                                </div>
+                            </div>
+
+                            <!-- Comments Section -->
+                            <div class="comments-section">
+                                <h4 class="section-title">Comments</h4>
+                                <div class="comment-content">
+                                    <p v-if="selectedOrder.comment" class="comment-text">
+                                        {{ selectedOrder.comment }}
+                                    </p>
+                                    <p v-else class="no-comment">
+                                        No comments added
+                                    </p>
+                                </div>
+                            </div>
+
+                            <!-- Job Progress -->
+                            <div class="progress-section">
+                                <h4 class="section-title">Job Progress</h4>
+                                <div v-for="job in selectedOrder.jobs" :key="job.id" class="job-progress-item">
+                                    <OrderJobDetails :job="job" />
                                 </div>
                             </div>
                         </div>
-                        <div v-else class="no-files">
-                            <i class="fa-solid fa-file"></i>
-                            <span>No files uploaded</span>
+                    </template>
+                    <template v-else>
+                        <div class="sidebar-placeholder">
+                            <i class="fa-solid fa-info-circle"></i>
+                            <p>Select an order to view details</p>
                         </div>
-                    </div>
-
-                    <!-- Comments Section -->
-                    <div class="comments-section">
-                        <h4 class="section-title">Comments</h4>
-                        <div class="comment-content">
-                            <p v-if="selectedOrder.comment" class="comment-text">
-                                {{ selectedOrder.comment }}
-                            </p>
-                            <p v-else class="no-comment">
-                                No comments added
-                            </p>
-                        </div>
-                    </div>
-
-                    <!-- Job Progress -->
-                    <div class="progress-section">
-                        <h4 class="section-title">Job Progress</h4>
-                        <div v-for="job in selectedOrder.jobs" :key="job.id" class="job-progress-item">
-                            <OrderJobDetails :job="job" />
-                        </div>
-                    </div>
+                    </template>
                 </div>
             </div>
         </div>
@@ -243,18 +317,26 @@ export default {
                 data: [],
                 current_page: 1,
                 last_page: 1,
-                per_page: 10,
+                total: 0
+            },
+            completedOrders: {
+                data: [],
+                current_page: 1,
+                last_page: 1,
                 total: 0
             },
             selectedOrder: null,
             searchQuery: '',
+            completedSearchQuery: '',
             statusFilter: '',
             searchTimeout: null,
+            completedSearchTimeout: null,
             currentFileIndex: {}
         }
     },
     mounted() {
         this.fetchOrders();
+        this.fetchCompletedOrders();
         // Add ESC key listener
         document.addEventListener('keydown', this.handleKeydown);
     },
@@ -268,21 +350,36 @@ export default {
             try {
                 const params = {
                     page: this.orders.current_page,
-                    per_page: 10
+                    per_page: this.orders.per_page
                 };
 
                 if (this.searchQuery) {
                     params.searchQuery = this.searchQuery;
                 }
 
-                if (this.statusFilter) {
-                    params.status = this.statusFilter;
-                }
-
-                const response = await axios.get('/orders', { params });
+                // Always exclude completed orders from latest list (handled server-side)
+                const response = await axios.get('/orders/latest-open', { params });
                 this.orders = response.data;
             } catch (error) {
                 console.error('Error fetching orders:', error);
+            }
+        },
+
+        async fetchCompletedOrders() {
+            try {
+                const params = {
+                    status: 'Completed',
+                    page: this.completedOrders.current_page
+                };
+
+                if (this.completedSearchQuery) {
+                    params.searchQuery = this.completedSearchQuery;
+                }
+
+                const response = await axios.get('/orders', { params });
+                this.completedOrders = response.data;
+            } catch (error) {
+                console.error('Error fetching completed orders:', error);
             }
         },
 
@@ -290,14 +387,37 @@ export default {
             clearTimeout(this.searchTimeout);
             this.searchTimeout = setTimeout(() => {
                 this.orders.current_page = 1;
+                this.completedOrders.current_page = 1;
                 this.fetchOrders();
+                this.fetchCompletedOrders();
             }, 300);
+        },
+
+        debounceCompletedSearch() {
+            clearTimeout(this.completedSearchTimeout);
+            this.completedSearchTimeout = setTimeout(() => {
+                this.completedOrders.current_page = 1;
+                this.fetchCompletedOrders();
+            }, 300);
+        },
+
+        clearCompletedSearch() {
+            this.completedSearchQuery = '';
+            this.completedOrders.current_page = 1;
+            this.fetchCompletedOrders();
         },
 
         changePage(page) {
             if (page >= 1 && page <= this.orders.last_page) {
                 this.orders.current_page = page;
                 this.fetchOrders();
+            }
+        },
+
+        changeCompletedPage(page) {
+            if (page >= 1 && page <= this.completedOrders.last_page) {
+                this.completedOrders.current_page = page;
+                this.fetchCompletedOrders();
             }
         },
 
@@ -423,7 +543,6 @@ export default {
 
 <style scoped lang="scss">
 .dashboard-orders {
-    position: relative;
     width: 100%;
     height: 100%;
 }
@@ -432,35 +551,36 @@ export default {
     display: flex;
     width: 100%;
     height: 100%;
-    position: relative;
-    overflow-x: hidden;
-    
-    &.with-sidebar {
-        .orders-container {
-            flex: 0 0 calc(100% - 500px);
-        }
-        
-        .order-sidebar {
-            flex: 0 0 500px;
-        }
-    }
+    gap: 1rem;
+}
+
+.orders-stack {
+    flex: 1;
+    min-width: 0;
 }
 
 .orders-container {
     width: 100%;
-    height: 100%;
-    overflow-y: auto;
-    padding: 1rem;
+    padding: 1.5rem;
     background-color: $light-gray;
-    min-width: 400px;
-    transition: all 0.3s ease;
+    border-radius: 8px;
+    margin-bottom: 1rem;
+    
+    &:last-child {
+        margin-bottom: 0;
+    }
+}
+
+.orders-container.compact {
+    padding: 1rem;
+    margin-bottom: 0.75rem;
 }
 
 .orders-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 1.5rem;
+    margin-bottom: 1rem; /* Reduced from 1.5rem */
     flex-wrap: wrap;
     gap: 1rem;
 
@@ -481,108 +601,136 @@ export default {
 }
 
 .search-input, .status-select {
-    padding: 0.5rem 1rem;
-    border: 1px solid $light-gray;
-    border-radius: 4px;
-    background-color: $white;
-    color: $dark-gray;
+    padding: 0.5rem 0.75rem; /* Reduced from 0.75rem 1rem */
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 6px;
+    background-color: rgba(255, 255, 255, 0.1);
+    color: $white;
     font-size: 0.875rem;
+    backdrop-filter: blur(10px);
+    transition: all 0.2s ease;
+    cursor: pointer;
 
     &:focus {
         outline: none;
         border-color: $blue;
+        background-color: rgba(255, 255, 255, 0.15);
+        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+    }
+
+    &::placeholder {
+        color: rgba(255, 255, 255, 0.6);
     }
 }
 
 .search-input {
-    min-width: 200px;
+    min-width: 250px;
+    cursor: text;
 }
 
 .status-select {
-    min-width: 150px;
+    min-width: 180px;
+    cursor: pointer;
+    
+    // Custom dropdown arrow
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%23ffffff' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='m6 8 4 4 4-4'/%3e%3c/svg%3e");
+    background-repeat: no-repeat;
+    background-position: right 0.75rem center;
+    background-size: 1.5em 1.5em;
+    padding-right: 2.5rem;
+    
+    // Style the options
+    option {
+        background-color: $dark-gray;
+        color: $white;
+        padding: 0.5rem;
+        
+        &:hover {
+            background-color: $blue;
+        }
+    }
 }
 
-// Inline orders list (like /orders page)
+// Orders list styling
 .orders-list {
-    cursor: pointer;
     display: flex;
     flex-direction: column;
-    gap: 0.5rem;
-    margin-bottom: 2rem;
+    gap: 0.25rem; /* Reduced from 0.75rem */
+    margin-bottom: 1rem; /* Reduced from 1.5rem */
 }
 
-.order-item {
-    background-color: $light-gray;
+.orders-container.compact .orders-list { 
+    margin-bottom: 1rem;
+}
+
+.orders-labels {
+    display: grid;
+    grid-template-columns: 80px 2fr 1.5fr 120px; /* Match the order-row grid */
+    gap: 0.75rem;
+    margin-bottom: 0.5rem; /* Reduced from 0.75rem */
+    padding: 0.5rem 0.75rem;
+    background-color: $ultra-light-gray;
     border-radius: 6px;
-    padding: 1rem;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.label-column {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: rgba(0, 0, 0, 0.8);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    text-align: left;
+}
+
+.order-row {
     cursor: pointer;
-    transition: all 0.3s ease;
-    border: 1px solid transparent;
+    display: grid;
+    grid-template-columns: 80px 2fr 1.5fr 120px; /* Fixed widths: Order ID, Title, Client, Status */
+    gap: 0.75rem;
+    padding: 0.5rem 0.75rem; /* Reduced padding from 0.75rem */
+    background: linear-gradient(135deg, #7dc068 0%, #6bb052 100%);
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    transition: all 0.2s ease;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    margin-bottom: 0.25rem; /* Added small margin between rows */
 
     &:hover {
-        transform: translateY(-1px);
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        transform: translateY(-2px);
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+        border-color: rgba(255, 255, 255, 0.2);
+    }
+
+    &:active {
+        transform: translateY(0);
     }
 }
 
 .order-header {
     cursor: pointer;
     display: flex;
-    background-color: #7dc068;
+    background: linear-gradient(135deg, #7dc068 0%, #6bb052 100%);
     justify-content: space-between;
     align-items: center;
     flex-wrap: wrap;
-    gap: 0.5rem;
-    
-    padding: 0.75rem;
-    border-radius: 6px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-.order-title {
-    font-size: 1.125rem;
-    font-weight: 600;
-    color: $white;
-    margin: 0;
-}
-
-.order-actions {
-    display: flex;
-    gap: 0.5rem;
-}
-
-.action-btn {
-    background: none;
-    border: none;
-    color: $white;
-    padding: 0.5rem;
-    border-radius: 4px;
-    cursor: pointer;
-    transition: background-color 0.3s ease;
-
-    &:hover {
-        background-color: rgba(255, 255, 255, 0.1);
-    }
-}
-
-.view-btn {
-    background-color: $blue;
-    color: $white;
-    
-    &:hover {
-        background-color: darken($blue, 10%);
-    }
-}
-
-.order-details {
-    display: grid;
-    grid-template-columns: 1fr 1.5fr 1.5fr auto;
     gap: 1rem;
-    align-items: center;
-    
-    @media (max-width: 768px) {
-        grid-template-columns: 1fr;
-        gap: 0.5rem;
+    padding: 1rem 1.25rem;
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    transition: all 0.2s ease;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+
+    &:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+        border-color: rgba(255, 255, 255, 0.2);
+    }
+
+    &:active {
+        transform: translateY(0);
     }
 }
 
@@ -599,21 +747,21 @@ export default {
         flex-shrink: 0;
         min-width: auto;
         flex: 0 0 auto;
-        max-width: 120px;
+        max-width: 140px;
     }
 }
 
 .label {
-    color: black;
-    font-weight: 500;
+    color: rgba(0, 0, 0, 0.8);
+    font-weight: 600;
     font-size: 0.75rem;
     text-transform: uppercase;
-    letter-spacing: 0.025em;
+    letter-spacing: 0.05em;
     cursor: default;
 }
 
 .value {
-    color: black;
+    color: rgba(0, 0, 0, 0.95);
     font-weight: 700;
     cursor: default;
     overflow: hidden;
@@ -623,120 +771,162 @@ export default {
 }
 
 .status-badge {
-    padding: 0.125rem 0.5rem;
-    border-radius: 8px;
-    font-size: 0.625rem;
-    font-weight: 600;
+    padding: 0.375rem 0.75rem;
+    border-radius: 20px;
+    font-size: 0.75rem;
+    font-weight: 700;
     text-transform: uppercase;
-    letter-spacing: 0.025em;
+    letter-spacing: 0.05em;
     display: inline-block;
     white-space: nowrap;
     min-width: fit-content;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .status-not-started {
-    background-color: #a36a03;
+    background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
     color: $white;
 }
 
 .status-in-progress {
-    background-color: #0073a9;
+    background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
     color: $white;
 }
 
 .status-completed {
-    background-color: #408a0b;
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
     color: $white;
 }
 
 .status-default {
-    background-color: $dark-gray;
+    background: linear-gradient(135deg, #6b7280 0%, #4b5563 100%);
     color: $white;
 }
 
+// Pagination styling
 .pagination-container {
     display: flex;
     justify-content: center;
-    margin-top: 2rem;
+
 }
 
 .pagination {
     display: flex;
     align-items: center;
     gap: 1rem;
+    border-radius: 25px;
+    backdrop-filter: blur(10px);
 }
 
 .pagination-btn {
     padding: 0.5rem 1rem;
-    background-color: $light-gray;
+    background: rgba(255, 255, 255, 0.2);
     color: $white;
-    border: 1px solid $ultra-light-gray;
-    border-radius: 4px;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    border-radius: 6px;
     cursor: pointer;
-    transition: all 0.3s ease;
+    transition: all 0.2s ease;
+    font-weight: 500;
 
     &:hover:not(:disabled) {
-        background-color: $blue;
-        border-color: $blue;
+        background: rgba(255, 255, 255, 0.3);
+        border-color: rgba(255, 255, 255, 0.5);
+        transform: translateY(-1px);
     }
 
     &:disabled {
         opacity: 0.5;
         cursor: not-allowed;
+        transform: none;
     }
 }
 
 .pagination-info {
     color: $white;
     font-size: 0.875rem;
+    font-weight: 500;
 }
 
+// No orders state
 .no-orders {
     display: flex;
     justify-content: center;
     align-items: center;
-    min-height: 300px;
+    min-height: 200px;
+    padding: 2rem;
 }
 
 .no-orders-content {
     text-align: center;
-    color: $ultra-light-gray;
+    color: rgba(255, 255, 255, 0.7);
 
     i {
         font-size: 3rem;
         margin-bottom: 1rem;
-        opacity: 0.5;
+        opacity: 0.6;
+        color: rgba(255, 255, 255, 0.5);
     }
 
     h3 {
         font-size: 1.25rem;
         margin-bottom: 0.5rem;
         color: $white;
+        font-weight: 600;
     }
 
     p {
         font-size: 0.875rem;
-        opacity: 0.7;
+        opacity: 0.8;
+        line-height: 1.5;
     }
 }
 
-// Sidebar Styles - Now part of the flex layout
+// Simple Fixed Sidebar - Always Visible
 .order-sidebar {
-    flex: 0 0 500px;
-    height: 100%;
+    flex: 0 0 auto; // Allow dynamic sizing
+    min-width: var(--sidebar-min-width, 400px); // Minimum width for usability
+    max-width: var(--sidebar-max-width, 600px); // Maximum width to prevent it from getting too wide
+    width: var(--sidebar-width, 500px); // Default width, can be controlled via CSS or JS
+    position: sticky; // Make it sticky so it stays in viewport when scrolling
+    top: 0; // Stick to top of viewport
+    height: 100vh;
+    max-height: 100vh;
     background-color: $dark-gray;
     border: 1px solid rgba(255, 255, 255, 0.45);
     overflow-y: auto;
     box-shadow: -10px 0 10px rgba(0, 0, 0, 0.7);
+    z-index: 20;
+    transition: width 0.3s ease, min-width 0.3s ease, max-width 0.3s ease; // Smooth width transitions
+    
+    // Smooth scrollbar for sidebar content
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 255, 255, 0.3) transparent;
 
-    @media (max-width: 768px) {
+    &::-webkit-scrollbar {
+        width: 6px;
+    }
+
+    &::-webkit-scrollbar-track {
+        background: transparent;
+    }
+
+    &::-webkit-scrollbar-thumb {
+        background: rgba(255, 255, 255, 0.3);
+        border-radius: 3px;
+        
+        &:hover {
+            background: rgba(255, 255, 255, 0.5);
+        }
+    }
+
+    @media (max-width: 1024px) {
         position: fixed;
         top: 0;
         right: -100%;
         width: 100%;
         height: 100vh;
         z-index: 1000;
-        transition: right 0.3s ease;
+        transition: right 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         
         &.sidebar-open {
             right: 0;
@@ -744,20 +934,37 @@ export default {
     }
 }
 
- .sidebar-header {
-     display: flex;
-     justify-content: space-between;
-     align-items: center;
-     border-bottom: 1px solid $light-gray;
-     background-color: $light-gray;
-     padding: 0 0.4rem 0 0.4rem;
- }
+.order-sidebar-inner {
+    position: relative;
+}
 
- .sidebar-actions {
-     display: flex;
-     gap: 0.5rem;
-     align-items: center;
- }
+.sidebar-placeholder {
+    display: flex;
+    height: 100%;
+    min-height: 240px;
+    align-items: center;
+    justify-content: center;
+    color: $ultra-light-gray;
+    gap: 0.5rem;
+
+    i { font-size: 1.2rem; }
+    p { margin: 0; }
+}
+
+.sidebar-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid $light-gray;
+    background-color: $light-gray;
+    padding: 0 0.4rem 0 0.4rem;
+}
+
+.sidebar-actions {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+}
 
 .sidebar-title {
     color: $white;
@@ -766,36 +973,36 @@ export default {
     margin: 0;
 }
 
- .view-full-btn {
-     background-color: $blue;
-     border: none;
-     color: $white;
-     font-size: 1rem;
-     cursor: pointer;
-     padding: 0.2rem;
-     border-radius: 4px;
-     transition: all 0.3s ease;
+.view-full-btn {
+    background-color: $blue;
+    border: none;
+    color: $white;
+    font-size: 1rem;
+    cursor: pointer;
+    padding: 0.2rem;
+    border-radius: 4px;
+    transition: all 0.3s ease;
 
-     &:hover {
-         background-color: darken($blue, 10%);
-         transform: scale(1.05);
-     }
- }
+    &:hover {
+        background-color: darken($blue, 10%);
+        transform: scale(1.05);
+    }
+}
 
- .close-btn {
-     background: none;
-     border: none;
-     color: $white;
-     font-size: 1rem;
-     cursor: pointer;
-     padding: 0.2rem;
-     border-radius: 4px;
-     transition: background-color 0.3s ease;
+.close-btn {
+    background: none;
+    border: none;
+    color: $white;
+    font-size: 1rem;
+    cursor: pointer;
+    padding: 0.2rem;
+    border-radius: 4px;
+    transition: background-color 0.3s ease;
 
-     &:hover {
-         background-color: rgba(255, 255, 255, 0.1);
-     }
- }
+    &:hover {
+        background-color: rgba(255, 255, 255, 0.1);
+    }
+}
 
 .sidebar-content {
     padding: 0.2rem;
@@ -814,7 +1021,7 @@ export default {
 
 .detail-info {
     display: flex;
-    flex-direction:row;
+    flex-direction: row;
     justify-content: space-between;
     gap: 0.5rem;
     div {
@@ -1036,8 +1243,6 @@ export default {
     }
 }
 
-
-
 .comment-content {
     background-color: $light-gray;
     border-radius: 6px;
@@ -1060,7 +1265,6 @@ export default {
 }
 
 .job-progress-item {
-    
     padding: 0.5rem;
     background-color: $light-gray;
     border-radius: 6px;
@@ -1075,24 +1279,159 @@ export default {
     border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
 
-// Mobile overlay for sidebar
+// Individual column styling
+.order-id {
+    font-weight: 700;
+    color: rgba(0, 0, 0, 0.95);
+    text-align: center;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.order-title {
+    font-weight: 700;
+    color: rgba(0, 0, 0, 0.95);
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.client {
+    font-weight: 700;
+    color: rgba(0, 0, 0, 0.95);
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.status {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-width: 0;
+}
+
+// Sidebar placeholder
+.sidebar-placeholder {
+    display: flex;
+    height: 100%;
+    align-items: center;
+    justify-content: center;
+    color: rgba(255, 255, 255, 0.5);
+    gap: 0.75rem;
+    padding: 2rem;
+    text-align: center;
+
+    i { 
+        font-size: 2rem; 
+        opacity: 0.6;
+    }
+    
+    p { 
+        margin: 0; 
+        font-size: 0.875rem;
+        line-height: 1.4;
+    }
+}
+
+// Mobile overlay
 .sidebar-overlay {
     position: fixed;
     top: 0;
     left: 0;
     width: 100%;
     height: 100%;
-    background-color: rgba(0, 0, 0, 0.5);
+    background: rgba(0, 0, 0, 0.6);
     z-index: 999;
     opacity: 0;
     visibility: hidden;
-    transition: all 0.3s ease;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    backdrop-filter: blur(4px);
 
-    @media (max-width: 768px) {
+    @media (max-width: 1024px) {
         &.sidebar-open {
             opacity: 1;
             visibility: visible;
         }
     }
 }
-</style> 
+
+// Responsive design improvements
+@media (max-width: 1400px) {
+    .order-sidebar {
+        width: 450px;
+        min-width: 400px;
+        max-width: 500px;
+    }
+}
+
+@media (max-width: 1200px) {
+    .order-sidebar {
+        width: 400px;
+        min-width: 350px;
+        max-width: 450px;
+    }
+    
+    // Adjust table columns for medium screens
+    .orders-labels,
+    .order-row {
+        grid-template-columns: 70px 2fr 1.5fr 100px;
+        gap: 0.5rem;
+    }
+}
+
+@media (max-width: 768px) {
+    .dashboard-layout {
+        flex-direction: column;
+    }
+    
+    .orders-stack {
+        order: 1;
+    }
+    
+    .order-sidebar {
+        order: 2;
+        position: relative;
+        height: auto;
+        max-height: none;
+        width: 100%;
+        min-width: 100%;
+        max-width: 100%;
+    }
+    
+    .orders-container {
+        padding: 1rem;
+    }
+    
+    .search-input, .status-select {
+        min-width: 100%;
+    }
+    
+    // Stack table columns vertically on mobile
+    .orders-labels,
+    .order-row {
+        grid-template-columns: 1fr;
+        gap: 0.5rem;
+        text-align: center;
+    }
+    
+    .label-column {
+        text-align: center;
+        padding: 0.25rem 0;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        
+        &:last-child {
+            border-bottom: none;
+        }
+    }
+    
+    .order-id, .order-title, .client, .status {
+        text-align: center;
+        padding: 0.25rem 0;
+    }
+}
+ </style> 

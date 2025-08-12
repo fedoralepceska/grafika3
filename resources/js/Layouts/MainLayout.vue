@@ -142,11 +142,11 @@ const showingNavigationDropdown = ref(false);
             </div>
         </nav>
         <!-- SIDEBAR START-->
-        <div class="flex">
+        <div class="flex main-content">
             <div >
                 <SideMenu  class="md:block w-1/6"/>
             </div>
-            <div class="width ">
+            <div class="width">
                 <slot/>
             </div>
         </div>
@@ -222,6 +222,10 @@ export default {
     .width {
         width: 100%;
         margin-left: 70px;
+    }
+
+    .main-content {
+        width: 100%;
     }
     .counter-container {
         display: flex;
