@@ -134,6 +134,19 @@
                     </div>
                 </div>
             </div>
+            <ConfirmLeaveJobsModal
+                :visible="showLeaveModal"
+                :jobCount="getUnsavedJobsCount()"
+                :loading="isDeletingJobs"
+                @close="closeLeaveModal"
+                @confirm="confirmLeaveAndDelete"
+            />
+            <div v-if="isDeletingJobs" class="deleting-overlay" role="dialog" aria-live="polite" aria-label="Deleting temporary jobs">
+                <div class="deleting-overlay-content">
+                    <div class="spinner" aria-hidden="true"></div>
+                    <div class="deleting-text">Deleting temporary jobs…</div>
+                </div>
+            </div>
         </div>
     </MainLayout>
 </template>
@@ -152,6 +165,8 @@ import TabsWrapperV2 from "@/Components/tabs/TabsWrapperV2.vue";
 import Header from "@/Components/Header.vue";
 import OrderLines from "@/Pages/Invoice/OrderLines.vue";
 import CatalogSelector from "@/Components/CatalogSelector.vue";
+import ConfirmLeaveJobsModal from "@/Components/ConfirmLeaveJobsModal.vue";
+import { router } from '@inertiajs/core';
 
 
 export default {
@@ -168,6 +183,7 @@ export default {
         MainLayout,
         PrimaryButton,
         CatalogSelector,
+        ConfirmLeaveJobsModal,
     },
     data() {
         return {
@@ -195,6 +211,15 @@ export default {
             showClientDropdown: false,
             filteredClients: [],
             selectedClientName: '',
+            // Leave guard state
+            showLeaveModal: false,
+            pendingUrl: null,
+            pendingOptions: null,
+            pendingVisit: null,
+            isDeletingJobs: false,
+            isSubmittingInvoice: false,
+            removeRouterBeforeHandler: null,
+            removeDomBeforeHandler: null,
         };
     },
     props: {
@@ -299,6 +324,7 @@ export default {
                 this.invoice.jobs.push(finalJob);
             }
             try {
+                this.isSubmittingInvoice = true;
                 let response = await axios.post('/orders', this.invoice, {
                     headers: {
                         'Content-Type': 'multipart/form-data',
@@ -324,6 +350,8 @@ export default {
                     // Show a fallback toast if no message is provided
                     toast.error("An unexpected error occurred.");
                 }
+            } finally {
+                this.isSubmittingInvoice = false;
             }
         },
         updateJobs(updatedJobs) {
@@ -438,6 +466,96 @@ export default {
                 this.$refs.orderLines.cleanupDeletedJob(jobId);
             }
         },
+
+        // Determine if there are temporary jobs present
+        getUnsavedJobsCount() {
+            const jobs = this.$refs.dragAndDrop?.jobs || [];
+            return Array.isArray(jobs) ? jobs.length : 0;
+        },
+
+        // Inertia router before-visit guard handler
+        onRouterBefore(visit) {
+            // Ignore if submitting invoice or currently deleting
+            if (this.isSubmittingInvoice || this.isDeletingJobs) return true;
+
+            const unsavedCount = this.getUnsavedJobsCount();
+            if (unsavedCount > 0) {
+                // Stop this navigation, show modal, and remember target
+                this.pendingVisit = visit;
+                const rawUrl = visit?.url;
+                this.pendingUrl = typeof rawUrl === 'string' ? rawUrl : (rawUrl?.href || (rawUrl?.toString ? rawUrl.toString() : null));
+                this.showLeaveModal = true;
+                return false; // cancel visit
+            }
+            return true;
+        },
+
+        async confirmLeaveAndDelete() {
+            if (this.isDeletingJobs) return;
+            this.isDeletingJobs = true;
+            try {
+                const jobs = [...(this.$refs.dragAndDrop?.jobs || [])];
+                const ids = jobs.map(j => j.id).filter(Boolean);
+                // Delete each job
+                await Promise.allSettled(ids.map(id => axios.delete(`/jobs/${id}`)));
+
+                // Clean up local state
+                ids.forEach(id => this.handleJobDeleted(id));
+                if (this.$refs.dragAndDrop) {
+                    this.$refs.dragAndDrop.jobs = [];
+                    this.$refs.dragAndDrop.$forceUpdate();
+                }
+            } catch (e) {
+                // Best-effort deletion; continue navigation regardless
+            } finally {
+                const url = this.pendingUrl;
+                const visit = this.pendingVisit;
+                this.pendingUrl = null;
+                this.pendingOptions = null;
+                this.pendingVisit = null;
+                this.showLeaveModal = false;
+                if (url) {
+                    // Proceed to intended destination with the original visit options
+                    let didStartInertiaVisit = false;
+                    if (visit) {
+                        const options = {
+                            method: visit.method || 'get',
+                            data: visit.data || {},
+                            replace: visit.replace || false,
+                            preserveState: visit.preserveState || false,
+                            preserveScroll: visit.preserveScroll || false,
+                            headers: visit.headers || {},
+                            forceFormData: visit.forceFormData || false,
+                        };
+                        try {
+                            router.visit(url, options);
+                            didStartInertiaVisit = true;
+                        } catch (err) {
+                            // Fall through to hard redirect
+                        }
+                    }
+
+                    // As a robust fallback, if navigation doesn't happen promptly, force hard redirect
+                    const targetHref = (() => {
+                        try { return new URL(url, window.location.origin).href; } catch { return url; }
+                    })();
+                    const currentHref = window.location.href;
+                    setTimeout(() => {
+                        const stillHere = window.location.href === currentHref;
+                        if (stillHere) {
+                            window.location.assign(targetHref);
+                        }
+                    }, 600);
+                }
+                this.isDeletingJobs = false;
+            }
+        },
+
+        closeLeaveModal() {
+            this.showLeaveModal = false;
+            this.pendingUrl = null;
+            this.pendingOptions = null;
+        },
     },
     mounted() {
         document.addEventListener('click', (e) => {
@@ -446,9 +564,81 @@ export default {
                 this.showClientDropdown = false;
             }
         });
+
+        // Inertia router navigation guard
+        this.removeRouterBeforeHandler = router.on('before', (visit) => this.onRouterBefore(visit));
+
+        // DOM event guard for broader compatibility
+        const domBeforeHandler = (e) => {
+            if (this.isSubmittingInvoice || this.isDeletingJobs) return;
+            const unsavedCount = this.getUnsavedJobsCount();
+            if (unsavedCount > 0) {
+                e.preventDefault();
+                const v = e?.detail?.visit;
+                this.pendingVisit = v || null;
+                const rawUrl = v?.url;
+                this.pendingUrl = typeof rawUrl === 'string' ? rawUrl : (rawUrl?.href || (rawUrl?.toString ? rawUrl.toString() : null));
+                this.showLeaveModal = true;
+            }
+        };
+        document.addEventListener('inertia:before', domBeforeHandler);
+        this.removeDomBeforeHandler = () => document.removeEventListener('inertia:before', domBeforeHandler);
+
+        // Intercept sidebar anchor clicks (vue-sidebar-menu renders <a>) to use our modal instead of native beforeunload
+        this.sidebarClickHandler = (e) => {
+            if (this.isSubmittingInvoice || this.isDeletingJobs) return;
+            const anchor = e.target && e.target.closest && e.target.closest('.v-sidebar-menu a[href]');
+            if (!anchor) return;
+            // Ignore modifier clicks/new tabs
+            if (e.defaultPrevented || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || anchor.target === '_blank') return;
+
+            const hrefRaw = anchor.getAttribute('href') || '';
+            const href = hrefRaw.trim();
+            if (!href) return; // no href
+            // Non-navigation patterns and toggle/buttons
+            if (href === '#' || href.toLowerCase().startsWith('javascript:')) return;
+            const role = anchor.getAttribute('role');
+            if (role === 'button') return;
+            if (anchor.hasAttribute('data-modal') || anchor.hasAttribute('data-toggle') || anchor.hasAttribute('data-no-guard')) return;
+            if (anchor.hasAttribute('aria-expanded') || anchor.hasAttribute('aria-controls')) return;
+
+            // Same-origin only
+            const dest = (() => { try { return new URL(href, window.location.origin); } catch { return null; } })();
+            if (!dest || dest.origin !== window.location.origin) return;
+
+            // Skip if target equals current URL (no navigation)
+            const targetPath = `${dest.pathname}${dest.search}${dest.hash}`;
+            const currentPath = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+            if (targetPath === currentPath) return;
+
+            // If there are unsaved jobs, prevent and show our modal
+            if (this.getUnsavedJobsCount() > 0) {
+                e.preventDefault();
+                this.pendingVisit = null;
+                this.pendingUrl = dest.href;
+                this.showLeaveModal = true;
+            }
+        };
+        document.addEventListener('click', this.sidebarClickHandler, true);
+
+        // Browser/tab close guard (cannot run async deletes reliably)
+        this.beforeUnloadHandler = (e) => {
+            if (this.isSubmittingInvoice || this.isDeletingJobs) return;
+            const unsavedCount = this.getUnsavedJobsCount();
+            if (unsavedCount > 0) {
+                e.preventDefault();
+                e.returnValue = '';
+                return '';
+            }
+        };
+        window.addEventListener('beforeunload', this.beforeUnloadHandler);
     },
     beforeUnmount() {
         document.removeEventListener('click', this.closeDropdown);
+        if (this.removeRouterBeforeHandler) this.removeRouterBeforeHandler();
+        if (this.removeDomBeforeHandler) this.removeDomBeforeHandler();
+        if (this.sidebarClickHandler) document.removeEventListener('click', this.sidebarClickHandler, true);
+        if (this.beforeUnloadHandler) window.removeEventListener('beforeunload', this.beforeUnloadHandler);
     },
 };
 </script>
@@ -660,5 +850,48 @@ input, select {
 
 .overflow-auto::-webkit-scrollbar-thumb:hover {
     background: #555;
+}
+
+/* Deleting overlay */
+.deleting-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(0, 0, 0, 0.75);
+    z-index: 10000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    backdrop-filter: blur(2px);
+    pointer-events: all;
+}
+.deleting-overlay-content {
+    background: rgba(35, 39, 47, 0.95);
+    padding: 28px 36px;
+    border-radius: 8px;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.35);
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+}
+.deleting-overlay-content .spinner {
+    width: 56px;
+    height: 56px;
+    border: 6px solid rgba(255, 255, 255, 0.18);
+    border-top-color: #ffffff;
+    border-radius: 50%;
+    animation: spin 0.85s linear infinite;
+}
+.deleting-overlay-content .deleting-text {
+    color: #fff;
+    font-weight: 700;
+    font-size: 1.05rem;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
 }
 </style>
