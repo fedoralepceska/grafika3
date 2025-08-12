@@ -177,7 +177,9 @@ export default {
      box-shadow: none;
  }
 
- .orders-wrap { padding: 10px 16px 24px; }
+.orders-wrap { 
+    padding: 10px 16px 24px; 
+}
 
 .dark-gray{
     background-color: $dark-gray;
