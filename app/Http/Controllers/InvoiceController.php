@@ -182,32 +182,21 @@ class InvoiceController extends Controller
                     ->where('catalog_item_id', $job->catalogItem->id)
                     ->get();
                 
-                // Process articles for stock consumption - check both job articles and catalog item articles
+                // Process articles for stock consumption
+                // Prefer recomputing from catalog item (reflects latest job.quantity/copies)
                 $articlesToConsume = [];
-                
-                // First, check if job has direct article assignments
-                if ($job->articles && $job->articles->count() > 0) {
-                    foreach ($job->articles as $jobArticle) {
-                        $articlesToConsume[] = [
-                            'article' => $jobArticle,
-                            'quantity' => $jobArticle->pivot->quantity,
-                            'source' => 'job_direct'
-                        ];
-                    }
-                }
-                // If no direct job articles, fall back to catalog item articles
-                elseif ($job->catalogItem && $job->catalogItem->articles()->exists()) {
+
+                if ($job->catalogItem && $job->catalogItem->articles()->exists()) {
                     $materialRequirements = $job->catalogItem->calculateMaterialRequirements($job);
-                    
+
                     foreach ($materialRequirements as $requirement) {
                         $article = $requirement['article'];
                         $neededQuantity = $requirement['actual_required'];
                         $unitType = $requirement['unit_type'];
-                        
-                        // If this article was selected from a category, we need to get the actual article to consume from
+
+                        // Resolve category to an actual article at consumption time
                         $actualArticle = $article;
                         if ($article->pivot->category_id) {
-                            // Re-resolve the category to get the current first available article
                             $actualArticle = $job->catalogItem->getFirstArticleFromCategory(
                                 $article->pivot->category_id,
                                 null,
@@ -218,11 +207,20 @@ class InvoiceController extends Controller
                                 continue;
                             }
                         }
-                        
+
                         $articlesToConsume[] = [
                             'article' => $actualArticle,
                             'quantity' => $neededQuantity,
-                            'source' => 'catalog_item'
+                            'source' => 'catalog_item_recomputed'
+                        ];
+                    }
+                } elseif ($job->articles && $job->articles->count() > 0) {
+                    // Manual jobs: use direct job article assignments
+                    foreach ($job->articles as $jobArticle) {
+                        $articlesToConsume[] = [
+                            'article' => $jobArticle,
+                            'quantity' => $jobArticle->pivot->quantity,
+                            'source' => 'job_direct'
                         ];
                     }
                 } else {
@@ -256,23 +254,24 @@ class InvoiceController extends Controller
                     ]);
                 }
 
-                // Only process legacy large/small material reduction if NO component articles exist
-                // Component articles take precedence over legacy material assignments
-                if (!($job->catalogItem && $job->catalogItem->articles()->exists())) {
+                // Only process legacy large/small material reduction if we DID NOT consume any component articles
+                // Component articles (either attached to the job or resolved from catalog) take precedence over legacy material assignments
+                if (empty($articlesToConsume)) {
                     // Update Large Material (legacy fallback)
                     if ($job->large_material_id !== null) {
                         $large_material = LargeFormatMaterial::with('article')->find($job->large_material_id);
                         if ($large_material) {
+                            $units = ($job->catalogItem && $job->catalogItem->by_copies) ? (int)$job->copies : (int)$job->quantity;
                             // Check stock availability
-                            if ($job->copies > (int) $large_material->quantity) {
-                                $errorMessages[] = "For the catalog item {$job->catalogItem->name} with material {$large_material->name}, you need {$job->copies} units, but you only have {$large_material->quantity} in storage.";
+                            if ($units > (int) $large_material->quantity) {
+                                $errorMessages[] = "For the catalog item {$job->catalogItem->name} with material {$large_material->name}, you need {$units} units, but you only have {$large_material->quantity} in storage.";
                             }
                             
                             // Consume material stock
                             if ($large_material?->article?->in_square_meters === 1) {
-                                $large_material->quantity -= ($job->copies * ($job->width * $job->height / 1000000));
+                                $large_material->quantity -= ($units * ($job->width * $job->height / 1000000));
                             } else {
-                                $large_material->quantity -= $job->copies;
+                                $large_material->quantity -= $units;
                             }
                             $large_material->save();
                             
@@ -293,16 +292,17 @@ class InvoiceController extends Controller
                     if ($job->small_material_id !== null) {
                         $small_material = SmallMaterial::with('article')->find($job->small_material_id);
                         if ($small_material) {
+                            $units = ($job->catalogItem && $job->catalogItem->by_copies) ? (int)$job->copies : (int)$job->quantity;
                             // Check stock availability
-                            if ($job->copies > (int) $small_material->quantity) {
-                                $errorMessages[] = "For the catalog item '{$job->catalogItem->name}', which uses the material '{$small_material->name}', you need {$job->copies} units, but only {$small_material->quantity} are available in storage.";
+                            if ($units > (int) $small_material->quantity) {
+                                $errorMessages[] = "For the catalog item '{$job->catalogItem->name}', which uses the material '{$small_material->name}', you need {$units} units, but only {$small_material->quantity} are available in storage.";
                             }
                             
                             // Consume material stock
                             if ($small_material?->article?->in_square_meters === 1) {
-                                $small_material->quantity -= ($job->copies * ($job->width * $job->height / 1000000));
+                                $small_material->quantity -= ($units * ($job->width * $job->height / 1000000));
                             } else {
-                                $small_material->quantity -= $job->copies;
+                                $small_material->quantity -= $units;
                             }
                             $small_material->save();
                             
