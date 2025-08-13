@@ -2619,6 +2619,8 @@ class JobController extends Controller
                 'type' => 'pdf',
                 'index' => $index
             ];
+            // Invalidate cached index map for this job
+            \Cache::forget("job_thumb_map_{$jobId}");
         } catch (\Exception $e) {
             \Log::warning('Failed to generate thumbnail for PDF: ' . $e->getMessage(), [
                 'file' => $file->getClientOriginalName(),
@@ -3035,56 +3037,42 @@ class JobController extends Controller
                 return response()->json(['error' => 'File not found'], 404);
             }
 
-            // Find ALL thumbnails for this job and sort them by timestamp
+            // Resolve thumbnail path using cached index map: [original_index => latest_path]
             $thumbnailPath = null;
-            
             try {
-                // List files in the job-thumbnails directory
-                $thumbnailFiles = $this->templateStorageService->getDisk()->files('job-thumbnails');
-                
-                // Get all thumbnails for this job
-                $jobThumbnails = [];
-                foreach ($thumbnailFiles as $thumbFile) {
-                    $thumbBasename = basename($thumbFile);
-                    if (strpos($thumbBasename, 'job_' . $jobId . '_') === 0) {
-                        // Extract timestamp from filename: job_ID_TIMESTAMP_INDEX_filename.jpg
+                $cacheKey = "job_thumb_map_{$jobId}";
+                $thumbnailIndexMap = \Cache::remember($cacheKey, 600, function () use ($jobId) {
+                    $files = $this->templateStorageService->getDisk()->files('job-thumbnails');
+                    $latestByIndex = [];
+                    foreach ($files as $thumbFile) {
+                        $thumbBasename = basename($thumbFile);
+                        if (strpos($thumbBasename, 'job_' . $jobId . '_') !== 0) {
+                            continue;
+                        }
                         if (preg_match('/job_' . $jobId . '_(\d+)_(\d+)_/', $thumbBasename, $matches)) {
-                            $timestamp = $matches[1];
-                            $originalIndex = $matches[2];
-                            $jobThumbnails[] = [
-                                'path' => $thumbFile,
-                                'timestamp' => (int)$timestamp,
-                                'original_index' => (int)$originalIndex,
-                                'basename' => $thumbBasename
-                            ];
+                            $timestamp = (int)$matches[1];
+                            $originalIndex = (int)$matches[2];
+                            if (!isset($latestByIndex[$originalIndex]) || $timestamp > $latestByIndex[$originalIndex]['timestamp']) {
+                                $latestByIndex[$originalIndex] = [
+                                    'path' => $thumbFile,
+                                    'timestamp' => $timestamp,
+                                    'basename' => $thumbBasename,
+                                ];
+                            }
                         }
                     }
-                }
-                
-                \Log::info('Found thumbnails for job', [
-                    'job_id' => $jobId,
-                    'requested_index' => $fileIndex,
-                    'found_thumbnails' => $jobThumbnails
-                ]);
-                
-                // Sort by timestamp to get chronological order
-                usort($jobThumbnails, function($a, $b) {
-                    return $a['timestamp'] <=> $b['timestamp'];
+                    // Reduce to simple index => path map
+                    $map = [];
+                    foreach ($latestByIndex as $idx => $info) {
+                        $map[$idx] = $info['path'];
+                    }
+                    return $map;
                 });
-                
-                // Get the thumbnail for the requested index (0-based from sorted list)
-                if (isset($jobThumbnails[$fileIndex])) {
-                    $thumbnailPath = $jobThumbnails[$fileIndex]['path'];
-                    \Log::info('Serving thumbnail by position', [
-                        'job_id' => $jobId,
-                        'requested_index' => $fileIndex,
-                        'thumbnail_path' => $thumbnailPath,
-                        'original_index_in_filename' => $jobThumbnails[$fileIndex]['original_index']
-                    ]);
+                if (isset($thumbnailIndexMap[$fileIndex])) {
+                    $thumbnailPath = $thumbnailIndexMap[$fileIndex];
                 }
-                
             } catch (\Exception $e) {
-                \Log::warning('Failed to find thumbnail: ' . $e->getMessage());
+                \Log::warning('Failed to build thumbnail index map: ' . $e->getMessage());
                 return response()->json(['error' => 'Thumbnail not found'], 404);
             }
 
@@ -3107,7 +3095,17 @@ class JobController extends Controller
 
             // Get the thumbnail content from R2
             $thumbnailContent = $this->templateStorageService->getDisk()->get($thumbnailPath);
-            
+            $thumbBasename = basename($thumbnailPath);
+            $etag = '"' . md5($thumbBasename) . '"';
+            // Conditional GET handling
+            $ifNoneMatch = request()->headers->get('If-None-Match');
+            if ($ifNoneMatch && trim($ifNoneMatch) === $etag) {
+                return response('', 304)
+                    ->header('ETag', $etag)
+                    ->header('Cache-Control', 'public, max-age=86400, immutable')
+                    ->header('Expires', gmdate('D, d M Y H:i:s \G\M\T', time() + 86400));
+            }
+
             \Log::info('Successfully serving job thumbnail', [
                 'job_id' => $jobId,
                 'file_index' => $fileIndex,
@@ -3117,8 +3115,9 @@ class JobController extends Controller
 
             return response($thumbnailContent)
                 ->header('Content-Type', 'image/jpeg')
-                ->header('Cache-Control', 'public, max-age=3600')
-                ->header('Expires', gmdate('D, d M Y H:i:s \G\M\T', time() + 3600));
+                ->header('ETag', $etag)
+                ->header('Cache-Control', 'public, max-age=86400, immutable')
+                ->header('Expires', gmdate('D, d M Y H:i:s \G\M\T', time() + 86400));
 
         } catch (\Exception $e) {
             \Log::error('Error serving job thumbnail:', [

@@ -30,6 +30,7 @@
                         <div class="label-column order-id">Order #</div>
                         <div class="label-column order-title">Order Title</div>
                         <div class="label-column client">Client</div>
+                            <div class="label-column end-date">End Date</div>
                         <div class="label-column status">Status</div>
                     </div>
                     
@@ -42,6 +43,7 @@
                         <div class="order-id">#{{ order.id }}</div>
                         <div class="order-title" :title="order.invoice_title">{{ order.invoice_title }}</div>
                         <div class="client" :title="order.client?.name || 'N/A'">{{ order.client?.name || 'N/A' }}</div>
+                            <div class="end-date" :title="formatDate(order.end_date)">{{ formatDate(order.end_date) }}</div>
                         <div class="status">
                             <span 
                                 class="status-badge"
@@ -107,6 +109,7 @@
                         <div class="label-column order-id">Order #</div>
                         <div class="label-column order-title">Order Title</div>
                         <div class="label-column client">Client</div>
+                        <div class="label-column end-date">End Date</div>
                         <div class="label-column status">Status</div>
                     </div>
                     
@@ -119,6 +122,7 @@
                         <div class="order-id">#{{ order.id }}</div>
                         <div class="order-title" :title="order.invoice_title">{{ order.invoice_title }}</div>
                         <div class="client" :title="order.client?.name || 'N/A'">{{ order.client?.name || 'N/A' }}</div>
+                        <div class="end-date" :title="formatDate(order.end_date)">{{ formatDate(order.end_date) }}</div>
                         <div class="status">
                             <span class="status-badge status-completed">Completed</span>
                         </div>
@@ -204,9 +208,11 @@
                                                         <img 
                                                             :src="getThumbnailUrl(job.id, currentFileIndex[job.id] || 0)" 
                                                             :alt="'File ' + ((currentFileIndex[job.id] || 0) + 1)"
-                                                            class="carousel-image"
+                                                         class="carousel-image"
                                                             :data-job-id="job.id"
                                                             :data-file-index="currentFileIndex[job.id] || 0"
+                                                         loading="eager"
+                                                         decoding="async"
                                                             @error="handleThumbnailError"
                                                             @load="handleImageLoad"
                                                         />
@@ -276,8 +282,9 @@
                             <!-- Job Progress -->
                             <div class="progress-section">
                                 <h4 class="section-title">Job Progress</h4>
-                                <div v-for="job in selectedOrder.jobs" :key="job.id" class="job-progress-item">
-                                    <OrderJobDetails :job="job" />
+                                <div v-for="(job, idx) in selectedOrder.jobs" :key="job.id" class="job-progress-item compact">
+                                    <div class="job-label">Job {{ idx + 1 }}</div>
+                                    <OrderJobProgressCompact :job="job" />
                                 </div>
                             </div>
                         </div>
@@ -305,11 +312,13 @@
 <script>
 import axios from 'axios';
 import OrderJobDetails from './OrderJobDetails.vue';
+import OrderJobProgressCompact from './OrderJobProgressCompact.vue';
 
 export default {
     name: 'DashboardOrders',
     components: {
-        OrderJobDetails
+        OrderJobDetails,
+        OrderJobProgressCompact
     },
     data() {
         return {
@@ -331,7 +340,8 @@ export default {
             statusFilter: '',
             searchTimeout: null,
             completedSearchTimeout: null,
-            currentFileIndex: {}
+            currentFileIndex: {},
+            preloadedImages: {}
         }
     },
     mounted() {
@@ -425,10 +435,16 @@ export default {
             try {
                 const response = await axios.get(`/orders/${order.id}/details`);
                 this.selectedOrder = response.data;
+                this.$nextTick(() => {
+                    this.preloadThumbnailsForOrder(this.selectedOrder);
+                });
             } catch (error) {
                 console.error('Error fetching order details:', error);
                 // Fallback to the basic order data if the detailed fetch fails
                 this.selectedOrder = order;
+                this.$nextTick(() => {
+                    this.preloadThumbnailsForOrder(this.selectedOrder);
+                });
             }
         },
 
@@ -460,9 +476,8 @@ export default {
         },
         
         getThumbnailUrl(jobId, fileIndex) {
-            // Add cache busting parameter like in OrderLines.vue
-            const timestamp = Date.now();
-            return route('jobs.viewThumbnail', { jobId: jobId, fileIndex: fileIndex }) + `?t=${timestamp}`;
+            // Allow browser/proxy caching; server sets Cache-Control headers
+            return route('jobs.viewThumbnail', { jobId: jobId, fileIndex: fileIndex });
         },
         
         getOriginalFileUrl(jobId, fileIndex) {
@@ -499,6 +514,45 @@ export default {
 
         handleImageLoad(event) {
             // Image loaded successfully
+        },
+
+        // Prefetching utilities
+        preloadThumbnailsForOrder(order) {
+            if (!order || !order.jobs) return;
+            try {
+                order.jobs.forEach(job => {
+                    if (this.hasMultipleFiles(job)) {
+                        const total = this.getJobFiles(job).length;
+                        const indices = new Set([0, 1]);
+                        indices.forEach(idx => {
+                            if (idx >= 0 && idx < total) {
+                                const url = this.getThumbnailUrl(job.id, idx);
+                                this.preloadImage(url);
+                            }
+                        });
+                    } else if (job.file && job.file !== 'placeholder.jpeg') {
+                        const url = this.getLegacyImageUrl(job);
+                        this.preloadImage(url);
+                    }
+                });
+            } catch (e) {
+                console.warn('Prefetch failed:', e);
+            }
+        },
+
+        preloadImage(url) {
+            if (!url || this.preloadedImages[url]) return;
+            const img = new Image();
+            img.decoding = 'async';
+            img.loading = 'eager';
+            img.src = url;
+            const markDone = () => { this.preloadedImages[url] = true; };
+            if (img.decode) {
+                img.decode().then(markDone).catch(markDone);
+            } else {
+                img.onload = markDone;
+                img.onerror = markDone;
+            }
         },
 
         // Carousel navigation methods
@@ -666,7 +720,7 @@ export default {
 
 .orders-labels {
     display: grid;
-    grid-template-columns: 80px 2fr 1.5fr 120px; /* Match the order-row grid */
+    grid-template-columns: 80px 2fr 1.5fr 1fr 120px; /* Match the order-row grid including End Date */
     gap: 0.75rem;
     margin-bottom: 0.5rem; /* Reduced from 0.75rem */
     padding: 0.5rem 0.75rem;
@@ -679,7 +733,7 @@ export default {
 .label-column {
     font-size: 0.75rem;
     font-weight: 600;
-    color: rgba(0, 0, 0, 0.8);
+    color: $white;
     text-transform: uppercase;
     letter-spacing: 0.05em;
     text-align: left;
@@ -688,7 +742,7 @@ export default {
 .order-row {
     cursor: pointer;
     display: grid;
-    grid-template-columns: 80px 2fr 1.5fr 120px; /* Fixed widths: Order ID, Title, Client, Status */
+    grid-template-columns: 80px 2fr 1.5fr 1fr 120px; /* Fixed widths: Order ID, Title, Client, End Date, Status */
     gap: 0.75rem;
     padding: 0.5rem 0.75rem; /* Reduced padding from 0.75rem */
     background: linear-gradient(135deg, #7dc068 0%, #6bb052 100%);
@@ -1268,6 +1322,14 @@ export default {
     padding: 0.5rem;
     background-color: $light-gray;
     border-radius: 6px;
+    margin-bottom: 0.5rem;
+}
+
+.job-progress-item .job-label {
+    color: $white;
+    font-size: 0.8rem;
+    font-weight: 600;
+    margin-bottom: 0.25rem;
 }
 
 .job-title {
@@ -1282,7 +1344,7 @@ export default {
 // Individual column styling
 .order-id {
     font-weight: 700;
-    color: rgba(0, 0, 0, 0.95);
+    color: $white;
     text-align: center;
     min-width: 0;
     overflow: hidden;
@@ -1292,7 +1354,7 @@ export default {
 
 .order-title {
     font-weight: 700;
-    color: rgba(0, 0, 0, 0.95);
+    color: $white;
     min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -1301,11 +1363,21 @@ export default {
 
 .client {
     font-weight: 700;
-    color: rgba(0, 0, 0, 0.95);
+    color: $white;
     min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+}
+
+.end-date {
+    font-weight: 700;
+    color: $white;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    text-align: center;
 }
 
 .status {
@@ -1313,6 +1385,20 @@ export default {
     justify-content: center;
     align-items: center;
     min-width: 0;
+}
+
+/* Vertical separators within each order row */
+.order-row > .order-id,
+.order-row > .order-title,
+.order-row > .client,
+.order-row > .end-date {
+    border-right: 1px solid rgba(255, 255, 255, 0.25);
+    padding-right: 0.75rem;
+}
+
+.orders-labels > .label-column:not(:last-child) {
+    border-right: 1px solid rgba(255, 255, 255, 0.25);
+    padding-right: 0.75rem;
 }
 
 // Sidebar placeholder
@@ -1379,7 +1465,7 @@ export default {
     // Adjust table columns for medium screens
     .orders-labels,
     .order-row {
-        grid-template-columns: 70px 2fr 1.5fr 100px;
+        grid-template-columns: 70px 2fr 1.3fr 1fr 90px;
         gap: 0.5rem;
     }
 }
@@ -1429,9 +1515,18 @@ export default {
         }
     }
     
-    .order-id, .order-title, .client, .status {
+    .order-id, .order-title, .client, .end-date, .status {
         text-align: center;
         padding: 0.25rem 0;
+    }
+
+    .order-row > .order-id,
+    .order-row > .order-title,
+    .order-row > .client,
+    .order-row > .end-date,
+    .orders-labels > .label-column {
+        border-right: none;
+        padding-right: 0;
     }
 }
  </style> 
