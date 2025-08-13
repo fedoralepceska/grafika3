@@ -805,112 +805,166 @@ class JobController extends Controller
 
     public function getJobsByActionId(Request $request, $actionId)
     {
-        // Find the action with the specified name
+        $page = max((int) $request->query('page', 1), 1);
+        $perPage = (int) $request->query('per_page', 10);
+        $perPage = $perPage > 0 ? min($perPage, 100) : 10;
+        $search = trim((string) $request->query('search', ''));
+
+        // Ensure action exists
         $actions = DB::table('job_actions')->where('name', $actionId)->get();
-
-        // Find the action with the specified name
-        $action = DB::table('job_actions')->where('name', $actionId)->first();
-
-        // If the action is not found, return an appropriate response
         if (!$actions->count()) {
             return response()->json(['error' => 'Action not found'], 404);
         }
 
-        // Fetch the jobs associated with the found action
-        $jobs = DB::table('jobs')
-            ->join('job_job_action', 'jobs.id', '=', 'job_job_action.job_id')
-            ->whereIn('job_job_action.job_action_id', $actions->pluck('id'))
-            ->where('jobs.status', '!=', 'Completed') // Filter out completed jobs
-            ->get();
+        // Base query: invoices that have at least one job for this action that is not completed
+        $base = DB::table('job_actions')
+            ->join('job_job_action', 'job_actions.id', '=', 'job_job_action.job_action_id')
+            ->join('jobs', 'jobs.id', '=', 'job_job_action.job_id')
+            ->join('invoice_job', 'invoice_job.job_id', '=', 'jobs.id')
+            ->join('invoices', 'invoices.id', '=', 'invoice_job.invoice_id')
+            ->leftJoin('users', 'invoices.created_by', '=', 'users.id')
+            ->leftJoin('clients', 'invoices.client_id', '=', 'clients.id')
+            ->where('job_actions.name', $actionId)
+            ->where('jobs.status', '!=', 'Completed')
+            ->where(function ($q) {
+                $q->whereNull('job_actions.status')
+                  ->orWhere('job_actions.status', '!=', 'Completed');
+            });
 
-        foreach ($jobs as $job) {
-            // Determine hasNote based on the specific action row for this action name
-            $job->hasNote = (bool) DB::table('job_actions')
-                ->join('job_job_action', 'job_actions.id', '=', 'job_job_action.job_action_id')
-                ->where('job_job_action.job_id', $job->job_id)
-                ->where('job_actions.name', $actionId)
-                ->value('job_actions.hasNote');
-
-            // Fetch actions associated with the current job from job_job_action table
-            $actionsForJob = DB::table('job_job_action')
-                ->join('job_actions', 'job_job_action.job_action_id', '=', 'job_actions.id')
-                ->where('job_job_action.job_id', $job->job_id)
-                ->select('job_actions.*')
-                ->get()
-                ->toArray();
-
-            // Attach actions to the job
-            $job->actions = $actionsForJob;
+        if ($search !== '') {
+            $base->where(function ($q) use ($search) {
+                $q->where('invoices.invoice_title', 'like', "%$search%")
+                  ->orWhere('users.name', 'like', "%$search%")
+                  ->orWhere('clients.name', 'like', "%$search%");
+                if (is_numeric($search)) {
+                    $q->orWhere('invoices.id', (int) $search);
+                }
+            });
         }
 
-
-        // Now, let's retrieve invoices associated with these jobs
-        $invoiceIds = DB::table('invoice_job')
-            ->whereIn('job_id', $jobs->pluck('job_id'))
-            ->pluck('invoice_id');
-        // Fetch the invoices based on the retrieved invoice IDs
-        $invoices = DB::table('invoices')
-            ->whereIn('invoices.id', $invoiceIds)
-            ->leftJoin('users', 'invoices.created_by', '=', 'users.id') // Join with users table
-            ->leftJoin('clients', 'invoices.client_id', '=', 'clients.id') // Join with clients table
+        // Single invoices paginator driven by EXISTS subquery for robustness
+        $invoicesPaginator = DB::table('invoices')
+            ->leftJoin('users', 'invoices.created_by', '=', 'users.id')
+            ->leftJoin('clients', 'invoices.client_id', '=', 'clients.id')
+            ->when($search !== '', function ($q) use ($search) {
+                $q->where(function ($q2) use ($search) {
+                    $q2->where('invoices.invoice_title', 'like', "%$search%")
+                       ->orWhere('users.name', 'like', "%$search%")
+                       ->orWhere('clients.name', 'like', "%$search%");
+                    if (is_numeric($search)) {
+                        $q2->orWhere('invoices.id', (int) $search);
+                    }
+                });
+            })
+            ->whereExists(function ($q) use ($actionId) {
+                $q->select(DB::raw(1))
+                  ->from('invoice_job')
+                  ->join('jobs', 'jobs.id', '=', 'invoice_job.job_id')
+                  ->join('job_job_action', 'job_job_action.job_id', '=', 'jobs.id')
+                  ->join('job_actions', 'job_actions.id', '=', 'job_job_action.job_action_id')
+                  ->whereColumn('invoice_job.invoice_id', 'invoices.id')
+                  ->where('job_actions.name', $actionId)
+                  ->where('jobs.status', '!=', 'Completed')
+                  ->where(function ($q3) {
+                      $q3->whereNull('job_actions.status')
+                         ->orWhere('job_actions.status', '!=', 'Completed');
+                  });
+            })
+            ->orderBy('invoices.start_date', 'asc')
             ->select('invoices.*', 'users.name as user_name', 'clients.name as client_name')
-            ->orderBy('start_date', 'asc')
-            ->get();
+            ->paginate($perPage, ['*'], 'page', $page);
 
-        // Attach jobs to each invoice
+        $invoices = collect($invoicesPaginator->items());
+        if ($invoices->isEmpty()) {
+            return response()->json([
+                'invoices' => [],
+                'actionId' => $actionId,
+                'currentUserId' => auth()->id(),
+                'pagination' => [
+                    'current_page' => $invoicesPaginator->currentPage(),
+                    'last_page' => $invoicesPaginator->lastPage(),
+                    'per_page' => $invoicesPaginator->perPage(),
+                    'total' => $invoicesPaginator->total(),
+                ],
+            ]);
+        }
+
+        // Attach filtered, non-completed jobs for the current action to each invoice
+        $finalInvoices = [];
         foreach ($invoices as $invoice) {
             $jobIdsForInvoice = DB::table('invoice_job')
                 ->where('invoice_id', $invoice->id)
                 ->pluck('job_id');
 
-            $jobsForInvoice = DB::table('jobs')
-                ->whereIn('id', $jobIdsForInvoice)
+            if ($jobIdsForInvoice->isEmpty()) {
+                continue;
+            }
+
+            // Narrow to jobs that have this action not completed
+            $matchingJobIds = DB::table('job_job_action')
+                ->join('job_actions', 'job_actions.id', '=', 'job_job_action.job_action_id')
+                ->whereIn('job_job_action.job_id', $jobIdsForInvoice)
+                ->where('job_actions.name', $actionId)
+                ->where(function ($q) {
+                    $q->whereNull('job_actions.status')
+                      ->orWhere('job_actions.status', '!=', 'Completed');
+                })
+                ->pluck('job_job_action.job_id');
+
+            if ($matchingJobIds->isEmpty()) {
+                continue;
+            }
+
+            // Load only the matching jobs, exclude completed jobs
+            $jobsWithActions = Job::with('actions')
+                ->whereIn('id', $matchingJobIds)
                 ->where('status', '!=', 'Completed')
                 ->get();
 
-            // Now, get all jobs with actions in one go
-            $jobsWithActions = Job::with('actions')->whereIn('id', $jobIdsForInvoice)->get()->keyBy('id');
+            $filteredJobs = [];
+            foreach ($jobsWithActions as $eloquentJob) {
+                $sortedActions = collect($eloquentJob->actions)->sortBy('id')->values()->map(function($action) {
+                    return [
+                        'id' => $action->id,
+                        'name' => $action->name,
+                        'status' => $action->status,
+                        'started_at' => $action->started_at ? $action->started_at->toISOString() : null,
+                        'ended_at' => $action->ended_at ? $action->ended_at->toISOString() : null,
+                        'started_by' => $action->started_by,
+                        'hasNote' => $action->hasNote,
+                        'quantity' => $action->pivot->quantity ?? null,
+                        'pivot' => $action->pivot
+                    ];
+                })->toArray();
 
-            // Replace each job in $jobsForInvoice with the corresponding one from $jobsWithActions
-            foreach ($jobsForInvoice as $index => $job) {
-                if (isset($jobsWithActions[$job->id])) {
-                    $jobsForInvoice[$index] = $jobsWithActions[$job->id];
-
-                    // Sort the actions for the current job and ensure proper date formatting
-                    $sortedActions = collect($job->actions)->sortBy('id')->values()->map(function($action) {
-                        return [
-                            'id' => $action->id,
-                            'name' => $action->name,
-                            'status' => $action->status,
-                            'started_at' => $action->started_at ? $action->started_at->toISOString() : null,
-                            'ended_at' => $action->ended_at ? $action->ended_at->toISOString() : null,
-                            'started_by' => $action->started_by,
-                            'hasNote' => $action->hasNote,
-                            'quantity' => $action->pivot->quantity ?? null,
-                            'pivot' => $action->pivot
-                        ];
-                    })->toArray();
-
-                    $jobsForInvoice[$index]->actions = $sortedActions;
-
-                    // Derive job-level hasNote for the CURRENT action board only
-                    $hasNoteForCurrentAction = false;
-                    foreach ($sortedActions as $sa) {
-                        if ($sa['name'] === $actionId) {
-                            $hasNoteForCurrentAction = (bool) ($sa['hasNote'] ?? false);
-                            break;
-                        }
-                    }
-                    $jobsForInvoice[$index]->hasNote = $hasNoteForCurrentAction;
+                $actionForJob = collect($sortedActions)->first(function ($a) use ($actionId) {
+                    return ($a['name'] ?? null) === $actionId;
+                });
+                if (($actionForJob['status'] ?? null) === 'Completed') {
+                    continue;
                 }
+
+                $eloquentJob->actions = $sortedActions;
+                $eloquentJob->hasNote = (bool) ($actionForJob['hasNote'] ?? false);
+                $filteredJobs[] = $eloquentJob;
             }
-            $invoice->jobs = $jobsForInvoice;
+
+            if (!empty($filteredJobs)) {
+                $invoice->jobs = $filteredJobs;
+                $finalInvoices[] = $invoice;
+            }
         }
 
         return response()->json([
-            'invoices' => $invoices, // Include invoices in the response
+            'invoices' => $finalInvoices,
             'actionId' => $actionId,
-            'currentUserId' => auth()->id(), // Include current user ID
+            'currentUserId' => auth()->id(),
+            'pagination' => [
+                'current_page' => $invoicesPaginator->currentPage(),
+                'last_page' => $invoicesPaginator->lastPage(),
+                'per_page' => $invoicesPaginator->perPage(),
+                'total' => $invoicesPaginator->total(),
+            ],
         ]);
     }
 
@@ -1351,37 +1405,46 @@ class JobController extends Controller
             ->pluck('name')
             ->unique();
 
-        // For each machine name, get the counts of different statuses
+        // For each machine name, get the counts of different statuses from job_actions
         foreach ($machineNames as $name) {
-            $total = DB::table('job_job_action')
-                ->join('job_actions', 'job_job_action.job_action_id', '=', 'job_actions.id')
+            $base = DB::table('job_actions')
+                ->join('job_job_action', 'job_actions.id', '=', 'job_job_action.job_action_id')
+                ->join('jobs', 'jobs.id', '=', 'job_job_action.job_id')
+                ->join('invoice_job', 'invoice_job.job_id', '=', 'jobs.id')
+                ->join('invoices', 'invoices.id', '=', 'invoice_job.invoice_id')
                 ->where('job_actions.name', $name)
-                ->where('job_job_action.status', 'In Progress')
-                ->count();
+                ->where('jobs.status', '!=', 'Completed');
 
-            $secondaryCount = DB::table('job_job_action')
-                ->join('job_actions', 'job_job_action.job_action_id', '=', 'job_actions.id')
-                ->where('job_actions.name', $name)
-                ->where('job_job_action.status', 'Not started yet')
-                ->count();
+            $total = (clone $base)
+                ->where('job_actions.status', 'In progress')
+                ->distinct('invoice_job.invoice_id')
+                ->count('invoice_job.invoice_id');
 
-            $onHoldCount = DB::table('job_job_action')
-                ->join('job_actions', 'job_job_action.job_action_id', '=', 'job_actions.id')
-                ->join('invoice_job', 'invoice_job.job_id', '=', 'job_job_action.job_id') // Adjust the join for the pivot table
-                ->join('invoices', 'invoices.id', '=', 'invoice_job.invoice_id') // Join with invoices table
-                ->where('job_actions.name', $name)
+            $secondaryCount = (clone $base)
+                ->where(function ($q) {
+                    $q->whereNull('job_actions.status')
+                      ->orWhere('job_actions.status', 'Not started yet');
+                })
+                ->distinct('invoice_job.invoice_id')
+                ->count('invoice_job.invoice_id');
+
+            $onHoldCount = (clone $base)
                 ->where('invoices.onHold', true)
-                ->whereIn('job_job_action.status', ['Not started yet', 'In Progress'])
-                ->count();
+                ->where(function ($q) {
+                    $q->whereNull('job_actions.status')
+                      ->orWhereIn('job_actions.status', ['Not started yet', 'In progress']);
+                })
+                ->distinct('invoice_job.invoice_id')
+                ->count('invoice_job.invoice_id');
 
-            $onRushCount = DB::table('job_job_action')
-                ->join('job_actions', 'job_job_action.job_action_id', '=', 'job_actions.id')
-                ->join('invoice_job', 'invoice_job.job_id', '=', 'job_job_action.job_id') // Adjust the join for the pivot table
-                ->join('invoices', 'invoices.id', '=', 'invoice_job.invoice_id') // Join with invoices table
-                ->where('job_actions.name', $name)
+            $onRushCount = (clone $base)
                 ->where('invoices.rush', true)
-                ->whereIn('job_job_action.status', ['Not started yet', 'In Progress'])
-                ->count();
+                ->where(function ($q) {
+                    $q->whereNull('job_actions.status')
+                      ->orWhereIn('job_actions.status', ['Not started yet', 'In progress']);
+                })
+                ->distinct('invoice_job.invoice_id')
+                ->count('invoice_job.invoice_id');
 
             // Add the counts to the array
             if ($total > 0 || $secondaryCount > 0) {
@@ -1412,14 +1475,20 @@ class JobController extends Controller
         // For each machine name, get the counts of different statuses
         foreach ($machineNames as $name) {
             $total = DB::table('jobs')
-                ->where('machineCut', $name) // Assuming 'machine_name' is the column storing the machine's name
-                ->where('status', 'In Progress')
-                ->count();
+                ->join('invoice_job', 'invoice_job.job_id', '=', 'jobs.id')
+                ->join('invoices', 'invoices.id', '=', 'invoice_job.invoice_id')
+                ->where('jobs.machineCut', $name)
+                ->where('jobs.status', 'In Progress')
+                ->distinct('invoice_job.invoice_id')
+                ->count('invoice_job.invoice_id');
 
             $secondaryCount = DB::table('jobs')
-                ->where('machineCut', $name)
-                ->where('status', 'Not started yet')
-                ->count();
+                ->join('invoice_job', 'invoice_job.job_id', '=', 'jobs.id')
+                ->join('invoices', 'invoices.id', '=', 'invoice_job.invoice_id')
+                ->where('jobs.machineCut', $name)
+                ->where('jobs.status', 'Not started yet')
+                ->distinct('invoice_job.invoice_id')
+                ->count('invoice_job.invoice_id');
 
             $onHoldCount = DB::table('jobs')
                 ->join('invoice_job', 'invoice_job.job_id', '=', 'jobs.id')
@@ -1427,7 +1496,8 @@ class JobController extends Controller
                 ->where('jobs.machineCut', $name)
                 ->where('invoices.onHold', true)
                 ->whereIn('jobs.status', ['Not started yet', 'In Progress'])
-                ->count();
+                ->distinct('invoice_job.invoice_id')
+                ->count('invoice_job.invoice_id');
 
             $onRushCount = DB::table('jobs')
                 ->join('invoice_job', 'invoice_job.job_id', '=', 'jobs.id')
@@ -1435,7 +1505,8 @@ class JobController extends Controller
                 ->where('jobs.machineCut', $name)
                 ->where('invoices.rush', true)
                 ->whereIn('jobs.status', ['Not started yet', 'In Progress'])
-                ->count();
+                ->distinct('invoice_job.invoice_id')
+                ->count('invoice_job.invoice_id');
 
             // Add the counts to the array if applicable
             if ($total > 0 || $secondaryCount > 0) {
@@ -1463,41 +1534,46 @@ class JobController extends Controller
             return !Str::startsWith($name, 'Machine');
         });
 
-        // For each action name, get the count of 'In Progress' and 'Not started yet' statuses
+        // For each action name, get the count of 'In progress' and 'Not started yet' statuses
         foreach ($actionNames as $name) {
-            $total = DB::table('job_job_action')
-                ->join('job_actions', 'job_job_action.job_action_id', '=', 'job_actions.id')
-                ->join('invoice_job', 'invoice_job.job_id', '=', 'job_job_action.job_id') // Ensure job is linked to an invoice
-                ->join('invoices', 'invoices.id', '=', 'invoice_job.invoice_id') // Ensure invoice exists
+            $base = DB::table('job_actions')
+                ->join('job_job_action', 'job_actions.id', '=', 'job_job_action.job_action_id')
+                ->join('jobs', 'jobs.id', '=', 'job_job_action.job_id')
+                ->join('invoice_job', 'invoice_job.job_id', '=', 'jobs.id')
+                ->join('invoices', 'invoices.id', '=', 'invoice_job.invoice_id')
                 ->where('job_actions.name', $name)
-                ->where('job_job_action.status', 'In Progress')
-                ->count();
+                ->where('jobs.status', '!=', 'Completed');
 
-            $secondaryCount = DB::table('job_job_action')
-                ->join('job_actions', 'job_job_action.job_action_id', '=', 'job_actions.id')
-                ->join('invoice_job', 'invoice_job.job_id', '=', 'job_job_action.job_id') // Ensure job is linked to an invoice
-                ->join('invoices', 'invoices.id', '=', 'invoice_job.invoice_id') // Ensure invoice exists
-                ->where('job_actions.name', $name)
-                ->where('job_job_action.status', 'Not started yet')
-                ->count();
+            $total = (clone $base)
+                ->where('job_actions.status', 'In progress')
+                ->distinct('invoice_job.invoice_id')
+                ->count('invoice_job.invoice_id');
 
-            $onHoldCount = DB::table('job_job_action')
-                ->join('job_actions', 'job_job_action.job_action_id', '=', 'job_actions.id')
-                ->join('invoice_job', 'invoice_job.job_id', '=', 'job_job_action.job_id') // Ensure job is linked to an invoice
-                ->join('invoices', 'invoices.id', '=', 'invoice_job.invoice_id') // Ensure invoice exists
-                ->where('job_actions.name', $name)
+            $secondaryCount = (clone $base)
+                ->where(function ($q) {
+                    $q->whereNull('job_actions.status')
+                      ->orWhere('job_actions.status', 'Not started yet');
+                })
+                ->distinct('invoice_job.invoice_id')
+                ->count('invoice_job.invoice_id');
+
+            $onHoldCount = (clone $base)
                 ->where('invoices.onHold', true)
-                ->whereIn('job_job_action.status', ['Not started yet', 'In Progress'])
-                ->count();
+                ->where(function ($q) {
+                    $q->whereNull('job_actions.status')
+                      ->orWhereIn('job_actions.status', ['Not started yet', 'In progress']);
+                })
+                ->distinct('invoice_job.invoice_id')
+                ->count('invoice_job.invoice_id');
 
-            $onRushCount = DB::table('job_job_action')
-                ->join('job_actions', 'job_job_action.job_action_id', '=', 'job_actions.id')
-                ->join('invoice_job', 'invoice_job.job_id', '=', 'job_job_action.job_id') // Ensure job is linked to an invoice
-                ->join('invoices', 'invoices.id', '=', 'invoice_job.invoice_id') // Ensure invoice exists
-                ->where('job_actions.name', $name)
+            $onRushCount = (clone $base)
                 ->where('invoices.rush', true)
-                ->whereIn('job_job_action.status', ['Not started yet', 'In Progress'])
-                ->count();
+                ->where(function ($q) {
+                    $q->whereNull('job_actions.status')
+                      ->orWhereIn('job_actions.status', ['Not started yet', 'In progress']);
+                })
+                ->distinct('invoice_job.invoice_id')
+                ->count('invoice_job.invoice_id');
 
             // Add the counts to the array
             if ($total > 0 || $secondaryCount > 0) {

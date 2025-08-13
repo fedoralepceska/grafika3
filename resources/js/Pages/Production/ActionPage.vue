@@ -2,6 +2,21 @@
     <MainLayout>
         <div class="pl-7 pr-7">
             <Header title="action" subtitle="actionInfo" icon="task.png" link="production"/>
+            <div class="flex items-center justify-between mb-3">
+                <div class="flex items-center gap-2">
+                    <input
+                        type="text"
+                        v-model="search"
+                        @input="onSearchInput"
+                        placeholder="Search orders, clients, users, #id"
+                        class="bg-white text-black px-3 py-2 rounded"
+                        style="min-width: 280px"
+                    />
+                </div>
+                <div class="text-white">
+                    <span>Page {{ pagination.current_page }} / {{ pagination.last_page }}</span>
+                </div>
+            </div>
             <div v-for="(invoice,index) in invoices" class="main" >
                 <div class="container" :class="['container', 'flex', 'p-2', { 'red': invoice.onHold }]">
                     <div class="content">
@@ -204,6 +219,24 @@
                 </div>
             </div>
 
+            <div class="flex items-center justify-between mt-4">
+                <div class="text-white">Total: {{ pagination.total }}</div>
+                <div class="pagination">
+                    <button class="page-btn" @click="prevPage" :disabled="pagination.current_page <= 1">Prev</button>
+                    <button
+                        v-for="p in pageButtons"
+                        :key="`p-${p}`"
+                        class="page-btn"
+                        :class="{ active: p === pagination.current_page, dots: p === '...' }"
+                        @click="goToPage(p)"
+                        :disabled="p === '...' || p === pagination.current_page"
+                    >
+                        {{ p }}
+                    </button>
+                    <button class="page-btn" @click="nextPage" :disabled="pagination.current_page >= pagination.last_page">Next</button>
+                </div>
+            </div>
+
             <!-- Legacy image popover -->
             <div v-if="showImagePopover && selectedJob" class="popover">
                 <div class="popover-content bg-gray-700">
@@ -287,6 +320,14 @@ export default {
             currentFileIndex: null,
             currentJob: null,
             currentUserId: null,
+            search: '',
+            searchDebounce: null,
+            pagination: {
+                current_page: 1,
+                last_page: 1,
+                per_page: 10,
+                total: 0,
+            },
         };
     },
     created() {
@@ -346,6 +387,24 @@ export default {
                     return index < job.actions.length - 1;
                 })
             );
+        },
+        pageButtons() {
+            const buttons = [];
+            const current = this.pagination.current_page || 1;
+            const last = this.pagination.last_page || 1;
+            const delta = 1; // pages around current
+            let start = Math.max(1, current - delta);
+            let end = Math.min(last, current + delta);
+            if (start > 1) {
+                buttons.push(1);
+                if (start > 2) buttons.push('...');
+            }
+            for (let p = start; p <= end; p++) buttons.push(p);
+            if (end < last) {
+                if (end < last - 1) buttons.push('...');
+                buttons.push(last);
+            }
+            return buttons;
         }
     },
     methods: {
@@ -402,22 +461,17 @@ export default {
 
 
         fetchJobs() {
-            const url = `/actions/${this.actionId}/jobs`;
+            const params = new URLSearchParams();
+            params.set('page', this.pagination.current_page?.toString() || '1');
+            params.set('per_page', this.pagination.per_page?.toString() || '10');
+            if (this.search) params.set('search', this.search);
+            const url = `/actions/${this.actionId}/jobs?${params.toString()}`;
             console.log('Fetching jobs from:', url);
             axios.get(url)
                 .then(response => {
                     console.log('Jobs response:', response.data);
-                    this.jobs = response.data?.jobs?.actions?.filter(a => a?.name === this?.actionId);
-                    this.invoices = response.data?.invoices;
-                    this.invoices = this.invoices?.map(invoice => {
-                        return {
-                            ...invoice, // Keep other properties of the invoice
-                            originalJobs: invoice?.jobs,
-                            jobs: invoice.jobs?.filter(job =>
-                                job?.actions?.some(action => action.name === this.actionId)
-                            ) || [] // Filter jobs for this specific invoice
-                        };
-                    });
+                    this.invoices = response.data?.invoices || [];
+                    this.pagination = response.data?.pagination || this.pagination;
 
                     this.id = response.data?.actionId;
                     this.currentUserId = response.data?.currentUserId;
@@ -433,6 +487,33 @@ export default {
                 .catch(error => {
                     console.error('There was an error fetching the jobs:', error);
                 });
+        },
+        onSearchInput() {
+            if (this.searchDebounce) clearTimeout(this.searchDebounce);
+            this.searchDebounce = setTimeout(() => {
+                this.pagination.current_page = 1;
+                this.fetchJobs();
+            }, 300);
+        },
+        nextPage() {
+            if (this.pagination.current_page < this.pagination.last_page) {
+                this.pagination.current_page += 1;
+                this.fetchJobs();
+            }
+        },
+        prevPage() {
+            if (this.pagination.current_page > 1) {
+                this.pagination.current_page -= 1;
+                this.fetchJobs();
+            }
+        },
+        goToPage(p) {
+            if (p === '...') return;
+            const last = this.pagination.last_page || 1;
+            if (typeof p === 'number' && p >= 1 && p <= last && p !== this.pagination.current_page) {
+                this.pagination.current_page = p;
+                this.fetchJobs();
+            }
         },
         viewJobs(index) {
             this.jobViewMode = this.jobViewMode === index ? null : index;
@@ -1117,6 +1198,37 @@ td{
     color: #ffffff80;
     margin-top: 5px;
     word-break: break-all;
+}
+
+/* Pagination styles */
+.pagination {
+    padding-bottom: 15px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.page-btn {
+    background-color: #2d3748;
+    color: #fff;
+    border: 1px solid #4a5568;
+    padding: 6px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.15s ease;
+}
+.page-btn:hover:not(:disabled) {
+    background-color: #3b475a;
+}
+.page-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+.page-btn.active {
+    background-color: #2563eb;
+    border-color: #2563eb;
+}
+.page-btn.dots {
+    cursor: default;
 }
 
 .preview-modal {
