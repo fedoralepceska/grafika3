@@ -281,34 +281,87 @@ class JobController extends Controller
                     // Store the original PDF file in R2
                     $originalPath = $this->templateStorageService->storeTemplate($file, 'job-originals');
                     
-                    // Generate preview image and calculate dimensions
+                    // Generate preview image and calculate dimensions for all pages
                     $imagick = new Imagick();
                     $imagick->setOption('gs', "C:\Program Files\gs\gs10.02.0");
-                    $imagick->readImage($file->getPathname() . '[0]'); // Read first page
-                    $imagick->setImageFormat('jpg');
+                    $imagick->readImage($file->getPathname());
+                    $pageCount = $imagick->getNumberImages();
+                    
+                    \Log::info('Processing single PDF file with multiple pages', [
+                        'file' => $file->getClientOriginalName(),
+                        'page_count' => $pageCount
+                    ]);
+                    
+                    // Variables to store cumulative dimensions for this file
+                    $fileTotalWidthMm = 0;
+                    $fileTotalHeightMm = 0;
+                    
+                    // Iterate through all pages of the PDF to calculate total dimensions
+                    for ($pageIndex = 0; $pageIndex < $pageCount; $pageIndex++) {
+                        $pageImagick = new Imagick();
+                        $pageImagick->setOption('gs', "C:\Program Files\gs\gs10.02.0");
+                        $pageImagick->readImage($file->getPathname() . '[' . $pageIndex . ']');
+                        $pageImagick->setImageFormat('jpg');
+                        
+                        // Create temporary image for dimension calculation
+                        $tempImagePath = storage_path('app/temp/single_dim_calc_' . $pageIndex . '_' . time() . '.jpg');
+                        $pageImagick->writeImage($tempImagePath);
+                        
+                        // Calculate dimensions from the page
+                        list($width, $height) = getimagesize($tempImagePath);
+                        $dpi = 72; // Default DPI
+                        $widthInMm = ($width / $dpi) * 25.4;
+                        $heightInMm = ($height / $dpi) * 25.4;
+                        
+                        // Add to file totals
+                        $fileTotalWidthMm += $widthInMm;
+                        $fileTotalHeightMm += $heightInMm;
+                        
+                        // Clean up temp file
+                        if (file_exists($tempImagePath)) {
+                            unlink($tempImagePath);
+                        }
+                        
+                        $pageImagick->clear();
+                        
+                        \Log::info('Calculated dimensions for page in single file upload', [
+                            'file' => $file->getClientOriginalName(),
+                            'page' => $pageIndex + 1,
+                            'width_mm' => $widthInMm,
+                            'height_mm' => $heightInMm
+                        ]);
+                    }
+                    
+                    // Create preview image from first page only
+                    $previewImagick = new Imagick();
+                    $previewImagick->setOption('gs', "C:\Program Files\gs\gs10.02.0");
+                    $previewImagick->readImage($file->getPathname() . '[0]'); // First page only for preview
+                    $previewImagick->setImageFormat('jpg');
                     
                     // Create unique filename for preview
                     $imageFilename = pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME) . '.jpg';
                     $imagePath = storage_path('app/public/uploads/' . $imageFilename);
-                    $imagick->writeImage($imagePath);
+                    $previewImagick->writeImage($imagePath);
                     
-                    // Calculate dimensions
-                    list($width, $height) = getimagesize($imagePath);
-                    $dpi = 72; // Default DPI
-                    $widthInMm = ($width / $dpi) * 25.4;
-                    $heightInMm = ($height / $dpi) * 25.4;
-                    
+                    $previewImagick->clear();
                     $imagick->clear();
 
                     // Save job first to get ID
                     $job->file = $imageFilename; // Preview image
                     $job->addOriginalFile($originalPath); // Store in originalFile JSON array
-                    $job->width = $widthInMm;
-                    $job->height = $heightInMm;
+                    $job->width = $fileTotalWidthMm;
+                    $job->height = $fileTotalHeightMm;
                     $job->save(); // Save to get ID
                     
                     // Generate thumbnail and store in R2
                     $this->generateThumbnail($imagePath, $job->id, 0, $file->getClientOriginalName());
+                    
+                    \Log::info('Completed single PDF file upload with all pages', [
+                        'file' => $file->getClientOriginalName(),
+                        'total_pages' => $pageCount,
+                        'total_width_mm' => $fileTotalWidthMm,
+                        'total_height_mm' => $fileTotalHeightMm
+                    ]);
                     
                 } else if ($fileExtension === 'tiff' || $fileExtension === 'tif') {
                     // Store the original TIFF file in R2 (fully R2 system)
@@ -1102,18 +1155,67 @@ class JobController extends Controller
                 if ($fileExtension === 'pdf') {
                     $imagick = new Imagick();
                     $imagick->setOption('gs', "C:\Program Files\gs\gs10.02.0");
-                    $imagick->readImage($file->getPathname() . '[0]');
-                    $imagick->setImageFormat('jpg');
+                    $imagick->readImage($file->getPathname());
+                    $pageCount = $imagick->getNumberImages();
+                    
+                    \Log::info('Processing PDF file replacement with multiple pages', [
+                        'job_id' => $id,
+                        'file' => $file->getClientOriginalName(),
+                        'page_count' => $pageCount
+                    ]);
+                    
+                    // Variables to store cumulative dimensions for this file
+                    $fileTotalWidthMm = 0;
+                    $fileTotalHeightMm = 0;
+                    
+                    // Iterate through all pages of the PDF to calculate total dimensions
+                    for ($pageIndex = 0; $pageIndex < $pageCount; $pageIndex++) {
+                        $pageImagick = new Imagick();
+                        $pageImagick->setOption('gs', "C:\Program Files\gs\gs10.02.0");
+                        $pageImagick->readImage($file->getPathname() . '[' . $pageIndex . ']');
+                        $pageImagick->setImageFormat('jpg');
+                        
+                        // Create temporary image for dimension calculation
+                        $tempImagePath = storage_path('app/temp/replace_dim_calc_' . $pageIndex . '_' . time() . '.jpg');
+                        $pageImagick->writeImage($tempImagePath);
+                        
+                        // Calculate dimensions from the page
+                        list($width, $height) = getimagesize($tempImagePath);
+                        $dpi = 72; // Default DPI if not available
+                        $widthInMm = ($width / $dpi) * 25.4;
+                        $heightInMm = ($height / $dpi) * 25.4;
+                        
+                        // Add to file totals
+                        $fileTotalWidthMm += $widthInMm;
+                        $fileTotalHeightMm += $heightInMm;
+                        
+                        // Clean up temp file
+                        if (file_exists($tempImagePath)) {
+                            unlink($tempImagePath);
+                        }
+                        
+                        $pageImagick->clear();
+                        
+                        \Log::info('Calculated dimensions for page in file replacement', [
+                            'job_id' => $id,
+                            'file' => $file->getClientOriginalName(),
+                            'page' => $pageIndex + 1,
+                            'width_mm' => $widthInMm,
+                            'height_mm' => $heightInMm
+                        ]);
+                    }
+                    
+                    // Create preview image from first page only
+                    $previewImagick = new Imagick();
+                    $previewImagick->setOption('gs', "C:\Program Files\gs\gs10.02.0");
+                    $previewImagick->readImage($file->getPathname() . '[0]'); // First page only for preview
+                    $previewImagick->setImageFormat('jpg');
+                    
                     $imageFilename = pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME) . '.jpg';
                     $imagePath = storage_path('app/public/uploads/' . $imageFilename);
-                    $imagick->writeImage($imagePath);
+                    $previewImagick->writeImage($imagePath);
+                    $previewImagick->clear();
                     $imagick->clear();
-
-                    // Calculate dimensions
-                    list($width, $height) = getimagesize($imagePath);
-                    $dpi = 72; // Default DPI if not available
-                    $widthInMm = ($width / $dpi) * 25.4;
-                    $heightInMm = ($height / $dpi) * 25.4;
 
                     // Update job with file info and dimensions
                     $job->file = $imageFilename;
@@ -1124,8 +1226,8 @@ class JobController extends Controller
                         $job->addOriginalFile($pdfPath);
                     }
                     
-                    $job->width = $widthInMm;
-                    $job->height = $heightInMm;
+                    $job->width = $fileTotalWidthMm;
+                    $job->height = $fileTotalHeightMm;
                     $job->save();
 
                     // Clean up old original files if they exist and are different from new file
@@ -1144,6 +1246,16 @@ class JobController extends Controller
                             }
                         }
                     }
+
+                    \Log::info('Successfully replaced job file with PDF (all pages processed)', [
+                        'job_id' => $id,
+                        'new_file' => $file->getClientOriginalName(),
+                        'total_pages' => $pageCount,
+                        'new_dimensions' => [
+                            'width_mm' => $fileTotalWidthMm,
+                            'height_mm' => $fileTotalHeightMm
+                        ]
+                    ]);
 
                     return response()->json([
                         'message' => 'File updated successfully',
@@ -2510,47 +2622,104 @@ class JobController extends Controller
         try {
             $imagick = new \Imagick();
             $imagick->setOption('gs', "C:\Program Files\gs\gs10.02.0");
-            $imagick->readImage($file->getPathname() . '[0]'); // Read the first page
-            $imagick->setImageFormat('jpg');
             
-            // Create temporary image for dimension calculation
-            $tempImagePath = storage_path('app/temp/dim_calc_' . $index . '_' . time() . '.jpg');
+            // Read the PDF file to get page count
+            $imagick->readImage($file->getPathname());
+            $pageCount = $imagick->getNumberImages();
             
-            // Ensure temp directory exists
-            if (!file_exists(dirname($tempImagePath))) {
-                mkdir(dirname($tempImagePath), 0755, true);
+            \Log::info('Processing PDF file with multiple pages', [
+                'job_id' => $jobId,
+                'file' => $file->getClientOriginalName(),
+                'page_count' => $pageCount,
+                'index' => $index
+            ]);
+            
+            // Variables to store cumulative dimensions for this file
+            $fileTotalWidthMm = 0;
+            $fileTotalHeightMm = 0;
+            $fileTotalAreaM2 = 0;
+            $pageDimensions = [];
+            
+            // Iterate through all pages of the PDF
+            for ($pageIndex = 0; $pageIndex < $pageCount; $pageIndex++) {
+                // Create a new Imagick instance for each page to avoid conflicts
+                $pageImagick = new \Imagick();
+                $pageImagick->setOption('gs', "C:\Program Files\gs\gs10.02.0");
+                $pageImagick->readImage($file->getPathname() . '[' . $pageIndex . ']');
+                $pageImagick->setImageFormat('jpg');
+                
+                // Create temporary image for dimension calculation
+                $tempImagePath = storage_path('app/temp/dim_calc_' . $index . '_page_' . $pageIndex . '_' . time() . '.jpg');
+                
+                // Ensure temp directory exists
+                if (!file_exists(dirname($tempImagePath))) {
+                    mkdir(dirname($tempImagePath), 0755, true);
+                }
+                
+                $pageImagick->writeImage($tempImagePath);
+                
+                // Calculate dimensions from the page
+                list($width, $height) = getimagesize($tempImagePath);
+                $dpi = 72; // Default DPI if not available
+                $widthInMm = ($width / $dpi) * 25.4;
+                $heightInMm = ($height / $dpi) * 25.4;
+                $areaM2 = ($widthInMm * $heightInMm) / 1000000;
+                
+                // Store individual page dimensions
+                $pageDimensions[] = [
+                    'page' => $pageIndex + 1,
+                    'width_mm' => $widthInMm,
+                    'height_mm' => $heightInMm,
+                    'area_m2' => $areaM2
+                ];
+                
+                // Add to file totals
+                $fileTotalWidthMm += $widthInMm;
+                $fileTotalHeightMm += $heightInMm;
+                $fileTotalAreaM2 += $areaM2;
+                
+                // Clean up temp file
+                if (file_exists($tempImagePath)) {
+                    unlink($tempImagePath);
+                }
+                
+                $pageImagick->clear();
+                
+                \Log::info('Calculated dimensions for page', [
+                    'job_id' => $jobId,
+                    'file' => $file->getClientOriginalName(),
+                    'page' => $pageIndex + 1,
+                    'width_mm' => $widthInMm,
+                    'height_mm' => $heightInMm,
+                    'area_m2' => $areaM2
+                ]);
             }
             
-            $imagick->writeImage($tempImagePath);
+            // Add file totals to job totals
+            $totalWidthMm += $fileTotalWidthMm;
+            $totalHeightMm += $fileTotalHeightMm;
+            $totalAreaM2 += $fileTotalAreaM2;
             
-            // Calculate dimensions from the image
-            list($width, $height) = getimagesize($tempImagePath);
-            $dpi = 72; // Default DPI if not available
-            $widthInMm = ($width / $dpi) * 25.4;
-            $heightInMm = ($height / $dpi) * 25.4;
-            $areaM2 = ($widthInMm * $heightInMm) / 1000000;
-
-            // Add to totals
-            $totalWidthMm += $widthInMm;
-            $totalHeightMm += $heightInMm;
-            $totalAreaM2 += $areaM2;
-
-            // Store individual file dimensions
+            // Store individual file dimensions (now includes all pages)
             $allFileDimensions[] = [
                 'filename' => $file->getClientOriginalName(),
-                'width_mm' => $widthInMm,
-                'height_mm' => $heightInMm,
-                'area_m2' => $areaM2,
+                'page_count' => $pageCount,
+                'total_width_mm' => $fileTotalWidthMm,
+                'total_height_mm' => $fileTotalHeightMm,
+                'total_area_m2' => $fileTotalAreaM2,
+                'page_dimensions' => $pageDimensions,
                 'index' => $index
             ];
-
-            // For the FIRST file, also create preview image for the job
+            
+            // For the FIRST file, also create preview image for the job (still using first page only)
             if ($index === 0) {
                 $imageFilename = pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME) . '.jpg';
                 $imagePath = storage_path('app/public/uploads/' . $imageFilename);
-                // Create a resized, compressed preview image to minimize storage and speed up UI
+                
+                // Create preview from first page only
                 $previewImagick = new \Imagick();
-                $previewImagick->readImage($tempImagePath);
+                $previewImagick->setOption('gs', "C:\Program Files\gs\gs10.02.0");
+                $previewImagick->readImage($file->getPathname() . '[0]'); // First page only for preview
                 $previewImagick->setImageFormat('jpg');
                 $previewImagick->setImageCompression(\Imagick::COMPRESSION_JPEG);
                 $previewImagick->setImageCompressionQuality(70);
@@ -2562,20 +2731,18 @@ class JobController extends Controller
                 $firstFilePreview = $imageFilename;
             }
             
-            // Clean up temp file
-            if (file_exists($tempImagePath)) {
-                unlink($tempImagePath);
-            }
-            
             $imagick->clear();
             
-            \Log::info('Calculated dimensions for file', [
+            \Log::info('Completed processing PDF file with all pages', [
                 'job_id' => $jobId,
                 'file' => $file->getClientOriginalName(),
-                'index' => $index,
-                'width_mm' => $widthInMm,
-                'height_mm' => $heightInMm,
-                'area_m2' => $areaM2
+                'total_pages' => $pageCount,
+                'file_total_width_mm' => $fileTotalWidthMm,
+                'file_total_height_mm' => $fileTotalHeightMm,
+                'file_total_area_m2' => $fileTotalAreaM2,
+                'cumulative_job_width_mm' => $totalWidthMm,
+                'cumulative_job_height_mm' => $totalHeightMm,
+                'cumulative_job_area_m2' => $totalAreaM2
             ]);
             
         } catch (\Exception $e) {
@@ -2841,37 +3008,85 @@ class JobController extends Controller
             // Write the file content to temp file
             file_put_contents($tempFilePath, $fileContent);
             
-            // Process with ImageMagick
+            // Process with ImageMagick to get page count
             $imagick = new \Imagick();
             $imagick->setOption('gs', "C:\Program Files\gs\gs10.02.0");
-            $imagick->readImage($tempFilePath . '[0]'); // Read the first page
-            $imagick->setImageFormat('jpg');
+            $imagick->readImage($tempFilePath);
+            $pageCount = $imagick->getNumberImages();
             
-            // Create temporary image for dimension calculation
-            $tempImagePath = storage_path('app/temp/remove_dim_calc_' . $fileIndex . '_' . time() . '.jpg');
-            $imagick->writeImage($tempImagePath);
+            \Log::info('Calculating dimensions for file removal with multiple pages', [
+                'file_path' => $filePath,
+                'file_index' => $fileIndex,
+                'page_count' => $pageCount
+            ]);
             
-            // Calculate dimensions from the image
-            list($width, $height) = getimagesize($tempImagePath);
-            $dpi = 72; // Default DPI if not available
-            $widthInMm = ($width / $dpi) * 25.4;
-            $heightInMm = ($height / $dpi) * 25.4;
-            $areaM2 = ($widthInMm * $heightInMm) / 1000000;
+            // Variables to store cumulative dimensions for this file
+            $fileTotalWidthMm = 0;
+            $fileTotalHeightMm = 0;
+            $fileTotalAreaM2 = 0;
             
-            // Clean up temp files
+            // Iterate through all pages of the PDF
+            for ($pageIndex = 0; $pageIndex < $pageCount; $pageIndex++) {
+                // Create a new Imagick instance for each page to avoid conflicts
+                $pageImagick = new \Imagick();
+                $pageImagick->setOption('gs', "C:\Program Files\gs\gs10.02.0");
+                $pageImagick->readImage($tempFilePath . '[' . $pageIndex . ']');
+                $pageImagick->setImageFormat('jpg');
+                
+                // Create temporary image for dimension calculation
+                $tempImagePath = storage_path('app/temp/remove_dim_calc_' . $fileIndex . '_page_' . $pageIndex . '_' . time() . '.jpg');
+                $pageImagick->writeImage($tempImagePath);
+                
+                // Calculate dimensions from the page
+                list($width, $height) = getimagesize($tempImagePath);
+                $dpi = 72; // Default DPI if not available
+                $widthInMm = ($width / $dpi) * 25.4;
+                $heightInMm = ($height / $dpi) * 25.4;
+                $areaM2 = ($widthInMm * $heightInMm) / 1000000;
+                
+                // Add to file totals
+                $fileTotalWidthMm += $widthInMm;
+                $fileTotalHeightMm += $heightInMm;
+                $fileTotalAreaM2 += $areaM2;
+                
+                // Clean up temp image file
+                if (file_exists($tempImagePath)) {
+                    unlink($tempImagePath);
+                }
+                
+                $pageImagick->clear();
+                
+                \Log::info('Calculated dimensions for page during removal', [
+                    'file_path' => $filePath,
+                    'file_index' => $fileIndex,
+                    'page' => $pageIndex + 1,
+                    'width_mm' => $widthInMm,
+                    'height_mm' => $heightInMm,
+                    'area_m2' => $areaM2
+                ]);
+            }
+            
+            // Clean up temp PDF file
             if (file_exists($tempFilePath)) {
                 unlink($tempFilePath);
-            }
-            if (file_exists($tempImagePath)) {
-                unlink($tempImagePath);
             }
             
             $imagick->clear();
             
+            \Log::info('Completed calculating dimensions for file removal', [
+                'file_path' => $filePath,
+                'file_index' => $fileIndex,
+                'total_pages' => $pageCount,
+                'total_width_mm' => $fileTotalWidthMm,
+                'total_height_mm' => $fileTotalHeightMm,
+                'total_area_m2' => $fileTotalAreaM2
+            ]);
+            
             return [
-                'width_mm' => $widthInMm,
-                'height_mm' => $heightInMm,
-                'area_m2' => $areaM2,
+                'width_mm' => $fileTotalWidthMm,
+                'height_mm' => $fileTotalHeightMm,
+                'area_m2' => $fileTotalAreaM2,
+                'page_count' => $pageCount,
                 'index' => $fileIndex
             ];
             
