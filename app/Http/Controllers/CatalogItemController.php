@@ -67,14 +67,12 @@ class CatalogItemController extends Controller
             $perPage = $request->input('per_page', 10);
             $searchTerm = $request->input('search', '');
             $category = $request->input('category', '');
-            $subcategoryId = $request->input('subcategory_id');
             $subcategoryIds = $request->input('subcategory_ids', []);
 
             // Start with base query
             $query = CatalogItem::with([
                 'largeMaterial',
                 'smallMaterial',
-                'subcategory',
                 'subcategories'
             ]);
 
@@ -95,11 +93,7 @@ class CatalogItemController extends Controller
             }
 
             // Add subcategory filter (supports multi)
-            if (!empty($subcategoryId)) {
-                $query->whereHas('subcategories', function($q) use ($subcategoryId) {
-                    $q->where('subcategories.id', $subcategoryId);
-                });
-            } elseif (!empty($subcategoryIds) && is_array($subcategoryIds)) {
+            if (!empty($subcategoryIds) && is_array($subcategoryIds)) {
                 $ids = array_filter(array_map('intval', $subcategoryIds));
                 if (!empty($ids)) {
                     $query->whereHas('subcategories', function($q) use ($ids) {
@@ -151,10 +145,6 @@ class CatalogItemController extends Controller
                     'small_material_id' => $item->small_material_category_id ? 'cat_' . $item->small_material_category_id : ($item->small_material_id ? (string)$item->small_material_id : null),
                     'price' => $item->price,
                     'template_file' => $item->template_file ? $this->templateStorageService->getSignedTemplateUrl($item->template_file) : null,
-                    'subcategory' => $item->subcategory ? [
-                        'id' => $item->subcategory->id,
-                        'name' => $item->subcategory->name
-                    ] : null,
                     'subcategory_ids' => $item->subcategories->pluck('id')->values()->all(),
                     'subcategory_names' => $item->subcategories->pluck('name')->values()->all(),
                     'articles' => $item->articles->map(function($article) {
@@ -172,17 +162,11 @@ class CatalogItemController extends Controller
                     })->toArray(),
                     'actions' => collect($item->actions ?? [])->map(function($action) {
                         return [
-                            'action_id' => [
-                                'id' => $action['action_id']['id'] ?? $action['id'],
-                                'name' => $action['action_id']['name'] ?? $action['name']
-                            ],
-                            'status' => $action['status'] ?? 'Not started yet',
+                            'action_id' => $action['action_id'],
                             'quantity' => $action['quantity'],
                             'isMaterialized' => $action['isMaterialized'] ?? false
                         ];
                     })->toArray(),
-                    'subcategory_id' => $item->subcategory_id,
-                    'subcategory_name' => $item->subcategory ? $item->subcategory->name : null,
                     'should_ask_questions' => (bool)$item->should_ask_questions,
                     'by_quantity' => (bool)$item->by_quantity,
                     'by_copies' => (bool)$item->by_copies,
@@ -356,7 +340,6 @@ class CatalogItemController extends Controller
         $request->merge([
             'is_for_offer' => filter_var($request->input('is_for_offer'), FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE),
             'is_for_sales' => filter_var($request->input('is_for_sales'), FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE),
-            'subcategory_id' => $request->input('subcategory_id') === 'null' || $request->input('subcategory_id') === '' ? null : $request->input('subcategory_id'),
             'large_material_id' => $request->input('large_material_id') === '' ? null : $request->input('large_material_id'),
             'small_material_id' => $request->input('small_material_id') === '' ? null : $request->input('small_material_id'),
             'large_material_category_id' => $request->input('large_material_category_id') === '' ? null : $request->input('large_material_category_id'),
@@ -432,14 +415,13 @@ class CatalogItemController extends Controller
         DB::beginTransaction();
         try {
             // Clean up the request data before creating the catalog item
-            $createData = $request->except(['actions', 'articles', 'template_file', 'subcategory_ids']);
+            $createData = $request->except(['actions', 'articles', 'template_file', 'subcategory_ids', 'subcategory_id']);
             
             // Ensure material ID fields are properly null if empty
             $createData['large_material_id'] = $createData['large_material_id'] ?: null;
             $createData['small_material_id'] = $createData['small_material_id'] ?: null;
             $createData['large_material_category_id'] = $createData['large_material_category_id'] ?: null;
             $createData['small_material_category_id'] = $createData['small_material_category_id'] ?: null;
-            $createData['subcategory_id'] = $createData['subcategory_id'] ?: null;
             
             // Create the catalog item without actions for now
             $catalogItem = CatalogItem::create($createData);
@@ -877,7 +859,7 @@ class CatalogItemController extends Controller
                 }
 
                 // Update the catalog item without actions, file, and template_file first
-                $updateData = $request->except(['actions', 'file', 'articles', 'template_file', 'remove_template', 'subcategory_ids']);
+                $updateData = $request->except(['actions', 'file', 'articles', 'template_file', 'remove_template', 'subcategory_ids', 'subcategory_id']);
                 
                 // Handle empty strings as null for material/category fields
                 $updateData['large_material_id'] = $request->input('large_material_id') ?: null;

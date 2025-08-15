@@ -790,7 +790,7 @@ export default {
                 is_for_sales: item.is_for_sales,
                 file: null,
                 template_file: item.template_file,
-                subcategory_id: item.subcategory_id,
+                subcategory_ids: item.subcategory_ids || [],
                 should_ask_questions: Boolean(item.should_ask_questions)
             };
 
@@ -863,7 +863,7 @@ export default {
                 price: 0,
                 file: null,
                 template_file: null,
-                subcategory_id: null,
+                subcategory_ids: [],
                 should_ask_questions: false
             };
             this.productArticles = [];

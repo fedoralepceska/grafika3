@@ -555,7 +555,6 @@ export default {
                 is_for_sales: this.catalogItem.is_for_sales,
                 file: null,
                 template_file: this.catalogItem.template_file,
-                subcategory_id: this.catalogItem.subcategory_id, // legacy, not sent
                 subcategory_ids: (this.selectedSubcategoryIds || []),
                 category: this.catalogItem.category,
                 should_ask_questions: Boolean(this.catalogItem.should_ask_questions)

@@ -32,7 +32,6 @@ class CatalogItem extends Model
         'template_file',
         'price',
         'cost_price',
-        'subcategory_id',
         'should_ask_questions',
         'by_quantity',
         'by_copies'

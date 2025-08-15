@@ -556,7 +556,6 @@ export default {
                 price: '0',
                 articles: [],
                 template_file: null,
-                subcategory_id: null, // legacy, not sent
                 subcategory_ids: [],
                 should_ask_questions: false
             },
@@ -968,9 +967,8 @@ export default {
 
         handleSubcategoryDeleted(subcategoryId) {
             this.subcategories = this.subcategories.filter(s => s.id !== subcategoryId);
-            if (this.form.subcategory_id === subcategoryId) {
-                this.form.subcategory_id = null;
-            }
+            // Remove the deleted subcategory from the selected subcategory IDs
+            this.form.subcategory_ids = this.form.subcategory_ids.filter(id => id !== subcategoryId);
         },
 
         handleLargeMaterialChange() {
