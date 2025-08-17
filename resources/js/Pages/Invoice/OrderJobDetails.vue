@@ -22,18 +22,20 @@
                 <div class="action">
                     <div
                         class="flexed"
-                        style="cursor: pointer"
                         :class="{
                             'circle': true,
                             'dark-gray': action.status === 'Not started yet',
                             'green': action.status === 'Completed',
                             'blue': action.status === 'In progress',
+                            'interactive': action.status !== 'Completed',
+                            'disabled': action.status === 'Completed'
                         }"
-                        @click="navigateToAction(action.name)"
+                        :style="action.status !== 'Completed' ? 'cursor: pointer' : 'cursor: not-allowed'"
+                        @click="action.status !== 'Completed' ? navigateToAction(action.name, job.id, invoiceId) : null"
                     >
                         <span v-if="action.status === 'Completed'">&#10003;</span>
                     </div>
-                    <span>{{ action.name }}</span>
+                    <span :title="action.status === 'Completed' ? `${action.name} - Completed (Click disabled)` : `${action.name} - Click to go to action`">{{ action.name }}</span>
                 </div>
             </div>
             <div class="completed line">
@@ -64,6 +66,7 @@ import axios from "axios";
 export default {
     props: {
         job: Object,
+        invoiceId: Number,
         circle: Boolean,
         blue: Boolean,
         green: Boolean,
@@ -109,8 +112,14 @@ export default {
             }
             return false; // Return a default value if there are no actions for the job
         },
-        navigateToAction(actionName) {
-                window.location.href = `/actions/${actionName}`;
+        navigateToAction(actionName, jobId, invoiceId) {
+            // Build URL with query parameters to identify the specific job
+            if (!jobId || !invoiceId) {
+                console.warn('Missing job ID or invoice ID for navigation');
+                return;
+            }
+            const url = `/actions/${actionName}?job=${jobId}&invoice=${invoiceId}`;
+            window.location.href = url;
         },
         getCompletionStatus() {
             const jobActions = this.actions(this.job.id);
@@ -178,6 +187,18 @@ export default {
 .disabled {
     cursor: not-allowed;
     pointer-events: none;
+    border: 2px solid #9CA3AF;
+    background-color: #6B7280;
+}
+
+.interactive {
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.interactive:hover {
+    transform: scale(1.05);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
 }
 .flexed{
     display: flex;

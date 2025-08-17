@@ -84,7 +84,7 @@
                                         </div>
                                         <div>{{$t('totalm')}}<sup>2</sup>: <span class="bold">{{((job.height * job.width) / 1000000).toFixed(4)}}</span></div>
                                     </div>
-                                        <OrderJobDetails :job="job"/>
+                                        <OrderJobDetails :job="job" :invoice-id="invoice.id"/>
                                     <div class="jobInfo relative pt-3">
                                         <div class="jobShippingInfo">
                                             <div class=" bg-white text-black bold ">

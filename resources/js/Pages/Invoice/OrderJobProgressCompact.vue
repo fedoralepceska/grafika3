@@ -3,14 +3,16 @@
         <div class="progress-line" v-if="actions(job.id).length > 0">
             <div class="step" v-for="action in actions(job.id)" :key="action.name">
                 <div
-                    class="dot interactive"
+                    class="dot"
                     :class="{
                         'dark-gray': action.status === 'Not started yet',
                         'green': action.status === 'Completed',
                         'blue': action.status === 'In progress',
+                        'interactive': action.status !== 'Completed',
+                        'disabled': action.status === 'Completed'
                     }"
-                    :title="action.name"
-                    @click.stop="navigateToAction(action.name)"
+                    :title="action.status === 'Completed' ? `${action.name} - Completed (Click disabled)` : `${action.name} - Click to go to action`"
+                    @click.stop="action.status !== 'Completed' ? navigateToAction(action.name) : null"
                 >
                     <span v-if="action.status === 'Completed'">&#10003;</span>
                 </div>
@@ -27,6 +29,7 @@ export default {
     name: 'OrderJobProgressCompact',
     props: {
         job: { type: Object, required: true },
+        invoiceId: { type: Number, required: true },
     },
     data() {
         return {
@@ -62,7 +65,13 @@ export default {
             return [];
         },
         navigateToAction(actionName) {
-            window.location.href = `/actions/${actionName}`;
+            // Build URL with query parameters to identify the specific job
+            if (!this.job.id || !this.invoiceId) {
+                console.warn('Missing job ID or invoice ID for navigation');
+                return;
+            }
+            const url = `/actions/${actionName}?job=${this.job.id}&invoice=${this.invoiceId}`;
+            window.location.href = url;
         },
         getCompletionStatus() {
             const jobActions = this.actions(this.job.id);
@@ -147,6 +156,18 @@ $container-horizontal-padding: 10px;
 .disabled {
     cursor: not-allowed;
     pointer-events: none;
+    border: 2px solid #9CA3AF;
+    background-color: #6B7280;
+}
+
+.interactive {
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.interactive:hover {
+    transform: scale(1.1);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
 }
 
 .blue { background-color: $blue; }

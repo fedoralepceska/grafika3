@@ -284,7 +284,7 @@
                                 <h4 class="section-title">Job Progress</h4>
                                 <div v-for="(job, idx) in selectedOrder.jobs" :key="job.id" class="job-progress-item compact">
                                     <div class="job-label">Job {{ idx + 1 }}</div>
-                                    <OrderJobProgressCompact :job="job" />
+                                    <OrderJobProgressCompact :job="job" :invoice-id="selectedOrder.id" />
                                 </div>
                             </div>
                         </div>

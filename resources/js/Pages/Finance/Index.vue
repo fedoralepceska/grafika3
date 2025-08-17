@@ -99,7 +99,7 @@
                                         <div class="p-1">{{$t('Copies')}}: <span class="bold">{{job.copies}}</span> </div>
                                     </div>
                                     <div class="ultra-light-gray pt-4">
-                                        <OrderJobDetails :job="job"/>
+                                        <OrderJobDetails :job="job" :invoice-id="invoice.id"/>
                                     </div>
                                 </div>
                             </div>

@@ -198,7 +198,7 @@
                                             </div>
                                     </div>
                                     <div v-if="jobProcessMode">
-                                        <OrderJobDetails :job="job"/>
+                                        <OrderJobDetails :job="job" :invoice-id="invoice.id"/>
                                     </div>
                                     <div class="jobInfo relative">
                                         <div class="jobShippingInfo" style="line-height: normal">

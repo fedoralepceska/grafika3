@@ -2,6 +2,14 @@
     <MainLayout>
         <div class="pl-7 pr-7">
             <Header title="action" subtitle="actionInfo" icon="task.png" link="production"/>
+            
+            <!-- Pre-search loading indicator -->
+            <div v-if="isPreSearching" class="pre-search-loading">
+                <div class="loading-content">
+                    <i class="fa fa-search fa-spin"></i>
+                    <span>Searching for your job<span class="animated-dots">...</span></span>
+                </div>
+            </div>
             <div class="flex items-center justify-between mb-3">
                 <div class="flex items-center gap-2">
                     <input
@@ -74,8 +82,8 @@
                                 <th v-if="hasNextSteps">{{ $t('nextStep') }}</th>
                             </tr>
                         </thead>
-                        <tbody v-for="(job, jobIndex) in invoice.jobs" :key="jobIndex">
-                            <tr v-if="invoice.comment && !acknowledged && hasNoteForCurrentAction(job)">
+                        <tbody v-for="(job, jobIndex) in invoice.jobs" :key="jobIndex" :data-job-id="job.id">
+                            <tr v-if="invoice.comment && !acknowledged && hasNoteForCurrentAction(job)" :data-job-id="job.id">
                                 <td :colspan="9 + (hasWaitingJobs ? 1 : 0) + (hasNextSteps ? 1 : 0)" class="orange">
                                     <button @click="openModal">
                                     <i class="fa-solid fa-arrow-down"></i>
@@ -86,7 +94,7 @@
                             </tr>
                             <tr :class="{
                                 'orange2' :  invoice.comment && !acknowledged && hasNoteForCurrentAction(job)
-                            }">
+                            }" :data-job-id="job.id">
                                 <td class="bg-white !text-black"><strong>#{{jobIndex+1}}</strong></td>
                                 <td class="image-cell">
                                     <!-- Multiple file thumbnails for new system -->
@@ -328,10 +336,22 @@ export default {
                 per_page: 10,
                 total: 0,
             },
+            targetJobInfo: null, // Store target job info from URL params
+            isSearchingForJob: false, // Prevent infinite loops when searching for jobs
+            isPreSearching: false, // Show loading state during pre-search
         };
     },
-    created() {
-        this.fetchJobs();
+    async created() {
+        // Check for URL parameters first and find the correct page BEFORE loading jobs
+        const shouldPreSearch = await this.checkUrlParams();
+        
+        if (shouldPreSearch) {
+            // Don't fetch jobs yet - we'll do it after finding the correct page
+            console.log('Pre-searching for job, will fetch jobs after finding correct page');
+        } else {
+            // No URL params, fetch jobs normally
+            this.fetchJobs();
+        }
     },
     beforeMount() {
         // Load job disabled status from localStorage
@@ -483,6 +503,12 @@ export default {
                     
                     // Debug the current state
                     this.debugCurrentState();
+                    
+                    // Try to open target job if URL params were provided
+                    // Only open if we're not in the middle of pre-searching
+                    if (!this.isSearchingForJob) {
+                        this.openTargetJob();
+                    }
                 })
                 .catch(error => {
                     console.error('There was an error fetching the jobs:', error);
@@ -513,6 +539,626 @@ export default {
             if (typeof p === 'number' && p >= 1 && p <= last && p !== this.pagination.current_page) {
                 this.pagination.current_page = p;
                 this.fetchJobs();
+            }
+        },
+        async checkUrlParams() {
+            // Check if URL has job and invoice parameters
+            const urlParams = new URLSearchParams(window.location.search);
+            const targetJobId = urlParams.get('job');
+            const targetInvoiceId = urlParams.get('invoice');
+            
+            console.log('Checking URL params:', { targetJobId, targetInvoiceId });
+            
+            if (targetJobId && targetInvoiceId) {
+                // Store the target job info to open after jobs are loaded
+                this.targetJobInfo = {
+                    jobId: parseInt(targetJobId),
+                    invoiceId: parseInt(targetInvoiceId)
+                };
+                console.log('Target job info set:', this.targetJobInfo);
+                
+                // Pre-search for the job to find the correct page BEFORE loading any content
+                const foundPage = await this.preSearchForJob(parseInt(targetJobId), parseInt(targetInvoiceId));
+                
+                if (foundPage) {
+                    console.log('Pre-search successful: Job found on page', foundPage);
+                    // Set the correct page and fetch jobs
+                    this.pagination.current_page = foundPage;
+                    await this.fetchJobs();
+                    return false; // Don't fetch jobs again
+                } else {
+                    console.log('Pre-search failed: Will search after loading jobs');
+                    // Fallback to normal search after jobs are loaded
+                    return true; // Fetch jobs normally
+                }
+            }
+            
+            return false; // No URL params, fetch jobs normally
+        },
+        async preSearchForJob(jobId, invoiceId) {
+            try {
+                this.isPreSearching = true;
+                console.log('preSearchForJob: Pre-searching for job', jobId, 'in invoice', invoiceId);
+                
+                // Strategy 1: Try to find the page directly using a smart search
+                let foundPage = await this.smartPageSearch(invoiceId, jobId);
+                
+                if (!foundPage) {
+                    // Strategy 2: Fallback to systematic page search
+                    console.log('preSearchForJob: Smart search failed, trying systematic search...');
+                    foundPage = await this.systematicPageSearch(invoiceId, jobId);
+                }
+                
+                if (foundPage) {
+                    console.log('preSearchForJob: Found job on page', foundPage);
+                    return foundPage;
+                } else {
+                    console.log('preSearchForJob: Could not find job on any page');
+                    return null;
+                }
+                
+            } catch (error) {
+                console.error('preSearchForJob: Error:', error);
+                return null;
+            } finally {
+                this.isPreSearching = false;
+            }
+        },
+        async smartPageSearch(invoiceId, jobId) {
+            try {
+                console.log('smartPageSearch: Using smart search strategy');
+                
+                // Try to find the page using search API first (most efficient)
+                const searchParams = new URLSearchParams();
+                searchParams.set('search', invoiceId.toString());
+                searchParams.set('per_page', '1000');
+                
+                const response = await axios.get(`/actions/${this.actionId}/jobs?${searchParams.toString()}`);
+                const searchResults = response.data?.invoices || [];
+                
+                // Check if our invoice is in the search results
+                const targetInvoice = searchResults.find(invoice => invoice.id === invoiceId);
+                
+                if (targetInvoice) {
+                    console.log('smartPageSearch: Found invoice in search results, calculating page...');
+                    // Calculate which page this invoice would be on based on its position
+                    return await this.calculateInvoicePage(invoiceId);
+                }
+                
+                return null;
+            } catch (error) {
+                console.error('smartPageSearch: Error:', error);
+                return null;
+            }
+        },
+        async systematicPageSearch(invoiceId, jobId) {
+            try {
+                console.log('systematicPageSearch: Searching through pages systematically');
+                
+                // Get total pages from a quick API call
+                const response = await axios.get(`/actions/${this.actionId}/jobs?page=1&per_page=1`);
+                const totalPages = response.data?.pagination?.last_page || 1;
+                console.log('systematicPageSearch: Total pages to search:', totalPages);
+                
+                // Search through pages efficiently (limit to prevent excessive API calls)
+                const maxPagesToSearch = Math.min(totalPages, 15);
+                
+                for (let page = 1; page <= maxPagesToSearch; page++) {
+                    console.log(`systematicPageSearch: Checking page ${page}/${maxPagesToSearch}`);
+                    
+                    const params = new URLSearchParams();
+                    params.set('page', page.toString());
+                    params.set('per_page', '10'); // Use smaller per_page for faster responses
+                    
+                    const pageResponse = await axios.get(`/actions/${this.actionId}/jobs?${params.toString()}`);
+                    const pageInvoices = pageResponse.data?.invoices || [];
+                    
+                    // Check if our invoice is on this page
+                    const invoiceIndex = pageInvoices.findIndex(invoice => invoice.id === invoiceId);
+                    if (invoiceIndex !== -1) {
+                        console.log(`systematicPageSearch: Found invoice on page ${page}`);
+                        return page;
+                    }
+                }
+                
+                return null;
+            } catch (error) {
+                console.error('systematicPageSearch: Error:', error);
+                return null;
+            }
+        },
+        async calculateInvoicePage(invoiceId) {
+            try {
+                console.log('calculateInvoicePage: Calculating page for invoice', invoiceId);
+                
+                // Get the first page to understand the structure
+                const response = await axios.get(`/actions/${this.actionId}/jobs?page=1&per_page=10`);
+                const firstPageInvoices = response.data?.invoices || [];
+                const perPage = response.data?.pagination?.per_page || 10;
+                
+                // If invoice ID is less than the first invoice on page 1, it's on page 1
+                if (firstPageInvoices.length > 0 && invoiceId <= firstPageInvoices[0].id) {
+                    return 1;
+                }
+                
+                // Estimate the page based on invoice ID and per_page
+                // This is a rough calculation but should work in most cases
+                const estimatedPage = Math.ceil(invoiceId / perPage);
+                console.log('calculateInvoicePage: Estimated page:', estimatedPage);
+                
+                // Verify the estimated page
+                const verifyResponse = await axios.get(`/actions/${this.actionId}/jobs?page=${estimatedPage}&per_page=${perPage}`);
+                const verifyInvoices = verifyResponse.data?.invoices || [];
+                
+                const invoiceIndex = verifyInvoices.findIndex(invoice => invoice.id === invoiceId);
+                if (invoiceIndex !== -1) {
+                    console.log(`calculateInvoicePage: Verified invoice on page ${estimatedPage}`);
+                    return estimatedPage;
+                }
+                
+                // If estimation failed, try nearby pages
+                for (let offset = -1; offset <= 1; offset++) {
+                    const nearbyPage = estimatedPage + offset;
+                    if (nearbyPage > 0) {
+                        const nearbyResponse = await axios.get(`/actions/${this.actionId}/jobs?page=${nearbyPage}&per_page=${perPage}`);
+                        const nearbyInvoices = nearbyResponse.data?.invoices || [];
+                        
+                        const nearbyIndex = nearbyInvoices.findIndex(invoice => invoice.id === invoiceId);
+                        if (nearbyIndex !== -1) {
+                            console.log(`calculateInvoicePage: Found invoice on nearby page ${nearbyPage}`);
+                            return nearbyPage;
+                        }
+                    }
+                }
+                
+                return null;
+            } catch (error) {
+                console.error('calculateInvoicePage: Error:', error);
+                return null;
+            }
+        },
+        async testSearchFunctionality(jobId, invoiceId) {
+            try {
+                console.log('=== TESTING SEARCH FUNCTIONALITY ===');
+                console.log('Testing search for job:', jobId, 'invoice:', invoiceId);
+                
+                // Test 1: Direct search by invoice ID
+                const searchParams1 = new URLSearchParams();
+                searchParams1.set('search', invoiceId.toString());
+                searchParams1.set('per_page', '1000');
+                
+                console.log('Testing search URL 1:', `/actions/${this.actionId}/jobs?${searchParams1.toString()}`);
+                const response1 = await axios.get(`/actions/${this.actionId}/jobs?${searchParams1.toString()}`);
+                console.log('Search response 1:', response1.data);
+                
+                // Test 2: Search by job ID
+                const searchParams2 = new URLSearchParams();
+                searchParams2.set('search', jobId.toString());
+                searchParams2.set('per_page', '1000');
+                
+                console.log('Testing search URL 2:', `/actions/${this.actionId}/jobs?${searchParams2.toString()}`);
+                const response2 = await axios.get(`/actions/${this.actionId}/jobs?${searchParams2.toString()}`);
+                console.log('Search response 2:', response2.data);
+                
+                // Test 3: Check current pagination info
+                console.log('Current pagination:', this.pagination);
+                
+                console.log('=== END TESTING ===');
+                
+            } catch (error) {
+                console.error('Error testing search functionality:', error);
+            }
+        },
+        openTargetJob() {
+            if (!this.targetJobInfo || !this.invoices.length) {
+                console.log('openTargetJob: No target job info or no invoices loaded yet');
+                return;
+            }
+            
+            // Prevent infinite loops when searching for jobs
+            if (this.isSearchingForJob) {
+                console.log('openTargetJob: Already searching for job, skipping...');
+                return;
+            }
+            
+            const { jobId, invoiceId } = this.targetJobInfo;
+            console.log('openTargetJob: Looking for job', jobId, 'in invoice', invoiceId);
+            
+            // Find the invoice index that contains the target job
+            const invoiceIndex = this.invoices.findIndex(invoice => 
+                invoice.id === invoiceId && 
+                invoice.jobs.some(job => job.id === jobId)
+            );
+            
+            console.log('openTargetJob: Found invoice at index', invoiceIndex);
+            
+            if (invoiceIndex !== -1) {
+                // Job found on current page - open it
+                this.openJobOnCurrentPage(invoiceIndex, jobId);
+            } else {
+                // Job not found on current page - this shouldn't happen with pre-search
+                // but fallback to search if needed
+                console.log('openTargetJob: Job not found on current page, this shouldn\'t happen with pre-search');
+                console.log('openTargetJob: Current invoices:', this.invoices.map(inv => inv.id));
+                console.log('openTargetJob: Target invoice:', invoiceId);
+                
+                // Try to search as fallback
+                this.searchForJobAcrossPages(jobId, invoiceId);
+            }
+        },
+        openJobOnCurrentPage(invoiceIndex, jobId) {
+            // Open the job view for this invoice
+            this.jobViewMode = invoiceIndex;
+            console.log('openJobOnCurrentPage: Set jobViewMode to', invoiceIndex);
+            
+            // Clear the target job info
+            this.targetJobInfo = null;
+            
+            // Clear URL parameters to clean up the URL
+            this.clearUrlParams();
+            
+            // Add focus styling and scroll to the specific job row after a short delay
+            setTimeout(() => {
+                this.focusJobWithAnimation(jobId);
+            }, 100);
+        },
+        async searchForJobAcrossPages(jobId, invoiceId) {
+            try {
+                this.isSearchingForJob = true;
+                console.log('searchForJobAcrossPages: Searching for job', jobId, 'in invoice', invoiceId);
+                
+                // Try multiple search strategies to find the job
+                let foundPage = null;
+                
+                // Strategy 1: Search by invoice ID (more reliable)
+                console.log('Strategy 1: Searching by invoice ID...');
+                foundPage = await this.searchByInvoiceId(invoiceId);
+                
+                if (!foundPage) {
+                    // Strategy 2: Search by job ID
+                    console.log('Strategy 2: Searching by job ID...');
+                    foundPage = await this.searchByJobId(jobId, invoiceId);
+                }
+                
+                if (!foundPage) {
+                    // Strategy 3: Search through pages systematically
+                    console.log('Strategy 3: Searching through pages systematically...');
+                    foundPage = await this.searchThroughPages(invoiceId, jobId);
+                }
+                
+                if (!foundPage) {
+                    // Strategy 4: Try common pages (fallback)
+                    console.log('Strategy 4: Trying common pages as fallback...');
+                    foundPage = await this.tryCommonPages(invoiceId, jobId);
+                }
+                
+                if (foundPage) {
+                    console.log('searchForJobAcrossPages: Found job on page', foundPage);
+                    // Navigate to the correct page
+                    this.pagination.current_page = foundPage;
+                    await this.fetchJobs();
+                    
+                    // After fetching, the openTargetJob will be called again and should find the job
+                    // But we need to preserve the target job info and reset the searching flag
+                    this.targetJobInfo = { jobId, invoiceId };
+                    this.isSearchingForJob = false;
+                } else {
+                    console.warn('searchForJobAcrossPages: Job not found with any strategy');
+                    this.handleJobNotFound(jobId, invoiceId);
+                }
+                
+            } catch (error) {
+                console.error('searchForJobAcrossPages: Error searching for job:', error);
+                this.handleJobNotFound(jobId, invoiceId);
+            } finally {
+                this.isSearchingForJob = false;
+            }
+        },
+        async searchByInvoiceId(invoiceId) {
+            try {
+                console.log('searchByInvoiceId: Searching for invoice', invoiceId);
+                
+                // Search by invoice ID - this should be more reliable
+                const searchParams = new URLSearchParams();
+                searchParams.set('search', invoiceId.toString());
+                searchParams.set('per_page', '1000'); // Get maximum results
+                
+                const response = await axios.get(`/actions/${this.actionId}/jobs?${searchParams.toString()}`);
+                const searchResults = response.data?.invoices || [];
+                
+                // Check if our invoice is in the search results
+                const targetInvoice = searchResults.find(invoice => invoice.id === invoiceId);
+                
+                if (targetInvoice) {
+                    console.log('searchByInvoiceId: Found invoice in search results');
+                    // Now find which page this invoice is on in normal pagination
+                    return await this.findPageForInvoice(invoiceId);
+                }
+                
+                return null;
+            } catch (error) {
+                console.error('searchByInvoiceId: Error:', error);
+                return null;
+            }
+        },
+        async searchByJobId(jobId, invoiceId) {
+            try {
+                console.log('searchByJobId: Searching for job', jobId);
+                
+                // Try different search patterns for job ID
+                const searchPatterns = [
+                    jobId.toString(),
+                    `#${jobId}`,
+                    `Job ${jobId}`,
+                    `job ${jobId}`
+                ];
+                
+                for (const pattern of searchPatterns) {
+                    const searchParams = new URLSearchParams();
+                    searchParams.set('search', pattern);
+                    searchParams.set('per_page', '1000');
+                    
+                    const response = await axios.get(`/actions/${this.actionId}/jobs?${searchParams.toString()}`);
+                    const searchResults = response.data?.invoices || [];
+                    
+                    // Find the invoice containing our job
+                    const targetInvoice = searchResults.find(invoice => 
+                        invoice.id === invoiceId && 
+                        invoice.jobs.some(job => job.id === jobId)
+                    );
+                    
+                    if (targetInvoice) {
+                        console.log('searchByJobId: Found job with pattern:', pattern);
+                        return await this.findPageForInvoice(invoiceId);
+                    }
+                }
+                
+                return null;
+            } catch (error) {
+                console.error('searchByJobId: Error:', error);
+                return null;
+            }
+        },
+        async searchThroughPages(invoiceId, jobId) {
+            try {
+                console.log('searchThroughPages: Searching through pages systematically');
+                
+                // Get total pages from current pagination
+                const totalPages = this.pagination.last_page || 1;
+                console.log('searchThroughPages: Total pages to search:', totalPages);
+                
+                // Search through pages more efficiently
+                let foundPage = null;
+                const maxPagesToSearch = Math.min(totalPages, 20); // Limit to prevent excessive API calls
+                
+                for (let page = 1; page <= maxPagesToSearch; page++) {
+                    console.log(`searchThroughPages: Checking page ${page}/${maxPagesToSearch}`);
+                    
+                    const params = new URLSearchParams();
+                    params.set('page', page.toString());
+                    params.set('per_page', this.pagination.per_page.toString());
+                    
+                    const response = await axios.get(`/actions/${this.actionId}/jobs?${params.toString()}`);
+                    const pageInvoices = response.data?.invoices || [];
+                    
+                    // Check if our invoice is on this page
+                    const invoiceIndex = pageInvoices.findIndex(invoice => invoice.id === invoiceId);
+                    if (invoiceIndex !== -1) {
+                        foundPage = page;
+                        console.log('searchThroughPages: Found invoice on page', page);
+                        break;
+                    }
+                    
+                    // Add a small delay to prevent overwhelming the server
+                    await new Promise(resolve => setTimeout(resolve, 100));
+                }
+                
+                return foundPage;
+            } catch (error) {
+                console.error('searchThroughPages: Error:', error);
+                return null;
+            }
+        },
+        async tryCommonPages(invoiceId, jobId) {
+            try {
+                console.log('tryCommonPages: Trying common pages as fallback');
+                
+                // Try common pages where jobs might be located
+                const commonPages = [2, 3, 4, 5]; // Common pages to check
+                
+                for (const page of commonPages) {
+                    console.log(`tryCommonPages: Checking page ${page}`);
+                    
+                    const params = new URLSearchParams();
+                    params.set('page', page.toString());
+                    params.set('per_page', this.pagination.per_page.toString());
+                    
+                    const response = await axios.get(`/actions/${this.actionId}/jobs?${params.toString()}`);
+                    const pageInvoices = response.data?.invoices || [];
+                    
+                    // Check if our invoice is on this page
+                    const invoiceIndex = pageInvoices.findIndex(invoice => invoice.id === invoiceId);
+                    if (invoiceIndex !== -1) {
+                        console.log(`tryCommonPages: Found invoice on page ${page}`);
+                        return page;
+                    }
+                }
+                
+                return null;
+            } catch (error) {
+                console.error('tryCommonPages: Error:', error);
+                return null;
+            }
+        },
+        async findPageForInvoice(invoiceId) {
+            try {
+                console.log('findPageForInvoice: Finding page for invoice', invoiceId);
+                
+                // Search through pages to find the invoice
+                let foundPage = null;
+                const totalPages = this.pagination.last_page || 1;
+                const maxPagesToSearch = Math.min(totalPages, 10); // Limit search
+                
+                for (let page = 1; page <= maxPagesToSearch; page++) {
+                    const params = new URLSearchParams();
+                    params.set('page', page.toString());
+                    params.set('per_page', this.pagination.per_page.toString());
+                    
+                    const response = await axios.get(`/actions/${this.actionId}/jobs?${params.toString()}`);
+                    const pageInvoices = response.data?.invoices || [];
+                    
+                    // Check if our invoice is on this page
+                    const invoiceIndex = pageInvoices.findIndex(invoice => invoice.id === invoiceId);
+                    if (invoiceIndex !== -1) {
+                        foundPage = page;
+                        console.log('findPageForInvoice: Found invoice on page', page);
+                        break;
+                    }
+                }
+                
+                return foundPage;
+            } catch (error) {
+                console.error('findPageForInvoice: Error:', error);
+                return null;
+            }
+        },
+        async findInvoicePage(invoiceId, jobId) {
+            try {
+                console.log('findInvoicePage: Finding page for invoice', invoiceId);
+                
+                // Search through pages to find the invoice
+                let foundPage = null;
+                let currentPage = 1;
+                const maxPagesToSearch = 10; // Limit search to prevent infinite loops
+                
+                while (currentPage <= maxPagesToSearch && !foundPage) {
+                    const params = new URLSearchParams();
+                    params.set('page', currentPage.toString());
+                    params.set('per_page', this.pagination.per_page.toString());
+                    
+                    const response = await axios.get(`/actions/${this.actionId}/jobs?${params.toString()}`);
+                    const pageInvoices = response.data?.invoices || [];
+                    
+                    // Check if our invoice is on this page
+                    const invoiceIndex = pageInvoices.findIndex(invoice => invoice.id === invoiceId);
+                    if (invoiceIndex !== -1) {
+                        foundPage = currentPage;
+                        console.log('findInvoicePage: Found invoice on page', currentPage);
+                        break;
+                    }
+                    
+                    currentPage++;
+                    
+                    // Stop if we've reached the last page
+                    if (currentPage > (response.data?.pagination?.last_page || 1)) {
+                        break;
+                    }
+                }
+                
+                if (foundPage) {
+                    // Navigate to the correct page
+                    console.log('findInvoicePage: Navigating to page', foundPage);
+                    this.pagination.current_page = foundPage;
+                    await this.fetchJobs();
+                    
+                    // After fetching, the openTargetJob will be called again and should find the job
+                    // But we need to preserve the target job info and reset the searching flag
+                    this.targetJobInfo = { jobId, invoiceId };
+                    this.isSearchingForJob = false;
+                } else {
+                    console.warn('findInvoicePage: Could not find invoice on any page');
+                    this.handleJobNotFound(jobId, invoiceId);
+                }
+                
+            } catch (error) {
+                console.error('findInvoicePage: Error finding invoice page:', error);
+                this.handleJobNotFound(jobId, invoiceId);
+            }
+        },
+        handleJobNotFound(jobId, invoiceId) {
+            console.warn(`Could not find job ${jobId} in invoice ${invoiceId}`);
+            // Clear the target job info if not found
+            this.targetJobInfo = null;
+            // Clear URL parameters even if job not found
+            this.clearUrlParams();
+            // Reset the searching flag
+            this.isSearchingForJob = false;
+            
+            // Show error toast
+            const toast = useToast();
+            toast.error(`Job #${jobId} not found. It may have been deleted or moved.`);
+        },
+        clearUrlParams() {
+            // Clear URL parameters to clean up the URL
+            const url = new URL(window.location);
+            url.search = '';
+            window.history.replaceState({}, '', url);
+        },
+        focusJobWithAnimation(jobId) {
+            try {
+                console.log('focusJobWithAnimation: Focusing job', jobId);
+                
+                // Find the parent main container that holds the job
+                const jobElement = document.querySelector(`[data-job-id="${jobId}"]`);
+                if (!jobElement) {
+                    console.warn('focusJobWithAnimation: Job element not found');
+                    return;
+                }
+                
+                // Find the parent div with class="main" that contains this job
+                const mainContainer = jobElement.closest('.main');
+                if (!mainContainer) {
+                    console.warn('focusJobWithAnimation: Main container not found');
+                    return;
+                }
+                
+                // Remove any existing focus styling
+                this.removeJobFocus();
+                
+                // Add focus styling to the main container
+                mainContainer.classList.add('job-container-focused');
+                
+                // Scroll to the main container smoothly
+                mainContainer.scrollIntoView({ 
+                    behavior: 'smooth', 
+                    block: 'center' 
+                });
+                
+                // Remove focus styling after animation completes
+                setTimeout(() => {
+                    this.removeJobFocus();
+                }, 3000); // Keep focus for 3 seconds
+                
+                console.log('focusJobWithAnimation: Main container focused successfully');
+                
+            } catch (error) {
+                console.error('focusJobWithAnimation: Error:', error);
+            }
+        },
+        removeJobFocus() {
+            // Remove focus styling from main container with smooth animation
+            const containerFocused = document.querySelector('.job-container-focused');
+            if (containerFocused) {
+                // Add focus-out animation class
+                containerFocused.classList.add('focus-out');
+                
+                // Remove all focus classes after animation completes
+                setTimeout(() => {
+                    containerFocused.classList.remove('job-container-focused', 'focus-out');
+                }, 400); // Match the focus-out animation duration
+            }
+        },
+        scrollToJob(jobId) {
+            // Find the job element and scroll to it
+            const jobElement = document.querySelector(`[data-job-id="${jobId}"]`);
+            if (jobElement) {
+                jobElement.scrollIntoView({ 
+                    behavior: 'smooth', 
+                    block: 'center' 
+                });
+                console.log(`Scrolled to job ${jobId}`);
+            } else {
+                console.warn(`Job element with ID ${jobId} not found in DOM`);
             }
         },
         viewJobs(index) {
@@ -1326,6 +1972,186 @@ td{
                 color: white;
             }
         }
+    }
+}
+
+/* Pre-search loading styles */
+.pre-search-loading {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background-color: rgba(0, 0, 0, 0.8);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 9999;
+}
+
+.loading-content {
+    background-color: #2d3748;
+    padding: 30px;
+    border-radius: 8px;
+    color: white;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 15px;
+}
+
+.loading-content i {
+    font-size: 2em;
+    color: #4299e1;
+}
+
+.loading-content span {
+    font-size: 1.2em;
+    font-weight: 500;
+}
+
+.animated-dots {
+    display: inline-block;
+    animation: dotAnimation 1.5s infinite;
+}
+
+@keyframes dotAnimation {
+    0%, 20% {
+        opacity: 0;
+        transform: translateY(0);
+    }
+    50% {
+        opacity: 1;
+        transform: translateY(-2px);
+    }
+    80%, 100% {
+        opacity: 0;
+        transform: translateY(0);
+    }
+}
+
+/* Main container focus animation styles */
+.job-container-focused{
+    animation: containerFocusIn 0.6s ease-out forwards;
+    position: relative;
+    z-index: 10;
+    transition: all 0.3s ease;
+}
+
+.job-container-focused::after {
+    content: '';
+    position: absolute;
+    top: -3px;
+    left: -3px;
+    right: -3px;
+    bottom: -3px;
+    border: 3px solid #4299e1;
+    border-radius: inherit;
+    z-index: 1;
+    animation: borderGlow 2s ease-in-out infinite;
+    pointer-events: none;
+}
+
+.job-container-focused::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    border: 1px solid rgba(66, 153, 225, 0.6);
+    border-radius: inherit;
+    z-index: 1;
+    animation: innerGlow 2s ease-in-out infinite;
+    pointer-events: none;
+}
+
+
+
+@keyframes jobFocusIn {
+    0% {
+        transform: scale(1);
+        background-color: transparent;
+    }
+    50% {
+        transform: scale(1.01);
+        background-color: rgba(66, 153, 225, 0.08);
+    }
+    100% {
+        transform: scale(1);
+        background-color: rgba(66, 153, 225, 0.05);
+    }
+}
+
+
+
+@keyframes containerFocusIn {
+    0% {
+        transform: scale(1);
+    }
+    50% {
+        transform: scale(1.01);
+    }
+    100% {
+        transform: scale(1);
+    }
+}
+
+
+
+@keyframes containerGlow {
+    0%, 100% {
+        opacity: 0.3;
+        transform: translateX(-100%);
+    }
+    50% {
+        opacity: 0.6;
+        transform: translateX(100%);
+    }
+}
+
+@keyframes borderGlow {
+    0%, 100% {
+        opacity: 0.8;
+        box-shadow: 
+            0 0 5px rgba(66, 153, 225, 0.8),
+            0 0 10px rgba(66, 153, 225, 0.6),
+            0 0 15px rgba(66, 153, 225, 0.4),
+            0 0 20px rgba(66, 153, 225, 0.2);
+    }
+    50% {
+        opacity: 1;
+        box-shadow: 
+            0 0 8px rgba(66, 153, 225, 1),
+            0 0 15px rgba(66, 153, 225, 0.8),
+            0 0 25px rgba(66, 153, 225, 0.6),
+            0 0 35px rgba(66, 153, 225, 0.4);
+    }
+}
+
+@keyframes innerGlow {
+    0%, 100% {
+        opacity: 0.4;
+        box-shadow: inset 0 0 5px rgba(66, 153, 225, 0.3);
+    }
+    50% {
+        opacity: 0.8;
+        box-shadow: inset 0 0 10px rgba(66, 153, 225, 0.6);
+    }
+}
+
+/* Focus out animation */
+.job-container-focused.focus-out {
+    animation: containerFocusOut 0.4s ease-in forwards;
+}
+
+@keyframes containerFocusOut {
+    0% {
+        transform: scale(1);
+    }
+    100% {
+        transform: scale(1);
     }
 }
 </style>
