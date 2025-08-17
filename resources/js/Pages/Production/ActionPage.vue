@@ -143,6 +143,21 @@
                                             <i class="fa-solid fa-clock"></i> {{ $t('inProgress') }}
                                             <div class="timer-display">{{ elapsedTimes[getActionId(job).id] }}</div>
                                         </div>
+                                        <!-- Admin bypass for stuck jobs (in progress but missing started_at) -->
+                                        <div v-if="isAdmin && !job.actions.find(a => a.name === actionId)?.started_at" class="mt-2">
+                                            <div class="text-yellow-400 text-xs mb-2 flex items-center justify-center gap-2">
+                                                <i class="fa-solid fa-triangle-exclamation"></i>
+                                                <span>Job is stuck (missing start time)</span>
+                                            </div>
+                                            <button
+                                                class="bg-red-600 text-white p-2 rounded flex items-center gap-2 mx-auto"
+                                                @click="adminEndJob(job, invoice.id)"
+                                                :disabled="invoice.onHold"
+                                            >
+                                                <i class="fa-solid fa-user-shield"></i>
+                                                <strong>Admin: End Stuck Job</strong>
+                                            </button>
+                                        </div>
                                         <button
                                             v-if="canEndJob(job)"
                                             :class="['red', 'p-2', 'rounded', { 'disabled' : invoice.onHold || !canCurrentUserEndJob(job) }]"
@@ -300,6 +315,7 @@ import Header from "@/Components/Header.vue";
 import CommentModal from "@/Components/CommentModal.vue";
 import axios from "axios";
 import {useToast} from "vue-toastification";
+import useRoleCheck from '@/Composables/useRoleCheck';
 
 export default {
     name: 'ActionPage',
@@ -339,9 +355,17 @@ export default {
             targetJobInfo: null, // Store target job info from URL params
             isSearchingForJob: false, // Prevent infinite loops when searching for jobs
             isPreSearching: false, // Show loading state during pre-search
+            isAdmin: false,
+            _roleCheck: null,
         };
     },
     async created() {
+        // Initialize role check and keep isAdmin reactive
+        const role = useRoleCheck();
+        this._roleCheck = role;
+        this.$watch(() => role.isAdmin.value, (val) => {
+            this.isAdmin = !!val;
+        }, { immediate: true });
         // Check for URL parameters first and find the correct page BEFORE loading jobs
         const shouldPreSearch = await this.checkUrlParams();
         
@@ -377,6 +401,7 @@ export default {
                 };
             };
         },
+        
         hasWaitingJobs() {
             let hasWaiting = false;
 
@@ -428,6 +453,45 @@ export default {
         }
     },
     methods: {
+        async adminEndJob(job, invoiceIdExplicit = null) {
+            try {
+                const { id: actionId } = this.getActionId(job);
+                const invoiceId = invoiceIdExplicit ?? this.invoices.find(invoice => invoice.jobs.some(j => j.id === job.id))?.id;
+                const nowIso = new Date().toISOString();
+
+                const response = await axios.post('/jobs/admin-end-job', {
+                    job: job.id,
+                    invoice: invoiceId,
+                    action: actionId,
+                    action_name: this.actionId,
+                    started_at: nowIso,
+                    ended_at: nowIso,
+                });
+
+                if (response.data?.success) {
+                    const action = job.actions.find(a => a.id === actionId);
+                    if (action) {
+                        action.status = 'Completed';
+                        action.started_at = nowIso;
+                        action.ended_at = nowIso;
+                    }
+                    this.endTimer(actionId);
+                    job.started = false;
+                    delete this.jobDisabledStatus[actionId];
+                    localStorage.setItem('jobDisabledStatus', JSON.stringify(this.jobDisabledStatus));
+
+                    const toast = useToast();
+                    toast.success('Admin ended stuck job successfully');
+                } else {
+                    const toast = useToast();
+                    toast.error(response.data?.error || 'Failed to end job as admin');
+                }
+            } catch (error) {
+                console.error('Error in adminEndJob:', error);
+                const toast = useToast();
+                toast.error(error.response?.data?.error || 'Error ending job as admin');
+            }
+        },
         hasNoteForCurrentAction(job) {
             const action = job?.actions?.find(a => a?.name === this.actionId);
             return action && (action.hasNote === 1 || action.hasNote === true);
@@ -1230,9 +1294,10 @@ export default {
 
                 if (response.data.success) {
                     console.log('Job start successful, updating UI...');
-                    
-                    // Start timer with server time
-                    this.startTimer(actionId, response.data.started_at);
+
+                    // Ensure we always have a started_at
+                    const ensuredStartTime = response.data.started_at || new Date().toISOString();
+                    this.startTimer(actionId, ensuredStartTime);
                     job.started = true;
                     this.jobDisabledStatus[actionId] = true;
 
@@ -1240,7 +1305,7 @@ export default {
                     const action = job.actions.find(a => a.id === actionId);
                     if (action) {
                         action.status = 'In progress';
-                        action.started_at = response.data.started_at;
+                        action.started_at = ensuredStartTime;
                         console.log('Updated action status:', action);
                     }
 

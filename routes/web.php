@@ -189,6 +189,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/machines/{id}/jobs', [JobController::class, 'getActionsByMachineName'])->name('jobs.getActionsByMachineName');
     Route::post('/jobs/start-job', [JobController::class, 'fireStartJobEvent'])->name('jobs.fireStartJobEvent');
     Route::post('/jobs/end-job', [JobController::class, 'fireEndJobEvent'])->name('jobs.fireEndJobEvent');
+    Route::post('/jobs/admin-end-job', [JobController::class, 'adminEndJob'])->name('jobs.adminEndJob');
     Route::get('/action/{actionId}/status', [JobController::class, 'getActionStatus'])->name('jobs.getActionStatus');
 Route::post('/invoice/{invoiceId}/update-status', [JobController::class, 'updateInvoiceStatusManually']);
 Route::get('/invoice/{invoiceId}/debug-status', [JobController::class, 'debugInvoiceStatus']);

@@ -1716,6 +1716,9 @@ class JobController extends Controller
     public function fireStartJobEvent(Request $request) {
         try {
             $actionId = $request->input('action');
+            $actionName = $request->input('action_name');
+            $jobId = $request->input('job');
+            $invoiceId = $request->input('invoice');
             
             \Log::info('fireStartJobEvent called', [
                 'action_id' => $actionId,
@@ -1723,7 +1726,11 @@ class JobController extends Controller
                 'user_id' => auth()->id()
             ]);
             
-            // Find the action and start it
+            // Load job and invoice first
+            $job = Job::findOrFail($jobId);
+            $invoice = Invoice::findOrFail($invoiceId);
+
+            // Resolve action directly by id (model), avoid relation class confusion
             $action = \App\Models\JobAction::findOrFail($actionId);
             
             \Log::info('Action found', [
@@ -1764,9 +1771,7 @@ class JobController extends Controller
                 'updated_at' => now(),
             ]);
             
-            // Find job and invoice for event
-            $job = Job::findOrFail($request->input('job'));
-            $invoice = Invoice::findOrFail($request->input('invoice'));
+            // Job and invoice already loaded above
             
             \Log::info('Starting job action', [
                 'action_id' => $actionId,
@@ -1897,6 +1902,115 @@ class JobController extends Controller
                 'action' => $action,
                 'ended_at' => $action->ended_at ? $action->ended_at->toISOString() : null,
                 'duration' => $action->getDurationInSeconds()
+            ]);
+        } catch (\Exception $e) {
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
+    }
+
+    public function adminEndJob(Request $request) {
+        try {
+            $user = auth()->user();
+            if (!$user || !$user->role || $user->role->name !== 'Admin') {
+                return response()->json(['error' => 'Forbidden'], 403);
+            }
+
+            $actionId = $request->input('action');
+            $actionName = $request->input('action_name');
+            $jobInput = $request->input('job');
+            $invoiceInput = $request->input('invoice');
+            $startedAt = $request->input('started_at');
+            $endedAt = $request->input('ended_at');
+
+            // Resolve invoice if provided
+            $invoice = null;
+            if ($invoiceInput) {
+                $invoice = Invoice::find($invoiceInput);
+            }
+
+            // Resolve job from input (can be id or name), or via invoice + action name, or via action relation
+            $job = null;
+            if ($jobInput) {
+                if (is_numeric($jobInput)) {
+                    $job = Job::find($jobInput);
+                } else {
+                    // Try by job name if a string was sent by mistake
+                    $job = Job::where('name', $jobInput)->first();
+                }
+            }
+            if (!$job && $invoice && $actionName) {
+                // Find a job on the invoice that has this action name
+                $job = $invoice->jobs()
+                    ->whereHas('actions', function($q) use ($actionName) {
+                        $q->where('name', $actionName);
+                    })
+                    ->first();
+            }
+
+            // Try to infer job from action id
+            $action = null;
+            if ($actionId) {
+                $action = \App\Models\JobAction::find($actionId);
+                if ($action && !$job) {
+                    $job = $action->jobs()->first();
+                }
+            }
+            if (!$job) {
+                return response()->json(['error' => 'Job not found'], 404);
+            }
+            if (!$invoice) {
+                $invoice = $job->invoice;
+            }
+
+            // Resolve the action strictly within this job
+            if (!$action) {
+                $query = $job->actions();
+                if ($actionId) {
+                    $action = (clone $query)->where('job_actions.id', $actionId)->first();
+                }
+                if (!$action && $actionName) {
+                    $action = (clone $query)->where('job_actions.name', $actionName)->first();
+                }
+            }
+            if (!$action) {
+                return response()->json(['error' => 'Action not found for job'], 404);
+            }
+
+            // Ensure timestamps and mark completed
+            $action->started_at = $action->started_at ?: ($startedAt ? new \Carbon\Carbon($startedAt) : now());
+            $action->started_by = $action->started_by ?: $user->id;
+            $action->ended_at = $endedAt ? new \Carbon\Carbon($endedAt) : now();
+            $action->status = 'Completed';
+            $action->save();
+
+            // Update job and invoice statuses
+            $this->updateJobStatus($job);
+            $job->refresh();
+            if ($invoice) {
+                $this->updateInvoiceStatus($invoice);
+                $invoice->refresh();
+            }
+
+            // Best-effort analytics insert
+            try {
+                DB::table('workers_analytics')->insert([
+                    'invoice_id' => $invoice?->id,
+                    'job_id' => $job->id,
+                    'action_id' => $action->id,
+                    'user_id' => $user->id,
+                    'time_spent' => 0,
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
+            } catch (\Throwable $e) {
+                // ignore
+            }
+
+            return response()->json([
+                'success' => true,
+                'action' => $action,
+                'started_at' => $action->started_at ? $action->started_at->toISOString() : null,
+                'ended_at' => $action->ended_at ? $action->ended_at->toISOString() : null,
             ]);
         } catch (\Exception $e) {
             return response()->json(['error' => $e->getMessage()], 500);
