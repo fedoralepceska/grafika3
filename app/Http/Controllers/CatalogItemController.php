@@ -1005,7 +1005,7 @@ class CatalogItemController extends Controller
             DB::beginTransaction();
             
             // Find the original catalog item
-            $originalItem = CatalogItem::with(['articles', 'questions'])->findOrFail($id);
+            $originalItem = CatalogItem::with(['articles', 'questions', 'subcategories'])->findOrFail($id);
             
             // Validate the new name
             $request->validate([
@@ -1064,6 +1064,12 @@ class CatalogItemController extends Controller
             if ($originalItem->should_ask_questions && $originalItem->questions->isNotEmpty()) {
                 $questionIds = $originalItem->questions->pluck('id')->toArray();
                 $newItem->questions()->attach($questionIds);
+            }
+            
+            // Copy subcategories if the original item has subcategories
+            if ($originalItem->subcategories && $originalItem->subcategories->isNotEmpty()) {
+                $subcategoryIds = $originalItem->subcategories->pluck('id')->toArray();
+                $newItem->subcategories()->attach($subcategoryIds);
             }
             
             $newItem->save();
