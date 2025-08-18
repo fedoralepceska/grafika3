@@ -283,7 +283,7 @@ class JobController extends Controller
                     
                     // Generate preview image and calculate dimensions for all pages
                     $imagick = new Imagick();
-                    $imagick->setOption('gs', "C:\Program Files\gs\gs10.02.0");
+                    $this->setGhostscriptPath($imagick);
                     $imagick->readImage($file->getPathname());
                     $pageCount = $imagick->getNumberImages();
                     
@@ -299,7 +299,7 @@ class JobController extends Controller
                     // Iterate through all pages of the PDF to calculate total dimensions
                     for ($pageIndex = 0; $pageIndex < $pageCount; $pageIndex++) {
                         $pageImagick = new Imagick();
-                        $pageImagick->setOption('gs', "C:\Program Files\gs\gs10.02.0");
+                        $this->setGhostscriptPath($pageImagick);
                         $pageImagick->readImage($file->getPathname() . '[' . $pageIndex . ']');
                         $pageImagick->setImageFormat('jpg');
                         
@@ -334,7 +334,7 @@ class JobController extends Controller
                     
                     // Create preview image from first page only
                     $previewImagick = new Imagick();
-                    $previewImagick->setOption('gs', "C:\Program Files\gs\gs10.02.0");
+                    $this->setGhostscriptPath($previewImagick);
                     $previewImagick->readImage($file->getPathname() . '[0]'); // First page only for preview
                     $previewImagick->setImageFormat('jpg');
                     
@@ -1154,7 +1154,7 @@ class JobController extends Controller
 
                 if ($fileExtension === 'pdf') {
                     $imagick = new Imagick();
-                    $imagick->setOption('gs', "C:\Program Files\gs\gs10.02.0");
+                    $this->setGhostscriptPath($imagick);
                     $imagick->readImage($file->getPathname());
                     $pageCount = $imagick->getNumberImages();
                     
@@ -1171,7 +1171,7 @@ class JobController extends Controller
                     // Iterate through all pages of the PDF to calculate total dimensions
                     for ($pageIndex = 0; $pageIndex < $pageCount; $pageIndex++) {
                         $pageImagick = new Imagick();
-                        $pageImagick->setOption('gs', "C:\Program Files\gs\gs10.02.0");
+                        $this->setGhostscriptPath($pageImagick);
                         $pageImagick->readImage($file->getPathname() . '[' . $pageIndex . ']');
                         $pageImagick->setImageFormat('jpg');
                         
@@ -1207,7 +1207,7 @@ class JobController extends Controller
                     
                     // Create preview image from first page only
                     $previewImagick = new Imagick();
-                    $previewImagick->setOption('gs', "C:\Program Files\gs\gs10.02.0");
+                    $this->setGhostscriptPath($previewImagick);
                     $previewImagick->readImage($file->getPathname() . '[0]'); // First page only for preview
                     $previewImagick->setImageFormat('jpg');
                     
@@ -2705,7 +2705,22 @@ class JobController extends Controller
                     'individual_files' => $allFileDimensions,
                     'files_count' => count($allFileDimensions)
                 ],
-                'job_updated' => $totalWidthMm > 0
+                'job_updated' => $totalWidthMm > 0,
+                'debug' => [
+                    'job_id' => $id,
+                    'total_files_processed' => count($uploadedFiles),
+                    'thumbnails_generated' => count(array_filter($thumbnails, function($thumb) {
+                        return !empty($thumb['thumbnailPath']);
+                    })),
+                    'thumbnails_failed' => count(array_filter($thumbnails, function($thumb) {
+                        return empty($thumb['thumbnailPath']);
+                    })),
+                    'dimensions_calculated' => $totalWidthMm > 0 && $totalHeightMm > 0,
+                    'os_family' => PHP_OS_FAMILY,
+                    'imagick_available' => class_exists('Imagick'),
+                    'imagick_version' => class_exists('Imagick') ? \Imagick::getVersion() : null,
+                    'original_files_count' => count($job->getOriginalFiles())
+                ]
             ]);
 
         } catch (\Exception $e) {
@@ -2735,7 +2750,9 @@ class JobController extends Controller
         // Calculate dimensions for the file
         try {
             $imagick = new \Imagick();
-            $imagick->setOption('gs', "C:\Program Files\gs\gs10.02.0");
+            
+            // Set Ghostscript path based on environment
+            $this->setGhostscriptPath($imagick);
             
             // Read the PDF file to get page count
             $imagick->readImage($file->getPathname());
@@ -2758,7 +2775,7 @@ class JobController extends Controller
             for ($pageIndex = 0; $pageIndex < $pageCount; $pageIndex++) {
                 // Create a new Imagick instance for each page to avoid conflicts
                 $pageImagick = new \Imagick();
-                $pageImagick->setOption('gs', "C:\Program Files\gs\gs10.02.0");
+                $this->setGhostscriptPath($pageImagick);
                 $pageImagick->readImage($file->getPathname() . '[' . $pageIndex . ']');
                 $pageImagick->setImageFormat('jpg');
                 
@@ -2832,7 +2849,7 @@ class JobController extends Controller
                 
                 // Create preview from first page only
                 $previewImagick = new \Imagick();
-                $previewImagick->setOption('gs', "C:\Program Files\gs\gs10.02.0");
+                $this->setGhostscriptPath($previewImagick);
                 $previewImagick->readImage($file->getPathname() . '[0]'); // First page only for preview
                 $previewImagick->setImageFormat('jpg');
                 $previewImagick->setImageCompression(\Imagick::COMPRESSION_JPEG);
@@ -2864,15 +2881,60 @@ class JobController extends Controller
                 'file' => $file->getClientOriginalName(),
                 'job_id' => $jobId,
                 'index' => $index,
-                'error_trace' => $e->getTraceAsString()
+                'error_message' => $e->getMessage(),
+                'error_trace' => $e->getTraceAsString(),
+                'os_family' => PHP_OS_FAMILY,
+                'imagick_version' => \Imagick::getVersion()
             ]);
-            // Continue without dimensions for this file - don't fail the upload
+            
+            // Try fallback dimension calculation
+            try {
+                $fallbackDimensions = $this->calculatePdfDimensionsFallback($file);
+                if ($fallbackDimensions) {
+                    $fileTotalWidthMm = $fallbackDimensions['width_mm'];
+                    $fileTotalHeightMm = $fallbackDimensions['height_mm'];
+                    $fileTotalAreaM2 = ($fileTotalWidthMm * $fileTotalHeightMm) / 1000000;
+                    
+                    // Add file totals to job totals
+                    $totalWidthMm += $fileTotalWidthMm;
+                    $totalHeightMm += $fileTotalHeightMm;
+                    $totalAreaM2 += $fileTotalAreaM2;
+                    
+                    \Log::info('Successfully used fallback dimension calculation', [
+                        'job_id' => $jobId,
+                        'file' => $file->getClientOriginalName(),
+                        'width_mm' => $fileTotalWidthMm,
+                        'height_mm' => $fileTotalHeightMm,
+                        'area_m2' => $fileTotalAreaM2
+                    ]);
+                    
+                    // Store individual file dimensions
+                    $allFileDimensions[] = [
+                        'filename' => $file->getClientOriginalName(),
+                        'page_count' => 1, // Fallback assumes single page
+                        'total_width_mm' => $fileTotalWidthMm,
+                        'total_height_mm' => $fileTotalHeightMm,
+                        'total_area_m2' => $fileTotalAreaM2,
+                        'index' => $index,
+                        'method' => 'fallback'
+                    ];
+                }
+            } catch (\Exception $fallbackError) {
+                \Log::warning('Fallback dimension calculation also failed', [
+                    'job_id' => $jobId,
+                    'file' => $file->getClientOriginalName(),
+                    'fallback_error' => $fallbackError->getMessage()
+                ]);
+            }
         }
 
         // Generate thumbnail and store in R2
         try {
             $imagick = new \Imagick();
-            $imagick->setOption('gs', "C:\Program Files\gs\gs10.02.0");
+            
+            // Set Ghostscript path based on environment
+            $this->setGhostscriptPath($imagick);
+            
             $imagick->readImage($file->getPathname() . '[0]'); // Read the first page
             $imagick->setImageFormat('jpg');
             
@@ -2906,7 +2968,12 @@ class JobController extends Controller
             \Log::warning('Failed to generate thumbnail for PDF: ' . $e->getMessage(), [
                 'file' => $file->getClientOriginalName(),
                 'job_id' => $jobId,
-                'error_trace' => $e->getTraceAsString()
+                'index' => $index,
+                'error_message' => $e->getMessage(),
+                'error_trace' => $e->getTraceAsString(),
+                'os_family' => PHP_OS_FAMILY,
+                'imagick_version' => \Imagick::getVersion(),
+                'file_path' => $filePath
             ]);
             // Continue without thumbnail - show PDF icon instead
             $thumbnails[] = [
@@ -3124,7 +3191,7 @@ class JobController extends Controller
             
             // Process with ImageMagick to get page count
             $imagick = new \Imagick();
-            $imagick->setOption('gs', "C:\Program Files\gs\gs10.02.0");
+            $this->setGhostscriptPath($imagick);
             $imagick->readImage($tempFilePath);
             $pageCount = $imagick->getNumberImages();
             
@@ -3143,7 +3210,7 @@ class JobController extends Controller
             for ($pageIndex = 0; $pageIndex < $pageCount; $pageIndex++) {
                 // Create a new Imagick instance for each page to avoid conflicts
                 $pageImagick = new \Imagick();
-                $pageImagick->setOption('gs', "C:\Program Files\gs\gs10.02.0");
+                $this->setGhostscriptPath($pageImagick);
                 $pageImagick->readImage($tempFilePath . '[' . $pageIndex . ']');
                 $pageImagick->setImageFormat('jpg');
                 
@@ -3971,6 +4038,7 @@ class JobController extends Controller
         try {
             $ext = strtolower($file->getClientOriginalExtension());
             $imagick = new \Imagick();
+            $this->setGhostscriptPath($imagick);
             if ($ext === 'pdf') {
                 $imagick->readImage($file->getPathname() . '[0]');
             } elseif ($ext === 'svg') {
@@ -3996,6 +4064,117 @@ class JobController extends Controller
                 'error_trace' => $e->getTraceAsString()
             ]);
             return null;
+        }
+    }
+
+    /**
+     * Fallback dimension calculation when Imagick fails
+     * Uses basic PDF parsing to extract MediaBox dimensions
+     */
+    private function calculatePdfDimensionsFallback($file)
+    {
+        try {
+            // Read the PDF file content
+            $content = file_get_contents($file->getPathname());
+            
+            // Look for MediaBox entries in the PDF
+            // MediaBox defines the page dimensions in points (1/72 inch)
+            if (preg_match('/\/MediaBox\s*\[\s*(\d+(?:\.\d+)?)\s+(\d+(?:\.\d+)?)\s+(\d+(?:\.\d+)?)\s+(\d+(?:\.\d+)?)\s*\]/', $content, $matches)) {
+                $x1 = floatval($matches[1]);
+                $y1 = floatval($matches[2]);
+                $x2 = floatval($matches[3]);
+                $y2 = floatval($matches[4]);
+                
+                // Calculate dimensions in points
+                $widthPoints = $x2 - $x1;
+                $heightPoints = $y2 - $y1;
+                
+                // Convert points to millimeters (1 point = 1/72 inch, 1 inch = 25.4 mm)
+                $widthMm = ($widthPoints / 72) * 25.4;
+                $heightMm = ($heightPoints / 72) * 25.4;
+                
+                \Log::info('Extracted PDF dimensions using fallback method', [
+                    'file' => $file->getClientOriginalName(),
+                    'width_points' => $widthPoints,
+                    'height_points' => $heightPoints,
+                    'width_mm' => $widthMm,
+                    'height_mm' => $heightMm,
+                    'mediabox' => $matches[0]
+                ]);
+                
+                return [
+                    'width_mm' => $widthMm,
+                    'height_mm' => $heightMm,
+                    'method' => 'pdf_parsing'
+                ];
+            }
+            
+            // If MediaBox is not found, try to look for other size indicators
+            // Some PDFs use CropBox or TrimBox
+            if (preg_match('/\/CropBox\s*\[\s*(\d+(?:\.\d+)?)\s+(\d+(?:\.\d+)?)\s+(\d+(?:\.\d+)?)\s+(\d+(?:\.\d+)?)\s*\]/', $content, $matches)) {
+                $x1 = floatval($matches[1]);
+                $y1 = floatval($matches[2]);
+                $x2 = floatval($matches[3]);
+                $y2 = floatval($matches[4]);
+                
+                $widthPoints = $x2 - $x1;
+                $heightPoints = $y2 - $y1;
+                
+                $widthMm = ($widthPoints / 72) * 25.4;
+                $heightMm = ($heightPoints / 72) * 25.4;
+                
+                \Log::info('Extracted PDF dimensions using CropBox fallback method', [
+                    'file' => $file->getClientOriginalName(),
+                    'width_mm' => $widthMm,
+                    'height_mm' => $heightMm,
+                    'cropbox' => $matches[0]
+                ]);
+                
+                return [
+                    'width_mm' => $widthMm,
+                    'height_mm' => $heightMm,
+                    'method' => 'pdf_parsing_cropbox'
+                ];
+            }
+            
+            return null;
+            
+        } catch (\Exception $e) {
+            \Log::warning('PDF parsing fallback failed', [
+                'file' => $file->getClientOriginalName(),
+                'error' => $e->getMessage()
+            ]);
+            return null;
+        }
+    }
+
+    /**
+     * Set Ghostscript path based on the current environment
+     */
+    private function setGhostscriptPath($imagick)
+    {
+        if (PHP_OS_FAMILY === 'Windows') {
+            // Windows path
+            $imagick->setOption('gs', "C:\Program Files\gs\gs10.02.0");
+        } else {
+            // Linux/Unix path - check common locations
+            $commonPaths = [
+                '/usr/bin/gs',
+                '/usr/local/bin/gs',
+                '/opt/local/bin/gs',
+                '/bin/gs'
+            ];
+            
+            foreach ($commonPaths as $path) {
+                if (file_exists($path)) {
+                    $imagick->setOption('gs', $path);
+                    \Log::info('Set Ghostscript path for PDF processing', ['path' => $path]);
+                    return;
+                }
+            }
+            
+            // If no specific path found, let Imagick use system default
+            \Log::info('Using system default Ghostscript path');
         }
     }
 
