@@ -2935,15 +2935,28 @@ class JobController extends Controller
             // Set Ghostscript path based on environment
             $this->setGhostscriptPath($imagick);
             
+            // Set memory and resource limits for large PDFs
+            $imagick->setResourceLimit(\Imagick::RESOURCETYPE_MEMORY, 128 * 1024 * 1024); // 128MB
+            $imagick->setResourceLimit(\Imagick::RESOURCETYPE_MAP, 256 * 1024 * 1024);    // 256MB
+            
+            // Read PDF at very low resolution for tiny preview
+            $imagick->setResolution(50, 50); // Ultra low DPI - just for preview
             $imagick->readImage($file->getPathname() . '[0]'); // Read the first page
-            $imagick->setImageFormat('jpg');
+            
+            // Convert to WebP for better compression and speed
+            $imagick->setImageFormat('webp');
+            $imagick->setImageCompressionQuality(50); // Lower quality = smaller file
+            $imagick->stripImage(); // Remove all metadata
+            
+            // Create tiny thumbnail - just for preview recognition
+            $imagick->resizeImage(80, 80, \Imagick::FILTER_LANCZOS, 1, true);
             
             // Create thumbnail in memory
             $thumbnailBlob = $imagick->getImageBlob();
             $imagick->clear();
             
-            // Store thumbnail in R2
-            $thumbnailPath = 'job-thumbnails/job_' . $jobId . '_' . time() . '_' . $index . '_' . $originalFilename . '.jpg';
+            // Store thumbnail in R2 as WebP
+            $thumbnailPath = 'job-thumbnails/job_' . $jobId . '_' . time() . '_' . $index . '_' . $originalFilename . '.webp';
             
             // Upload thumbnail to R2
             $this->templateStorageService->getDisk()->put($thumbnailPath, $thumbnailBlob);
@@ -2973,17 +2986,54 @@ class JobController extends Controller
                 'error_trace' => $e->getTraceAsString(),
                 'os_family' => PHP_OS_FAMILY,
                 'imagick_version' => \Imagick::getVersion(),
-                'file_path' => $filePath
+                'file_path' => $filePath,
+                'file_size_bytes' => filesize($file->getPathname()),
+                'memory_limit' => ini_get('memory_limit'),
+                'memory_usage' => memory_get_usage(true),
+                'memory_peak' => memory_get_peak_usage(true)
             ]);
-            // Continue without thumbnail - show PDF icon instead
-            $thumbnails[] = [
-                'originalFile' => $filePath,
-                'thumbnailPath' => null,
-                'filename' => $originalFilename,
-                'type' => 'pdf',
-                'index' => $index,
-                'error' => $e->getMessage()
-            ];
+            // Try alternative thumbnail generation with lower resolution
+            $fallbackThumbnailPath = null;
+            try {
+                $fallbackThumbnailPath = $this->generateThumbnailFallback($file, $jobId, $index, $originalFilename);
+                
+                if ($fallbackThumbnailPath) {
+                    \Log::info('Successfully generated thumbnail using fallback method', [
+                        'job_id' => $jobId,
+                        'file' => $file->getClientOriginalName(),
+                        'thumbnail_path' => $fallbackThumbnailPath
+                    ]);
+                    
+                    $thumbnails[] = [
+                        'originalFile' => $filePath,
+                        'thumbnailPath' => $fallbackThumbnailPath,
+                        'filename' => $originalFilename,
+                        'type' => 'pdf',
+                        'index' => $index,
+                        'method' => 'fallback'
+                    ];
+                } else {
+                    throw new \Exception('Fallback thumbnail generation also failed');
+                }
+                
+            } catch (\Exception $fallbackError) {
+                \Log::warning('Fallback thumbnail generation also failed: ' . $fallbackError->getMessage(), [
+                    'job_id' => $jobId,
+                    'file' => $file->getClientOriginalName(),
+                    'original_error' => $e->getMessage(),
+                    'fallback_error' => $fallbackError->getMessage()
+                ]);
+                
+                // Final fallback - show PDF icon
+                $thumbnails[] = [
+                    'originalFile' => $filePath,
+                    'thumbnailPath' => null,
+                    'filename' => $originalFilename,
+                    'type' => 'pdf',
+                    'index' => $index,
+                    'error' => $e->getMessage()
+                ];
+            }
         }
     }
 
@@ -4046,15 +4096,14 @@ class JobController extends Controller
             } else {
                 return null; // No thumbnail for other types
             }
-            $imagick->setImageFormat('jpg');
-            $imagick->setImageCompression(\Imagick::COMPRESSION_JPEG);
-            $imagick->setImageCompressionQuality(70);
+            $imagick->setImageFormat('webp');
+            $imagick->setImageCompressionQuality(50);
             $imagick->stripImage();
-            $imagick->resizeImage(200, 200, \Imagick::FILTER_LANCZOS, 1, true);
+            $imagick->resizeImage(80, 80, \Imagick::FILTER_LANCZOS, 1, true); // Small preview size
             $thumbnailBlob = $imagick->getImageBlob();
             $imagick->clear();
             $originalFilename = pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME);
-            $thumbnailPath = 'job-cutting-thumbnails/job_' . $jobId . '_' . time() . '_' . $fileIndex . '_' . $originalFilename . '.jpg';
+            $thumbnailPath = 'job-cutting-thumbnails/job_' . $jobId . '_' . time() . '_' . $fileIndex . '_' . $originalFilename . '.webp';
             $this->templateStorageService->getDisk()->put($thumbnailPath, $thumbnailBlob);
             return $thumbnailPath;
         } catch (\Exception $e) {
@@ -4062,6 +4111,60 @@ class JobController extends Controller
                 'job_id' => $jobId,
                 'file' => $file->getClientOriginalName(),
                 'error_trace' => $e->getTraceAsString()
+            ]);
+            return null;
+        }
+    }
+
+    /**
+     * Fallback thumbnail generation for large PDFs
+     * Uses lower resolution settings and aggressive memory management
+     */
+    private function generateThumbnailFallback($file, $jobId, $index, $originalFilename)
+    {
+        try {
+            $imagick = new \Imagick();
+            $this->setGhostscriptPath($imagick);
+            
+            // Set very conservative memory limits
+            $imagick->setResourceLimit(\Imagick::RESOURCETYPE_MEMORY, 64 * 1024 * 1024);  // 64MB only
+            $imagick->setResourceLimit(\Imagick::RESOURCETYPE_MAP, 128 * 1024 * 1024);    // 128MB
+            $imagick->setResourceLimit(\Imagick::RESOURCETYPE_DISK, 512 * 1024 * 1024);   // 512MB disk
+            
+            // Read PDF at extremely low resolution - just for recognition
+            $imagick->setResolution(30, 30); // Extremely low DPI
+            $imagick->readImage($file->getPathname() . '[0]'); // First page only
+            
+            // Convert to WebP immediately for better compression
+            $imagick->setImageFormat('webp');
+            $imagick->setImageCompressionQuality(30); // Very low quality = tiny file
+            $imagick->stripImage(); // Remove all metadata
+            
+            // Create micro thumbnail - just enough to recognize content
+            $imagick->resizeImage(60, 60, \Imagick::FILTER_LANCZOS, 1, true);
+            
+            // Get blob and clean up immediately
+            $thumbnailBlob = $imagick->getImageBlob();
+            $imagick->clear();
+            
+            // Store in R2 as WebP
+            $thumbnailPath = 'job-thumbnails/job_' . $jobId . '_fallback_' . time() . '_' . $index . '_' . $originalFilename . '.webp';
+            $this->templateStorageService->getDisk()->put($thumbnailPath, $thumbnailBlob);
+            
+            \Log::info('Generated fallback thumbnail for large PDF', [
+                'job_id' => $jobId,
+                'file' => $file->getClientOriginalName(),
+                'thumbnail_path' => $thumbnailPath,
+                'method' => 'low_resolution_fallback'
+            ]);
+            
+            return $thumbnailPath;
+            
+        } catch (\Exception $e) {
+            \Log::warning('Fallback thumbnail generation failed: ' . $e->getMessage(), [
+                'job_id' => $jobId,
+                'file' => $file->getClientOriginalName(),
+                'error' => $e->getMessage()
             ]);
             return null;
         }
