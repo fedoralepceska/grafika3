@@ -12,11 +12,43 @@ class ArticleCategoryController extends Controller
     /**
      * Display a listing of the resource.
      */
-    public function index()
+    public function index(Request $request)
     {
-        $categories = ArticleCategory::with('articles')->get();
+        $query = ArticleCategory::with('articles');
+        
+        // Search by category name
+        if ($request->filled('search')) {
+            $query->where('name', 'like', '%' . $request->search . '%');
+        }
+        
+        // Filter by material size
+        if ($request->filled('size') && in_array($request->size, ['large', 'small'])) {
+            $query->where('type', $request->size);
+        }
+        
+        // Get paginated results
+        $categories = $query->paginate(9);
+        
+        // Add search and filter parameters to pagination links
+        $categories->appends([
+            'search' => $request->search,
+            'size' => $request->size
+        ]);
+        
         return Inertia::render('ArticleCategory/Index', [
-            'categories' => $categories,
+            'categories' => $categories->items(),
+            'pagination' => [
+                'current_page' => $categories->currentPage(),
+                'last_page' => $categories->lastPage(),
+                'per_page' => $categories->perPage(),
+                'total' => $categories->total(),
+                'from' => $categories->firstItem(),
+                'to' => $categories->lastItem(),
+            ],
+            'filters' => [
+                'search' => $request->search ?? '',
+                'size' => $request->size ?? '',
+            ]
         ]);
     }
 

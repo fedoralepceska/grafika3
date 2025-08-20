@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use App\Models\LargeFormatMaterial;
 use App\Models\SmallMaterial;
+use App\Models\OtherMaterial;
 
 class Article extends Model
 {
@@ -62,6 +63,11 @@ class Article extends Model
         return $this->belongsToMany(CatalogItem::class, 'catalog_item_articles')->withPivot('quantity');
     }
 
+    public function jobs()
+    {
+        return $this->belongsToMany(Job::class, 'job_articles')->withPivot('quantity')->withTimestamps();
+    }
+
     /**
      * Calculate current available stock for this article
      */
@@ -77,7 +83,7 @@ class Article extends Model
         }
         
         if ($this->format_type == 3) {
-            $otherMaterial = \App\Models\OtherMaterial::where('article_id', $this->id)->first();
+            $otherMaterial = OtherMaterial::where('article_id', $this->id)->first();
             return $otherMaterial ? $otherMaterial->quantity : 0;
         }
 

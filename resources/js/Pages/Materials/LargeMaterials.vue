@@ -84,7 +84,7 @@
                                 </tr>
                                 </thead>
                                 <tbody>
-                                <tr v-for="m in largeMaterials.data" :key="m.id">
+                                <tr v-for="m in largeMaterials.data" :key="m.id" class="clickable-row" @click="goToArticle(m)" :title="m?.article?.name ? `Open article: ${m.article.name}` : 'No linked article'">
                                     <th>{{ m?.id }}</th>
                                     <th>{{ m?.name }}</th>
                                     <th>{{ m?.quantity }}</th>
@@ -131,6 +131,13 @@ export default {
         this.fetchLargeMaterials();
     },
     methods: {
+        goToArticle(material) {
+            const articleId = material?.article?.id || material?.article_id;
+            if (!articleId) {
+                return; // No linked article
+            }
+            this.$inertia.visit(`/articles/${articleId}/view?from=large_materials`);
+        },
         initResize(event, index) {
             this.startX = event.clientX;
             this.startWidth = event.target.parentElement.offsetWidth;
@@ -209,6 +216,14 @@ export default {
 </script>
 
 <style scoped lang="scss">
+.clickable-row {
+    cursor: pointer;
+}
+
+.clickable-row:hover {
+    background-color: rgba(255, 255, 255, 0.06);
+}
+
 .centered {
     display: flex;
     justify-content: center;
@@ -324,7 +339,7 @@ select {
 }
 .button-container {
     display: flex;
-    justify-content: end;
+    justify-content: flex-end;
 }
 .excel-table {
     border-collapse: collapse;

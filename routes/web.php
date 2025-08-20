@@ -13,6 +13,7 @@ use App\Http\Controllers\SmallFormatMaterialController;
 use App\Http\Controllers\SmallMaterialController;
 use App\Http\Controllers\ArticleController;
 use App\Http\Controllers\ArticleCategoryController;
+use App\Http\Controllers\ArticleAnalyticsController;
 use App\Http\Controllers\AnalyticsController;
 use App\Http\Controllers\CatalogItemController;
 use Illuminate\Support\Facades\Auth;
@@ -288,10 +289,20 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/articles/count', [ArticleController::class, 'getCount'])->name('articles.getCount');
     Route::get('/articles/create', [ArticleController::class, 'create'])->name('articles.create');
     Route::post('/articles/create', [ArticleController::class, 'store'])->name('articles.store');
+    Route::get('/articles/{article}/view', [ArticleController::class, 'show'])->name('articles.show');
+    Route::get('/articles/{article}/edit', [ArticleController::class, 'edit'])->name('articles.edit');
     Route::put('/articles/{article}', [ArticleController::class, 'update'])->name('articles.update');
     Route::delete('/articles/{id}', [ArticleController::class, 'destroy'])->name('articles.destroy');
     Route::get('/articles/search', [\App\Http\Controllers\ArticleController::class, 'search'])->name('api.articles.search');
     Route::get('/articles/{id}', [\App\Http\Controllers\ArticleController::class, 'get'])->name('api.articles.get');
+});
+
+// Routes For Article Analytics
+Route::middleware(['auth', 'verified'])->group(function () {
+    Route::get('/articles/{article}/analytics/stock', [ArticleAnalyticsController::class, 'getStockInfo'])->name('articles.analytics.stock');
+    Route::get('/articles/{article}/analytics/orders', [ArticleAnalyticsController::class, 'getOrderUsage'])->name('articles.analytics.orders');
+    Route::get('/articles/{article}/analytics/monthly', [ArticleAnalyticsController::class, 'getMonthlyUsage'])->name('articles.analytics.monthly');
+    Route::get('/articles/{article}/analytics/dashboard', [ArticleAnalyticsController::class, 'getDashboard'])->name('articles.analytics.dashboard');
 });
 
 //Routes For Article Categories

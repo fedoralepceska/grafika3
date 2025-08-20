@@ -162,7 +162,12 @@ class ArticleController extends Controller
      */
     public function show(Article $article)
     {
-        //
+        // Load the article with its categories
+        $article->load('categories');
+        
+        return Inertia::render('Articles/Show', [
+            'article' => $article
+        ]);
     }
 
     /**
@@ -170,7 +175,16 @@ class ArticleController extends Controller
      */
     public function edit(Article $article)
     {
-        //
+        // Load the article with its categories
+        $article->load('categories');
+        
+        // Get all available categories for the dropdown
+        $categories = \App\Models\ArticleCategory::all();
+        
+        return Inertia::render('Articles/Edit', [
+            'article' => $article,
+            'categories' => $categories
+        ]);
     }
 
     /**
