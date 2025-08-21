@@ -9,13 +9,13 @@
                     </h2>
                     <div class="filter-container flex gap-4 pb-10">
                         <div class="search flex gap-2">
-                            <input v-model="searchQuery" placeholder="Enter order number or order name" class="text-black" style="width: 50vh; border-radius: 3px" @keyup.enter="searchInvoices" />
+                            <input v-model="searchQuery" placeholder="Enter order number or order name" class="text-black search-input" @keyup.enter="searchInvoices" />
                             <button class="btn create-order1" @click="searchInvoices">Search</button>
                         </div>
-                        <div class="flex gap-2">
+                        <div class="flex gap-2 filters-group">
                         <div class="status">
                             <label class="pr-3">Filter orders</label>
-                            <select v-model="filterStatus" class="text-black" >
+                            <select v-model="filterStatus" class="text-black filter-select" >
                                 <option value="All" hidden>Status</option>
                                 <option value="All">All</option>
                                 <option value="Not started yet">Not started yet</option>
@@ -24,14 +24,14 @@
                             </select>
                         </div>
                         <div class="client">
-                            <select v-model="filterClient" class="text-black">
+                            <select v-model="filterClient" class="text-black filter-select">
                                 <option value="All" hidden>Clients</option>
                                 <option value="All">All Clients</option>
                                 <option v-for="client in uniqueClients" :key="client">{{ client.name }}</option>
                             </select>
                         </div>
                         <div class="date">
-                            <select v-model="sortOrder" class="text-black">
+                            <select v-model="sortOrder" class="text-black filter-select">
                                 <option value="desc" hidden>Date</option>
                                 <option value="desc">Newest to Oldest</option>
                                 <option value="asc">Oldest to Newest</option>
@@ -47,7 +47,7 @@
                         </div>
                     </div>
                     <div v-if="invoices.data">
-                        <div class="border mb-2" v-for="invoice in invoices.data" :key="invoice.id">
+                        <div :class="['border mb-2 invoice-row', getStatusRowClass(invoice.status)]" v-for="invoice in invoices.data" :key="invoice.id">
                             <div class="text-black flex justify-between order-info" style="line-height: normal">
                                 <div class="p-2 bold" style="font-size: 16px">{{invoice.invoice_title}}</div>
                                 <div class="flex" style="font-size: 12px">
@@ -60,29 +60,29 @@
                                     </button>
                                 </div>
                             </div>
-                            <div class="flex gap-40 pl-2 pt-1" style="line-height: initial">
-                                <div class="info">
+                            <div class="flex row-columns pl-2 pt-1" style="line-height: initial">
+                                <div class="info col-order">
                                     <div>Order</div>
                                     <div class="bold">#{{invoice.id}}</div>
                                 </div>
-                                <div class="info min-w-80 no-wrap">
+                                <div class="info min-w-80 no-wrap col-client">
                                     <div>Customer</div>
                                     <div class="bold ellipsis">{{ invoice.client.name }}</div>
                                 </div>
-                                <div class="info">
+                                <div class="info col-date">
                                     <div>End Date</div>
-                                    <div  class="bold">{{invoice.end_date}}</div>
+                                    <div  class="bold truncate">{{ formatDate(invoice.end_date) }}</div>
                                 </div>
-                                <div class="info">
+                                <div class="info col-user">
                                     <div>Created By</div>
-                                    <div  class="bold">{{ invoice.user.name }}</div>
-                                </div>
-                                <div class="info">
-                                    <div>Status</div>
-                                    <div :class="getStatusColorClass(invoice.status)" class="bold" >{{invoice.status}}</div>
+                                    <div  class="bold truncate">{{ invoice.user.name }}</div>
                                 </div>
                                 <div v-if="invoice.LockedNote" class="info locked">
                                     <ViewLockDialog :invoice="invoice"/>
+                                </div>
+                                <div class="info col-status">
+                                    <div>Status</div>
+                                    <div :class="[getStatusColorClass(invoice.status), 'bold', 'truncate', 'status-pill']">{{invoice.status}}</div>
                                 </div>
                             </div>
                                 <div v-if="currentInvoiceId" class="job-details-container" :class="{ active: currentInvoiceId === invoice.id }">
@@ -292,6 +292,21 @@ export default {
 
     },
     methods: {
+        formatDate(dateStr) {
+            if (!dateStr) return '';
+            const d = new Date(dateStr);
+            if (isNaN(d.getTime())) return dateStr;
+            const dd = String(d.getDate()).padStart(2, '0');
+            const mm = String(d.getMonth() + 1).padStart(2, '0');
+            const yyyy = d.getFullYear();
+            return `${dd}/${mm}/${yyyy}`;
+        },
+        getStatusRowClass(status) {
+            if (status === 'Completed') return 'row-completed';
+            if (status === 'In progress' || status === 'In Progress') return 'row-progress';
+            if (status === 'Not started yet') return 'row-pending';
+            return '';
+        },
         getImageUrl(id) {
             const currentInvoice = this.invoices.data.find(invoice => invoice.id === this.currentInvoiceId);
             if (currentInvoice && currentInvoice.jobs) {
@@ -484,6 +499,23 @@ export default {
 }
 .filter-container{
     justify-content: space-between;
+    flex-wrap: wrap;
+}
+.filter-container .search {
+    flex: 1 1 320px;
+}
+.filter-container .filters-group {
+    flex: 2 1 500px;
+    flex-wrap: wrap;
+}
+.search-input{
+    width: 50vh;
+    max-width: 100%;
+    border-radius: 3px;
+}
+.filter-select{
+    width: 25vh;
+    max-width: 100%;
 }
 .jobInfo{
 
@@ -536,6 +568,7 @@ select{
 .dark-gray {
     background-color: $dark-gray;
     justify-content: left;
+    border-radius: 8px;
     align-items: center;
     min-height: 20vh;
     min-width: 80vh;
@@ -587,6 +620,26 @@ select{
     min-width: 320px;
     flex-shrink: 0;
     display: block;
+}
+.row-columns {
+    gap: 2rem; /* approximate of gap-40 */
+    align-items: center;
+    background-color: $background-color;
+}
+.col-status { margin-left: auto; }
+.row-columns > .info div:nth-child(2) {
+    white-space: nowrap;
+}
+.col-order { width: 90px; }
+.col-client { width: 320px; }
+.col-date { width: 170px; }
+.col-user { width: 200px; }
+.col-status { width: 180px; }
+
+.truncate {
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
 }
 .ellipsis {
     width: 100%;
@@ -905,6 +958,66 @@ select{
         font-weight: bold;
         color: white;
     }
+}
+
+/* Improved invoice row styling */
+.invoice-row {
+    border: 3px solid rgba(255,255,255,0.25);
+    border-radius: 8px;
+    overflow: hidden;
+    background: rgba(255,255,255,0.06);
+    box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+    transition: box-shadow 0.2s ease, transform 0.2s ease, border-color 0.2s ease;
+}
+
+.invoice-row:nth-child(odd) {
+    background-color: rgba(255, 255, 255, 0.05);
+}
+.invoice-row:nth-child(even) {
+    background-color: rgba(255, 255, 255, 0.09);
+}
+.invoice-row .order-info {
+    border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+}
+.invoice-row .row-columns {
+    padding-bottom: 8px;
+}
+
+/* Status-based row accents for a more lively UI */
+.row-completed {
+    border-color: rgba(16, 185, 129, 0.35); /* green */
+}
+.row-progress {
+    border-color: rgba(59, 130, 246, 0.35); /* blue */
+}
+.row-pending {
+    border-color: rgba(234, 179, 8, 0.35); /* amber */
+}
+
+/* Status pill styling */
+.status-pill {
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: 9999px;
+    background-color: rgba(255,255,255,0.08);
+    width: fit-content;
+}
+
+@media (max-width: 1024px) {
+    .filter-container { gap: 12px; }
+    .search-input { width: 100%; }
+    .filter-select { width: 100%; }
+    .filters-group { flex: 1 1 100%; }
+    .row-columns { gap: 1rem; }
+    .col-client { width: 220px; }
+    .col-user { width: 150px; }
+    .col-status { width: 140px; }
+}
+@media (max-width: 768px) {
+    .row-columns { gap: 0.75rem; }
+    .col-client { width: 180px; }
+    .col-user { width: 120px; }
+    .col-status { width: 120px; }
 }
 </style>
 

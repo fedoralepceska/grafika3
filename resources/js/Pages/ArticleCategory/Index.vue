@@ -563,7 +563,9 @@ export default {
   .card-header {
     display: flex;
     justify-content: space-between;
-    align-items: center;
+    align-items: flex-start;
+    flex-wrap: nowrap;
+    gap: 12px;
     padding-bottom: 16px;
     border-bottom: 1px solid rgba(255, 255, 255, 0.1);
     
@@ -571,6 +573,8 @@ export default {
       display: flex;
       align-items: center;
       gap: 16px;
+      flex: 1 1 auto;
+      min-width: 0;
       
       .category-folder {
         display: flex;
@@ -590,6 +594,7 @@ export default {
           font-weight: 700;
           color: white;
           margin: 0 0 6px 0;
+          word-break: break-word;
         }
         
         .category-type {
@@ -604,6 +609,9 @@ export default {
     }
     
     .category-stats {
+      margin-left: auto;
+      flex: 0 0 auto;
+      align-self: flex-start;
       .article-count {
         background: linear-gradient(135deg, $blue, cornflowerblue);
         color: white;
@@ -612,6 +620,7 @@ export default {
         font-weight: 600;
         border-radius: 20px;
         box-shadow: 0 2px 8px rgba(100, 149, 237, 0.3);
+        white-space: nowrap;
       }
     }
   }

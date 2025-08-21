@@ -30,7 +30,8 @@
                         <div class="label-column order-id">Order #</div>
                         <div class="label-column order-title">Order Title</div>
                         <div class="label-column client">Client</div>
-                            <div class="label-column end-date">End Date</div>
+                        <div class="label-column end-date">End Date</div>
+                        <div class="label-column created-by">Created By</div>
                         <div class="label-column status">Status</div>
                     </div>
                     
@@ -38,12 +39,14 @@
                         v-for="order in orders.data" 
                         :key="order.id" 
                         class="order-row"
+                        :class="{ 'order-selected': selectedOrder && selectedOrder.id === order.id }"
                         @click="openOrderDetails(order)"
                     >
                         <div class="order-id">#{{ order.id }}</div>
                         <div class="order-title" :title="order.invoice_title">{{ order.invoice_title }}</div>
                         <div class="client" :title="order.client?.name || 'N/A'">{{ order.client?.name || 'N/A' }}</div>
-                            <div class="end-date" :title="formatDate(order.end_date)">{{ formatDate(order.end_date) }}</div>
+                        <div class="end-date" :title="formatDate(order.end_date)">{{ formatDate(order.end_date) }}</div>
+                        <div class="created-by" :title="order.user?.name || order.user_name || 'N/A'">{{ order.user?.name || order.user_name || 'N/A' }}</div>
                         <div class="status">
                             <span 
                                 class="status-badge"
@@ -110,6 +113,7 @@
                         <div class="label-column order-title">Order Title</div>
                         <div class="label-column client">Client</div>
                         <div class="label-column end-date">End Date</div>
+                        <div class="label-column created-by">Created By</div>
                         <div class="label-column status">Status</div>
                     </div>
                     
@@ -117,12 +121,14 @@
                         v-for="order in completedOrders.data" 
                         :key="`completed-${order.id}`" 
                         class="order-row"
+                        :class="{ 'order-selected': selectedOrder && selectedOrder.id === order.id }"
                         @click="openOrderDetails(order)"
                     >
                         <div class="order-id">#{{ order.id }}</div>
                         <div class="order-title" :title="order.invoice_title">{{ order.invoice_title }}</div>
                         <div class="client" :title="order.client?.name || 'N/A'">{{ order.client?.name || 'N/A' }}</div>
                         <div class="end-date" :title="formatDate(order.end_date)">{{ formatDate(order.end_date) }}</div>
+                        <div class="created-by" :title="order.user?.name || order.user_name || 'N/A'">{{ order.user?.name || order.user_name || 'N/A' }}</div>
                         <div class="status">
                             <span class="status-badge status-completed">Completed</span>
                         </div>
@@ -720,7 +726,7 @@ export default {
 
 .orders-labels {
     display: grid;
-    grid-template-columns: 80px 2fr 1.5fr 1fr 120px; /* Match the order-row grid including End Date */
+    grid-template-columns: 80px 2fr 1.5fr 1fr 1fr 120px; /* Added Created By column between End Date and Status */
     gap: 0.75rem;
     margin-bottom: 0.5rem; /* Reduced from 0.75rem */
     padding: 0.5rem 0.75rem;
@@ -742,7 +748,7 @@ export default {
 .order-row {
     cursor: pointer;
     display: grid;
-    grid-template-columns: 80px 2fr 1.5fr 1fr 120px; /* Fixed widths: Order ID, Title, Client, End Date, Status */
+    grid-template-columns: 80px 2fr 1.5fr 1fr 1fr 120px; /* Added Created By column: Order ID, Title, Client, End Date, Created By, Status */
     gap: 0.75rem;
     padding: 0.5rem 0.75rem; /* Reduced padding from 0.75rem */
     background: linear-gradient(135deg, #7dc068 0%, #6bb052 100%);
@@ -760,6 +766,17 @@ export default {
 
     &:active {
         transform: translateY(0);
+    }
+
+    &.order-selected {
+        background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+        border-color: rgba(59, 130, 246, 0.5);
+        box-shadow: 0 4px 20px rgba(59, 130, 246, 0.3);
+        transform: translateY(-1px);
+        
+        &:hover {
+            background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+        }
     }
 }
 
@@ -1380,6 +1397,16 @@ export default {
     text-align: center;
 }
 
+.created-by {
+    font-weight: 700;
+    color: $white;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    text-align: center;
+}
+
 .status {
     display: flex;
     justify-content: center;
@@ -1391,7 +1418,8 @@ export default {
 .order-row > .order-id,
 .order-row > .order-title,
 .order-row > .client,
-.order-row > .end-date {
+.order-row > .end-date,
+.order-row > .created-by {
     border-right: 1px solid rgba(255, 255, 255, 0.25);
     padding-right: 0.75rem;
 }
@@ -1465,7 +1493,7 @@ export default {
     // Adjust table columns for medium screens
     .orders-labels,
     .order-row {
-        grid-template-columns: 70px 2fr 1.3fr 1fr 90px;
+        grid-template-columns: 70px 2fr 1.3fr 0.8fr 0.8fr 90px;
         gap: 0.5rem;
     }
 }
@@ -1515,7 +1543,7 @@ export default {
         }
     }
     
-    .order-id, .order-title, .client, .end-date, .status {
+    .order-id, .order-title, .client, .end-date, .created-by, .status {
         text-align: center;
         padding: 0.25rem 0;
     }
@@ -1524,6 +1552,7 @@ export default {
     .order-row > .order-title,
     .order-row > .client,
     .order-row > .end-date,
+    .order-row > .created-by,
     .orders-labels > .label-column {
         border-right: none;
         padding-right: 0;

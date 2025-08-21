@@ -25,38 +25,74 @@
                     <span>Page {{ pagination.current_page }} / {{ pagination.last_page }}</span>
                 </div>
             </div>
-            <div v-for="(invoice,index) in invoices" class="main" >
-                <div class="container" :class="['container', 'flex', 'p-2', { 'red': invoice.onHold }]">
-                    <div class="content">
-                        <div class="order bg-white text-black bold p-3" style="min-width: 20vh" @click="navigateToOrder(invoice.id)">
-                            <strong>{{ invoice.invoice_title }}</strong>
+
+            <!-- Global Column Headers -->
+            <div class="column-headers">
+                <!-- Header Order Title - matches order-title-box -->
+                <div class="header-order-title">ORDER TITLE</div>
+                
+                <!-- Header Order ID - matches order-id-column -->
+                <div class="header-order-id">ORDER ID</div>
+                
+                <!-- Header Details Row - matches order-details-row structure -->
+                <div class="header-details-row">
+                    <div class="header-customer">CUSTOMER</div>
+                    <div class="header-separator"></div>
+                    <div class="header-date">END DATE</div>
+                    <div class="header-separator"></div>
+                    <div class="header-user">CREATED BY</div>
+                    <div class="header-separator"></div>
+                    <div class="header-step">CURRENT STEP</div>
+                </div>
+                
+                <!-- Header actions space - to match order-actions -->
+                <div class="header-actions-space"></div>
+            </div>
+
+            <div v-for="(invoice,index) in invoices" class="order-card" :class="{ 'on-hold': invoice.onHold }">
+                <!-- Single Row Layout -->
+                <div class="order-row">
+                    <!-- Order Title Box - Only title inside -->
+                    <div class="order-title-box" @click="navigateToOrder(invoice.id)">
+                        <h3 class="truncated-title" :title="invoice.invoice_title">{{ invoice.invoice_title }}</h3>
+                    </div>
+                    
+                    <!-- Order ID -->
+                    <div class="order-id-column">
+                        <span class="value">#{{ invoice.id }}</span>
+                    </div>
+                    
+                    <!-- Order Details -->
+                    <div class="order-details-row">
+                        <div class="detail-column customer-column">
+                            <span class="value">{{ invoice.client_name }}</span>
                         </div>
-                        <div class="info">
-                            <div>{{ $t('order') }}</div>
-                            <div class="bold">#{{ invoice.id }}</div>
+                        <div class="separator"></div>
+                        <div class="detail-column date-column">
+                            <span class="value">{{ invoice?.end_date }}</span>
                         </div>
-                        <div class="info">
-                            <div>{{ $t('customer') }}</div>
-                            <div class="bold">{{ invoice.client_name }}</div>
+                        <div class="separator"></div>
+                        <div class="detail-column user-column">
+                            <span class="value">{{ invoice.user_name }}</span>
                         </div>
-                        <div class="info">
-                            <div>{{ $t('endDate') }}</div>
-                            <div class="bold">{{ invoice?.end_date }}</div>
-                        </div>
-                        <div class="info">
-                            <div>{{ $t('createdBy') }}</div>
-                            <div class="bold">{{ invoice.user_name }}</div>
-                        </div>
-                        <div class="info">
-                            <div>{{ $t('currentStep') }}</div>
-                            <div class="bold">{{ actionId.startsWith('Machine') ? $t(`machinePrint.${actionId}`) : actionId }}</div>
+                        <div class="separator"></div>
+                        <div class="detail-column step-column">
+                            <span class="value">{{ actionId.startsWith('Machine') ? $t(`machinePrint.${actionId}`) : actionId }}</span>
                         </div>
                     </div>
-                    <div class="btns">
-                        <div class="bt" @click="viewJobs(index)"><i class="fa-solid fa-bars"></i></div>
+                    
+                    <!-- Actions -->
+                    <div class="order-actions">
+                        <button class="action-btn view-jobs" @click="viewJobs(index)">
+                            <i v-if="jobViewMode===index" class="fa-solid fa-arrow-up"></i>
+                            <i v-else class="fa-solid fa-arrow-down"></i>
+                            <span>View Jobs</span>
+                        </button>
                     </div>
                 </div>
-                <div v-if="jobViewMode===index">
+                
+                <!-- Jobs Table Section -->
+                <div v-if="jobViewMode===index" class="jobs-section">
                     <table>
                         <thead>
                         <tr :class="[{
@@ -139,8 +175,12 @@
                                         </div>
                                     </template>
                                     <template v-else-if="job.actions.find(a => a.name === actionId)?.status === 'In progress'">
+                                        <div class="flex gap-2 items-center justify-center">
                                         <div class="in-progress-status">
-                                            <i class="fa-solid fa-clock"></i> {{ $t('inProgress') }}
+                                            <div class="flex gap-1 items-center justify-center">
+                                            <i class="fa-solid fa-clock"></i>
+                                            <div>In Progress</div>
+                                            </div>
                                             <div class="timer-display">{{ elapsedTimes[getActionId(job).id] }}</div>
                                         </div>
                                         <!-- Admin bypass for stuck jobs (in progress but missing started_at) -->
@@ -166,6 +206,7 @@
                                         >
                                             <strong>{{ $t('endJob') }}</strong>
                                         </button>
+                                        </div>
                                         <div v-if="canEndJob(job) && !canCurrentUserEndJob(job)" class="text-xs text-gray-400 mt-1">
                                             Started by another user
                                         </div>
@@ -1639,7 +1680,7 @@ export default {
 </script>
 <style scoped lang="scss">
 .main {
-    margin-bottom: 10px;
+    margin-bottom: 0px;
     display: flex;
     flex-direction: column;
     flex-grow: 1;
@@ -1660,6 +1701,7 @@ export default {
 }
 .info{
     color: white;
+    min-width: 0;
 }
 .red{
     background-color: $red;
@@ -1687,8 +1729,22 @@ export default {
 .content {
     display: flex;
     flex-wrap: wrap;
-    gap: 60px;
+    gap: 24px;
     flex: 1;
+}
+
+/* Header and details layout */
+.row-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+}
+.row-details {
+    display: flex;
+    align-items: center;
+    gap: 24px;
+    width: 100%;
 }
 
 .btns {
@@ -1701,6 +1757,9 @@ export default {
 
 .bold{
     font-weight: bolder;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 .bt {
     font-size: 30px;
@@ -1712,21 +1771,54 @@ export default {
     width: 45px;
     height: 45px;
 }
-table{
+table {
     width: 100%;
-    background-color: $light-gray;
-    margin-bottom: 10px;
+    background-color: rgba(255, 255, 255, 0.05);
+    border-radius: 6px;
+    overflow: hidden;
 }
-table, th, td{
-    border: 1px solid $ultra-light-gray;
+
+table, th, td {
+    border: 1px solid rgba(255, 255, 255, 0.1);
     color: white;
     align-items: center;
     justify-content: center;
     text-align: center;
 }
-td{
-    padding-top: 10px;
-    padding-bottom: 10px;
+
+th {
+    background: rgba(255, 255, 255, 0.1);
+    font-weight: 600;
+    padding: 10px 6px;
+}
+
+td {
+    padding: 10px 6px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Fixed column widths for single-line truncation */
+.col-order { width: 90px; }
+.col-customer { width: 280px; }
+.col-date { width: 160px; }
+.col-user { width: 200px; }
+.col-step { width: 220px; }
+
+@media (max-width: 1024px) {
+    .content { gap: 16px; }
+    .row-details { gap: 16px; }
+    .col-customer { width: 220px; }
+    .col-user { width: 160px; }
+    .col-step { width: 200px; }
+}
+@media (max-width: 768px) {
+    .content { gap: 12px; }
+    .row-details { gap: 12px; }
+    .col-customer { width: 180px; }
+    .col-user { width: 140px; }
+    .col-step { width: 160px; }
 }
 .popover {
     position: fixed;
@@ -1812,117 +1904,103 @@ td{
 }
 
 .completed-status {
-    background-color: #4CAF50;
+    background-color: #10B981;
     color: white;
-    padding: 10px;
+    padding: 6px 10px;
     border-radius: 4px;
-    font-weight: bold;
+    font-weight: 600;
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 8px;
-
-    i {
-        font-size: 1.2em;
-    }
-
+    gap: 4px;
+    font-size: 13px;
 }
 
 .in-progress-status {
-    background-color: #2196F3;
+    background-color: #3B82F6;
     color: white;
-    padding: 10px;
+    padding: 6px 10px;
     border-radius: 4px;
-    font-weight: bold;
+    font-weight: 600;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 5px;
-    margin-bottom: 10px;
+    gap: 3px;
+    font-size: 13px;
+}
 
-    i {
-        font-size: 1.2em;
-    }
-
-    .timer-display {
-        font-size: 0.9em;
-        opacity: 0.9;
-    }
+.timer-display {
+    font-size: 11px;
+    opacity: 0.9;
+    font-weight: 500;
 }
 
 .image-cell {
-    min-width: 120px;
-    padding: 10px;
+    min-width: 100px;
+    padding: 6px;
 }
 
 .thumbnail-grid {
     display: flex;
     flex-wrap: wrap;
-    gap: 5px;
+    gap: 3px;
     justify-content: center;
-    margin-bottom: 5px;
+    margin-bottom: 3px;
 }
 
 .thumbnail-container {
     position: relative;
-    width: 45px;
-    height: 45px;
+    width: 35px;
+    height: 35px;
     overflow: hidden;
-    border-radius: 4px;
+    border-radius: 3px;
     cursor: pointer;
-    border: 2px solid transparent;
+    border: 1px solid transparent;
     transition: border-color 0.2s;
-
-    &:hover {
-        border-color: #fff;
-    }
-
-    img {
-        width: 100%;
-        height: 100%;
-        object-fit: cover;
-    }
-
-    .thumbnail-number {
-        position: absolute;
-        top: 2px;
-        right: 2px;
-        background-color: rgba(0, 0, 0, 0.8);
-        color: white;
-        padding: 1px 4px;
-        border-radius: 2px;
-        font-size: 10px;
-        font-weight: bold;
-    }
 }
 
-.file-count {
-    font-size: 11px;
-    text-align: center;
-    color: #ffffff80;
+.thumbnail-container:hover {
+    border-color: #fff;
 }
 
-.file-name {
-    font-size: 11px;
+.thumbnail-container img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.thumbnail-number {
+    position: absolute;
+    top: 1px;
+    right: 1px;
+    background-color: rgba(0, 0, 0, 0.8);
+    color: white;
+    padding: 1px 3px;
+    border-radius: 2px;
+    font-size: 9px;
+    font-weight: bold;
+}
+
+.file-count, .file-name {
+    font-size: 10px;
     text-align: center;
-    color: #ffffff80;
-    margin-top: 5px;
-    word-break: break-all;
+    color: rgba(255, 255, 255, 0.7);
+    margin-top: 3px;
 }
 
 /* Pagination styles */
 .pagination {
-    padding-bottom: 15px;
+    padding-bottom: 12px;
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 6px;
 }
 .page-btn {
     background-color: #2d3748;
     color: #fff;
     border: 1px solid #4a5568;
-    padding: 6px 12px;
+    padding: 5px 10px;
     border-radius: 4px;
     cursor: pointer;
     transition: background-color 0.15s ease;
@@ -1956,8 +2034,8 @@ td{
 
     .preview-modal-content {
         background-color: #2d3748;
-        padding: 20px;
-        border-radius: 8px;
+        padding: 16px;
+        border-radius: 6px;
         width: 90%;
         max-width: 900px;
         max-height: 90vh;
@@ -1968,9 +2046,9 @@ td{
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 15px;
+            margin-bottom: 12px;
             border-bottom: 1px solid #4a5568;
-            padding-bottom: 10px;
+            padding-bottom: 8px;
 
             h3 {
                 margin: 0;
@@ -1983,7 +2061,7 @@ td{
                 color: white;
                 font-size: 1.5em;
                 cursor: pointer;
-                padding: 5px;
+                padding: 4px;
                 border-radius: 4px;
                 
                 &:hover {
@@ -2008,7 +2086,7 @@ td{
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-top: 15px;
+            margin-top: 12px;
             padding-top: 2px;
             
             .nav-btn {
@@ -2017,7 +2095,7 @@ td{
                 color: white;
                 font-size: 1em;
                 cursor: pointer;
-                padding: 8px 16px;
+                padding: 6px 12px;
                 border-radius: 4px;
                 transition: background-color 0.2s;
 
@@ -2032,7 +2110,7 @@ td{
             }
 
             .file-counter {
-                margin: 0 10px;
+                margin: 0 8px;
                 font-weight: bold;
                 color: white;
             }
@@ -2056,14 +2134,14 @@ td{
 
 .loading-content {
     background-color: #2d3748;
-    padding: 30px;
-    border-radius: 8px;
+    padding: 24px;
+    border-radius: 6px;
     color: white;
     text-align: center;
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 15px;
+    gap: 12px;
 }
 
 .loading-content i {
@@ -2218,6 +2296,548 @@ td{
     100% {
         transform: scale(1);
     }
+}
+
+/* Modern Order Card Design - Compact Version */
+.order-card {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    margin-bottom: 12px;
+    overflow: hidden;
+    transition: all 0.2s ease;
+}
+
+.order-card:hover {
+    border-color: rgba(255, 255, 255, 0.2);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+    transform: translateY(-1px);
+}
+
+.order-card.on-hold {
+    border-color: rgba(239, 68, 68, 0.4);
+    background: rgba(239, 68, 68, 0.05);
+}
+
+/* Single Row Layout */
+.order-row {
+    display: flex;
+    align-items: center;
+    gap: 0; /* Remove gap to ensure precise alignment */
+    padding: 16px 20px;
+    background: rgba(255, 255, 255, 0.08);
+    height: 70px;
+    min-height: 70px;
+    max-height: 70px;
+}
+
+/* Order Title Box - Only title inside */
+.order-title-box {
+    background: white;
+    color: #1f2937;
+    padding: 12px 16px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    flex-shrink: 0;
+    min-width: 0;
+    width: 300px;
+    height: 46px;
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    margin-right: 0; /* Ensure no right margin */
+    box-sizing: border-box;
+}
+
+.order-title-box:hover {
+    background: #f3f4f6;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.truncated-title {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 600;
+    color: #1f2937;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    line-height: 1.2;
+    height: 20px;
+    display: block;
+}
+
+/* Order ID Column */
+.order-id-column {
+    width: 100px;
+    text-align: center;
+    flex-shrink: 0;
+    margin-right: 0; /* Ensure no right margin */
+    height: 46px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+}
+
+.order-id-column .value {
+    font-size: 14px;
+    color: rgba(255, 255, 255, 0.8);
+    font-weight: 500;
+}
+
+/* Order Details Row - Fixed column layout for perfect alignment */
+.order-details-row {
+    display: grid;
+    grid-template-columns: 200px 1px 140px 1px 120px 1px 140px;
+    align-items: center;
+    flex: 1;
+    min-width: 0;
+    height: 46px;
+    gap: 0;
+    margin-left: 20px; /* Restore margin to align with header content area */
+    position: relative;
+}
+
+.detail-column {
+    display: flex;
+    align-items: center;
+    height: 46px;
+    justify-content: flex-start;
+    white-space: nowrap;
+    overflow: hidden;
+    padding: 0 8px;
+    box-sizing: border-box;
+}
+
+.detail-column .value {
+    font-size: 14px;
+    color: white;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    line-height: 1.2;
+    height: 18px;
+    display: block;
+    width: 100%;
+}
+
+/* Fixed column widths */
+.customer-column {
+    width: 200px;
+    min-width: 200px;
+    max-width: 200px;
+}
+
+.date-column {
+    width: 140px;
+    min-width: 140px;
+    max-width: 140px;
+}
+
+.user-column {
+    width: 120px;
+    min-width: 120px;
+    max-width: 120px;
+}
+
+.step-column {
+    width: 140px;
+    min-width: 140px;
+    max-width: 140px;
+}
+
+/* Separator styling */
+.separator {
+    width: 1px;
+    height: 30px;
+    background: rgba(255, 255, 255, 0.3); /* Match header separator opacity */
+    justify-self: center;
+    flex-shrink: 0; /* Prevent separator from shrinking */
+}
+
+/* Actions */
+.order-actions {
+    display: flex;
+    gap: 8px;
+    flex-shrink: 0;
+    height: 46px;
+    align-items: center;
+    box-sizing: border-box;
+    margin-left: auto; /* Push to the right */
+}
+
+.action-btn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 16px;
+    background: rgba(59, 130, 246, 0.8);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    height: 36px;
+    white-space: nowrap;
+}
+
+.action-btn:hover {
+    background: rgba(59, 130, 246, 1);
+    transform: translateY(-1px);
+}
+
+.action-btn i {
+    font-size: 14px;
+}
+
+/* Jobs Section - Compact */
+.jobs-section {
+    background: rgba(0, 0, 0, 0.2);
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    padding: 6px;
+}
+
+/* Responsive Design - Compact */
+@media (max-width: 1200px) {
+    .order-title-box {
+        width: 260px;
+    }
+    
+    .order-details-row {
+        grid-template-columns: 170px 1px 120px 1px 100px 1px 120px;
+        margin-left: 20px;
+    }
+    
+    .customer-column {
+        width: 170px;
+        min-width: 170px;
+        max-width: 170px;
+    }
+    
+    .date-column {
+        width: 120px;
+        min-width: 120px;
+        max-width: 120px;
+    }
+    
+    .user-column {
+        width: 100px;
+        min-width: 100px;
+        max-width: 100px;
+    }
+    
+    .step-column {
+        width: 120px;
+        min-width: 120px;
+        max-width: 120px;
+    }
+}
+
+@media (max-width: 1024px) {
+    .order-row {
+        padding: 14px 18px;
+        gap: 0;
+        height: 64px;
+        min-height: 64px;
+        max-height: 64px;
+    }
+    
+    .order-title-box {
+        width: 220px;
+        padding: 10px 14px;
+        height: 42px;
+    }
+    
+    .truncated-title {
+        font-size: 15px;
+        height: 18px;
+    }
+    
+    .order-details-row {
+        height: 42px;
+        grid-template-columns: 140px 1px 100px 1px 80px 1px 100px;
+        margin-left: 20px;
+    }
+    
+    .detail-column {
+        height: 42px;
+        padding: 0 6px;
+    }
+    
+    .customer-column {
+        width: 140px;
+        min-width: 140px;
+        max-width: 140px;
+    }
+    
+    .date-column {
+        width: 100px;
+        min-width: 100px;
+        max-width: 100px;
+    }
+    
+    .user-column {
+        width: 80px;
+        min-width: 80px;
+        max-width: 80px;
+    }
+    
+    .step-column {
+        width: 100px;
+        min-width: 100px;
+        max-width: 100px;
+    }
+    
+    .detail-column .value {
+        font-size: 13px;
+        height: 16px;
+    }
+    
+    .order-actions {
+        height: 42px;
+    }
+    
+    .separator {
+        height: 26px;
+    }
+    
+    /* Old pseudo-element separators removed - using header-separator divs now */
+    
+    .action-btn {
+        padding: 6px 12px;
+        font-size: 13px;
+        height: 32px;
+    }
+}
+
+@media (max-width: 768px) {
+    .order-row {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 12px;
+        padding: 12px;
+        height: auto;
+        min-height: auto;
+        max-height: none;
+    }
+    
+    .order-title-box {
+        width: 100%;
+        text-align: center;
+        height: auto;
+        min-height: 46px;
+        margin-right: 0;
+    }
+    
+    .order-details-row {
+        display: flex;
+        justify-content: space-between;
+        gap: 8px;
+        height: auto;
+        min-height: 46px;
+        flex-wrap: wrap;
+        margin-left: 0; /* Remove left margin on mobile */
+    }
+    
+    .detail-column {
+        flex: 1;
+        text-align: center;
+        height: auto;
+        min-height: 46px;
+        justify-content: center;
+        width: auto;
+        min-width: auto;
+        max-width: none;
+    }
+    
+    .order-actions {
+        justify-content: center;
+        height: auto;
+    }
+    
+    .separator {
+        display: none;
+    }
+    
+    .column-headers {
+        display: none;
+    }
+}
+
+/* Global Column Headers - Match order-row structure exactly */
+.column-headers {
+    display: flex;
+    align-items: center;
+    margin-bottom: 12px;
+    font-weight: 600;
+    color: #ffffff;
+    padding: 16px 20px; /* Match order-row padding exactly */
+    gap: 0; /* Ensure no gaps between headers */
+    background-color: rgba(255, 255, 255, 0.1);
+    border-radius: 4px;
+    height: 70px; /* Match order-row height */
+    min-height: 70px;
+    max-height: 70px;
+    box-sizing: border-box;
+}
+
+/* Header Order Title - matches order-title-box */
+.header-order-title {
+    width: 300px;
+    min-width: 300px;
+    max-width: 300px;
+    height: 46px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    font-weight: 600;
+}
+
+/* Header Order ID - matches order-id-column */
+.header-order-id {
+    width: 100px;
+    text-align: center;
+    flex-shrink: 0;
+    height: 46px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    font-weight: 600;
+}
+
+/* Header Details Row - matches order-details-row exactly */
+.header-details-row {
+    display: grid;
+    grid-template-columns: 200px 1px 140px 1px 120px 1px 140px;
+    align-items: center;
+    flex: 1;
+    min-width: 0;
+    height: 46px;
+    gap: 0;
+    margin-left: 20px; /* Match order-details-row margin */
+    position: relative;
+}
+
+.header-customer, .header-date, .header-user, .header-step {
+    display: flex;
+    align-items: center;
+    height: 46px;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    font-weight: 600;
+    padding: 0 8px;
+    box-sizing: border-box;
+}
+
+/* Header separators - match row separators exactly */
+.header-separator {
+    width: 1px;
+    height: 30px;
+    background: rgba(255, 255, 255, 0.3);
+    justify-self: center;
+    flex-shrink: 0;
+}
+
+/* Header actions space - to match order-actions positioning */
+.header-actions-space {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    margin-left: auto;
+    flex-shrink: 0;
+    width: 200px; /* Approximate width of action buttons area */
+}
+
+/* Old header styles removed - now using grid-based layout above */
+
+/* Responsive adjustments for column headers */
+@media (max-width: 1200px) {
+    .header-order-title {
+        width: 260px;
+        min-width: 260px;
+        max-width: 260px;
+    }
+    
+    .header-details-row {
+        grid-template-columns: 170px 1px 120px 1px 100px 1px 120px;
+        margin-left: 20px;
+    }
+}
+
+@media (max-width: 1024px) {
+    .header-order-title {
+        width: 220px;
+        min-width: 220px;
+        max-width: 220px;
+    }
+    
+    .header-details-row {
+        height: 42px;
+        grid-template-columns: 140px 1px 100px 1px 80px 1px 100px;
+        margin-left: 20px;
+    }
+    
+    .header-customer, .header-date, .header-user, .header-step {
+        height: 42px;
+        padding: 0 6px;
+    }
+    
+    /* Update header separators for tablet size */
+    .header-separator {
+        height: 26px; /* Match responsive separator height */
+    }
+}
+
+@media (max-width: 768px) {
+    .column-headers {
+        display: none;
+    }
+}
+
+/* Main container spacing */
+.pl-7.pr-7 {
+    padding-left: 1.75rem;
+    padding-right: 1.75rem;
+}
+
+/* Search section spacing */
+.flex.items-center.justify-between.mb-3 {
+    margin-bottom: 1rem;
+}
+
+/* Ensure proper spacing between sections */
+.column-headers {
+    margin-bottom: 1rem;
+}
+
+.order-card {
+    margin-bottom: 0.75rem;
+}
+
+/* Ensure consistent padding */
+.order-row {
+    padding: 16px 20px;
+}
+
+/* Ensure proper alignment of all elements */
+.order-title-box,
+.order-id-column,
+.order-details-row,
+.order-actions {
+    box-sizing: border-box;
 }
 </style>
 

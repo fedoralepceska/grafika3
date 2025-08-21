@@ -2948,8 +2948,8 @@ class JobController extends Controller
             $imagick->setImageCompressionQuality(50); // Lower quality = smaller file
             $imagick->stripImage(); // Remove all metadata
             
-            // Create tiny thumbnail - just for preview recognition
-            $imagick->resizeImage(80, 80, \Imagick::FILTER_LANCZOS, 1, true);
+            // Create thumbnail - standardized size (max 800x800)
+            $imagick->resizeImage(800, 800, \Imagick::FILTER_LANCZOS, 1, true);
             
             // Create thumbnail in memory
             $thumbnailBlob = $imagick->getImageBlob();
@@ -3666,7 +3666,7 @@ class JobController extends Controller
             $imagick->setImageCompression(\Imagick::COMPRESSION_JPEG);
             $imagick->setImageCompressionQuality(70);
             $imagick->stripImage();
-            $imagick->resizeImage(200, 200, \Imagick::FILTER_LANCZOS, 1, true); // Resize to thumbnail size
+            $imagick->resizeImage(800, 800, \Imagick::FILTER_LANCZOS, 1, true); // Resize to standardized thumbnail size
             
             // Create thumbnail in memory
             $thumbnailBlob = $imagick->getImageBlob();
@@ -4099,7 +4099,7 @@ class JobController extends Controller
             $imagick->setImageFormat('webp');
             $imagick->setImageCompressionQuality(50);
             $imagick->stripImage();
-            $imagick->resizeImage(80, 80, \Imagick::FILTER_LANCZOS, 1, true); // Small preview size
+            $imagick->resizeImage(800, 800, \Imagick::FILTER_LANCZOS, 1, true); // Standardized preview size
             $thumbnailBlob = $imagick->getImageBlob();
             $imagick->clear();
             $originalFilename = pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME);
@@ -4140,8 +4140,8 @@ class JobController extends Controller
             $imagick->setImageCompressionQuality(30); // Very low quality = tiny file
             $imagick->stripImage(); // Remove all metadata
             
-            // Create micro thumbnail - just enough to recognize content
-            $imagick->resizeImage(60, 60, \Imagick::FILTER_LANCZOS, 1, true);
+            // Standardized thumbnail size
+            $imagick->resizeImage(800, 800, \Imagick::FILTER_LANCZOS, 1, true);
             
             // Get blob and clean up immediately
             $thumbnailBlob = $imagick->getImageBlob();

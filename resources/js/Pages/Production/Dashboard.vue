@@ -96,6 +96,18 @@ export default {
         opacity: 1;
     }
 }
+
+@keyframes pulse {
+    0% {
+        transform: translate(50%, -50%) scale(1.15);
+    }
+    50% {
+        transform: translate(50%, -50%) scale(1.25);
+    }
+    100% {
+        transform: translate(50%, -50%) scale(1.15);
+    }
+}
 .grid-container {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr)); /* Use minmax for flexible but bounded sizing */
@@ -128,7 +140,54 @@ export default {
     background: -moz-linear-gradient(-50deg,$blue, #BBDEFB);
     background: linear-gradient(-50deg,$blue, #BBDEFB) ;
     cursor: pointer;
+    transition: all 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
+    position: relative;
+    overflow: visible;
+    
+    &::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        border-radius: 50%;
+        background: linear-gradient(-50deg, rgba(255,255,255,0.1), rgba(255,255,255,0.3));
+        opacity: 0;
+        transition: opacity 0.4s ease;
+    }
+    
+    &:hover {
+        transform: translateZ(0) scale(1.02);
+        box-shadow: 
+            0 15px 30px rgba(0,0,0,0.25),
+            0 8px 15px rgba(0,0,0,0.15),
+            inset 0 0 0 2px rgba(255,255,255,0.1);
+        z-index: 10;
+        
+        &::before {
+            opacity: 1;
+        }
+        
+        .inner {
+            transform: scale(1.08);
+            box-shadow: 
+                0 6px 20px rgba(0,0,0,0.3),
+                inset 0 2px 4px rgba(255,255,255,0.1);
+        }
+        
+        .primary-count {
+            transform: scale(1.05);
+            text-shadow: 0 2px 8px rgba(0,0,0,0.3);
+        }
+    }
+    
+    &:active {
+        transform: translateZ(0) scale(1.01);
+        transition: all 0.1s ease;
+    }
 }
+
 .inner{
     position: relative;
     display: flex;
@@ -138,11 +197,11 @@ export default {
     height: 120px;
     background: $background-color;
     border-radius: 50%;
-    transition: width 0.3s, height 0.3s;
-}
-.inner:hover {
-    width: 130px;
-    height: 130px;
+    transition: all 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
+    box-shadow: 
+        inset 0 2px 4px rgba(255,255,255,0.1),
+        0 4px 12px rgba(0,0,0,0.15);
+    transform-origin: center;
 }
 
 .primary-count {
@@ -150,6 +209,9 @@ export default {
     z-index: 1;
     color: white;
     cursor: pointer;
+    font-weight: 600;
+    transition: all 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
+    user-select: none;
 }
 
 .sub-badge {
@@ -191,18 +253,42 @@ export default {
     top: 20px;
     right: -15px;
     transform: translate(50%, -50%);
+    transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    
+    &:hover {
+        transform: translate(50%, -50%) scale(1.15);
+        box-shadow: 0 4px 15px rgba(239, 108, 0, 0.3);
+    }
 }
+
 .onhold-badge{
     position: absolute;
     top:53px;
     right:-27px;
     transform: translate(50%, -50%);
+    transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    
+    &:hover {
+        transform: translate(50%, -50%) scale(1.15);
+        box-shadow: 0 4px 15px rgba(220, 53, 69, 0.3);
+    }
 }
+
 .rush-badge{
     position: absolute;
     top:86px;
     right:-26px;
     transform: translate(50%, -50%);
+    transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    
+    &:hover {
+        transform: translate(50%, -50%) scale(1.15);
+        box-shadow: 0 4px 15px rgba(158, 44, 48, 0.4);
+        animation: pulse 1.5s ease-in-out infinite;
+    }
 }
 </style>
 
