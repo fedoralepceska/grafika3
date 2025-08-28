@@ -206,7 +206,7 @@
                                         class="border-1 border-gray-500 rounded-md"
                                     >   
                                         <!-- Carousel for this job's files -->
-                                        <div class="carousel-container" v-if="hasMultipleFiles(job) || (job.file && job.file !== 'placeholder.jpeg')">
+                                        <div class="carousel-container" v-if="hasDisplayableFiles(job)">
                                             <div class="carousel-image-container">
                                                 <!-- New system: Multiple files -->
                                                 <div v-if="hasMultipleFiles(job)" class="carousel-slide">
@@ -233,6 +233,7 @@
                                                         :src="getLegacyImageUrl(job)" 
                                                         alt="Job Image" 
                                                         class="carousel-image"
+                                                        @error="handleLegacyImageError"
                                                     />
                                                     <div class="carousel-info">
                                                         <span class="file-counter">1 of 1</span>
@@ -441,6 +442,7 @@ export default {
             try {
                 const response = await axios.get(`/orders/${order.id}/details`);
                 this.selectedOrder = response.data;
+                console.log('Order details loaded:', this.selectedOrder);
                 this.$nextTick(() => {
                     this.preloadThumbnailsForOrder(this.selectedOrder);
                 });
@@ -448,6 +450,7 @@ export default {
                 console.error('Error fetching order details:', error);
                 // Fallback to the basic order data if the detailed fetch fails
                 this.selectedOrder = order;
+                console.log('Using fallback order data:', this.selectedOrder);
                 this.$nextTick(() => {
                     this.preloadThumbnailsForOrder(this.selectedOrder);
                 });
@@ -482,8 +485,10 @@ export default {
         },
         
         getThumbnailUrl(jobId, fileIndex) {
-            // Allow browser/proxy caching; server sets Cache-Control headers
-            return route('jobs.viewThumbnail', { jobId: jobId, fileIndex: fileIndex });
+            // Add cache-busting like InvoiceDetails.vue
+            const url = route('jobs.viewThumbnail', { jobId: jobId, fileIndex: fileIndex });
+            const ts = Date.now();
+            return `${url}?t=${ts}`;
         },
         
         getOriginalFileUrl(jobId, fileIndex) {
@@ -496,6 +501,11 @@ export default {
 
         hasSingleNewFile(job) {
             return job.originalFile && Array.isArray(job.originalFile) && job.originalFile.length === 1;
+        },
+
+        hasDisplayableFiles(job) {
+            // Check if job has any files to display (new or legacy system)
+            return this.hasMultipleFiles(job) || (job.file && job.file !== 'placeholder.jpeg');
         },
         
         getJobFiles(job) {
@@ -510,16 +520,36 @@ export default {
         },
         
         handleThumbnailError(event) {
-            // Try to load the original file as fallback
+            // Enhanced error handling like InvoiceDetails.vue
             const jobId = event.target.dataset.jobId;
             const fileIndex = event.target.dataset.fileIndex;
+            
+            console.warn('Thumbnail failed to load:', { jobId, fileIndex, src: event.target.src });
+            
             if (jobId && fileIndex !== undefined) {
-                event.target.src = this.getOriginalFileUrl(jobId, fileIndex);
+                // Try to load the original file as fallback
+                const fallbackUrl = this.getOriginalFileUrl(jobId, fileIndex);
+                console.log('Trying fallback to original file:', fallbackUrl);
+                event.target.src = fallbackUrl;
+            } else {
+                // Fallback to legacy image if available
+                const job = this.selectedOrder?.jobs?.find(j => j.id == jobId);
+                if (job && job.file && job.file !== 'placeholder.jpeg') {
+                    const legacyUrl = this.getLegacyImageUrl(job);
+                    console.log('Trying fallback to legacy image:', legacyUrl);
+                    event.target.src = legacyUrl;
+                }
             }
         },
 
         handleImageLoad(event) {
             // Image loaded successfully
+        },
+
+        handleLegacyImageError(event) {
+            // Handle legacy image loading errors
+            console.warn('Legacy image failed to load:', event.target.src);
+            // Could add fallback logic here if needed
         },
 
         // Prefetching utilities
@@ -529,6 +559,7 @@ export default {
                 order.jobs.forEach(job => {
                     if (this.hasMultipleFiles(job)) {
                         const total = this.getJobFiles(job).length;
+                        // Preload first 2 images for better UX
                         const indices = new Set([0, 1]);
                         indices.forEach(idx => {
                             if (idx >= 0 && idx < total) {
@@ -537,6 +568,7 @@ export default {
                             }
                         });
                     } else if (job.file && job.file !== 'placeholder.jpeg') {
+                        // Preload legacy images
                         const url = this.getLegacyImageUrl(job);
                         this.preloadImage(url);
                     }
@@ -571,6 +603,8 @@ export default {
                 const maxIndex = this.getJobFiles(job).length - 1;
                 if (this.currentFileIndex[jobId] < maxIndex) {
                     this.currentFileIndex[jobId]++;
+                    // Preload next image for smooth navigation
+                    this.preloadImage(this.getThumbnailUrl(jobId, this.currentFileIndex[jobId]));
                 }
             }
         },
@@ -581,6 +615,8 @@ export default {
             }
             if (this.currentFileIndex[jobId] > 0) {
                 this.currentFileIndex[jobId]--;
+                // Preload previous image for smooth navigation
+                this.preloadImage(this.getThumbnailUrl(jobId, this.currentFileIndex[jobId]));
             }
         },
 
