@@ -84,21 +84,6 @@ class ArticleAnalyticsController extends Controller
             $smallMaterialId = optional($article->smallMaterial)->id;
             $largeMaterialId = optional($article->largeFormatMaterial)->id;
 
-            // Optional filters
-            $search = trim((string) $request->query('search', ''));
-            $clientIdsParam = $request->query('client_id'); // can be single, array, or csv
-            $clientIds = collect(is_array($clientIdsParam) ? $clientIdsParam : (isset($clientIdsParam) ? explode(',', (string) $clientIdsParam) : []))
-                ->filter(fn($v) => is_numeric($v))
-                ->map(fn($v) => (int) $v)
-                ->values()
-                ->all();
-            $startDate = $request->query('start_date');
-            $endDate = $request->query('end_date');
-            $minUsage = $request->query('min_usage');
-            $maxUsage = $request->query('max_usage');
-            $minValue = $request->query('min_value');
-            $maxValue = $request->query('max_value');
-
             // Base dataset: invoices x jobs potentially using this article (via pivot or legacy material fields)
             $rows = DB::table('invoice_job')
                 ->join('invoices', 'invoices.id', '=', 'invoice_job.invoice_id')
@@ -108,59 +93,59 @@ class ArticleAnalyticsController extends Controller
                          ->where('job_articles.article_id', '=', $articleId);
                 })
                 ->leftJoin('small_material', 'small_material.id', '=', 'jobs.small_material_id')
-                ->leftJoin('large_format_materials', 'large_format_materials.id', '=', 'jobs.large_material_id')
-                ->leftJoin('clients', 'clients.id', '=', 'invoices.client_id')
-                ->where(function ($q) use ($articleId, $smallMaterialId, $largeMaterialId, $lowerName) {
-                    // Method A: Explicit pivot usage
-                    $q->orWhereNotNull('job_articles.article_id');
-                    // Method B: FK match on legacy fields
-                    if ($smallMaterialId) {
-                        $q->orWhere('jobs.small_material_id', $smallMaterialId);
-                    }
-                    if ($largeMaterialId) {
-                        $q->orWhere('jobs.large_material_id', $largeMaterialId);
-                    }
-                    // Method C: Name matches (case-insensitive) for legacy content
-                    $q->orWhereRaw('LOWER(small_material.name) = ?', [$lowerName])
-                      ->orWhereRaw('LOWER(large_format_materials.name) = ?', [$lowerName]);
-                })
-                ->when(!empty($clientIds), function ($q) use ($clientIds) {
-                    $q->whereIn('invoices.client_id', $clientIds);
-                })
-                ->when($startDate, function ($q) use ($startDate) {
-                    $q->where(function ($qq) use ($startDate) {
-                        $qq->whereDate('invoices.start_date', '>=', $startDate)
-                           ->orWhereDate('invoices.created_at', '>=', $startDate);
-                    });
-                })
-                ->when($endDate, function ($q) use ($endDate) {
-                    $q->where(function ($qq) use ($endDate) {
-                        $qq->whereDate('invoices.start_date', '<=', $endDate)
-                           ->orWhereDate('invoices.created_at', '<=', $endDate);
-                    });
-                })
-                ->when($search !== '', function ($q) use ($search) {
-                    $q->where(function ($qq) use ($search) {
-                        $qq->where('invoices.invoice_title', 'like', "%{$search}%")
-                           ->orWhere('clients.name', 'like', "%{$search}%");
-                    });
-                })
+                ->leftJoin('large_material', 'large_material.id', '=', 'jobs.large_material_id')
                 ->select([
                     'invoices.id as invoice_id',
-                    'invoices.invoice_title',
+                    'invoices.title as invoice_title',
                     'invoices.start_date',
                     'invoices.status',
-                    'clients.name as client_name',
                     'jobs.id as job_id',
                     'jobs.quantity as job_quantity',
                     'jobs.copies as job_copies',
-                    'jobs.small_material_id',
-                    'jobs.large_material_id',
-                    'small_material.name as small_material_name',
-                    'large_format_materials.name as large_material_name',
+                    'jobs.total_area_m2',
                     'job_articles.quantity as pivot_quantity',
+                    'small_material.name as small_material_name',
+                    'large_material.name as large_material_name',
+                    'jobs.small_material_id',
+                    'jobs.large_material_id'
                 ])
-                ->orderByDesc('invoices.start_date')
+                ->where(function ($query) use ($articleId, $smallMaterialId, $largeMaterialId, $lowerName) {
+                    // Match via pivot table (most accurate)
+                    $query->whereExists(function ($subQuery) use ($articleId) {
+                        $subQuery->select(DB::raw(1))
+                                ->from('job_articles')
+                                ->whereColumn('job_articles.job_id', 'jobs.id')
+                                ->where('job_articles.article_id', $articleId);
+                    })
+                    // Or match via material foreign keys
+                    ->orWhere('jobs.small_material_id', $smallMaterialId)
+                    ->orWhere('jobs.large_material_id', $largeMaterialId)
+                    // Or match via material names (fallback)
+                    ->orWhere('small_material.name', 'LIKE', "%{$lowerName}%")
+                    ->orWhere('large_material.name', 'LIKE', "%{$lowerName}%");
+                })
+                ->when($request->filled('search'), function ($query) use ($request) {
+                    $search = $request->search;
+                    $query->where(function ($q) use ($search) {
+                        $q->where('invoices.title', 'LIKE', "%{$search}%")
+                          ->orWhereExists(function ($subQuery) use ($search) {
+                              $subQuery->select(DB::raw(1))
+                                      ->from('clients')
+                                      ->whereColumn('clients.id', 'invoices.client_id')
+                                      ->where('clients.name', 'LIKE', "%{$search}%");
+                          });
+                    });
+                })
+                ->when($request->filled('client_id'), function ($query) use ($request) {
+                    $query->where('invoices.client_id', $request->client_id);
+                })
+                ->when($request->filled('start_date'), function ($query) use ($request) {
+                    $query->where('invoices.start_date', '>=', $request->start_date);
+                })
+                ->when($request->filled('end_date'), function ($query) use ($request) {
+                    $query->where('invoices.start_date', '<=', $request->end_date);
+                })
+                ->orderBy('invoices.start_date', 'desc')
                 ->get();
 
             // Shape the response per invoice, exposing raw job entries so FE can aggregate per invoice
@@ -182,13 +167,18 @@ class ArticleAnalyticsController extends Controller
                         $usedVia = 'large_name';
                     }
 
+                    // Calculate quantity using new area-based method when available
+                    $calculatedQuantity = $this->calculateJobQuantity($r);
+
                     $jobs[] = [
                         'job_id' => (int) $r->job_id,
                         'used_via' => $usedVia, // pivot | small_fk | large_fk | small_name | large_name | null
                         'pivot_quantity' => is_null($r->pivot_quantity) ? null : (float) $r->pivot_quantity,
-                        'fallback_quantity' => (int) ($r->job_quantity ?? 0) * (int) ($r->job_copies ?? 0),
+                        'fallback_quantity' => $calculatedQuantity,
                         'job_quantity' => (int) ($r->job_quantity ?? 0),
                         'job_copies' => (int) ($r->job_copies ?? 0),
+                        'total_area_m2' => $r->total_area_m2 ? (float) $r->total_area_m2 : null,
+                        'calculation_method' => $r->total_area_m2 ? 'area_based' : 'legacy_quantity_copies'
                     ];
                 }
 
@@ -211,7 +201,7 @@ class ArticleAnalyticsController extends Controller
                         if (($j['used_via'] ?? null) === 'pivot') {
                             $qty += (float) ($j['pivot_quantity'] ?? 0);
                         } elseif (in_array($j['used_via'] ?? '', ['small_fk','large_fk','small_name','large_name'], true)) {
-                            $qty += (int) ($j['fallback_quantity'] ?? 0);
+                            $qty += (float) ($j['fallback_quantity'] ?? 0);
                         }
                     }
                     $val = $qty * $unitPrice;
@@ -227,12 +217,20 @@ class ArticleAnalyticsController extends Controller
             $summaryTotalOrders = $byInvoice->count();
             $summaryPivotQty = 0;
             $summaryLegacyQty = 0;
+            $summaryAreaBasedQty = 0;
             foreach ($byInvoice as $inv) {
                 foreach ($inv['jobs'] as $j) {
                     if ($j['used_via'] === 'pivot') {
                         $summaryPivotQty += (float) ($j['pivot_quantity'] ?? 0);
                     } elseif (in_array($j['used_via'], ['small_fk', 'large_fk', 'small_name', 'large_name'], true)) {
-                        $summaryLegacyQty += (int) ($j['fallback_quantity'] ?? 0);
+                        $summaryLegacyQty += (float) ($j['fallback_quantity'] ?? 0);
+                        // Track area-based calculations separately
+                        if ($j['calculation_method'] === 'area_based') {
+                            $summaryAreaBasedQty += (float) ($j['fallback_quantity'] ?? 0);
+                        }
+                    } else {
+                        // Still count these jobs in the legacy summary to avoid losing data
+                        $summaryLegacyQty += (float) ($j['fallback_quantity'] ?? 0);
                     }
                 }
             }
@@ -254,6 +252,7 @@ class ArticleAnalyticsController extends Controller
                     'total_orders' => $summaryTotalOrders,
                     'total_pivot_quantity' => $summaryPivotQty,
                     'total_legacy_quantity' => $summaryLegacyQty,
+                    'total_area_based_quantity' => $summaryAreaBasedQty,
                 ],
             ]);
 
@@ -265,6 +264,7 @@ class ArticleAnalyticsController extends Controller
                     'total_orders' => 0,
                     'total_pivot_quantity' => 0,
                     'total_legacy_quantity' => 0,
+                    'total_area_based_quantity' => 0,
                 ],
             ]);
         }
@@ -322,6 +322,7 @@ class ArticleAnalyticsController extends Controller
                     'jobs.id as job_id',
                     'jobs.quantity as job_quantity',
                     'jobs.copies as job_copies',
+                    'jobs.total_area_m2',
                     'jobs.small_material_id',
                     'jobs.large_material_id',
                     'small_material.name as small_material_name',
@@ -358,9 +359,8 @@ class ArticleAnalyticsController extends Controller
                 }
                 $key = Carbon::parse($dt)->format($groupByDay ? 'Y-m-d' : 'Y-m');
 
-                $qty = ($usedVia === 'pivot')
-                    ? (float) ($r->pivot_quantity ?? 0)
-                    : (int) ($r->job_quantity ?? 0) * (int) ($r->job_copies ?? 0);
+                // Calculate quantity using new area-based method when available
+                $qty = $this->calculateJobQuantity($r);
 
                 if (!isset($byMonth[$key])) {
                     $byMonth[$key] = [
@@ -368,10 +368,19 @@ class ArticleAnalyticsController extends Controller
                         'label' => $groupByDay ? Carbon::createFromFormat('Y-m-d', $key)->format('d M Y') : Carbon::createFromFormat('Y-m', $key)->format('M Y'),
                         'quantity_used' => 0,
                         'jobs' => [],
+                        'area_based_jobs' => 0,
+                        'legacy_jobs' => 0,
                     ];
                 }
                 $byMonth[$key]['quantity_used'] += $qty;
                 $byMonth[$key]['jobs'][$r->job_id] = true; // unique jobs
+                
+                // Track calculation method for analytics
+                if ($r->total_area_m2) {
+                    $byMonth[$key]['area_based_jobs']++;
+                } else {
+                    $byMonth[$key]['legacy_jobs']++;
+                }
             }
 
             // Fill gaps for display
@@ -385,6 +394,8 @@ class ArticleAnalyticsController extends Controller
                             'label' => $cursor->format('d M Y'),
                             'quantity_used' => 0,
                             'jobs' => [],
+                            'area_based_jobs' => 0,
+                            'legacy_jobs' => 0,
                         ];
                     }
                     $cursor->addDay();
@@ -398,6 +409,8 @@ class ArticleAnalyticsController extends Controller
                             'label' => Carbon::createFromFormat('Y-m', $month)->format('M Y'),
                             'quantity_used' => 0,
                             'jobs' => [],
+                            'area_based_jobs' => 0,
+                            'legacy_jobs' => 0,
                         ];
                     }
                 }
@@ -411,6 +424,8 @@ class ArticleAnalyticsController extends Controller
                         'label' => $m['label'],
                         'quantity_used' => (float) $m['quantity_used'],
                         'jobs_count' => is_array($m['jobs']) ? count($m['jobs']) : 0,
+                        'area_based_jobs' => $m['area_based_jobs'] ?? 0,
+                        'legacy_jobs' => $m['legacy_jobs'] ?? 0,
                         'value' => (float) $m['quantity_used'] * $unitPrice,
                     ];
                 })
@@ -424,6 +439,10 @@ class ArticleAnalyticsController extends Controller
                 'total_value' => $monthlyUsage->sum('value'),
                 'average_monthly_usage' => $groupByDay ? 0 : ($months > 0 ? ($monthlyUsage->sum('quantity_used') / $months) : 0),
                 'group' => $groupByDay ? 'day' : 'month',
+                'calculation_methods' => [
+                    'area_based_jobs' => $monthlyUsage->sum('area_based_jobs'),
+                    'legacy_jobs' => $monthlyUsage->sum('legacy_jobs'),
+                ],
             ]);
 
         } catch (\Exception $e) {
@@ -434,6 +453,10 @@ class ArticleAnalyticsController extends Controller
                 'total_quantity' => 0,
                 'total_value' => 0,
                 'average_monthly_usage' => 0,
+                'calculation_methods' => [
+                    'area_based_jobs' => 0,
+                    'legacy_jobs' => 0,
+                ],
             ]);
         }
     }
@@ -460,9 +483,13 @@ class ArticleAnalyticsController extends Controller
                 'monthly_usage' => $monthlyData,
                 'summary' => [
                     'current_stock' => $stockData['stock']['current_stock'] ?? 0,
-                    'total_orders' => $orderData['total_orders'] ?? 0,
+                    'total_orders' => $orderData['summary']['total_orders'] ?? 0,
                     'monthly_average' => $monthlyData['average_monthly_usage'] ?? 0,
-                    'last_used' => !empty($orderData['usage']) ? $orderData['usage'][0]['start_date'] ?? null : null
+                    'last_used' => !empty($orderData['invoices']) ? $orderData['invoices'][0]['start_date'] ?? null : null,
+                    'calculation_methods' => [
+                        'area_based_usage' => $monthlyData['calculation_methods']['area_based_jobs'] ?? 0,
+                        'legacy_usage' => $monthlyData['calculation_methods']['legacy_jobs'] ?? 0,
+                    ]
                 ]
             ]);
         } catch (\Exception $e) {
@@ -472,5 +499,41 @@ class ArticleAnalyticsController extends Controller
                 'message' => $e->getMessage()
             ], 500);
         }
+    }
+
+    /**
+     * Calculate job quantity using new area-based method when available
+     * Falls back to legacy quantity * copies calculation
+     * This method should match the frontend computeInvoiceQuantity logic
+     */
+    private function calculateJobQuantity($jobRow)
+    {
+        // Priority 1: Use pivot quantity if available (most accurate)
+        if (!is_null($jobRow->pivot_quantity)) {
+            $result = (float) $jobRow->pivot_quantity;
+            return $result;
+        }
+
+        // Priority 2: Use area-based calculation if total_area_m2 is available
+        if ($jobRow->total_area_m2 && is_numeric($jobRow->total_area_m2)) {
+            // For area-based materials, the area represents the material consumed
+            // We need to consider the job's quantity and copies as multipliers
+            $areaQuantity = (float) $jobRow->total_area_m2;
+            $jobQuantity = (int) ($jobRow->job_quantity ?? 1);
+            $jobCopies = (int) ($jobRow->job_copies ?? 1);
+            
+            // The total material consumed is: area × quantity × copies
+            // This represents the actual material area used for production
+            $result = $areaQuantity * $jobQuantity * $jobCopies;
+            
+            return $result;
+        }
+
+        // Priority 3: Fallback to legacy calculation (quantity * copies)
+        $quantity = (int) ($jobRow->job_quantity ?? 0);
+        $copies = (int) ($jobRow->job_copies ?? 0);
+        $result = $quantity * $copies;
+        
+        return $result;
     }
 }

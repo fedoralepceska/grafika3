@@ -98,7 +98,7 @@
                         <tr :class="[{
                             'red' :  invoice.onHold
                         }]" v-if="invoice.onHold">
-                            <td :colspan="9 + (hasWaitingJobs ? 1 : 0) + (hasNextSteps ? 1 : 0)">
+                            <td :colspan="8 + (hasWaitingJobs ? 1 : 0) + (hasNextSteps ? 1 : 0)">
                                 <i class="fa-solid fa-ban"></i>
                                 {{ $t('thisOrderIsOnHold') }}
                                 <i class="fa-solid fa-ban"></i>
@@ -109,8 +109,7 @@
                                 <th>{{ $t('img') }}</th>
                                 <th>{{ $t('qty') }}</th>
                                 <th>{{ $t('copies') }}</th>
-                                <th>{{ $t('height') }}</th>
-                                <th>{{ $t('width') }}</th>
+                                <th>{{$t('totalm')}}<sup>2</sup></th>
                                 <th>{{ $t('print') }}</th>
                                 <th>{{ $t('cut') }}</th>
                                 <th>{{ $t('action') }}</th>
@@ -120,7 +119,7 @@
                         </thead>
                         <tbody v-for="(job, jobIndex) in invoice.jobs" :key="jobIndex" :data-job-id="job.id">
                             <tr v-if="invoice.comment && !acknowledged && hasNoteForCurrentAction(job)" :data-job-id="job.id">
-                                <td :colspan="9 + (hasWaitingJobs ? 1 : 0) + (hasNextSteps ? 1 : 0)" class="orange">
+                                <td :colspan="8 + (hasWaitingJobs ? 1 : 0) + (hasNextSteps ? 1 : 0)" class="orange">
                                     <button @click="openModal">
                                     <i class="fa-solid fa-arrow-down"></i>
                                         {{ $t('readNotes') }}
@@ -164,8 +163,7 @@
                                 </td>
                                 <td>{{job.quantity}}</td>
                                 <td>{{job.copies}}</td>
-                                <td>{{job.height.toFixed(2)}}</td>
-                                <td>{{job.width.toFixed(2)}}</td>
+                                <td>{{ formatTotalArea(job) }}</td>
                                 <td>{{ job.machinePrint }}</td>
                                 <td>{{ job.machineCut }}</td>
                                 <td>
@@ -1673,6 +1671,38 @@ export default {
                 }
             } catch (error) {
                 console.error('Error syncing action status:', error);
+            }
+        },
+        formatTotalArea(job) {
+            try {
+                // Prefer explicit total_area_m2 if present
+                const fromField = parseFloat(job?.total_area_m2);
+                if (!isNaN(fromField) && fromField > 0) return fromField.toFixed(4);
+
+                // If client provided computed_total_area_m2 (accessor), use it
+                const fromComputed = parseFloat(job?.computed_total_area_m2);
+                if (!isNaN(fromComputed) && fromComputed > 0) return fromComputed.toFixed(4);
+
+                // If dimensions_breakdown exists, sum per-file totals
+                if (Array.isArray(job?.dimensions_breakdown) && job.dimensions_breakdown.length > 0) {
+                    const sum = job.dimensions_breakdown.reduce((acc, f) => {
+                        const v = parseFloat(f?.total_area_m2);
+                        return acc + (isNaN(v) ? 0 : v);
+                    }, 0);
+                    if (sum > 0) return sum.toFixed(4);
+                }
+
+                // Fallback: derive from width/height if both numeric (legacy)
+                const w = parseFloat(job?.width);
+                const h = parseFloat(job?.height);
+                if (!isNaN(w) && !isNaN(h) && w > 0 && h > 0) {
+                    const areaM2 = (w * h) / 1000000; // mm^2 -> m^2
+                    return areaM2.toFixed(4);
+                }
+
+                return '0.0000';
+            } catch (e) {
+                return '0.0000';
             }
         },
     },

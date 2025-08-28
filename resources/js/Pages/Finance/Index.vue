@@ -93,8 +93,8 @@
                                         <div class="p-1 img">
                                             <img :src="getImageUrl(job.id)" alt="Job Image" class="jobImg thumbnail"/>
                                         </div>
-                                        <div class="p-1">{{$t('Height')}}: <span class="bold">{{job.height.toFixed(2)}}</span> </div>
-                                        <div class="p-1">{{$t('Width')}}: <span class="bold">{{job.width.toFixed(2)}}</span> </div>
+                                                                <div class="p-1">{{$t('Height')}}: <span class="bold">{{(job.height && typeof job.height === 'number') ? job.height.toFixed(2) : '0.00'}}</span> </div>
+                        <div class="p-1">{{$t('Width')}}: <span class="bold">{{(job.width && typeof job.width === 'number') ? job.width.toFixed(2) : '0.00'}}</span> </div>
                                         <div class="p-1">{{$t('Quantity')}}: <span class="bold">{{job.quantity}}</span> </div>
                                         <div class="p-1">{{$t('Copies')}}: <span class="bold">{{job.copies}}</span> </div>
                                     </div>

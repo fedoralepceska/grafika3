@@ -166,8 +166,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::delete('/jobs/{id}/remove-original-file', [JobController::class, 'removeOriginalFile'])->name('jobs.removeOriginalFile');
     Route::post('/orders/download-all-files', [InvoiceController::class, 'downloadAllFiles'])->name('orders.downloadAllFiles');
     Route::get('/jobs/{id}/thumbnails', [JobController::class, 'getJobThumbnails'])->name('jobs.getThumbnails');
-    Route::get('/jobs/{jobId}/view-original-file/{fileIndex}', [JobController::class, 'viewOriginalFile'])->name('jobs.viewOriginalFile');
-    Route::get('/jobs/{jobId}/view-thumbnail/{fileIndex}', [JobController::class, 'viewThumbnail'])->name('jobs.viewThumbnail');
+Route::get('/jobs/{id}/articles', [JobController::class, 'getJobArticles'])->name('jobs.getArticles');
+Route::get('/jobs/{jobId}/view-original-file/{fileIndex}', [JobController::class, 'viewOriginalFile'])->name('jobs.viewOriginalFile');
+Route::get('/jobs/{jobId}/view-thumbnail/{fileIndex}', [JobController::class, 'viewThumbnail'])->name('jobs.viewThumbnail');
     
     // Cutting Files Routes
     Route::post('/jobs/{id}/upload-cutting-files', [JobController::class, 'uploadCuttingFiles'])->name('jobs.uploadCuttingFiles');

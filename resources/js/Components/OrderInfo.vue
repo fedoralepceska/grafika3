@@ -33,7 +33,7 @@
                         </div>
                         <div class="job-info">
                             <div class="job-title">#{{ index + 1 }}</div>
-                            <div class="job-details">{{ job.width.toFixed(2) }}×{{ job.height.toFixed(2) }}</div>
+                            <div class="job-details">{{ (job.computed_total_area_m2 && typeof job.computed_total_area_m2 === 'number') ? job.computed_total_area_m2.toFixed(4) + 'm²' : '0.0000m²' }}</div>
                         </div>
                     </div>
                 </div>

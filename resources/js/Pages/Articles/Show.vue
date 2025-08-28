@@ -814,17 +814,8 @@ export default {
         const data = this.monthlyUsage.monthly_usage;
         const isDaily = this.monthlyUsage.group === 'day';
         
-        // Debug: Log the data structure to understand what we're working with
-        console.log('Monthly Usage Data:', {
-          group: this.monthlyUsage.group,
-          dataLength: data.length,
-          sampleData: data.slice(0, 3),
-          isDaily
-        });
-        
         // If daily data and more than 12 points, group into weeks
         if (isDaily && data.length > 12) {
-          console.log('Grouping daily data into weeks...');
           return this.groupIntoWeeks(data);
         }
         
@@ -909,8 +900,12 @@ export default {
       return s.replace(/\s+/g, '-');
     },
     formatQuantity(value) {
-      const num = Number(value || 0);
-      return num.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+      const num = parseFloat(value || 0);
+      // Handle very small numbers that might be getting rounded to 0
+      if (num > 0 && num < 0.01) {
+        return num.toFixed(6); // Show 6 decimal places for very small numbers
+      }
+      return num.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 6 });
     },
     formatCurrency(value, decimals = 2) {
       const num = Number(value || 0);
@@ -919,13 +914,22 @@ export default {
     computeInvoiceQuantity(order) {
       const jobs = order?.jobs || [];
       let total = 0;
+      
       for (const j of jobs) {
         if (j?.used_via === 'pivot') {
-          total += Number(j.pivot_quantity || 0);
+          // Handle very small decimal numbers that might be getting rounded to 0
+          const pivotQty = parseFloat(j.pivot_quantity || 0);
+          if (pivotQty > 0) {
+            total += pivotQty;
+          }
         } else if (['small_fk','large_fk','small_name','large_name'].includes(j?.used_via)) {
-          total += Number(j.fallback_quantity || 0);
+          const fallbackQty = parseFloat(j.fallback_quantity || 0);
+          if (fallbackQty > 0) {
+            total += fallbackQty;
+          }
         }
       }
+      
       return total;
     },
     async loadAnalyticsData() {
@@ -1052,15 +1056,6 @@ export default {
           // Fix: parseInt(month) - 1 because months are 0-indexed in JavaScript Date constructor
           const lastDay = new Date(parseInt(year), parseInt(month), 0).getDate();
           const endDate = `${year}-${month}-${lastDay}`;
-          
-          console.log('Quick Month Filter:', {
-            selected: this.analyticsFilters.quickMonth,
-            startDate,
-            endDate,
-            year,
-            month,
-            lastDay
-          });
           
           const params = {
             start_date: startDate,

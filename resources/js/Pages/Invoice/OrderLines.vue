@@ -10,14 +10,14 @@
                         <button
                             @click="confirmDelete(job)"
                             class="delete-btn text-red-600 hover:text-red-800"
+                            :disabled="jobDeletionStates[job.id] === 'deleting'"
                         >
-                            <i class="fa fa-times"></i>
+                            <i v-if="jobDeletionStates[job.id] !== 'deleting'" class="fa fa-times"></i>
+                            <i v-else class="fa fa-spinner fa-spin"></i>
                         </button>
                     </td>
                     <td> File: <span class="bold">{{ job.file }}</span></td>
                     <td>ID: <span class="bold">{{ job.id }}</span></td>
-                    <td>{{ $t('width') }}: <span class="bold">{{ job.width ? job.width.toFixed(2) : '0.00' }}mm</span></td>
-                    <td>{{ $t('height') }}: <span class="bold">{{ job.height ? job.height.toFixed(2) : '0.00' }}mm</span></td>
                     <td>
                         {{ $t('Quantity') }}:
                         <span
@@ -58,6 +58,56 @@
                             class="edit-input"
                         />
                     </td>
+                    <td>
+                        <div v-if="job.machinePrint" class="machine-field">
+                            {{ $t('machineP') }}: 
+                            <span
+                                class="bold editable bg-white/20"
+                                @dblclick="startEditingMachine(job, 'machinePrint')"
+                                v-if="!(editingJob?.id === job.id && editingField === 'machinePrint')"
+                            >
+                                {{ job.machinePrint }}
+                            </span>
+                            <select
+                                v-else
+                                v-model="editingValue"
+                                @change="saveMachineEdit(job)"
+                                @blur="saveMachineEdit(job)"
+                                :ref="el => { if (el) machinePrintInput = el }"
+                                class="edit-select"
+                            >
+                                <option value="">{{ $t('Select Machine') || 'Select a Print Machine' }}</option>
+                                <option v-for="machine in machinesPrint" :key="machine.id" :value="machine.name">
+                                    {{ machine.name }}
+                                </option>
+                            </select>
+                        </div>
+                    </td>
+                    <td>
+                        <div v-if="job.machineCut" class="machine-field">
+                            {{ $t('machineC') }}: 
+                            <span
+                                class="bold editable bg-white/20"
+                                @dblclick="startEditingMachine(job, 'machineCut')"
+                                v-if="!(editingJob?.id === job.id && editingField === 'machineCut')"
+                            >
+                                {{ job.machineCut }}
+                            </span>
+                            <select
+                                v-else
+                                v-model="editingValue"
+                                @change="saveMachineEdit(job)"
+                                @blur="saveMachineEdit(job)"
+                                :ref="el => { if (el) machineCutInput = el }"
+                                class="edit-select"
+                            >
+                                <option value="">{{ $t('Select Machine') || 'Select a Cut Machine' }}</option>
+                                <option v-for="machine in machinesCut" :key="machine.id" :value="machine.name">
+                                    {{ machine.name }}
+                                </option>
+                            </select>
+                        </div>
+                    </td>
                 </div>
 
                 <!-- FILE INFO -->
@@ -77,47 +127,35 @@
                         <!-- Simplified File Display -->
                         <div class="file-display-container">
                             <!-- Thumbnails Grid -->
-                            <div v-if="getJobThumbnails(job).length > 0" class="thumbnails-grid">
-                                <div 
-                                    v-for="(thumb, thumbIndex) in getJobThumbnails(job)" 
-                                    :key="thumbIndex"
+                            <div v-if="job.originalFile && job.originalFile.length > 0" class="thumbnails-grid">
+                                <div
+                                    v-for="(file, fileIndex) in job.originalFile"
+                                    :key="file"
                                     class="thumbnail-item"
                                 >
                                     <!-- Remove button -->
-                                    <button 
-                                        @click="removeOriginalFile(job, thumbIndex)" 
+                                    <button
+                                        @click="removeOriginalFile(job, fileIndex)"
                                         class="thumbnail-remove-btn"
+                                        :class="{ 'removing': fileRemovalStates[job.id] === 'removing' }"
+                                        :disabled="fileRemovalStates[job.id] === 'removing'"
                                         title="Remove file"
                                     >
-                                        <i class="fa fa-times"></i>
+                                        <i v-if="fileRemovalStates[job.id] === 'removing'" class="fa fa-spinner fa-spin"></i>
+                                        <i v-else class="fa fa-times"></i>
                                     </button>
-                                    
-                                    <!-- Thumbnail or PDF Icon -->
-                                    <div @click="openPreviewModal(thumb, job)" class="thumbnail-preview">
-                                        <!-- Individual thumbnail loader -->
-                                        <div v-if="!thumb.imageLoaded && !thumb.imageLoadError" class="thumbnail-loader">
-                                            <div class="thumbnail-spinner"></div>
-                                        </div>
-                                        
-                                        <!-- Always try to show thumbnail first -->
-                                        <img
-                                            v-if="!thumb.imageLoadError"
-                                            :src="getThumbnailUrl(job.id, thumb.index)"
-                                            :alt="'Thumbnail ' + (thumbIndex + 1)"
+
+                                    <!-- Inline PDF preview with iframe; click opens full preview modal -->
+                                    <div @click="openPreviewModal({ index: fileIndex }, job)" class="thumbnail-preview">
+                                        <iframe
+                                            :src="getPdfUrl(job, fileIndex)"
                                             class="thumbnail-image"
-                                            :class="{ 'loading': !thumb.imageLoaded }"
-                                            @error="handleThumbnailError(thumb, $event)"
-                                            @load="handleThumbnailLoad(thumb)"
-                                        />
-                                        <!-- Fallback to PDF icon only if thumbnail fails to load -->
-                                        <div v-else class="pdf-thumbnail">
-                                            <i class="fa fa-file-pdf"></i>
-                                            <span>PDF</span>
-                                            <div class="preview-hint">Click to view</div>
-                                        </div>
+                                            title="PDF preview"
+                                            frameborder="0"
+                                        ></iframe>
                                     </div>
-                                    
-                                    <div class="thumbnail-label">{{ thumbIndex + 1 }}</div>
+
+                                    <div class="thumbnail-label">{{ fileIndex + 1 }}</div>
                                 </div>
                             </div>
 
@@ -174,56 +212,6 @@
                         </div>
                     </td>
                     <td>
-                        <div v-if="job.machinePrint" class="machine-field">
-                            {{ $t('machineP') }}: 
-                            <span
-                                class="bold editable bg-white/20"
-                                @dblclick="startEditingMachine(job, 'machinePrint')"
-                                v-if="!(editingJob?.id === job.id && editingField === 'machinePrint')"
-                            >
-                                {{ job.machinePrint }}
-                            </span>
-                            <select
-                                v-else
-                                v-model="editingValue"
-                                @change="saveMachineEdit(job)"
-                                @blur="saveMachineEdit(job)"
-                                :ref="el => { if (el) machinePrintInput = el }"
-                                class="edit-select"
-                            >
-                                <option value="">{{ $t('Select Machine') || 'Select a Print Machine' }}</option>
-                                <option v-for="machine in machinesPrint" :key="machine.id" :value="machine.name">
-                                    {{ machine.name }}
-                                </option>
-                            </select>
-                        </div>
-                    </td>
-                    <td>
-                        <div v-if="job.machineCut" class="machine-field">
-                            {{ $t('machineC') }}: 
-                            <span
-                                class="bold editable bg-white/20"
-                                @dblclick="startEditingMachine(job, 'machineCut')"
-                                v-if="!(editingJob?.id === job.id && editingField === 'machineCut')"
-                            >
-                                {{ job.machineCut }}
-                            </span>
-                            <select
-                                v-else
-                                v-model="editingValue"
-                                @change="saveMachineEdit(job)"
-                                @blur="saveMachineEdit(job)"
-                                :ref="el => { if (el) machineCutInput = el }"
-                                class="edit-select"
-                            >
-                                <option value="">{{ $t('Select Machine') || 'Select a Cut Machine' }}</option>
-                                <option v-for="machine in machinesCut" :key="machine.id" :value="machine.name">
-                                    {{ machine.name }}
-                                </option>
-                            </select>
-                        </div>
-                    </td>
-                    <td>
                         <!-- Cutting Files Upload Area -->
                         <div class="cutting-files-container">
                             <!-- Hidden file input for cutting files -->
@@ -249,9 +237,11 @@
                                         <button 
                                             @click="removeCuttingFile(job, cuttingIndex)" 
                                             class="cutting-file-remove-btn"
+                                            :disabled="cuttingFileRemovalStates[job.id] && cuttingFileRemovalStates[job.id][cuttingIndex] === 'removing'"
                                             title="Remove cutting file"
                                         >
-                                            <i class="fa fa-times"></i>
+                                            <i v-if="!(cuttingFileRemovalStates[job.id] && cuttingFileRemovalStates[job.id][cuttingIndex] === 'removing')" class="fa fa-times"></i>
+                                            <i v-else class="fa fa-spinner fa-spin"></i>
                                         </button>
                                         
                                         <!-- File icon and click to view -->
@@ -314,19 +304,65 @@
                             </div>
                         </div>
                     </td>
+                    <td>
+                        <div v-if="job.dimensions_breakdown && job.dimensions_breakdown.length > 0">
+                            <div class="files-container" style="max-width: 30rem;">
+                                <div class="files-scroll">
+                                    <div v-for="(file, fileIndex) in job.dimensions_breakdown" :key="fileIndex" class="file-dimensions">
+                                        <div class="file-name" :title="file.filename">{{ file.filename }}</div>
+                                        <div v-for="(page, pageIndex) in file.page_dimensions" :key="pageIndex" class="page-dimensions">
+                                            <span class="page-label">Page {{ page.page }}:</span>
+                                            <span class="dimensions">{{ (page.width_mm && typeof page.width_mm === 'number') ? page.width_mm.toFixed(2) : '0.00' }}×{{ (page.height_mm && typeof page.height_mm === 'number') ? page.height_mm.toFixed(2) : '0.00' }}mm</span>
+                                        </div>
+                                        <div class="file-total">
+                                            <span class="file-total-label">File Total:</span>
+                                            <span class="file-total-area">{{ (file.total_area_m2 && typeof file.total_area_m2 === 'number') ? file.total_area_m2.toFixed(4) : '0.0000' }}m²</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="total-area">
+                                <strong>Job Total: {{ (job.total_area_m2 && typeof job.total_area_m2 === 'number') ? job.total_area_m2.toFixed(4) : '0.0000' }}m²</strong>
+                            </div>
+                        </div>
+                        <div v-else>
+                            <div class="file-dimensions">
+                                <div class="file-name">{{ $t('Dimensions') }}</div>
+                                <div class="page-dimensions">
+                                    <span class="page-label">{{ $t('width') }}:</span>
+                                    <span class="dimensions">{{ job.width ? job.width.toFixed(2) : '0.00' }}mm</span>
+                                </div>
+                                <div class="page-dimensions">
+                                    <span class="page-label">{{ $t('height') }}:</span>
+                                    <span class="dimensions">{{ job.height ? job.height.toFixed(2) : '0.00' }}mm</span>
+                                </div>
+                                <div class="file-total">
+                                    <span class="file-total-label">Area:</span>
+                                    <span class="file-total-area">{{ (job.total_area_m2 && typeof job.total_area_m2 === 'number') ? job.total_area_m2.toFixed(4) : '0.0000' }}m²</span>
+                                </div>
+                            </div>
+                        </div>
+                    </td>
                 </div>
 
                 <!-- ACTIONS SECTION -->
                 <div v-if="job.actions && job.actions.length > 0">
                     <td>
-                        <div class="green p-1 pl-1 w-[40rem] text-white bg-gray-700" @click="toggleActions(job.id)" style="cursor: pointer">
-                            {{$t('ACTIONS')}} ⏷
+                        <div class="materials-header green p-1 pl-1 w-[40rem] text-white bg-gray-700" style="cursor: pointer" @click="toggleActions(job.id)">
+                            <span>ACTIONS </span>
+                            <button class="materials-toggle-btn" @click.stop="toggleActions(job.id)">
+                                <i class="fa" :class="showActions[job.id] ? 'fa-chevron-up' : 'fa-chevron-down'"></i>
+                            </button>
                         </div>
                         <transition name="slide-fade">
-                            <div v-if="showActions === job.id" class="ultra-light-green text-white   pb-1">
-                                <div v-for="(action, actionIndex) in job.actions" :key="actionIndex" class="bg-gray-700 pl-1 w-full text-left">
-                                    <span>{{actionIndex +1 }}.{{ action.name }}</span>
-                                </div>
+                            <div v-if="showActions[job.id] !== false" class="ultra-light-green text-white pb-1">
+                                <OrderJobProgressCompact 
+                                class="bg-gray-700"
+                                    :job="job" 
+                                    :invoiceId="invoiceId" 
+                                    :clickable="false"
+                                    :showLabel="false"
+                                />
                             </div>
                         </transition>
                     </td>
@@ -335,16 +371,29 @@
                 <!-- MATERIALS SECTION -->
                 <div v-if="job.articles && job.articles.length > 0">
                     <td>
-                        <div class="blue p-1 pl-1 w-[40rem] text-white bg-gray-700" @click="toggleMaterials(job.id)" style="cursor: pointer">
-                            {{$t('MATERIALS')}} ⏷
+                        <div class="materials-header blue p-1 pl-1 w-[40rem] text-white bg-gray-700" style="cursor: pointer" @click="toggleMaterials(job.id)">
+                            <span>{{$t('MATERIALS')}}</span>
+                            <button class="materials-toggle-btn" @click.stop="toggleMaterials(job.id)">
+                                <i class="fa" :class="showMaterials[job.id] ? 'fa-chevron-up' : 'fa-chevron-down'"></i>
+                            </button>
                         </div>
                         <transition name="slide-fade">
-                            <div v-if="showMaterials === job.id" class="ultra-light-blue text-white pb-1">
-                                <div v-for="(article, articleIndex) in job.articles" :key="articleIndex" class="bg-gray-700 pl-1 w-full text-left">
-                                    <span>{{articleIndex + 1}}. {{ article.name }} ({{ article.pivot.quantity }} {{ article.in_square_meters ? 'm²' : (article.in_pieces ? 'ком.' : (article.in_kilograms ? 'кг' : (article.in_meters ? 'м' : 'ед.'))) }})</span>
+                            <div v-if="showMaterials[job.id] !== false" class="ultra-light-blue text-white pb-1">
+                                <div v-for="(article, articleIndex) in job.articles" :key="articleIndex" class="materials-item bg-gray-700 pl-1 w-full text-left py-1">
+                                    <span class="text-sm">{{articleIndex + 1}}. {{ article.name }} ({{ article.pivot.quantity }} {{ article.in_square_meters ? 'm²' : (article.in_pieces ? 'ком.' : (article.in_kilograms ? 'кг' : (article.in_meters ? 'м' : 'ед.'))) }})</span>
                                 </div>
                             </div>
                         </transition>
+                    </td>
+                </div>
+                <div v-else-if="job.catalog_item_id">
+                    <td>
+                        <div class="materials-header blue p-1 pl-1 w-[40rem] text-white bg-gray-700" style="cursor: pointer" @click="loadJobArticles(job.id)">
+                            <span>{{$t('MATERIALS')}} (Click to load)</span>
+                            <button class="materials-toggle-btn" @click.stop="loadJobArticles(job.id)">
+                                <i class="fa fa-download"></i>
+                            </button>
+                        </div>
                     </td>
                 </div>
 
@@ -355,11 +404,18 @@
                         {{ $t('Shipping') }}: <strong> {{ job.shippingInfo }}</strong>
                     </td>
                     <div v-if="!isRabotnikComputed" class="bg-gray-200 text-black bold">
-                        <div class="pt-1 pl-2 pr-2 pb-2">
-                            {{ $t('jobPrice') }}: <span class="bold">{{ (job.salePrice || job.price).toFixed(2) }} ден.</span>
+                        <div class="pt-1 pl-2 pr-2 pb-2 flex items-center gap-2">
+                                                            {{ $t('jobPrice') }}: <span class="bold">{{ ((job.salePrice || job.price) && typeof (job.salePrice || job.price) === 'number') ? (job.salePrice || job.price).toFixed(2) : '0.00' }} ден.</span>
                         </div>
-                        <div class="pt-1 pl-2 pr-2">
-                            {{ $t('jobPriceCost') }}: <span class="bold">{{ job.price.toFixed(2) }} ден.</span>
+                        <div class="pt-1 pl-2 pr-2 flex items-center gap-2">
+                                                            {{ $t('jobPriceCost') }}: <span class="bold">{{ (job.price && typeof job.price === 'number') ? job.price.toFixed(2) : '0.00' }} ден.</span>
+                            <button 
+                                @click="showCostBreakdown(job)" 
+                                class="info-btn"
+                                title="Show cost breakdown"
+                            >
+                                <i class="fa fa-info-circle"></i>
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -459,6 +515,12 @@
             </div>
         </div>
 
+        <!-- Cost Breakdown Modal -->
+        <CostBreakdownModal 
+            :visible="showCostBreakdownModal" 
+            :job="selectedJob" 
+            @close="closeCostBreakdownModal" 
+        />
 
     </div>
 </template>
@@ -467,29 +529,51 @@
 import { useToast } from "vue-toastification";
 import axios from "axios";
 import useRoleCheck from '@/Composables/useRoleCheck';
-import { computed } from 'vue';
+import { computed, ref } from 'vue';
+import OrderJobProgressCompact from './OrderJobProgressCompact.vue';
+import CostBreakdownModal from '@/Components/CostBreakdownModal.vue';
 
 export default {
     name: "OrderLines",
+    components: {
+        OrderJobProgressCompact,
+        CostBreakdownModal,
+    },
     setup() {
         const { isRabotnik } = useRoleCheck();
         
         const isRabotnikComputed = computed(() => isRabotnik.value);
         
+        // Create refs for section state
+        const showMaterials = ref({});
+        const showActions = ref({});
+        
+        // Create methods that can access the refs
+        const toggleActions = (jobId) => {
+            showActions.value[jobId] = !showActions.value[jobId];
+        };
+        
+        const toggleMaterials = (jobId) => {
+            showMaterials.value[jobId] = !showMaterials.value[jobId];
+        };
+        
         return {
-            isRabotnikComputed
+            isRabotnikComputed,
+            showMaterials,
+            showActions,
+            toggleActions,
+            toggleMaterials
         };
     },
 
     props: {
         jobs: Array,
         updatedJobs: Array,
+        invoiceId: String,
     },
 
     data() {
         return {
-            showActions: null,
-            showMaterials: null,
             jobsWithPrices: [],
             editingJob: null,
             editingField: null,
@@ -515,7 +599,17 @@ export default {
             cuttingUploadProgress: {}, // Track cutting upload progress for each job
             cuttingUploadStates: {}, // Track cutting upload states
             showCuttingFilePreviewModal: false,
-            cuttingPreviewFile: null
+            cuttingPreviewFile: null,
+            // File removal states
+            fileRemovalStates: {}, // Track file removal states: 'idle', 'removing', 'complete', 'error'
+            // Cutting file removal states
+            cuttingFileRemovalStates: {}, // Track cutting file removal states: 'idle', 'removing', 'complete', 'error'
+            // Job deletion states
+            jobDeletionStates: {}, // Track job deletion states: 'idle', 'deleting', 'complete', 'error'
+            // Cost breakdown modal
+            showCostBreakdownModal: false,
+            selectedJob: null,
+            costBreakdown: {}
         };
     },
 
@@ -557,6 +651,19 @@ export default {
             }
             // Initialize upload states for all jobs
             this.initializeJobStates(job.id);
+            
+            // Load articles for jobs that don't have them loaded yet
+            if (job.id && (!job.articles || job.articles.length === 0)) {
+                this.loadJobArticles(job.id);
+            }
+            
+            // Initialize sections to be open by default
+            if (job.actions && job.actions.length > 0) {
+                this.showActions[job.id] = true;
+            }
+            if (job.articles && job.articles.length > 0) {
+                this.showMaterials[job.id] = true;
+            }
         });
 
         // Load available machines
@@ -599,6 +706,14 @@ export default {
                     this.initializeJobStates(job.id);
                     this.initializeCuttingJobStates(job.id);
                     
+                    // Initialize sections to be open by default for new jobs
+                    if (job.actions && job.actions.length > 0 && !this.showActions[job.id]) {
+                        this.showActions[job.id] = true;
+                    }
+                    if (job.articles && job.articles.length > 0 && !this.showMaterials[job.id]) {
+                        this.showMaterials[job.id] = true;
+                    }
+                    
                     // Check if thumbnails need to be synchronized
                     if (job.originalFile && job.originalFile.length > 0) {
                         const currentThumbnails = this.jobThumbnails[job.id] || [];
@@ -612,18 +727,28 @@ export default {
                         this.$forceUpdate();
                     }
                     
-                    // Check if cutting file thumbnails need to be synchronized
-                    if (job.cuttingFiles && job.cuttingFiles.length > 0) {
-                        const currentCuttingThumbnails = this.jobCuttingFiles[job.id] || [];
-                        if (currentCuttingThumbnails.length !== job.cuttingFiles.length) {
-                            // Cutting thumbnail count doesn't match, reload them
-                            this.loadJobCuttingFiles(job.id);
-                        }
-                    } else if (this.jobCuttingFiles[job.id] && this.jobCuttingFiles[job.id].length > 0) {
-                        // No cutting files but thumbnails exist, clear them
-                        this.jobCuttingFiles[job.id] = [];
-                        this.$forceUpdate();
-                    }
+                                // Check if cutting file thumbnails need to be synchronized
+            if (job.cuttingFiles && job.cuttingFiles.length > 0) {
+                const currentCuttingThumbnails = this.jobCuttingFiles[job.id] || [];
+                if (currentCuttingThumbnails.length !== job.cuttingFiles.length) {
+                    // Cutting thumbnail count doesn't match, reload them
+                    this.loadJobCuttingFiles(job.id);
+                }
+            } else if (this.jobCuttingFiles[job.id] && this.jobCuttingFiles[job.id].length > 0) {
+                // No cutting files but thumbnails exist, clear them
+                this.jobCuttingFiles[job.id] = [];
+                this.$forceUpdate();
+            }
+            
+            // Check if articles need to be loaded
+            if (job.catalog_item_id && (!job.articles || job.articles.length === 0)) {
+                this.loadJobArticles(job.id);
+            }
+                });
+                
+                // Force UI update to ensure dimensions are displayed correctly
+                this.$nextTick(() => {
+                    this.forceUpdateDimensions();
                 });
             },
             deep: true
@@ -631,6 +756,46 @@ export default {
     },
 
     methods: {
+        // Cost breakdown methods
+        async showCostBreakdown(job) {
+            try {
+                this.selectedJob = job;
+                this.showCostBreakdownModal = true;
+                
+                // Get detailed cost breakdown from the backend
+                const response = await axios.post('/jobs/recalculate-cost', {
+                    job_id: job.id,
+                    total_area_m2: parseFloat(job.total_area_m2) || 0,
+                    quantity: parseInt(job.quantity) || 1,
+                    copies: parseInt(job.copies) || 1
+                });
+                
+                // Ensure we have valid data
+                const componentBreakdown = Array.isArray(response.data.component_breakdown) ? response.data.component_breakdown : [];
+                const materialDeduction = Array.isArray(response.data.material_deduction) ? response.data.material_deduction : [];
+                
+                this.costBreakdown = {
+                    total_cost: parseFloat(response.data.price) || 0,
+                    component_breakdown: componentBreakdown,
+                    material_deduction: materialDeduction
+                };
+            } catch (error) {
+                console.error('Failed to get cost breakdown:', error);
+                // Use stored job data as fallback
+                this.costBreakdown = {
+                    total_cost: parseFloat(job.price) || 0,
+                    component_breakdown: [],
+                    material_deduction: []
+                };
+            }
+        },
+
+        closeCostBreakdownModal() {
+            this.showCostBreakdownModal = false;
+            this.selectedJob = null;
+            this.costBreakdown = {};
+        },
+
         // Initialize upload states for a job
         initializeJobStates(jobId) {
             if (!this.uploadStates[jobId]) {
@@ -638,6 +803,10 @@ export default {
             }
             if (!this.uploadProgress[jobId]) {
                 this.uploadProgress[jobId] = 0;
+            }
+            // Initialize file removal state
+            if (!this.fileRemovalStates[jobId]) {
+                this.fileRemovalStates[jobId] = 'idle';
             }
         },
         triggerFilesInput(jobId) {
@@ -761,6 +930,14 @@ export default {
             return url;
         },
 
+        // Build authenticated PDF URL for inline iframe preview
+        getPdfUrl(job, fileIndex) {
+            const url = route('jobs.viewOriginalFile', { jobId: job.id, fileIndex: fileIndex });
+            const filePath = job.originalFile?.[fileIndex] || '';
+            const stamp = encodeURIComponent(filePath);
+            return `${url}?v=${stamp}`;
+        },
+
         handleThumbnailError(thumb, event) {
             const imgElement = event.target;
             console.error('Thumbnail failed to load:', imgElement.src);
@@ -827,15 +1004,26 @@ export default {
             }
         },
 
-
-
-        toggleActions(jobId) {
-            this.showActions = this.showActions === jobId ? null : jobId;
+        // Load articles for a specific job
+        async loadJobArticles(jobId) {
+            try {
+                const response = await axios.get(`/jobs/${jobId}/articles`);
+                if (response.data.articles) {
+                    // Find the job and update its articles
+                    const job = this.jobsToDisplay.find(j => j.id === jobId);
+                    if (job) {
+                        job.articles = response.data.articles;
+                        this.$forceUpdate();
+                    }
+                }
+            } catch (error) {
+                console.error('Failed to load articles for job', jobId, error);
+            }
         },
 
-        toggleMaterials(jobId) {
-            this.showMaterials = this.showMaterials === jobId ? null : jobId;
-        },
+
+
+
 
         // Removed handleFileDrop - now using handleMultipleFiles for all uploads
 
@@ -914,16 +1102,46 @@ export default {
                 // Clear progress polling
                 clearInterval(progressInterval);
 
-                // Update job with new original files and summed dimensions if calculated
+                // Update job with new original files and total area
+                const existingBreakdown = Array.isArray(job.dimensions_breakdown) ? job.dimensions_breakdown : [];
+                const newBreakdown = Array.isArray(response.data.dimensions_breakdown) ? response.data.dimensions_breakdown : [];
+                const mergedBreakdown = existingBreakdown.concat(newBreakdown);
+
                 const updatedJob = {
                     ...job,
                     originalFile: response.data.originalFiles || [],
-                    // Update dimensions if they were calculated (now using total dimensions)
-                    ...(response.data.dimensions && response.data.dimensions.total_width_mm > 0 && {
-                        width: response.data.dimensions.total_width_mm,
-                        height: response.data.dimensions.total_height_mm
+                    // Update total area and dimensions breakdown if available
+                    ...(response.data.total_area_m2 !== undefined && {
+                        total_area_m2: parseFloat(response.data.total_area_m2) || 0
+                    }),
+                    // Merge existing + newly returned breakdown so we keep all files
+                    ...(newBreakdown.length > 0 && {
+                        dimensions_breakdown: mergedBreakdown
                     })
                 };
+
+                // Log the update for debugging
+                console.log('Job updated with new dimensions:', {
+                    jobId: job.id,
+                    existingDimensions: job.dimensions_breakdown?.length || 0,
+                    newDimensions: response.data.dimensions_breakdown?.length || 0,
+                    totalArea: response.data.total_area_m2,
+                    originalFiles: response.data.originalFiles?.length || 0,
+                    responseData: response.data
+                });
+                
+                // Also log the job object before and after update
+                console.log('Job before update:', {
+                    id: job.id,
+                    total_area_m2: job.total_area_m2,
+                    dimensions_breakdown: job.dimensions_breakdown
+                });
+                
+                console.log('Updated job object:', {
+                    id: updatedJob.id,
+                    total_area_m2: updatedJob.total_area_m2,
+                    dimensions_breakdown: updatedJob.dimensions_breakdown
+                });
 
                 // Update in jobsWithPrices
                 const index = this.jobsWithPrices.findIndex(j => j.id === job.id);
@@ -943,8 +1161,16 @@ export default {
                     }
                 }
 
-                // Recalculate cost if this is a catalog-based job and dimensions were updated
-                if (updatedJob.catalog_item_id && response.data.dimensions && response.data.dimensions.total_width_mm > 0) {
+                // Also update the original job object to ensure immediate UI update
+                Object.assign(job, updatedJob);
+
+                // Force immediate update of the job object properties
+                job.dimensions_breakdown = updatedJob.dimensions_breakdown;
+                job.total_area_m2 = updatedJob.total_area_m2;
+                job.originalFile = updatedJob.originalFile;
+
+                // Recalculate cost if this is a catalog-based job and area was updated
+                if (updatedJob.catalog_item_id && response.data.total_area_m2 > 0) {
                     await this.recalculateJobCost(updatedJob);
                 }
 
@@ -970,18 +1196,24 @@ export default {
                     }, 1000); // Reduced from 2000ms to 1000ms
                 }
 
-                // Emit updates
+                                // Emit updates
                 this.$emit('jobs-updated', [updatedJob]);
                 this.$emit('job-updated', updatedJob);
-
-                // Show success message with cumulative dimension info
-                if (response.data.dimensions && response.data.dimensions.total_width_mm > 0) {
-                    const totalWidth = response.data.dimensions.total_width_mm;
-                    const totalHeight = response.data.dimensions.total_height_mm;
-                    const totalM2 = response.data.dimensions.total_area_m2;
-                    const fileCount = response.data.dimensions.files_count;
+                
+                // Force UI update to show new dimensions
+                this.forceUpdateDimensions();
+                
+                // Additional force update to ensure UI reflects changes
+                this.$nextTick(() => {
+                    this.$forceUpdate();
+                });
+                
+                // Show success message with total area info
+                if (response.data.total_area_m2 > 0) {
+                    const totalM2 = response.data.total_area_m2;
+                    const fileCount = response.data.dimensions?.files_count || files.length;
                     
-                    toast.success(`${files.length} files uploaded successfully. Job total: ${totalWidth.toFixed(2)}×${totalHeight.toFixed(2)}mm (${totalM2.toFixed(4)}m²) from ${fileCount} files`);
+                    toast.success(`${files.length} files uploaded successfully. Job total area: ${totalM2.toFixed(4)}m² from ${fileCount} files`);
                 } else {
                     toast.success(`${files.length} files uploaded successfully`);
                 }
@@ -1196,6 +1428,10 @@ export default {
 
         deleteJob() {
             if (this.jobToDelete) {
+                // Set deletion state
+                this.jobDeletionStates[this.jobToDelete.id] = 'deleting';
+                this.$forceUpdate();
+                
                 // Emit event to parent component to handle the deletion
                 this.$emit('delete-job', this.jobToDelete.id);
 
@@ -1211,6 +1447,18 @@ export default {
         // Method to clean up jobsWithPrices when jobs are deleted from parent
         cleanupDeletedJob(jobId) {
             this.jobsWithPrices = this.jobsWithPrices.filter(job => job.id !== jobId);
+            // Clear deletion state
+            if (this.jobDeletionStates[jobId]) {
+                delete this.jobDeletionStates[jobId];
+            }
+        },
+
+        // Method to clear job deletion state (used when deletion fails)
+        clearJobDeletionState(jobId) {
+            if (this.jobDeletionStates[jobId]) {
+                delete this.jobDeletionStates[jobId];
+                this.$forceUpdate();
+            }
         },
 
         getFileName(filePath) {
@@ -1253,21 +1501,51 @@ export default {
         async removeOriginalFile(job, fileIndex) {
             const toast = useToast();
             
+            // Set removal state
+            this.fileRemovalStates[job.id] = 'removing';
+            this.$forceUpdate();
+            
             try {
+                const filePath = job.originalFile?.[fileIndex];
                 const response = await axios.delete(`/jobs/${job.id}/remove-original-file`, {
-                    data: { file_index: fileIndex }
+                    data: { file_index: fileIndex, original_file: filePath }
                 });
 
-                // Update job with new original files and recalculated dimensions
+                // Update job with new original files and recalculated area
                 const updatedJob = {
                     ...job,
                     originalFile: response.data.originalFiles || [],
-                    // Update dimensions if they were recalculated
-                    ...(response.data.dimensions && {
-                        width: response.data.dimensions.width_mm,
-                        height: response.data.dimensions.height_mm
+                    // Update total area if it was recalculated
+                    ...(response.data.total_area_m2 !== undefined && {
+                        total_area_m2: parseFloat(response.data.total_area_m2) || 0
+                    }),
+                    // Always apply server-provided breakdown, even if it's an empty array
+                    ...(Object.prototype.hasOwnProperty.call(response.data, 'dimensions_breakdown') && {
+                        dimensions_breakdown: Array.isArray(response.data.dimensions_breakdown)
+                            ? response.data.dimensions_breakdown
+                            : []
                     })
                 };
+
+                // Ensure dimensions_breakdown is explicitly set to empty array if no files remain
+                if (!updatedJob.originalFile || updatedJob.originalFile.length === 0) {
+                    updatedJob.dimensions_breakdown = [];
+                    updatedJob.total_area_m2 = 0;
+                }
+
+                // Debug logging to see what's being updated
+                console.log('File removal response:', {
+                    jobId: job.id,
+                    originalFiles: response.data.originalFiles,
+                    dimensions_breakdown: response.data.dimensions_breakdown,
+                    total_area_m2: response.data.total_area_m2
+                });
+                console.log('Updated job:', {
+                    id: updatedJob.id,
+                    originalFile: updatedJob.originalFile,
+                    dimensions_breakdown: updatedJob.dimensions_breakdown,
+                    total_area_m2: updatedJob.total_area_m2
+                });
 
                 // Update in jobsWithPrices
                 const index = this.jobsWithPrices.findIndex(j => j.id === job.id);
@@ -1287,38 +1565,80 @@ export default {
                     }
                 }
 
-                // Clear the thumbnail cache for this job FIRST
-                this.jobThumbnails[job.id] = [];
-                this.$forceUpdate();
+                // Also update the original job object to ensure immediate UI update
+                Object.assign(job, updatedJob);
 
-                // If there are still files remaining, reload thumbnails
-                if (response.data.originalFiles && response.data.originalFiles.length > 0) {
-                    // Wait a moment for backend processing, then reload thumbnails
-                setTimeout(async () => {
-                    await this.loadJobThumbnails(job.id);
-                }, 500);
+                // Force immediate update of the job object properties
+                job.dimensions_breakdown = updatedJob.dimensions_breakdown;
+                job.total_area_m2 = updatedJob.total_area_m2;
+                job.originalFile = updatedJob.originalFile;
+
+                // Update thumbnails locally using API-provided list to avoid refetch
+                if (Array.isArray(response.data.thumbnails)) {
+                    this.jobThumbnails[job.id] = response.data.thumbnails.map(thumb => ({
+                        ...thumb,
+                        imageLoadError: false,
+                        imageLoaded: false
+                    }));
+                } else {
+                    // Fallback to reloading if not provided
+                    this.jobThumbnails[job.id] = [];
+                    this.$forceUpdate();
+                    if (response.data.originalFiles && response.data.originalFiles.length > 0) {
+                        setTimeout(async () => {
+                            await this.loadJobThumbnails(job.id);
+                        }, 500);
+                    }
+                }
+
+                // Recalculate cost if this is a catalog-based job and area was updated
+                if (updatedJob.catalog_item_id && response.data.total_area_m2 !== undefined) {
+                    await this.recalculateJobCost(updatedJob);
                 }
 
                 // Emit updates
                 this.$emit('jobs-updated', [updatedJob]);
                 this.$emit('job-updated', updatedJob);
-
-                // Show success message with dimension info if available
-                if (response.data.dimensions && response.data.removed_file_dimensions) {
-                    const removedWidth = response.data.removed_file_dimensions.width_mm;
-                    const removedHeight = response.data.removed_file_dimensions.height_mm;
-                    const removedArea = response.data.removed_file_dimensions.area_m2;
-                    const newWidth = response.data.dimensions.width_mm;
-                    const newHeight = response.data.dimensions.height_mm;
-                    const newArea = response.data.dimensions.area_m2;
-                    
-                    toast.success(`File removed successfully. Job dimensions updated: ${newWidth?.toFixed(2) || '0.00'}×${newHeight?.toFixed(2) || '0.00'}mm (${newArea?.toFixed(4) || '0.0000'}m²)`);
+                
+                // Force UI update to show new dimensions
+                this.forceUpdateDimensions();
+                
+                // Additional force update to ensure UI reflects changes
+                this.$nextTick(() => {
+                    this.$forceUpdate();
+                });
+                
+                // Show success message with area info if available
+                if (response.data.total_area_m2 !== undefined) {
+                    const newArea = Number(response.data.total_area_m2);
+                    toast.success(`File removed successfully. Job area updated: ${newArea.toFixed(4)}m²`);
                 } else {
-                toast.success('File removed successfully');
+                    toast.success('File removed successfully');
                 }
+                
+                // Set removal state to complete
+                this.fileRemovalStates[job.id] = 'complete';
+                this.$forceUpdate();
+                
+                // Reset to idle after a delay
+                setTimeout(() => {
+                    this.fileRemovalStates[job.id] = 'idle';
+                    this.$forceUpdate();
+                }, 2000);
+                
             } catch (error) {
                 console.error('Error removing file:', error);
                 toast.error('Failed to remove file');
+                
+                // Set removal state to error
+                this.fileRemovalStates[job.id] = 'error';
+                this.$forceUpdate();
+                
+                // Reset to idle after a delay
+                setTimeout(() => {
+                    this.fileRemovalStates[job.id] = 'idle';
+                    this.$forceUpdate();
+                }, 3000);
             }
         },
 
@@ -1512,7 +1832,12 @@ export default {
 
                 const updatedJob = {
                     ...job,
-                    cuttingFiles: response.data.cuttingFiles || []
+                    cuttingFiles: response.data.cuttingFiles || [],
+                    // Update dimensions breakdown if available
+                    ...(response.data.dimensions && response.data.dimensions.total_area_m2 > 0 && {
+                        total_area_m2: response.data.dimensions.total_area_m2,
+                        dimensions_breakdown: response.data.dimensions.individual_files || []
+                    })
                 };
 
                 const index = this.jobsWithPrices.findIndex(j => j.id === job.id);
@@ -1548,9 +1873,12 @@ export default {
                     }, 1000);
                 }
 
-                this.$emit('jobs-updated', [updatedJob]);
+                                this.$emit('jobs-updated', [updatedJob]);
                 this.$emit('job-updated', updatedJob);
-
+                
+                // Force UI update to show new dimensions
+                this.forceUpdateDimensions();
+                
                 toast.success(`${files.length} cutting files uploaded successfully`);
 
                 setTimeout(() => {
@@ -1580,6 +1908,13 @@ export default {
         async removeCuttingFile(job, fileIndex) {
             const toast = useToast();
             
+            // Set removal state for this specific cutting file
+            if (!this.cuttingFileRemovalStates[job.id]) {
+                this.cuttingFileRemovalStates[job.id] = {};
+            }
+            this.cuttingFileRemovalStates[job.id][fileIndex] = 'removing';
+            this.$forceUpdate();
+            
             try {
                 const response = await axios.delete(`/jobs/${job.id}/remove-cutting-file`, {
                     data: { fileIndex: fileIndex }
@@ -1587,7 +1922,11 @@ export default {
 
                 const updatedJob = {
                     ...job,
-                    cuttingFiles: response.data.remaining_files || []
+                    cuttingFiles: response.data.remaining_files || [],
+                    // Update total area if it was recalculated
+                    ...(response.data.dimensions && {
+                        total_area_m2: response.data.dimensions.area_m2
+                    })
                 };
 
                 const index = this.jobsWithPrices.findIndex(j => j.id === job.id);
@@ -1615,12 +1954,22 @@ export default {
                     }, 500);
                 }
 
-                this.$emit('jobs-updated', [updatedJob]);
+                                this.$emit('jobs-updated', [updatedJob]);
                 this.$emit('job-updated', updatedJob);
-
+                
+                // Force UI update to show new dimensions
+                this.forceUpdateDimensions();
+                
+                // Set removal state to complete
+                this.cuttingFileRemovalStates[job.id][fileIndex] = 'complete';
+                this.$forceUpdate();
+                
                 toast.success('Cutting file removed successfully');
             } catch (error) {
                 console.error('Error removing cutting file:', error);
+                // Set removal state to error
+                this.cuttingFileRemovalStates[job.id][fileIndex] = 'error';
+                this.$forceUpdate();
                 toast.error('Failed to remove cutting file');
             }
         },
@@ -1635,13 +1984,17 @@ export default {
             }
         },
 
+        // Force UI update when dimensions change
+        forceUpdateDimensions() {
+            this.$forceUpdate();
+        },
+
         async recalculateJobCost(job) {
             try {
                 // Call the backend to recalculate cost with new dimensions
                 const response = await axios.post('/jobs/recalculate-cost', {
                     job_id: job.id,
-                    width: job.width,
-                    height: job.height,
+                    total_area_m2: job.total_area_m2 || 0,
                     quantity: job.quantity,
                     copies: job.copies
                 });
@@ -2018,10 +2371,21 @@ input, select {
     transition: all 0.2s;
     backdrop-filter: blur(2px);
 
-    &:hover {
+    &:hover:not(:disabled) {
         background-color: rgba(220, 53, 69, 1);
         transform: scale(1.1);
         box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+    }
+
+    &:disabled {
+        cursor: not-allowed;
+        transform: none;
+        opacity: 0.7;
+    }
+
+    &.removing {
+        background-color: rgba(255, 193, 7, 0.9);
+        animation: pulse 1.5s infinite;
     }
 
     i {
@@ -2948,6 +3312,470 @@ input, select {
 
 .ultra-light-blue {
     color: #b3d9ff;
+}
+
+/* File Dimensions Display Styles */
+.files-container {
+    margin-bottom: 8px;
+    max-width: 80%;
+    overflow: hidden;
+    box-sizing: border-box;
+}
+
+.files-scroll {
+    display: flex;
+    width: 100%;
+    overflow-x: auto;
+    gap: 6px;
+    padding-bottom: 3px;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 255, 255, 0.3) transparent;
+}
+
+.files-scroll::-webkit-scrollbar {
+    height: 6px;
+}
+
+.files-scroll::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.files-scroll::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.3);
+    border-radius: 3px;
+}
+
+.files-scroll::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.5);
+}
+
+.files-scroll .file-dimensions {
+    flex: 0 0 220px;
+    max-width: 220px;
+    min-width: 220px;
+}
+
+.file-dimensions {
+    text-align: left;
+    padding: 3px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 4px;
+    margin-bottom: 3px;
+    flex-shrink: 0;
+}
+
+.file-name {
+    font-weight: bold;
+    color: #ffd700;
+    font-size: 0.75rem;
+    margin-bottom: 1px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+    padding-bottom: 1px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.page-dimensions {
+    font-size: 0.7rem;
+    margin: 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.page-label {
+    color: #ccc;
+    margin-right: 8px;
+}
+
+.dimensions {
+    color: #fff;
+    font-weight: 500;
+}
+
+.total-area {
+    margin-top: 6px;
+    padding-top: 6px;
+    border-top: 2px solid rgba(255, 255, 255, 0.3);
+    text-align: center;
+    color: #ffd700;
+    font-size: 0.9rem;
+    font-weight: bold;
+}
+
+.file-total {
+    margin-top: 2px;
+    padding-top: 2px;
+    border-top: 1px solid rgba(255, 255, 255, 0.2);
+    text-align: center;
+    font-size: 0.75rem;
+}
+
+.file-total-label {
+    color: #ccc;
+    margin-right: 8px;
+}
+
+.file-total-area {
+    color: greenyellow;
+    font-weight: 500;
+}
+
+
+
+.debug-info {
+    margin-top: 4px;
+    font-size: 0.65rem;
+    color: #888;
+    opacity: 0.8;
+}
+
+/* Cost Breakdown Modal Styles */
+.cost-breakdown-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+}
+
+.cost-breakdown-content {
+    background: white;
+    border-radius: 8px;
+    padding: 20px;
+    max-width: 800px;
+    width: 90%;
+    max-height: 90vh;
+    overflow-y: auto;
+    position: relative;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+}
+
+.cost-breakdown-close-btn {
+    position: absolute;
+    top: 15px;
+    right: 20px;
+    background: none;
+    border: none;
+    font-size: 24px;
+    cursor: pointer;
+    color: #666;
+    padding: 5px;
+    border-radius: 50%;
+    transition: background-color 0.2s;
+}
+
+.cost-breakdown-close-btn:hover {
+    background-color: #f0f0f0;
+}
+
+.cost-breakdown-header {
+    text-align: center;
+    margin-bottom: 25px;
+    padding-bottom: 15px;
+    border-bottom: 2px solid #e0e0e0;
+}
+
+.cost-breakdown-header h3 {
+    margin: 0 0 10px 0;
+    color: #333;
+    font-size: 24px;
+    font-weight: bold;
+}
+
+.job-name {
+    margin: 0;
+    color: #666;
+    font-size: 16px;
+    font-style: italic;
+}
+
+.cost-breakdown-body {
+    display: flex;
+    flex-direction: column;
+    gap: 25px;
+}
+
+.breakdown-section {
+    background: #f8f9fa;
+    border-radius: 8px;
+    padding: 20px;
+    border-left: 4px solid #007bff;
+}
+
+.breakdown-section h4 {
+    margin: 0 0 15px 0;
+    color: #333;
+    font-size: 18px;
+    font-weight: bold;
+    border-bottom: 1px solid #dee2e6;
+    padding-bottom: 8px;
+}
+
+.breakdown-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 15px;
+}
+
+.breakdown-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px;
+    background: white;
+    border-radius: 6px;
+    border: 1px solid #e9ecef;
+}
+
+.breakdown-item .label {
+    font-weight: 600;
+    color: #495057;
+}
+
+.breakdown-item .value {
+    font-weight: bold;
+    color: #007bff;
+}
+
+.component-breakdown {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.component-item {
+    background: white;
+    border-radius: 6px;
+    border: 1px solid #e9ecef;
+    overflow: hidden;
+}
+
+.component-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 15px;
+    background: #e3f2fd;
+    border-bottom: 1px solid #e9ecef;
+}
+
+.component-name {
+    font-weight: bold;
+    color: #1976d2;
+}
+
+.component-cost {
+    font-weight: bold;
+    color: #2e7d32;
+    font-size: 18px;
+}
+
+.component-details {
+    padding: 15px;
+}
+
+.detail-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+.detail-row:last-child {
+    margin-bottom: 0;
+}
+
+.detail-label {
+    font-weight: 600;
+    color: #495057;
+}
+
+.detail-value {
+    font-weight: 500;
+    color: #333;
+}
+
+.total-cost {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 15px;
+    background: #e8f5e8;
+    border-radius: 6px;
+    margin-top: 15px;
+    border: 2px solid #4caf50;
+}
+
+.total-label {
+    font-weight: bold;
+    color: #2e7d32;
+    font-size: 18px;
+}
+
+.total-value {
+    font-weight: bold;
+    color: #2e7d32;
+    font-size: 20px;
+}
+
+.no-breakdown, .no-deduction {
+    text-align: center;
+    padding: 20px;
+    color: #666;
+    font-style: italic;
+}
+
+.stored-cost {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 15px;
+    background: #fff3cd;
+    border-radius: 6px;
+    margin-top: 15px;
+    border: 1px solid #ffeaa7;
+}
+
+.material-breakdown {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.material-item {
+    background: white;
+    border-radius: 6px;
+    border: 1px solid #e9ecef;
+    overflow: hidden;
+}
+
+.material-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 15px;
+    background: #fff3cd;
+    border-bottom: 1px solid #e9ecef;
+}
+
+.material-name {
+    font-weight: bold;
+    color: #856404;
+}
+
+.material-quantity {
+    font-weight: bold;
+    color: #d63384;
+    font-size: 16px;
+}
+
+.material-details {
+    padding: 15px;
+}
+
+.formula-display {
+    background: white;
+    padding: 15px;
+    border-radius: 6px;
+    border: 1px solid #e9ecef;
+}
+
+.formula-display p {
+    margin: 0;
+    line-height: 1.6;
+    color: #333;
+}
+
+.formula-display strong {
+    color: #007bff;
+}
+
+/* Info button styles */
+.info-btn {
+    background: none;
+    border: none;
+    color: #007bff;
+    cursor: pointer;
+    padding: 2px 6px;
+    border-radius: 50%;
+    transition: all 0.2s;
+    font-size: 14px;
+}
+
+.info-btn:hover {
+    background-color: #e3f2fd;
+    transform: scale(1.1);
+}
+
+.info-btn:active {
+    transform: scale(0.95);
+}
+
+/* Enhanced Materials Section Styling */
+.materials-item {
+    border-left: 2px solid #3B82F6;
+    padding-left: 8px;
+    transition: all 0.2s ease;
+}
+
+.materials-item:hover {
+    background-color: rgba(59, 130, 246, 0.1);
+    border-left-color: #1D4ED8;
+}
+
+.materials-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 4px 8px;
+    background-color: #374151;
+    border-radius: 4px 4px 0 0;
+}
+
+.materials-toggle-btn {
+    background: none;
+    border: none;
+    color: #E5E7EB;
+    padding: 2px 6px;
+    border-radius: 4px;
+    transition: all 0.2s ease;
+    cursor: pointer;
+}
+
+.materials-toggle-btn:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+    color: #FFFFFF;
+}
+
+/* Make sections feel more contained */
+.compact-progress {
+    border-radius: 0 0 4px 4px;
+    margin: 0;
+    padding: 4px;
+}
+
+/* Loading states and spinners */
+.fa-spinner {
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+/* Disabled button states */
+.delete-btn:disabled,
+.cutting-file-remove-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
 }
 
 </style>

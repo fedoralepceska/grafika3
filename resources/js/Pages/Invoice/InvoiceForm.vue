@@ -128,6 +128,7 @@
                             :key="`order-lines-${$refs.dragAndDrop?.jobs?.length || 0}-${updatedJobs.length || 0}`"
                             :jobs="$refs.dragAndDrop?.jobs"
                             :updatedJobs="updatedJobs"
+                            :invoiceId="null"
                             @job-updated="handleJobUpdate"
                             @delete-job="handleJobDelete"
                         />
@@ -456,6 +457,10 @@ export default {
                 } catch (error) {
                     console.error('Error deleting job:', error);
                     toast.error('Failed to delete job');
+                    // Clear the loading state in case of error
+                    if (this.$refs.orderLines) {
+                        this.$refs.orderLines.clearJobDeletionState(jobId);
+                    }
                 }
             }
         },

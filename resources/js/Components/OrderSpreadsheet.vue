@@ -33,12 +33,12 @@
                     <td v-else>
                         {{job.quantity}}
                     </td>
-                    <td>{{job.height.toFixed(2)}}x{{job.width.toFixed(2)}}</td>
+                                            <td>{{(job.computed_total_area_m2 && typeof job.computed_total_area_m2 === 'number') ? job.computed_total_area_m2.toFixed(4) + 'm²' : '0.0000m²'}}</td>
                     <td>{{ invoice?.end_date}}</td>
                     <td class="address">{{job.shippingInfo}}</td>
                     <td>{{job.status}}</td>
                     <td>{{ job?.small_material?.small_format_material?.price_per_unit }}.ден</td>
-                    <td v-if="canViewPrice">{{job.totalPrice.toFixed(2)}}.ден</td>
+                                            <td v-if="canViewPrice">{{(job.totalPrice && typeof job.totalPrice === 'number') ? job.totalPrice.toFixed(2) : '0.00'}}.ден</td>
                     <td v-if="canViewPrice && editMode">
                         <input type="text" class="text-black w-full" v-model="job.editableSalePrice" />
                     </td>

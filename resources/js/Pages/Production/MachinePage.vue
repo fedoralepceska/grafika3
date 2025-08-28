@@ -88,8 +88,8 @@
                                 {{job.file}}</td>
                             <td>{{job.quantity}}</td>
                             <td>{{job.copies}}</td>
-                            <td>{{job.height.toFixed(2)}}</td>
-                            <td>{{job.width.toFixed(2)}}</td>
+                            <td>{{(job.height && typeof job.height === 'number') ? job.height.toFixed(2) : '0.00'}}</td>
+                            <td>{{(job.width && typeof job.width === 'number') ? job.width.toFixed(2) : '0.00'}}</td>
                             <td>{{ job.machinePrint }}</td>
                             <td>{{ job.machineCut }}</td>
                             <td>

@@ -95,6 +95,8 @@ class Job extends Model
         'originalFile',
         'width',
         'height',
+        'total_area_m2',
+        'dimensions_breakdown',
         'quantity',
         'copies',
         'machinePrint',
@@ -113,7 +115,7 @@ class Job extends Model
 
     protected $with = ['actions', 'invoice', 'articles'];
 
-    protected $appends = ['effective_catalog_item_id', 'effective_client_id'];
+    protected $appends = ['effective_catalog_item_id', 'effective_client_id', 'computed_total_area_m2'];
 
     protected $attributes = [
         'estimatedTime' => 0,
@@ -130,7 +132,37 @@ class Job extends Model
         'originalFile' => 'array',
         'cuttingFiles' => 'array',
         'cuttingFileDimensions' => 'array',
+        'dimensions_breakdown' => 'array',
+        'total_area_m2' => 'decimal:6',
     ];
+
+    /**
+     * Get the computed total area in square meters
+     */
+    public function getComputedTotalAreaM2Attribute()
+    {
+        // Try to calculate from dimensions_breakdown first
+        if ($this->dimensions_breakdown && is_array($this->dimensions_breakdown)) {
+            $totalArea = 0;
+            foreach ($this->dimensions_breakdown as $file) {
+                if (isset($file['total_area_m2']) && is_numeric($file['total_area_m2'])) {
+                    $totalArea += (float) $file['total_area_m2'];
+                }
+            }
+            if ($totalArea > 0) {
+                return round($totalArea, 6);
+            }
+        }
+
+        // Fallback to width/height calculation if available
+        if ($this->width && $this->height && is_numeric($this->width) && is_numeric($this->height)) {
+            $areaM2 = ($this->width * $this->height) / 1000000; // Convert mm² to m²
+            return round($areaM2, 6);
+        }
+
+        // Return 0 if no calculation is possible
+        return 0.0;
+    }
 
     public function getEffectiveCatalogItemIdAttribute()
     {

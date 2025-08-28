@@ -272,8 +272,7 @@ export default {
                 // Call the backend to recalculate cost with new dimensions
                 const response = await axios.post('/jobs/recalculate-cost', {
                     job_id: job.id,
-                    width: job.width,
-                    height: job.height,
+                    total_area_m2: job.total_area_m2 || 0,
                     quantity: job.quantity,
                     copies: job.copies
                 });

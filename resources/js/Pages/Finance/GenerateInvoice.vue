@@ -65,8 +65,8 @@
                                         </div>
                                             <img :src="`/storage/uploads/${job.file}`" alt="Job Image" class="jobImg thumbnail"/>
                                         <div>{{job.file}}</div>
-                                        <div>{{$t('height')}}: <span class="bold">{{job.height.toFixed(2)}} mm</span> </div>
-                                        <div>{{$t('width')}}: <span class="bold">{{job.width.toFixed(2)}} mm</span> </div>
+                                                                    <div>{{$t('height')}}: <span class="bold">{{(job.height && typeof job.height === 'number') ? job.height.toFixed(2) : '0.00'}} mm</span> </div>
+                            <div>{{$t('width')}}: <span class="bold">{{(job.width && typeof job.width === 'number') ? job.width.toFixed(2) : '0.00'}} mm</span> </div>
                                         <div>{{$t('quantity')}}: <span class="bold">{{job.quantity}}</span> </div>
                                         <div>{{$t('copies')}}: <span class="bold">{{job.copies}}</span> </div>
                                         <div>
@@ -82,7 +82,7 @@
                                             <span v-else>{{ job?.small_material?.name }}</span>
                                          </span>
                                         </div>
-                                        <div>{{$t('totalm')}}<sup>2</sup>: <span class="bold">{{((job.height * job.width) / 1000000).toFixed(4)}}</span></div>
+                                        <div>{{$t('totalm')}}<sup>2</sup>: <span class="bold">{{(job.computed_total_area_m2 && typeof job.computed_total_area_m2 === 'number') ? job.computed_total_area_m2.toFixed(4) : '0.0000'}}</span></div>
                                     </div>
                                         <OrderJobDetails :job="job" :invoice-id="invoice.id"/>
                                     <div class="jobInfo relative pt-3">
@@ -99,12 +99,12 @@
                                         </div>
                                         <div class="jobPriceInfo absolute right-0 bottom-10 bg-white text-black bold">
                                             <div class="p-2">
-                                                {{$t('salePrice')}}: <span class="bold">{{job.salePrice?.toFixed(2)}} ден.</span>
+                                                {{$t('salePrice')}}: <span class="bold">{{(job.salePrice && typeof job.salePrice === 'number') ? job.salePrice.toFixed(2) : '0.00'}} ден.</span>
                                             </div>
                                         </div>
                                         <div class="jobPriceInfo absolute right-0 bottom-0 bg-white text-black bold">
                                             <div class="p-2">
-                                                {{$t('jobPrice')}}: <span class="bold">{{job.totalPrice.toFixed(2)}} ден.</span>
+                                                {{$t('jobPrice')}}: <span class="bold">{{(job.totalPrice && typeof job.totalPrice === 'number') ? job.totalPrice.toFixed(2) : '0.00'}} ден.</span>
                                             </div>
                                         </div>
 

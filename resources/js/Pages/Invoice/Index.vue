@@ -122,11 +122,10 @@
                                                     <img :src="getImageUrl(job.id)" alt="Job Image" class="jobImg thumbnail" @click="openSingleFileModal(job)"/>
                                                 </template>
                                             </div>
-                                            <div class="p-1 w-150">{{$t('Height')}}: <span class="bold">{{job.height.toFixed(2)}}</span> </div>
-                                            <div class="p-1 w-150">{{$t('Width')}}: <span class="bold">{{job.width.toFixed(2)}}</span> </div>
+                                            <div v-if="job.total_area_m2" class="p-1 w-160">{{$t('Total Area')}}: <span class="bold">{{ formatTotalArea(job) }} m²</span> </div>
                                             <div class="p-1 w-150">{{$t('Quantity')}}: <span class="bold">{{job.quantity}}</span> </div>
                                             <div class="p-1 w-150">{{$t('Copies')}}: <span class="bold">{{job.copies}}</span> </div>
-                                            </div>
+                                        </div>
                                         <div class="ultra-light-gray pt-4">
                                         <OrderJobDetails :job="job" :invoice-id="invoice.id"/>
                                         </div>
@@ -475,7 +474,27 @@ export default {
                 this.currentFileIndex++;
             }
         },
-
+        formatTotalArea(job) {
+            try {
+                const direct = parseFloat(job?.total_area_m2);
+                if (!isNaN(direct) && direct > 0) return direct.toFixed(4);
+                const computed = parseFloat(job?.computed_total_area_m2);
+                if (!isNaN(computed) && computed > 0) return computed.toFixed(4);
+                if (Array.isArray(job?.dimensions_breakdown) && job.dimensions_breakdown.length > 0) {
+                    const sum = job.dimensions_breakdown.reduce((acc, f) => acc + (isNaN(parseFloat(f?.total_area_m2)) ? 0 : parseFloat(f?.total_area_m2)), 0);
+                    if (sum > 0) return sum.toFixed(4);
+                }
+                const w = parseFloat(job?.width);
+                const h = parseFloat(job?.height);
+                if (!isNaN(w) && !isNaN(h) && w > 0 && h > 0) {
+                    return ((w * h) / 1000000).toFixed(4);
+                }
+                return '0.0000';
+            } catch (e) {
+                return '0.0000';
+            }
+        },
+ 
     },
 };
 </script>

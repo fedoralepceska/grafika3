@@ -147,6 +147,10 @@
         РАБОТНА СТАВКА БР. <span class="opensans bolder" style="color: #333333; font-size: 10pt" >01</span>
     </div>
     <div class="job-info" style="margin-left: 15px; margin-top: 20px">
+        @php
+            // Initialize dimensions breakdown variable for use throughout the job section
+            $dimensionsBreakdown = is_string($job->dimensions_breakdown) ? json_decode($job->dimensions_breakdown, true) : $job->dimensions_breakdown;
+        @endphp
         <table class="job-table" style="width: 100%; border-collapse: collapse; font-size: 10px" >
             <tr>
                 <td class="tahoma" style="background-color: #F0EFEF; padding-left: 5px; border-bottom: 1px solid #cccccc; margin: 0; font-size: 9.5pt">Производ</td>
@@ -263,7 +267,36 @@
             @endif   
             <tr>
                 <td class="tahoma" style="background-color: #F0EFEF; padding-left: 5px; border-bottom: 1px solid #cccccc;;">Димензија во mm:</td>
-                <td colspan="3">{{ number_format($job->width) }}x{{ number_format( $job->height) }}</td>
+                <td colspan="3">
+                    @php
+                        if ($dimensionsBreakdown && is_array($dimensionsBreakdown) && count($dimensionsBreakdown) > 0) {
+                            // Use dimensions breakdown - show all file dimensions
+                            $allDimensions = [];
+                            
+                            foreach ($dimensionsBreakdown as $fileData) {
+                                if (isset($fileData['page_dimensions']) && is_array($fileData['page_dimensions'])) {
+                                    foreach ($fileData['page_dimensions'] as $pageDimension) {
+                                        if (isset($pageDimension['width_mm']) && isset($pageDimension['height_mm'])) {
+                                            $width = $pageDimension['width_mm'];
+                                            $height = $pageDimension['height_mm'];
+                                            $allDimensions[] = number_format($width, 1) . 'x' . number_format($height, 1) . ' mm';
+                                        }
+                                    }
+                                }
+                            }
+                            
+                            if (count($allDimensions) > 0) {
+                                echo implode('<br>', $allDimensions);
+                            } else {
+                                // Fallback to legacy dimensions
+                                echo number_format($job->width) . 'x' . number_format($job->height) . ' mm';
+                            }
+                        } else {
+                            // Legacy system - use width, height
+                            echo number_format($job->width) . 'x' . number_format($job->height) . ' mm';
+                        }
+                    @endphp
+                </td>
             </tr>
             <tr>
                 <td class="tahoma" style="background-color: #F0EFEF; padding-left: 5px; border-bottom: 1px solid #cccccc;">Количина:</td>
@@ -274,7 +307,28 @@
             </tr>
             <tr>
                 <td class="tahoma" style="background-color: #F0EFEF; padding-left: 5px; border-bottom: 1px solid #cccccc;">Површина: </td>
-                <td colspan="3">{{ number_format(($job->height/1000) * ($job->width/1000),5) * $job->copies}} m²</td>
+                <td colspan="3">
+                    @php
+                        // Calculate total surface area using total_area_m2 from dimensions breakdown
+                        $totalSurfaceArea = 0;
+                        
+                        if ($dimensionsBreakdown && is_array($dimensionsBreakdown) && count($dimensionsBreakdown) > 0) {
+                            // Sum up total_area_m2 from all files in dimensions breakdown
+                            foreach ($dimensionsBreakdown as $fileData) {
+                                if (isset($fileData['total_area_m2'])) {
+                                    $totalSurfaceArea += $fileData['total_area_m2'];
+                                }
+                            }
+                        } else {
+                            // Legacy system - use total_area_m2 from job
+                            $totalSurfaceArea = $job->total_area_m2 ?? 0;
+                        }
+                        
+                        // Multiply by copies for final surface area
+                        $finalSurfaceArea = $totalSurfaceArea * $job->copies;
+                        echo number_format($finalSurfaceArea, 5) . ' m²';
+                    @endphp
+                </td>
             </tr>
             <tr>
                 <td class="tahoma" style="background-color: #F0EFEF; padding-left: 5px; border-bottom: 1px solid #cccccc;">Работни фајлови</td>
@@ -369,46 +423,194 @@
 
     @if ($hasMultipleFiles && !empty($localThumbnails))
         {{-- Multiple files with downloaded thumbnails --}}
-                @foreach ($localThumbnails as $index => $thumbnailPath)
-            @if (file_exists($thumbnailPath))
-                <div  class="bolder tahoma" style="margin-top: 10px; font-size: 9.5pt; color: #3f3f3f">
-                    ART BOARD {{ $index + 1 }}<span class="opensans bolder" style="color: #333333; font-size: 10pt" >:</span>
-                </div>
-                <div class="image-box" style="text-align: center; max-height: 415px; overflow: hidden; display: flex; align-items: center; justify-content: center;">
-            <img src="{{ $thumbnailPath }}" alt="Job Image {{ $index + 1 }}" style="max-width: 100%; max-height: 375px; object-fit: contain; vertical-align: middle;">
-        </div>
-
-        <table style="width: 100%; text-align: center; letter-spacing: 0.5px">
-            <tr style="font-size: 11.5px; text-transform: uppercase">
-                <td class="tahoma" style="padding: 15px;">Печатење и контрола</td>
-                <td class="tahoma" style="padding: 15px;">Доработка и контрола</td>
-                <td class="tahoma" style="padding: 15px;">Монтажа и контрола</td>
-            </tr>
-            <tr style="">
-                <td style="padding: 15px 15px 0 15px; border-bottom: 1px solid #d7d7d7;"></td>
-                <td style="padding: 15px 15px 0 15px; border-bottom: 1px solid #d7d7d7;"></td>
-                <td style="padding: 15px 15px 0 15px; border-bottom: 1px solid #d7d7d7;"></td>
-            </tr>
-        </table>
-    @endif
-        @endforeach
+        @if ($dimensionsBreakdown && is_array($dimensionsBreakdown) && count($dimensionsBreakdown) > 0)
+            {{-- Use dimensions breakdown data --}}
+            @foreach ($dimensionsBreakdown as $index => $fileData)
+                @if (isset($localThumbnails[$index]) && file_exists($localThumbnails[$index]))
+                    <div  class="bolder tahoma" style="margin-top: 10px; font-size: 9.5pt; color: #3f3f3f">
+                        ART BOARD {{ $index + 1 }}<span class="opensans bolder" style="color: #333333; font-size: 10pt" >:</span>
+                    </div>
+                    <div class="image-box" style="text-align: center; max-height: 415px; overflow: hidden; display: flex; align-items: center; justify-content: center;">
+                        <img src="{{ $localThumbnails[$index] }}" alt="Job Image {{ $index + 1 }}" style="max-width: 100%; max-height: 375px; object-fit: contain; vertical-align: middle;">
+                    </div>
+                    
+                    {{-- Add control table after each art board --}}
+                    <table style="width: 100%; text-align: center; letter-spacing: 0.5px; margin-top: 15px;">
+                        <tr style="font-size: 11.5px; text-transform: uppercase">
+                            <td class="tahoma" style="padding: 15px;">Печатење и контрола</td>
+                            <td class="tahoma" style="padding: 15px;">Доработка и контрола</td>
+                            <td class="tahoma" style="padding: 15px;">Монтажа и контрола</td>
+                        </tr>
+                        <tr style="">
+                            <td style="padding: 15px 15px 0 15px; border-bottom: 1px solid #d7d7d7;"></td>
+                            <td style="padding: 15px 15px 0 15px; border-bottom: 1px solid #d7d7d7;"></td>
+                            <td style="padding: 15px 15px 0 15px; border-bottom: 1px solid #d7d7d7;"></td>
+                        </tr>
+                    </table>
+                    
+                    {{-- Add page break if not the last item --}}
+                    @if (!$loop->last)
+                        <div style="page-break-after: always;"></div>
+                    @endif
+                @endif
+            @endforeach
+        @else
+            {{-- Fallback to original thumbnail loop --}}
+            @foreach ($localThumbnails as $index => $thumbnailPath)
+                @if (file_exists($thumbnailPath))
+                    <div  class="bolder tahoma" style="margin-top: 10px; font-size: 9.5pt; color: #3f3f3f">
+                        ART BOARD {{ $index + 1 }}<span class="opensans bolder" style="color: #333333; font-size: 10pt" >:</span>
+                    </div>
+                    <div class="image-box" style="text-align: center; max-height: 415px; overflow: hidden; display: flex; align-items: center; justify-content: center;">
+                        <img src="{{ $thumbnailPath }}" alt="Job Image {{ $index + 1 }}" style="max-width: 100%; max-height: 375px; object-fit: contain; vertical-align: middle;">
+                    </div>
+                    
+                    {{-- Add control table after each art board --}}
+                    <table style="width: 100%; text-align: center; letter-spacing: 0.5px; margin-top: 15px;">
+                        <tr style="font-size: 11.5px; text-transform: uppercase">
+                            <td class="tahoma" style="padding: 15px;">Печатење и контрола</td>
+                            <td class="tahoma" style="padding: 15px;">Доработка и контрола</td>
+                            <td class="tahoma" style="padding: 15px;">Монтажа и контрола</td>
+                        </tr>
+                        <tr style="">
+                            <td style="padding: 15px 15px 0 15px; border-bottom: 1px solid #d7d7d7;"></td>
+                            <td style="padding: 15px 15px 0 15px; border-bottom: 1px solid #d7d7d7;"></td>
+                            <td style="padding: 15px 15px 0 15px; border-bottom: 1px solid #d7d7d7;"></td>
+                        </tr>
+                    </table>
+                    
+                    {{-- Add page break if not the last item --}}
+                    @if (!$loop->last)
+                        <div style="page-break-after: always;"></div>
+                    @endif
+                @endif
+            @endforeach
+        @endif
     @elseif ($hasMultipleFiles)
         {{-- Multiple files but no thumbnails available - show placeholders --}}
-        @foreach ($originalFiles as $index => $filePath)
-            <div  class="bolder tahoma" style="margin-top: 5px; font-size: 9.5pt; color: #3f3f3f">
-                ART BOARD {{ $index + 1 }}<span class="opensans bolder" style="color: #333333; font-size: 9pt" >:</span>
-            </div>
-            <div style="text-align: center; height: 440px;">
-                <div style="max-height: 370px; min-height: 370px; vertical-align: middle; display: flex; align-items: center; justify-content: center; border: 2px dashed #ccc; background-color: #f9f9f9;">
-                    <div style="text-align: center;">
-                        <div style="font-size: 48px; color: #666; margin-bottom: 10px;">📄</div>
-                        <div style="font-size: 14px; color: #666;">PDF File {{ $index + 1 }}</div>
-                        <div style="font-size: 12px; color: #999;">{{ basename($filePath) }}</div>
+        @if ($dimensionsBreakdown && is_array($dimensionsBreakdown) && count($dimensionsBreakdown) > 0)
+            {{-- Use dimensions breakdown data --}}
+            @foreach ($dimensionsBreakdown as $index => $fileData)
+                <div  class="bolder tahoma" style="margin-top: 5px; font-size: 9.5pt; color: #3f3f3f">
+                    ART BOARD {{ $index + 1 }}<span class="opensans bolder" style="color: #333333; font-size: 9pt" >:</span>
+                    @if (isset($fileData['filename']))
+                        <span style="font-size: 8pt; color: #666; margin-left: 10px;">{{ $fileData['filename'] }}</span>
+                    @endif
+                </div>
+                <div style="text-align: center; height: 440px;">
+                    <div style="max-height: 370px; min-height: 370px; vertical-align: middle; display: flex; align-items: center; justify-content: center; border: 2px dashed #ccc; background-color: #f9f9f9;">
+                        <div style="text-align: center;">
+                            <div style="font-size: 48px; color: #666; margin-bottom: 10px;">📄</div>
+                            <div style="font-size: 14px; color: #666;">PDF File {{ $index + 1 }}</div>
+                            @if (isset($fileData['filename']))
+                                <div style="font-size: 12px; color: #999;">{{ $fileData['filename'] }}</div>
+                            @else
+                                <div style="font-size: 12px; color: #999;">{{ basename($originalFiles[$index] ?? 'Unknown File') }}</div>
+                            @endif
+                        </div>
                     </div>
                 </div>
+                
+                {{-- Add control table after each art board --}}
+                <table style="width: 100%; text-align: center; letter-spacing: 0.5px; margin-top: 15px;">
+                    <tr style="font-size: 11.5px; text-transform: uppercase">
+                        <td class="tahoma" style="padding: 15px;">Печатење и контрола</td>
+                        <td class="tahoma" style="padding: 15px;">Доработка и контрола</td>
+                        <td class="tahoma" style="padding: 15px;">Монтажа и контрола</td>
+                    </tr>
+                    <tr style="">
+                        <td style="padding: 15px 15px 0 15px; border-bottom: 1px solid #d7d7d7;"></td>
+                        <td style="padding: 15px 15px 0 15px; border-bottom: 1px solid #d7d7d7;"></td>
+                        <td style="padding: 15px 15px 0 15px; border-bottom: 1px solid #d7d7d7;"></td>
+                    </tr>
+                </table>
+                
+                {{-- Add page break if not the last item --}}
+                @if (!$loop->last)
+                    <div style="page-break-after: always;"></div>
+                @endif
+            @endforeach
+        @else
+            {{-- Fallback to original files loop --}}
+            @foreach ($originalFiles as $index => $filePath)
+                <div  class="bolder tahoma" style="margin-top: 5px; font-size: 9.5pt; color: #3f3f3f">
+                    ART BOARD {{ $index + 1 }}<span class="opensans bolder" style="color: #333333; font-size: 9pt" >:</span>
+                </div>
+                <div style="text-align: center; height: 440px;">
+                    <div style="max-height: 370px; min-height: 370px; vertical-align: middle; display: flex; align-items: center; justify-content: center; border: 2px dashed #ccc; background-color: #f9f9f9;">
+                        <div style="text-align: center;">
+                            <div style="font-size: 48px; color: #666; margin-bottom: 10px;">📄</div>
+                            <div style="font-size: 14px; color: #666;">PDF File {{ $index + 1 }}</div>
+                            <div style="font-size: 12px; color: #999;">{{ basename($filePath) }}</div>
+                        </div>
+                    </div>
+                </div>
+                
+                {{-- Add control table after each art board --}}
+                <table style="width: 100%; text-align: center; letter-spacing: 0.5px; margin-top: 15px;">
+                    <tr style="font-size: 11.5px; text-transform: uppercase">
+                        <td class="tahoma" style="padding: 15px;">Печатење и контрола</td>
+                        <td class="tahoma" style="padding: 15px;">Доработка и контрола</td>
+                        <td class="tahoma" style="padding: 15px;">Монтажа и контрола</td>
+                    </tr>
+                    <tr style="">
+                        <td style="padding: 15px 15px 0 15px; border-bottom: 1px solid #d7d7d7;"></td>
+                        <td style="padding: 15px 15px 0 15px; border-bottom: 1px solid #d7d7d7;"></td>
+                        <td style="padding: 15px 15px 0 15px; border-bottom: 1px solid #d7d7d7;"></td>
+                    </tr>
+                </table>
+                
+                {{-- Add page break if not the last item --}}
+                @if (!$loop->last)
+                    <div style="page-break-after: always;"></div>
+                @endif
+            @endforeach
+        @endif
+    @elseif ($legacyFile)
+        {{-- Legacy single file --}}
+        @if ($dimensionsBreakdown && is_array($dimensionsBreakdown) && count($dimensionsBreakdown) > 0)
+            {{-- Use dimensions breakdown data for single file --}}
+            @foreach ($dimensionsBreakdown as $index => $fileData)
+                <div  class="bolder tahoma" style="margin-top: 13px; font-size: 9.5pt; color: #3f3f3f">
+                    ART BOARD {{ $index + 1 }}<span class="opensans bolder" style="color: #333333; font-size: 10pt" >:</span>
+                    @if (isset($fileData['filename']))
+                        <span style="font-size: 8pt; color: #666; margin-left: 10px;">{{ $fileData['filename'] }}</span>
+                    @endif
+                </div>
+                <div style="text-align: center; height: 440px;">
+                    <img src="{{ storage_path('app/public/uploads/' . $legacyFile) }}" alt="Job Image {{ $index + 1 }}" style="max-height: 375px; min-height: 375px; vertical-align: middle;">
+                </div>
+                
+                {{-- Add control table after each art board --}}
+                <table style="width: 100%; text-align: center; letter-spacing: 0.5px; margin-top: 15px;">
+                    <tr style="font-size: 11.5px; text-transform: uppercase">
+                        <td class="tahoma" style="padding: 15px;">Печатење и контрола</td>
+                        <td class="tahoma" style="padding: 15px;">Доработка и контрола</td>
+                        <td class="tahoma" style="padding: 15px;">Монтажа и контрола</td>
+                    </tr>
+                    <tr style="">
+                        <td style="padding: 15px 15px 0 15px; border-bottom: 1px solid #d7d7d7;"></td>
+                        <td style="padding: 15px 15px 0 15px; border-bottom: 1px solid #d7d7d7;"></td>
+                        <td style="padding: 15px 15px 0 15px; border-bottom: 1px solid #d7d7d7;"></td>
+                    </tr>
+                </table>
+                
+                {{-- Add page break if not the last item --}}
+                @if (!$loop->last)
+                    <div style="page-break-after: always;"></div>
+                @endif
+            @endforeach
+        @else
+            {{-- Fallback to original legacy file display --}}
+            <div  class="bolder tahoma" style="margin-top: 13px; font-size: 9.5pt; color: #3f3f3f">
+                ART BOARD 1<span class="opensans bolder" style="color: #333333; font-size: 10pt" >:</span>
             </div>
-
-            <table style="width: 100%; text-align: center; letter-spacing: 0.5px">
+            <div style="text-align: center; height: 440px;">
+                <img src="{{ storage_path('app/public/uploads/' . $legacyFile) }}" alt="Job Image" style="max-height: 375px; min-height: 375px; vertical-align: middle;">
+            </div>
+            
+            {{-- Add control table for single legacy file --}}
+            <table style="width: 100%; text-align: center; letter-spacing: 0.5px; margin-top: 15px;">
                 <tr style="font-size: 11.5px; text-transform: uppercase">
                     <td class="tahoma" style="padding: 15px;">Печатење и контрола</td>
                     <td class="tahoma" style="padding: 15px;">Доработка и контрола</td>
@@ -420,28 +622,7 @@
                     <td style="padding: 15px 15px 0 15px; border-bottom: 1px solid #d7d7d7;"></td>
                 </tr>
             </table>
-        @endforeach
-    @elseif ($legacyFile)
-        {{-- Legacy single file --}}
-        <div  class="bolder tahoma" style="margin-top: 13px; font-size: 9.5pt; color: #3f3f3f">
-            ART BOARD 1<span class="opensans bolder" style="color: #333333; font-size: 10pt" >:</span>
-        </div>
-        <div style="text-align: center; height: 440px;">
-            <img src="{{ storage_path('app/public/uploads/' . $legacyFile) }}" alt="Job Image" style="max-height: 375px; min-height: 375px; vertical-align: middle;">
-        </div>
-        
-        <table style="width: 100%; text-align: center; letter-spacing: 0.5px">
-            <tr style="font-size: 11.5px; text-transform: uppercase">
-                <td class="tahoma" style="padding: 15px;">Печатење и контрола</td>
-                <td class="tahoma" style="padding: 15px;">Доработка и контрола</td>
-                <td class="tahoma" style="padding: 15px;">Монтажа и контрола</td>
-            </tr>
-            <tr style="">
-                <td style="padding: 15px 15px 0 15px; border-bottom: 1px solid #d7d7d7;"></td>
-                <td style="padding: 15px 15px 0 15px; border-bottom: 1px solid #d7d7d7;"></td>
-                <td style="padding: 15px 15px 0 15px; border-bottom: 1px solid #d7d7d7;"></td>
-            </tr>
-        </table>
+        @endif
 
     @endif
 

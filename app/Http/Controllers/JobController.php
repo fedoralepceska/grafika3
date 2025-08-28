@@ -292,11 +292,11 @@ class JobController extends Controller
                         'page_count' => $pageCount
                     ]);
                     
-                    // Variables to store cumulative dimensions for this file
-                    $fileTotalWidthMm = 0;
-                    $fileTotalHeightMm = 0;
+                    // Variables to store cumulative area and page dimensions for this file
+                    $fileTotalAreaM2 = 0;
+                    $pageDimensions = [];
                     
-                    // Iterate through all pages of the PDF to calculate total dimensions
+                    // Iterate through all pages of the PDF to calculate total area
                     for ($pageIndex = 0; $pageIndex < $pageCount; $pageIndex++) {
                         $pageImagick = new Imagick();
                         $this->setGhostscriptPath($pageImagick);
@@ -312,10 +312,18 @@ class JobController extends Controller
                         $dpi = 72; // Default DPI
                         $widthInMm = ($width / $dpi) * 25.4;
                         $heightInMm = ($height / $dpi) * 25.4;
+                        $areaM2 = ($widthInMm * $heightInMm) / 1000000;
                         
-                        // Add to file totals
-                        $fileTotalWidthMm += $widthInMm;
-                        $fileTotalHeightMm += $heightInMm;
+                        // Store individual page dimensions
+                        $pageDimensions[] = [
+                            'page' => $pageIndex + 1,
+                            'width_mm' => $widthInMm,
+                            'height_mm' => $heightInMm,
+                            'area_m2' => $areaM2
+                        ];
+                        
+                        // Add to file total area
+                        $fileTotalAreaM2 += $areaM2;
                         
                         // Clean up temp file
                         if (file_exists($tempImagePath)) {
@@ -328,7 +336,8 @@ class JobController extends Controller
                             'file' => $file->getClientOriginalName(),
                             'page' => $pageIndex + 1,
                             'width_mm' => $widthInMm,
-                            'height_mm' => $heightInMm
+                            'height_mm' => $heightInMm,
+                            'area_m2' => $areaM2
                         ]);
                     }
                     
@@ -349,18 +358,26 @@ class JobController extends Controller
                     // Save job first to get ID
                     $job->file = $imageFilename; // Preview image
                     $job->addOriginalFile($originalPath); // Store in originalFile JSON array
-                    $job->width = $fileTotalWidthMm;
-                    $job->height = $fileTotalHeightMm;
+                    $job->total_area_m2 = $fileTotalAreaM2;
+                    $job->dimensions_breakdown = [
+                        [
+                            'filename' => $file->getClientOriginalName(),
+                            'page_count' => $pageCount,
+                            'total_area_m2' => $fileTotalAreaM2,
+                            'page_dimensions' => $pageDimensions,
+                            'index' => 0
+                        ]
+                    ];
                     $job->save(); // Save to get ID
                     
-                    // Generate thumbnail and store in R2
-                    $this->generateThumbnail($imagePath, $job->id, 0, $file->getClientOriginalName());
+                    // Generate thumbnail and store in R2 (keyed by original file key)
+                    $fileKey = pathinfo(basename($originalPath), PATHINFO_FILENAME);
+                    $this->generateThumbnail($imagePath, $job->id, $fileKey);
                     
                     \Log::info('Completed single PDF file upload with all pages', [
                         'file' => $file->getClientOriginalName(),
                         'total_pages' => $pageCount,
-                        'total_width_mm' => $fileTotalWidthMm,
-                        'total_height_mm' => $fileTotalHeightMm
+                        'total_area_m2' => $fileTotalAreaM2
                     ]);
                     
                 } else if ($fileExtension === 'tiff' || $fileExtension === 'tif') {
@@ -381,18 +398,35 @@ class JobController extends Controller
                     $dpi = 72; // Default DPI
                     $widthInMm = ($width / $dpi) * 25.4;
                     $heightInMm = ($height / $dpi) * 25.4;
+                    $areaM2 = ($widthInMm * $heightInMm) / 1000000;
                     
                     $imagick->clear();
 
                     // Save job first to get ID - TIFF now also uses R2 storage
                     $job->file = $imageFilename; // Preview image
                     $job->addOriginalFile($originalPath); // Store TIFF in originalFile JSON array
-                    $job->width = $widthInMm;
-                    $job->height = $heightInMm;
+                    $job->total_area_m2 = $areaM2;
+                    $job->dimensions_breakdown = [
+                        [
+                            'filename' => $file->getClientOriginalName(),
+                            'page_count' => 1,
+                            'total_area_m2' => $areaM2,
+                            'page_dimensions' => [
+                                [
+                                    'page' => 1,
+                                    'width_mm' => $widthInMm,
+                                    'height_mm' => $heightInMm,
+                                    'area_m2' => $areaM2
+                                ]
+                            ],
+                            'index' => 0
+                        ]
+                    ];
                     $job->save(); // Save to get ID
                     
-                    // Generate thumbnail and store in R2
-                    $this->generateThumbnail($imagePath, $job->id, 0, $file->getClientOriginalName());
+                    // Generate thumbnail and store in R2 (keyed by original file key)
+                    $fileKey = pathinfo(basename($originalPath), PATHINFO_FILENAME);
+                    $this->generateThumbnail($imagePath, $job->id, $fileKey);
                 }
                 
                 \Log::info('Job created via drag-and-drop - R2 storage', [
@@ -710,6 +744,8 @@ class JobController extends Controller
                 $jobArray['salePrice'] = (float)($job->salePrice ?? 0); // Selling price
                 $jobArray['width'] = (float)$job->width;
                 $jobArray['height'] = (float)$job->height;
+                $jobArray['total_area_m2'] = (float)($job->total_area_m2 ?? 0);
+                $jobArray['dimensions_breakdown'] = $job->dimensions_breakdown ?? [];
                 $jobArray['quantity'] = (int)$job->quantity;
                 $jobArray['copies'] = (int)$job->copies;
                 return $jobArray;
@@ -724,8 +760,10 @@ class JobController extends Controller
         try {
             $request->validate([
                 'job_id' => 'required|exists:jobs,id',
-                'width' => 'required|numeric|min:0',
-                'height' => 'required|numeric|min:0',
+                'total_area_m2' => 'nullable|numeric|min:0',
+                // Width/height are optional if we already have file-based dimensions
+                'width' => 'nullable|numeric|min:0',
+                'height' => 'nullable|numeric|min:0',
                 'quantity' => 'required|integer|min:1',
                 'copies' => 'required|integer|min:1',
             ]);
@@ -736,11 +774,29 @@ class JobController extends Controller
                 return response()->json(['error' => 'Job not found'], 404);
             }
 
-            // Update job dimensions
-            $job->width = $request->input('width');
-            $job->height = $request->input('height');
+            // Update job quantity/copies
             $job->quantity = $request->input('quantity');
             $job->copies = $request->input('copies');
+
+            // Calculate total area prioritizing file-derived dimensions
+            $newTotalArea = null;
+            $breakdownFromJob = $job->dimensions_breakdown ?? [];
+            if (is_array($breakdownFromJob) && count($breakdownFromJob) > 0) {
+                // Sum total_area_m2 from breakdown
+                $newTotalArea = 0.0;
+                foreach ($breakdownFromJob as $fileDims) {
+                    $newTotalArea += (float)($fileDims['total_area_m2'] ?? 0);
+                }
+                $newTotalArea = round($newTotalArea, 6);
+            } elseif ($request->filled('width') && $request->filled('height')) {
+                // Fallback to width/height if provided
+                $job->width = (float)$request->input('width');
+                $job->height = (float)$request->input('height');
+                $newTotalArea = round($job->total_area_m2 ?? 0, 6);
+            }
+            if ($newTotalArea !== null) {
+                $job->total_area_m2 = $newTotalArea;
+            }
             $job->save();
 
             $priceCalculationService = app()->make(PriceCalculationService::class);
@@ -755,6 +811,7 @@ class JobController extends Controller
             // Calculate cost price using new component article system
             $costPrice = 0;
             $componentBreakdown = [];
+            $materialDeduction = [];
             
             if ($job->catalog_item_id) {
                 $catalogItem = CatalogItem::with('articles')->find($job->catalog_item_id);
@@ -774,6 +831,26 @@ class JobController extends Controller
                             'unit_type' => $requirement['unit_type']
                         ];
                     }
+                    
+                    // Calculate material deduction information
+                    $materialRequirements = $catalogItem->calculateMaterialRequirements($job);
+                    foreach ($materialRequirements as $requirement) {
+                        $article = $requirement['article'];
+                        $neededQuantity = $requirement['actual_required'];
+                        
+                        // Get current stock information
+                        $stockBefore = $article->getCurrentStock();
+                        $stockAfter = max(0, $stockBefore - $neededQuantity);
+                        
+                        $materialDeduction[] = [
+                            'article_id' => $article->id,
+                            'article_name' => $article->name,
+                            'quantity_consumed' => $neededQuantity,
+                            'stock_before' => $stockBefore,
+                            'stock_after' => $stockAfter,
+                            'unit_type' => $requirement['unit_type']
+                        ];
+                    }
                 }
             }
 
@@ -789,6 +866,7 @@ class JobController extends Controller
                 'salePrice' => $sellingPrice,
                 'component_count' => count($componentBreakdown),
                 'component_breakdown' => $componentBreakdown,
+                'material_deduction' => $materialDeduction,
                 'message' => 'Job cost recalculated successfully'
             ]);
 
@@ -1164,11 +1242,11 @@ class JobController extends Controller
                         'page_count' => $pageCount
                     ]);
                     
-                    // Variables to store cumulative dimensions for this file
-                    $fileTotalWidthMm = 0;
-                    $fileTotalHeightMm = 0;
+                    // Variables to store cumulative area and page dimensions for this file
+                    $fileTotalAreaM2 = 0;
+                    $pageDimensions = [];
                     
-                    // Iterate through all pages of the PDF to calculate total dimensions
+                    // Iterate through all pages of the PDF to calculate total area
                     for ($pageIndex = 0; $pageIndex < $pageCount; $pageIndex++) {
                         $pageImagick = new Imagick();
                         $this->setGhostscriptPath($pageImagick);
@@ -1184,10 +1262,18 @@ class JobController extends Controller
                         $dpi = 72; // Default DPI if not available
                         $widthInMm = ($width / $dpi) * 25.4;
                         $heightInMm = ($height / $dpi) * 25.4;
+                        $areaM2 = ($widthInMm * $heightInMm) / 1000000;
                         
-                        // Add to file totals
-                        $fileTotalWidthMm += $widthInMm;
-                        $fileTotalHeightMm += $heightInMm;
+                        // Store individual page dimensions
+                        $pageDimensions[] = [
+                            'page' => $pageIndex + 1,
+                            'width_mm' => $widthInMm,
+                            'height_mm' => $heightInMm,
+                            'area_m2' => $areaM2
+                        ];
+                        
+                        // Add to file total area
+                        $fileTotalAreaM2 += $areaM2;
                         
                         // Clean up temp file
                         if (file_exists($tempImagePath)) {
@@ -1201,7 +1287,8 @@ class JobController extends Controller
                             'file' => $file->getClientOriginalName(),
                             'page' => $pageIndex + 1,
                             'width_mm' => $widthInMm,
-                            'height_mm' => $heightInMm
+                            'height_mm' => $heightInMm,
+                            'area_m2' => $areaM2
                         ]);
                     }
                     
@@ -1226,8 +1313,16 @@ class JobController extends Controller
                         $job->addOriginalFile($pdfPath);
                     }
                     
-                    $job->width = $fileTotalWidthMm;
-                    $job->height = $fileTotalHeightMm;
+                    $job->total_area_m2 = $fileTotalAreaM2;
+                    $job->dimensions_breakdown = [
+                        [
+                            'filename' => $file->getClientOriginalName(),
+                            'page_count' => $pageCount,
+                            'total_area_m2' => $fileTotalAreaM2,
+                            'page_dimensions' => $pageDimensions,
+                            'index' => 0
+                        ]
+                    ];
                     $job->save();
 
                     // Clean up old original files if they exist and are different from new file
@@ -1251,10 +1346,7 @@ class JobController extends Controller
                         'job_id' => $id,
                         'new_file' => $file->getClientOriginalName(),
                         'total_pages' => $pageCount,
-                        'new_dimensions' => [
-                            'width_mm' => $fileTotalWidthMm,
-                            'height_mm' => $fileTotalHeightMm
-                        ]
+                        'new_area_m2' => $fileTotalAreaM2
                     ]);
 
                     return response()->json([
@@ -2588,11 +2680,19 @@ class JobController extends Controller
 
             $uploadedFiles = [];
             $thumbnails = [];
-            $allFileDimensions = [];
             // Start with existing job dimensions (for cumulative uploads)
-            $totalWidthMm = $job->width ?? 0;
-            $totalHeightMm = $job->height ?? 0;
-            $totalAreaM2 = 0; // Area will be calculated from individual files
+            $existingAreaM2 = $job->total_area_m2 ?? 0; // Use total_area_m2 if available, otherwise 0
+            $totalAreaM2 = $existingAreaM2; // Start with existing area
+            $existingBreakdown = $job->dimensions_breakdown ?? []; // Start with existing dimensions
+            $allFileDimensions = []; // Will store new file dimensions
+            $finalTotalArea = $existingAreaM2; // Initialize final total area
+            
+            \Log::info('Initial values set', [
+                'job_id' => $id,
+                'existing_area_m2' => $existingAreaM2,
+                'total_area_m2_start' => $totalAreaM2,
+                'existing_dimensions_count' => count($existingBreakdown)
+            ]);
             $firstFilePreview = null;
 
             $files = $request->file('files');
@@ -2606,8 +2706,8 @@ class JobController extends Controller
                 'job_id' => $id,
                 'total_files' => $totalFiles,
                 'batch_size' => $batchSize,
-                'existing_width_mm' => $totalWidthMm,
-                'existing_height_mm' => $totalHeightMm
+                'existing_area_m2' => $existingAreaM2,
+                'existing_files_count' => count($existingBreakdown)
             ]);
 
             // Update to uploading state
@@ -2632,6 +2732,8 @@ class JobController extends Controller
                 // Process each file in the current batch
                 foreach ($batchFiles as $batchIndex => $file) {
                     $globalIndex = $batchStart + $batchIndex;
+                    // Calculate the actual file index for the job (existing files + new files)
+                    $actualFileIndex = count($existingBreakdown) + $globalIndex;
                     
                     // Update progress for individual file (more granular)
                     $fileProgress = 10 + (($globalIndex + 1) / $totalFiles) * 70;
@@ -2645,13 +2747,31 @@ class JobController extends Controller
                     usleep(200000); // 200ms delay
 
                     // Calculate dimensions and generate thumbnail in parallel
-                    $this->processFileDimensionsAndThumbnail($file, $globalIndex, $id, $filePath, $totalWidthMm, $totalHeightMm, $totalAreaM2, $allFileDimensions, $thumbnails, $firstFilePreview);
+                    $this->processFileDimensionsAndThumbnail($file, $actualFileIndex, $id, $filePath, $totalAreaM2, $allFileDimensions, $thumbnails, $firstFilePreview);
+                    
+                    // Debug: Check area after processing this file
+                    \Log::info('After processing file', [
+                        'job_id' => $id,
+                        'file_index' => $actualFileIndex,
+                        'filename' => $file->getClientOriginalName(),
+                        'total_area_m2_after_file' => $totalAreaM2,
+                        'dimensions_count_after_file' => count($allFileDimensions)
+                    ]);
                 }
 
                 // Small delay between batches to prevent overwhelming the system
                 if ($batchEnd < $totalFiles) {
                     usleep(300000); // 300ms delay
                 }
+                
+                // Debug: Check area after processing this batch
+                \Log::info('After processing batch', [
+                    'job_id' => $id,
+                    'batch_start' => $batchStart,
+                    'batch_end' => $batchEnd,
+                    'total_area_m2_after_batch' => $totalAreaM2,
+                    'dimensions_count_after_batch' => count($allFileDimensions)
+                ]);
             }
 
             // Update progress for final processing (80% to 95%)
@@ -2668,30 +2788,138 @@ class JobController extends Controller
             // Update progress to 90%
             $this->updateUploadProgress($id, 'finalizing', 90, $totalFiles, $totalFiles, 'Saving job data...');
 
-            // Update job with total calculated dimensions
-            if ($totalWidthMm > 0 && $totalHeightMm > 0) {
-                $job->width = $totalWidthMm;
-                $job->height = $totalHeightMm;
+            // Update final total area after all files are processed
+            if (!empty($allFileDimensions)) {
+                $calculatedTotalArea = array_sum(array_column($allFileDimensions, 'total_area_m2'));
+                $finalTotalArea = round($existingAreaM2 + $calculatedTotalArea, 6);
+            }
+
+            // Update job with total calculated area and dimensions breakdown
+            // Always update if we have processed files, regardless of area value
+            if (!empty($allFileDimensions)) {
+                // Debug: Log the area values before assignment
+                \Log::info('Debug: Area values before job update', [
+                    'job_id' => $id,
+                    'totalAreaM2' => $totalAreaM2,
+                    'totalAreaM2_type' => gettype($totalAreaM2),
+                    'totalAreaM2_debug' => var_export($totalAreaM2, true),
+                    'calculatedTotalArea' => $calculatedTotalArea,
+                    'finalTotalArea' => $finalTotalArea,
+                    'allFileDimensions_count' => count($allFileDimensions),
+                    'allFileDimensions_areas' => array_column($allFileDimensions, 'total_area_m2')
+                ]);
+                
+                $job->total_area_m2 = $finalTotalArea;
+                
+                // Debug: Log the job object after assignment
+                \Log::info('Debug: Job object after area assignment', [
+                    'job_id' => $id,
+                    'job_total_area_m2' => $job->total_area_m2,
+                    'job_total_area_m2_type' => gettype($job->total_area_m2),
+                    'job_total_area_m2_debug' => var_export($job->total_area_m2, true),
+                    'assigned_value' => $totalAreaM2
+                ]);
+                
+                // Merge new dimensions with existing ones to preserve previous files
+                $existingBreakdown = $job->dimensions_breakdown ?? [];
+                $job->dimensions_breakdown = array_merge($existingBreakdown, $allFileDimensions);
                 
                 // Update preview image if we have one
                 if ($firstFilePreview) {
                     $job->file = $firstFilePreview;
                 }
                 
-                \Log::info('Updated job with cumulative dimensions', [
+                \Log::info('Updated job with cumulative area and dimensions breakdown', [
                     'job_id' => $id,
-                    'new_total_width_mm' => $totalWidthMm,
-                    'new_total_height_mm' => $totalHeightMm,
-                    'added_area_m2' => $totalAreaM2,
+                    'existing_area_m2' => $existingAreaM2,
+                    'new_files_area_m2' => $calculatedTotalArea,
+                    'new_total_area_m2' => $finalTotalArea,
                     'files_processed' => count($allFileDimensions),
-                    'preview_image' => $firstFilePreview
+                    'preview_image' => $firstFilePreview,
+                    'existing_files_before' => count($existingBreakdown),
+                    'new_files_added' => $totalFiles,
+                    'total_files_after' => count($job->dimensions_breakdown)
+                ]);
+                
+                \Log::info('Job object before save', [
+                    'job_id' => $id,
+                    'total_area_m2' => $job->total_area_m2,
+                    'dimensions_breakdown_count' => count($job->dimensions_breakdown ?? [])
                 ]);
             }
 
-            $job->save();
+            // Debug: Log the job object right before save
+            \Log::info('Debug: Job object right before save', [
+                'job_id' => $id,
+                'job_total_area_m2' => $job->total_area_m2,
+                'job_total_area_m2_type' => gettype($job->total_area_m2),
+                'job_total_area_m2_debug' => var_export($job->total_area_m2, true),
+                'finalTotalArea' => $finalTotalArea,
+                'finalTotalArea_type' => gettype($finalTotalArea)
+            ]);
+
+            // Save the job
+            $saveResult = $job->save();
+
+            // Defensive: ensure DB has the exact rounded value (workaround for any casting anomalies)
+            try {
+                if (isset($finalTotalArea)) {
+                    \Log::info('Debug: Attempting fallback DB update', [
+                        'job_id' => $id,
+                        'finalTotalArea' => $finalTotalArea,
+                        'finalTotalArea_type' => gettype($finalTotalArea)
+                    ]);
+                    
+                    $updateResult = DB::table('jobs')->where('id', $id)->update([
+                        'total_area_m2' => $finalTotalArea,
+                    ]);
+                    
+                    \Log::info('Debug: Fallback DB update result', [
+                        'job_id' => $id,
+                        'updateResult' => $updateResult,
+                        'rowsAffected' => $updateResult
+                    ]);
+                } else {
+                    \Log::warning('Debug: finalTotalArea not set for fallback update', [
+                        'job_id' => $id,
+                        'finalTotalArea' => $finalTotalArea ?? 'undefined'
+                    ]);
+                }
+            } catch (\Exception $e) {
+                \Log::warning('Fallback DB update for total_area_m2 failed', [
+                    'job_id' => $id,
+                    'error' => $e->getMessage()
+                ]);
+            }
+            
+            \Log::info('Job save result', [
+                'job_id' => $id,
+                'save_result' => $saveResult,
+                'job_attributes' => $job->getAttributes()
+            ]);
+
+            // Verify the save worked by reloading the job
+            $job->refresh();
+            
+            \Log::info('Job saved and reloaded', [
+                'job_id' => $id,
+                'saved_total_area_m2' => $job->total_area_m2,
+                'saved_dimensions_count' => count($job->dimensions_breakdown ?? []),
+                'expected_total_area_m2' => $finalTotalArea,
+                'expected_dimensions_count' => count($allFileDimensions)
+            ]);
 
             // Update progress to complete
             $this->updateUploadProgress($id, 'complete', 100, $totalFiles, $totalFiles, 'Upload completed successfully');
+
+            // Debug: Log what we're sending back
+            \Log::info('Sending response back to frontend', [
+                'job_id' => $id,
+                'response_total_area_m2' => $finalTotalArea,
+                'response_dimensions_breakdown_count' => count($allFileDimensions),
+                'job_db_total_area_m2' => $job->total_area_m2,
+                'job_db_dimensions_count' => count($job->dimensions_breakdown ?? [])
+            ]);
 
             return response()->json([
                 'message' => 'Files uploaded successfully',
@@ -2699,13 +2927,13 @@ class JobController extends Controller
                 'uploadedCount' => count($uploadedFiles),
                 'thumbnails' => $thumbnails,
                 'dimensions' => [
-                    'total_width_mm' => $totalWidthMm,
-                    'total_height_mm' => $totalHeightMm,
-                    'total_area_m2' => $totalAreaM2,
+                    'total_area_m2' => $finalTotalArea,
                     'individual_files' => $allFileDimensions,
                     'files_count' => count($allFileDimensions)
                 ],
-                'job_updated' => $totalWidthMm > 0,
+                'dimensions_breakdown' => $allFileDimensions,
+                'total_area_m2' => $finalTotalArea,
+                'job_updated' => $finalTotalArea > 0,
                 'debug' => [
                     'job_id' => $id,
                     'total_files_processed' => count($uploadedFiles),
@@ -2715,7 +2943,10 @@ class JobController extends Controller
                     'thumbnails_failed' => count(array_filter($thumbnails, function($thumb) {
                         return empty($thumb['thumbnailPath']);
                     })),
-                    'dimensions_calculated' => $totalWidthMm > 0 && $totalHeightMm > 0,
+                    'dimensions_calculated' => $finalTotalArea > 0,
+                    'existing_files_before' => count($job->dimensions_breakdown ?? []),
+                    'new_files_added' => $totalFiles,
+                    'total_dimensions_after' => count($allFileDimensions),
                     'os_family' => PHP_OS_FAMILY,
                     'imagick_available' => class_exists('Imagick'),
                     'imagick_version' => class_exists('Imagick') ? \Imagick::getVersion() : null,
@@ -2743,7 +2974,7 @@ class JobController extends Controller
     /**
      * Process a single file for dimensions and thumbnail generation
      */
-    private function processFileDimensionsAndThumbnail($file, $index, $jobId, $filePath, &$totalWidthMm, &$totalHeightMm, &$totalAreaM2, &$allFileDimensions, &$thumbnails, &$firstFilePreview)
+    private function processFileDimensionsAndThumbnail($file, $index, $jobId, $filePath, &$totalAreaM2, &$allFileDimensions, &$thumbnails, &$firstFilePreview)
     {
         $originalFilename = pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME);
         
@@ -2766,8 +2997,6 @@ class JobController extends Controller
             ]);
             
             // Variables to store cumulative dimensions for this file
-            $fileTotalWidthMm = 0;
-            $fileTotalHeightMm = 0;
             $fileTotalAreaM2 = 0;
             $pageDimensions = [];
             
@@ -2801,12 +3030,10 @@ class JobController extends Controller
                     'page' => $pageIndex + 1,
                     'width_mm' => $widthInMm,
                     'height_mm' => $heightInMm,
-                    'area_m2' => $areaM2
+                    'area_m2' => round($areaM2, 6)
                 ];
                 
                 // Add to file totals
-                $fileTotalWidthMm += $widthInMm;
-                $fileTotalHeightMm += $heightInMm;
                 $fileTotalAreaM2 += $areaM2;
                 
                 // Clean up temp file
@@ -2827,17 +3054,23 @@ class JobController extends Controller
             }
             
             // Add file totals to job totals
-            $totalWidthMm += $fileTotalWidthMm;
-            $totalHeightMm += $fileTotalHeightMm;
+            $oldTotal = $totalAreaM2;
             $totalAreaM2 += $fileTotalAreaM2;
+            
+            \Log::info('Accumulating file area to job total', [
+                'job_id' => $jobId,
+                'file' => $file->getClientOriginalName(),
+                'file_area_m2' => $fileTotalAreaM2,
+                'job_total_before' => $oldTotal,
+                'job_total_after' => $totalAreaM2,
+                'calculation' => $oldTotal . ' + ' . $fileTotalAreaM2 . ' = ' . $totalAreaM2
+            ]);
             
             // Store individual file dimensions (now includes all pages)
             $allFileDimensions[] = [
                 'filename' => $file->getClientOriginalName(),
                 'page_count' => $pageCount,
-                'total_width_mm' => $fileTotalWidthMm,
-                'total_height_mm' => $fileTotalHeightMm,
-                'total_area_m2' => $fileTotalAreaM2,
+                'total_area_m2' => round($fileTotalAreaM2, 6),
                 'page_dimensions' => $pageDimensions,
                 'index' => $index
             ];
@@ -2868,11 +3101,7 @@ class JobController extends Controller
                 'job_id' => $jobId,
                 'file' => $file->getClientOriginalName(),
                 'total_pages' => $pageCount,
-                'file_total_width_mm' => $fileTotalWidthMm,
-                'file_total_height_mm' => $fileTotalHeightMm,
                 'file_total_area_m2' => $fileTotalAreaM2,
-                'cumulative_job_width_mm' => $totalWidthMm,
-                'cumulative_job_height_mm' => $totalHeightMm,
                 'cumulative_job_area_m2' => $totalAreaM2
             ]);
             
@@ -2891,20 +3120,14 @@ class JobController extends Controller
             try {
                 $fallbackDimensions = $this->calculatePdfDimensionsFallback($file);
                 if ($fallbackDimensions) {
-                    $fileTotalWidthMm = $fallbackDimensions['width_mm'];
-                    $fileTotalHeightMm = $fallbackDimensions['height_mm'];
-                    $fileTotalAreaM2 = ($fileTotalWidthMm * $fileTotalHeightMm) / 1000000;
+                    $fileTotalAreaM2 = ($fallbackDimensions['width_mm'] * $fallbackDimensions['height_mm']) / 1000000;
                     
                     // Add file totals to job totals
-                    $totalWidthMm += $fileTotalWidthMm;
-                    $totalHeightMm += $fileTotalHeightMm;
                     $totalAreaM2 += $fileTotalAreaM2;
                     
                     \Log::info('Successfully used fallback dimension calculation', [
                         'job_id' => $jobId,
                         'file' => $file->getClientOriginalName(),
-                        'width_mm' => $fileTotalWidthMm,
-                        'height_mm' => $fileTotalHeightMm,
                         'area_m2' => $fileTotalAreaM2
                     ]);
                     
@@ -2912,9 +3135,7 @@ class JobController extends Controller
                     $allFileDimensions[] = [
                         'filename' => $file->getClientOriginalName(),
                         'page_count' => 1, // Fallback assumes single page
-                        'total_width_mm' => $fileTotalWidthMm,
-                        'total_height_mm' => $fileTotalHeightMm,
-                        'total_area_m2' => $fileTotalAreaM2,
+                        'total_area_m2' => round($fileTotalAreaM2, 6),
                         'index' => $index,
                         'method' => 'fallback'
                     ];
@@ -2939,14 +3160,15 @@ class JobController extends Controller
             $imagick->setResourceLimit(\Imagick::RESOURCETYPE_MEMORY, 128 * 1024 * 1024); // 128MB
             $imagick->setResourceLimit(\Imagick::RESOURCETYPE_MAP, 256 * 1024 * 1024);    // 256MB
             
-            // Read PDF at very low resolution for tiny preview
-            $imagick->setResolution(50, 50); // Ultra low DPI - just for preview
+            // Read PDF at higher resolution for clearer preview
+            $imagick->setResolution(150, 150);
             $imagick->readImage($file->getPathname() . '[0]'); // Read the first page
             
-            // Convert to WebP for better compression and speed
-            $imagick->setImageFormat('webp');
-            $imagick->setImageCompressionQuality(50); // Lower quality = smaller file
-            $imagick->stripImage(); // Remove all metadata
+            // Use JPG for compatibility and deterministic naming
+            $imagick->setImageFormat('jpg');
+            $imagick->setImageCompression(\Imagick::COMPRESSION_JPEG);
+            $imagick->setImageCompressionQuality(80);
+            $imagick->stripImage();
             
             // Create thumbnail - standardized size (max 800x800)
             $imagick->resizeImage(800, 800, \Imagick::FILTER_LANCZOS, 1, true);
@@ -2955,8 +3177,8 @@ class JobController extends Controller
             $thumbnailBlob = $imagick->getImageBlob();
             $imagick->clear();
             
-            // Store thumbnail in R2 as WebP
-            $thumbnailPath = 'job-thumbnails/job_' . $jobId . '_' . time() . '_' . $index . '_' . $originalFilename . '.webp';
+            // Store thumbnail in R2 using a stable, index-only name
+            $thumbnailPath = 'job-thumbnails/job_' . $jobId . '_' . $index . '.jpg';
             
             // Upload thumbnail to R2
             $this->templateStorageService->getDisk()->put($thumbnailPath, $thumbnailBlob);
@@ -3093,13 +3315,23 @@ class JobController extends Controller
     {
         try {
             $request->validate([
-                'file_index' => 'required|integer|min:0'
+                'file_index' => 'required|integer|min:0',
+                'original_file' => 'sometimes|string'
             ]);
 
             // Find the job
             $job = Job::findOrFail($id);
             $fileIndex = $request->input('file_index');
             $originalFiles = $job->getOriginalFiles();
+
+            // If an explicit original file path is provided, prefer locating by that
+            if ($request->filled('original_file')) {
+                $providedPath = $request->input('original_file');
+                $foundKey = array_search($providedPath, $originalFiles, true);
+                if ($foundKey !== false) {
+                    $fileIndex = (int)$foundKey;
+                }
+            }
 
             // Check if the index is valid
             if (!isset($originalFiles[$fileIndex])) {
@@ -3130,34 +3362,40 @@ class JobController extends Controller
 
             // Remove the file from the job
             if ($job->removeOriginalFile($fileToRemove)) {
-                // Recalculate job dimensions by subtracting the removed file's dimensions
-                if ($removedFileDimensions && $removedFileDimensions['width_mm'] > 0 && $removedFileDimensions['height_mm'] > 0) {
-                    $currentWidth = $job->width ?? 0;
-                    $currentHeight = $job->height ?? 0;
-                    $currentArea = ($currentWidth * $currentHeight) / 1000000; // Convert to m²
+                // Recalculate job dimensions by subtracting the removed file's area
+                if ($removedFileDimensions && $removedFileDimensions['area_m2'] > 0) {
+                    $currentArea = $job->total_area_m2 ?? 0;
                     
-                    // Subtract the removed file's dimensions
-                    $newWidth = max(0, $currentWidth - $removedFileDimensions['width_mm']);
-                    $newHeight = max(0, $currentHeight - $removedFileDimensions['height_mm']);
-                    $newArea = max(0, $currentArea - $removedFileDimensions['area_m2']);
+                    // Subtract the removed file's area
+                    $newArea = round(max(0, $currentArea - $removedFileDimensions['area_m2']), 6);
                     
-                    // Update job dimensions
-                    $job->width = $newWidth > 0 ? $newWidth : null;
-                    $job->height = $newHeight > 0 ? $newHeight : null;
+                    // Update job area - only set to null if no files remain
+                    $remainingFiles = $job->getOriginalFiles();
+                    if (empty($remainingFiles)) {
+                        $job->total_area_m2 = null;
+                        $job->dimensions_breakdown = [];
+                    } else {
+                        $job->total_area_m2 = $newArea;
+                        
+                        // Update dimensions breakdown by removing the file at the specified index
+                        if ($job->dimensions_breakdown) {
+                            $breakdown = $job->dimensions_breakdown;
+                            if (isset($breakdown[$fileIndex])) {
+                                unset($breakdown[$fileIndex]);
+                                // Reindex array to maintain sequential indices
+                                $breakdown = array_values($breakdown);
+                                $job->dimensions_breakdown = $breakdown;
+                            }
+                        }
+                    }
                     
-                    \Log::info('Recalculated job dimensions after file removal', [
+                    \Log::info('Recalculated job area after file removal', [
                         'job_id' => $id,
                         'removed_file_dimensions' => $removedFileDimensions,
-                        'previous_dimensions' => [
-                            'width_mm' => $currentWidth,
-                            'height_mm' => $currentHeight,
-                            'area_m2' => $currentArea
-                        ],
-                        'new_dimensions' => [
-                            'width_mm' => $newWidth,
-                            'height_mm' => $newHeight,
-                            'area_m2' => $newArea
-                        ]
+                        'previous_area_m2' => $currentArea,
+                        'new_area_m2' => $newArea,
+                        'remaining_files_count' => count($remainingFiles),
+                        'dimensions_breakdown_count' => count($job->dimensions_breakdown ?? [])
                     ]);
                 }
 
@@ -3181,8 +3419,8 @@ class JobController extends Controller
                     }
                 }
 
-                // Clean up associated thumbnail from R2
-                $this->cleanupThumbnailForFile($id, $fileIndex, pathinfo(basename($fileToRemove), PATHINFO_FILENAME));
+                // Regenerate thumbnails for all remaining files to ensure stable mapping
+                $updatedThumbnails = $this->regenerateJobThumbnails($job);
 
                 \Log::info('File removed successfully', [
                     'job_id' => $id,
@@ -3195,11 +3433,12 @@ class JobController extends Controller
                     'message' => 'File removed successfully',
                     'originalFiles' => $job->getOriginalFiles(),
                     'dimensions' => [
-                        'width_mm' => $job->width,
-                        'height_mm' => $job->height,
-                        'area_m2' => $job->width && $job->height ? ($job->width * $job->height) / 1000000 : 0
+                        'area_m2' => $job->total_area_m2 ?? 0
                     ],
-                    'removed_file_dimensions' => $removedFileDimensions
+                    'total_area_m2' => $job->total_area_m2 ?? 0,
+                    'dimensions_breakdown' => $job->dimensions_breakdown ?? [],
+                    'removed_file_dimensions' => $removedFileDimensions,
+                    'thumbnails' => $updatedThumbnails
                 ]);
             } else {
                 return response()->json(['error' => 'Failed to remove file'], 500);
@@ -3251,9 +3490,7 @@ class JobController extends Controller
                 'page_count' => $pageCount
             ]);
             
-            // Variables to store cumulative dimensions for this file
-            $fileTotalWidthMm = 0;
-            $fileTotalHeightMm = 0;
+            // Variables to store cumulative area for this file
             $fileTotalAreaM2 = 0;
             
             // Iterate through all pages of the PDF
@@ -3275,9 +3512,7 @@ class JobController extends Controller
                 $heightInMm = ($height / $dpi) * 25.4;
                 $areaM2 = ($widthInMm * $heightInMm) / 1000000;
                 
-                // Add to file totals
-                $fileTotalWidthMm += $widthInMm;
-                $fileTotalHeightMm += $heightInMm;
+                // Add to file total area
                 $fileTotalAreaM2 += $areaM2;
                 
                 // Clean up temp image file
@@ -3308,14 +3543,10 @@ class JobController extends Controller
                 'file_path' => $filePath,
                 'file_index' => $fileIndex,
                 'total_pages' => $pageCount,
-                'total_width_mm' => $fileTotalWidthMm,
-                'total_height_mm' => $fileTotalHeightMm,
                 'total_area_m2' => $fileTotalAreaM2
             ]);
             
             return [
-                'width_mm' => $fileTotalWidthMm,
-                'height_mm' => $fileTotalHeightMm,
                 'area_m2' => $fileTotalAreaM2,
                 'page_count' => $pageCount,
                 'index' => $fileIndex
@@ -3347,24 +3578,54 @@ class JobController extends Controller
 
             // Process all original files and find their thumbnails in R2
             foreach ($job->getOriginalFiles() as $index => $originalFile) {
-                $originalFileName = pathinfo(basename($originalFile), PATHINFO_FILENAME);
-                
+                $originalFileBase = basename($originalFile);
+                $originalFileName = pathinfo($originalFileBase, PATHINFO_FILENAME);
+
+                // Prefer the client filename stored in dimensions_breakdown
+                $expectedClientName = null;
+                if (is_array($job->dimensions_breakdown) && isset($job->dimensions_breakdown[$index]['filename'])) {
+                    $expectedClientName = pathinfo($job->dimensions_breakdown[$index]['filename'], PATHINFO_FILENAME);
+                }
+                // Fallback: strip leading timestamp_ from stored originalFile name
+                if (!$expectedClientName) {
+                    $expectedClientName = preg_replace('/^\d+_/', '', $originalFileBase);
+                    $expectedClientName = pathinfo($expectedClientName, PATHINFO_FILENAME);
+                }
+
                 // Try to find thumbnail in R2 for this file
                 $thumbnailPath = null;
                 
                 try {
                     // List files in the job-thumbnails directory
                     $thumbnailFiles = $this->templateStorageService->getDisk()->files('job-thumbnails');
-                    
+
+                    $latestMatch = null;
+                    $latestTs = 0;
                     foreach ($thumbnailFiles as $thumbFile) {
                         $thumbBasename = basename($thumbFile);
-                        // Check if this thumbnail belongs to this job and matches the original file
-                        if (strpos($thumbBasename, 'job_' . $id . '_') === 0 && 
-                            strpos($thumbBasename, '_' . $index . '_') !== false &&
-                            strpos($thumbBasename, $originalFileName) !== false) {
-                            $thumbnailPath = $thumbFile;
-                            break;
+                        // Must belong to this job
+                        if (strpos($thumbBasename, 'job_' . $id . '_') !== 0) {
+                            continue;
                         }
+                        // Prefer index match first
+                        $indexMatch = (strpos($thumbBasename, '_' . $index . '_') !== false);
+                        // Then filename match based on expected client name
+                        $nameMatch = $expectedClientName ? (strpos($thumbBasename, $expectedClientName) !== false) : false;
+                        if (!$indexMatch && !$nameMatch) {
+                            continue;
+                        }
+                        // Track latest by timestamp segment job_{id}_{ts}_
+                        $ts = 0;
+                        if (preg_match('/job_' . $id . '_(\d+)_/',$thumbBasename,$m)) {
+                            $ts = (int)$m[1];
+                        }
+                        if ($latestMatch === null || $ts >= $latestTs) {
+                            $latestTs = $ts;
+                            $latestMatch = $thumbFile;
+                        }
+                    }
+                    if ($latestMatch) {
+                        $thumbnailPath = $latestMatch;
                     }
                 } catch (\Exception $e) {
                     \Log::warning('Failed to list R2 thumbnails: ' . $e->getMessage());
@@ -3410,9 +3671,24 @@ class JobController extends Controller
         }
     }
 
+    /**
+     * Get articles for a specific job
+     */
+    public function getJobArticles($id)
+    {
+        try {
+            $job = Job::with('articles')->findOrFail($id);
+            
+            return response()->json([
+                'articles' => $job->articles,
+                'job_id' => $id
+            ]);
 
-
-
+        } catch (\Exception $e) {
+            \Log::error('Failed to get job articles: ' . $e->getMessage());
+            return response()->json(['error' => 'Failed to get articles'], 500);
+        }
+    }
 
     /**
      * Serve job original file with authentication (similar to catalog template download)
@@ -3485,50 +3761,92 @@ class JobController extends Controller
 
             // Resolve thumbnail path using cached index map: [original_index => latest_path]
             $thumbnailPath = null;
-            try {
-                $cacheKey = "job_thumb_map_{$jobId}";
-                $thumbnailIndexMap = \Cache::remember($cacheKey, 600, function () use ($jobId) {
+            // Deterministic lookup: prefer stable filename scheme first, then fall back to old timestamped scheme
+            $disk = $this->templateStorageService->getDisk();
+            $originalFilePath = $originalFiles[$fileIndex];
+            $originalFileName = pathinfo(basename($originalFilePath), PATHINFO_FILENAME);
+            // Prefer newest stable index-only filename; if missing, try name-based, then legacy timestamped
+            $stableCandidate = 'job-thumbnails/job_' . $jobId . '_' . $fileIndex . '.jpg';
+            if ($disk->exists($stableCandidate)) {
+                $thumbnailPath = $stableCandidate;
+            } else {
+                // Fallback: scan and pick the latest timestamped match for this index and filename
+                try {
+                    $files = $disk->files('job-thumbnails');
+                    $latestMatch = null;
+                    $latestTs = 0;
+                    foreach ($files as $thumbFile) {
+                        $thumbBasename = basename($thumbFile);
+                        if (strpos($thumbBasename, 'job_' . $jobId . '_') !== 0) continue;
+                        // Accept both webp/jpg regardless; require index and filename to match
+                        if (strpos($thumbBasename, '_' . $fileIndex . '_') === false) continue;
+                        if ($originalFileName && strpos($thumbBasename, $originalFileName) === false) continue;
+                        $ts = 0;
+                        if (preg_match('/job_' . $jobId . '_(\\d+)_/',$thumbBasename,$m)) { $ts = (int)$m[1]; }
+                        if ($latestMatch === null || $ts >= $latestTs) { $latestMatch = $thumbFile; $latestTs = $ts; }
+                    }
+                    if ($latestMatch) {
+                        $thumbnailPath = $latestMatch;
+                    } else {
+                        // As a final fallback, try stable candidate including name (older stable scheme)
+                        $nameCandidate = 'job-thumbnails/job_' . $jobId . '_' . $fileIndex . '_' . $originalFileName . '.jpg';
+                        if ($disk->exists($nameCandidate)) {
+                            $thumbnailPath = $nameCandidate;
+                        }
+                    }
+                } catch (\Exception $e) {
+                    \Log::warning('Thumbnail fallback scan failed: ' . $e->getMessage());
+                }
+            }
+
+            if (!$thumbnailPath) {
+                // Fallback: index may have shifted after a removal; try match by filename
+                try {
+                    $originalFilePath = $originalFiles[$fileIndex];
+                    $originalFileName = pathinfo(basename($originalFilePath), PATHINFO_FILENAME);
                     $files = $this->templateStorageService->getDisk()->files('job-thumbnails');
-                    $latestByIndex = [];
+                    $latestMatch = null;
+                    $latestTs = 0;
                     foreach ($files as $thumbFile) {
                         $thumbBasename = basename($thumbFile);
                         if (strpos($thumbBasename, 'job_' . $jobId . '_') !== 0) {
                             continue;
                         }
-                        if (preg_match('/job_' . $jobId . '_(\d+)_(\d+)_/', $thumbBasename, $matches)) {
-                            $timestamp = (int)$matches[1];
-                            $originalIndex = (int)$matches[2];
-                            if (!isset($latestByIndex[$originalIndex]) || $timestamp > $latestByIndex[$originalIndex]['timestamp']) {
-                                $latestByIndex[$originalIndex] = [
-                                    'path' => $thumbFile,
-                                    'timestamp' => $timestamp,
-                                    'basename' => $thumbBasename,
-                                ];
+                        if (strpos($thumbBasename, $originalFileName) === false) {
+                            continue;
+                        }
+                        // extract timestamp if present
+                        if (preg_match('/job_' . $jobId . '_(\d+)_/',$thumbBasename,$m)) {
+                            $ts = (int)$m[1];
+                            if ($ts > $latestTs) {
+                                $latestTs = $ts;
+                                $latestMatch = $thumbFile;
                             }
+                        } else {
+                            // no timestamp, still accept as a candidate
+                            $latestMatch = $thumbFile;
                         }
                     }
-                    // Reduce to simple index => path map
-                    $map = [];
-                    foreach ($latestByIndex as $idx => $info) {
-                        $map[$idx] = $info['path'];
+                    if ($latestMatch) {
+                        $thumbnailPath = $latestMatch;
+                        \Log::info('Thumbnail fallback by filename succeeded', [
+                            'job_id' => $jobId,
+                            'file_index' => $fileIndex,
+                            'thumbnail_path' => $thumbnailPath,
+                            'filename' => $originalFileName
+                        ]);
+                    } else {
+                        \Log::warning('No thumbnail found for requested index or filename fallback', [
+                            'job_id' => $jobId,
+                            'file_index' => $fileIndex,
+                            'filename' => $originalFileName
+                        ]);
+                        return response()->json(['error' => 'Thumbnail not found'], 404);
                     }
-                    return $map;
-                });
-                if (isset($thumbnailIndexMap[$fileIndex])) {
-                    $thumbnailPath = $thumbnailIndexMap[$fileIndex];
+                } catch (\Exception $e) {
+                    \Log::warning('Thumbnail fallback search failed: ' . $e->getMessage());
+                    return response()->json(['error' => 'Thumbnail not found'], 404);
                 }
-            } catch (\Exception $e) {
-                \Log::warning('Failed to build thumbnail index map: ' . $e->getMessage());
-                return response()->json(['error' => 'Thumbnail not found'], 404);
-            }
-
-            if (!$thumbnailPath) {
-                \Log::warning('No thumbnail found for requested index', [
-                    'job_id' => $jobId,
-                    'file_index' => $fileIndex,
-                    'available_count' => count($jobThumbnails ?? [])
-                ]);
-                return response()->json(['error' => 'Thumbnail not found'], 404);
             }
 
             // Check if thumbnail exists in R2
@@ -3585,62 +3903,44 @@ class JobController extends Controller
         try {
             // List all thumbnails in R2 for this job
             $thumbnailFiles = $this->templateStorageService->getDisk()->files('job-thumbnails');
-            
-            // Get all thumbnails for this job and sort them by timestamp
-            $jobThumbnails = [];
+
+            // Normalize original filename (without extension)
+            $originalBase = pathinfo($originalFileName, PATHINFO_FILENAME);
+
+            $deleted = 0;
             foreach ($thumbnailFiles as $thumbFile) {
                 $thumbBasename = basename($thumbFile);
-                if (strpos($thumbBasename, 'job_' . $jobId . '_') === 0) {
-                    // Extract timestamp from filename: job_ID_TIMESTAMP_INDEX_filename.jpg
-                    if (preg_match('/job_' . $jobId . '_(\d+)_(\d+)_/', $thumbBasename, $matches)) {
-                        $timestamp = $matches[1];
-                        $originalIndex = $matches[2];
-                        $jobThumbnails[] = [
-                            'path' => $thumbFile,
-                            'timestamp' => (int)$timestamp,
-                            'original_index' => (int)$originalIndex,
-                            'basename' => $thumbBasename
-                        ];
-                    }
+                // Must belong to this job
+                if (strpos($thumbBasename, 'job_' . $jobId . '_') !== 0) {
+                    continue;
                 }
-            }
-            
-            // Sort by timestamp to get chronological order
-            usort($jobThumbnails, function($a, $b) {
-                return $a['timestamp'] <=> $b['timestamp'];
-            });
-            
-            \Log::info('Cleaning up thumbnail for removed file', [
-                'job_id' => $jobId,
-                'file_index' => $fileIndex,
-                'available_thumbnails' => count($jobThumbnails),
-                'thumbnails' => $jobThumbnails
-            ]);
-            
-            // Delete the thumbnail at the specified index position
-            if (isset($jobThumbnails[$fileIndex])) {
-                $thumbnailToDelete = $jobThumbnails[$fileIndex];
-                
+                // Match either the index pattern or the client filename in the thumbnail
+                $matchesIndex = (strpos($thumbBasename, '_' . $fileIndex . '_') !== false);
+                $matchesName = (strpos($thumbBasename, $originalBase) !== false);
+                if (!$matchesIndex && !$matchesName) {
+                    continue;
+                }
                 try {
-                    $this->templateStorageService->getDisk()->delete($thumbnailToDelete['path']);
-                    \Log::info('Successfully deleted specific thumbnail from R2', [
+                    $this->templateStorageService->getDisk()->delete($thumbFile);
+                    $deleted++;
+                    \Log::info('Deleted thumbnail for removed file', [
                         'job_id' => $jobId,
                         'file_index' => $fileIndex,
-                        'thumbnail_path' => $thumbnailToDelete['path'],
-                        'original_index_in_filename' => $thumbnailToDelete['original_index']
+                        'thumbnail_path' => $thumbFile,
+                        'matched_by' => $matchesIndex ? 'index' : 'name'
                     ]);
                 } catch (\Exception $e) {
-                    \Log::error('Failed to delete specific thumbnail: ' . $e->getMessage(), [
-                        'job_id' => $jobId,
-                        'file_index' => $fileIndex,
-                        'thumbnail_path' => $thumbnailToDelete['path']
+                    \Log::warning('Failed to delete matched thumbnail: ' . $e->getMessage(), [
+                        'thumbnail' => $thumbFile
                     ]);
                 }
-            } else {
-                \Log::warning('No thumbnail found at index for deletion', [
+            }
+
+            if ($deleted === 0) {
+                \Log::warning('No thumbnails matched for deletion', [
                     'job_id' => $jobId,
                     'file_index' => $fileIndex,
-                    'available_count' => count($jobThumbnails)
+                    'original_file_name' => $originalFileName
                 ]);
             }
             
@@ -3672,9 +3972,9 @@ class JobController extends Controller
             $thumbnailBlob = $imagick->getImageBlob();
             $imagick->clear();
             
-            // Store thumbnail in R2
+            // Store thumbnail in R2 with stable name (no timestamp)
             $originalFilename = pathinfo($originalFileName, PATHINFO_FILENAME);
-            $thumbnailPath = 'job-thumbnails/job_' . $jobId . '_' . time() . '_' . $fileIndex . '_' . $originalFilename . '.jpg';
+            $thumbnailPath = 'job-thumbnails/job_' . $jobId . '_' . $fileIndex . '_' . $originalFilename . '.jpg';
             
             // Upload thumbnail to R2
             $this->templateStorageService->getDisk()->put($thumbnailPath, $thumbnailBlob);
@@ -3699,6 +3999,48 @@ class JobController extends Controller
             ]);
             return null;
         }
+    }
+
+    /**
+     * Build stable thumbnails list for a job by strictly matching jobId, index and client filename
+     */
+    private function regenerateJobThumbnails(Job $job): array
+    {
+        $jobId = $job->id;
+        $thumbnails = [];
+        try {
+            $disk = $this->templateStorageService->getDisk();
+            $thumbFiles = $disk->files('job-thumbnails');
+            $originalFiles = $job->getOriginalFiles();
+            foreach ($originalFiles as $idx => $orig) {
+                $origBase = basename($orig);
+                $clientName = preg_replace('/^\d+_/', '', $origBase);
+                $clientName = pathinfo($clientName, PATHINFO_FILENAME);
+                $best = null; $bestTs = 0;
+                foreach ($thumbFiles as $thumb) {
+                    $base = basename($thumb);
+                    // require job id
+                    if (strpos($base, 'job_' . $jobId . '_') !== 0) continue;
+                    // require index segment
+                    if (strpos($base, '_' . $idx . '_') === false) continue;
+                    // require filename match
+                    if ($clientName && strpos($base, $clientName) === false) continue;
+                    $ts = 0;
+                    if (preg_match('/job_' . $jobId . '_(\d+)_/',$base,$m)) { $ts = (int)$m[1]; }
+                    if ($best === null || $ts >= $bestTs) { $best = $thumb; $bestTs = $ts; }
+                }
+                $thumbnails[] = [
+                    'type' => 'pdf',
+                    'thumbnailPath' => $best,
+                    'originalFile' => $orig,
+                    'index' => $idx,
+                    'filename' => $clientName,
+                ];
+            }
+        } catch (\Exception $e) {
+            // ignore
+        }
+        return $thumbnails;
     }
 
     /**
@@ -4103,7 +4445,8 @@ class JobController extends Controller
             $thumbnailBlob = $imagick->getImageBlob();
             $imagick->clear();
             $originalFilename = pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME);
-            $thumbnailPath = 'job-cutting-thumbnails/job_' . $jobId . '_' . time() . '_' . $fileIndex . '_' . $originalFilename . '.webp';
+            // Keep cutting thumbnails deterministic too
+            $thumbnailPath = 'job-cutting-thumbnails/job_' . $jobId . '_' . $fileIndex . '_' . $originalFilename . '.webp';
             $this->templateStorageService->getDisk()->put($thumbnailPath, $thumbnailBlob);
             return $thumbnailPath;
         } catch (\Exception $e) {
@@ -4147,7 +4490,7 @@ class JobController extends Controller
             $thumbnailBlob = $imagick->getImageBlob();
             $imagick->clear();
             
-            // Store in R2 as WebP
+            // Store in R2; keep fallback timestamped suffix but no dependency in lookup
             $thumbnailPath = 'job-thumbnails/job_' . $jobId . '_fallback_' . time() . '_' . $index . '_' . $originalFilename . '.webp';
             $this->templateStorageService->getDisk()->put($thumbnailPath, $thumbnailBlob);
             

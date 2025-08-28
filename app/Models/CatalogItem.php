@@ -345,9 +345,8 @@ class CatalogItem extends Model
         
         // Calculate job dimensions if available
         $jobSquareMeters = 0;
-        if ($job->width && $job->height) {
-            // Convert mm to meters
-            $jobSquareMeters = ($job->width / 1000) * ($job->height / 1000);
+        if ($job->total_area_m2) {
+            $jobSquareMeters = $job->total_area_m2;
         }
         
         if ($this->articles->isEmpty()) {
@@ -414,9 +413,8 @@ class CatalogItem extends Model
         
         // Calculate job dimensions if available
         $jobSquareMeters = 0;
-        if ($job->width && $job->height) {
-            // Convert mm to meters
-            $jobSquareMeters = ($job->width / 1000) * ($job->height / 1000);
+        if ($job->total_area_m2) {
+            $jobSquareMeters = $job->total_area_m2;
         }
         
         if ($this->articles->isEmpty()) {
@@ -506,7 +504,7 @@ class CatalogItem extends Model
             'catalog_item_name' => $this->name,
             'job_quantity' => $job->quantity,
             'job_copies' => $job->copies,
-            'job_square_meters' => ($job->width / 1000) * ($job->height / 1000),
+            'job_square_meters' => $job->total_area_m2 ?? 0,
             'pricing_method' => $this->getPricingMethod(),
             'component_count' => count($componentBreakdown),
             'total_cost' => $totalCost,

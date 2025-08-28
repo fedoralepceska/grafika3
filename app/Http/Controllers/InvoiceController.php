@@ -269,7 +269,7 @@ class InvoiceController extends Controller
                             
                             // Consume material stock
                             if ($large_material?->article?->in_square_meters === 1) {
-                                $large_material->quantity -= ($units * ($job->width * $job->height / 1000000));
+                                $large_material->quantity -= ($units * ($job->total_area_m2 ?? 0));
                             } else {
                                 $large_material->quantity -= $units;
                             }
@@ -300,7 +300,7 @@ class InvoiceController extends Controller
                             
                             // Consume material stock
                             if ($small_material?->article?->in_square_meters === 1) {
-                                $small_material->quantity -= ($units * ($job->width * $job->height / 1000000));
+                                $small_material->quantity -= ($units * ($job->total_area_m2 ?? 0));
                             } else {
                                 $small_material->quantity -= $units;
                             }
@@ -374,7 +374,17 @@ class InvoiceController extends Controller
     }
     public function show($id)
     {
-        $invoice = Invoice::with(['jobs.small_material.smallFormatMaterial', 'historyLogs', 'user', 'client', 'jobs.actions', 'jobs.large_material'])->findOrFail($id);
+        $invoice = Invoice::with([
+            'jobs.small_material.smallFormatMaterial', 
+            'jobs.articles.categories',
+            'jobs.articles.largeFormatMaterial',
+            'jobs.articles.smallMaterial',
+            'historyLogs', 
+            'user', 
+            'client', 
+            'jobs.actions', 
+            'jobs.large_material'
+        ])->findOrFail($id);
 
         // Always append totalPrice for each job
         $invoice->jobs->each(function ($job) {
