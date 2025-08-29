@@ -3765,6 +3765,16 @@ class JobController extends Controller
             $disk = $this->templateStorageService->getDisk();
             $originalFilePath = $originalFiles[$fileIndex];
             $originalFileName = pathinfo(basename($originalFilePath), PATHINFO_FILENAME);
+            // Also consider client-provided filename from dimensions_breakdown for better mapping
+            $clientFileName = null;
+            try {
+                $breakdown = is_array($job->dimensions_breakdown) ? $job->dimensions_breakdown : [];
+                if (isset($breakdown[$fileIndex]['filename'])) {
+                    $clientFileName = pathinfo($breakdown[$fileIndex]['filename'], PATHINFO_FILENAME);
+                }
+            } catch (\Throwable $t) {
+                // ignore
+            }
             // Prefer newest stable index-only filename; if missing, try WEBP/JPG variants, then name-based, then legacy timestamped
             $stableJpg = 'job-thumbnails/job_' . $jobId . '_' . $fileIndex . '.jpg';
             $stableWebp = 'job-thumbnails/job_' . $jobId . '_' . $fileIndex . '.webp';
@@ -3782,8 +3792,10 @@ class JobController extends Controller
                         $thumbBasename = basename($thumbFile);
                         if (strpos($thumbBasename, 'job_' . $jobId . '_') !== 0) continue;
                         // Accept both webp/jpg regardless; require index and filename to match
-                        if (strpos($thumbBasename, '_' . $fileIndex . '_') === false) continue;
-                        if ($originalFileName && strpos($thumbBasename, $originalFileName) === false) continue;
+                        $hasIndex = (strpos($thumbBasename, '_' . $fileIndex . '_') !== false);
+                        $matchesOriginal = $originalFileName ? (strpos($thumbBasename, $originalFileName) !== false) : false;
+                        $matchesClient = $clientFileName ? (strpos($thumbBasename, $clientFileName) !== false) : false;
+                        if (!$hasIndex && !$matchesOriginal && !$matchesClient) continue;
                         $ts = 0;
                         if (preg_match('/job_' . $jobId . '_(\\d+)_/',$thumbBasename,$m)) { $ts = (int)$m[1]; }
                         if ($latestMatch === null || $ts >= $latestTs) { $latestMatch = $thumbFile; $latestTs = $ts; }
@@ -3792,12 +3804,15 @@ class JobController extends Controller
                         $thumbnailPath = $latestMatch;
                     } else {
                         // As a final fallback, try stable candidate including name (older stable scheme)
-                        $nameCandidateJpg = 'job-thumbnails/job_' . $jobId . '_' . $fileIndex . '_' . $originalFileName . '.jpg';
-                        $nameCandidateWebp = 'job-thumbnails/job_' . $jobId . '_' . $fileIndex . '_' . $originalFileName . '.webp';
-                        if ($disk->exists($nameCandidateJpg)) {
-                            $thumbnailPath = $nameCandidateJpg;
-                        } elseif ($disk->exists($nameCandidateWebp)) {
-                            $thumbnailPath = $nameCandidateWebp;
+                        $candidateBases = array_values(array_unique(array_filter([
+                            $originalFileName,
+                            $clientFileName,
+                        ])));
+                        foreach ($candidateBases as $base) {
+                            $nameCandidateJpg = 'job-thumbnails/job_' . $jobId . '_' . $fileIndex . '_' . $base . '.jpg';
+                            $nameCandidateWebp = 'job-thumbnails/job_' . $jobId . '_' . $fileIndex . '_' . $base . '.webp';
+                            if ($disk->exists($nameCandidateJpg)) { $thumbnailPath = $nameCandidateJpg; break; }
+                            if ($disk->exists($nameCandidateWebp)) { $thumbnailPath = $nameCandidateWebp; break; }
                         }
                     }
                 } catch (\Exception $e) {
@@ -3818,9 +3833,9 @@ class JobController extends Controller
                         if (strpos($thumbBasename, 'job_' . $jobId . '_') !== 0) {
                             continue;
                         }
-                        if (strpos($thumbBasename, $originalFileName) === false) {
-                            continue;
-                        }
+                        $matchesOriginal = $originalFileName ? (strpos($thumbBasename, $originalFileName) !== false) : false;
+                        $matchesClient = $clientFileName ? (strpos($thumbBasename, $clientFileName) !== false) : false;
+                        if (!$matchesOriginal && !$matchesClient) continue;
                         // extract timestamp if present
                         if (preg_match('/job_' . $jobId . '_(\d+)_/',$thumbBasename,$m)) {
                             $ts = (int)$m[1];
