@@ -443,8 +443,8 @@ export default {
             this.showPdfModal = true;
         },
         getThumbnailUrl(jobId, fileIndex) {
-            const ts = Date.now();
-            return `/jobs/${jobId}/view-thumbnail/${fileIndex}?t=${ts}`;
+            // Rely on server ETag/immutable caching to avoid extra traffic
+            return `/jobs/${jobId}/view-thumbnail/${fileIndex}`;
         },
         getOriginalFileUrl(jobId, fileIndex) {
             return `/jobs/${jobId}/view-original-file/${fileIndex}`;

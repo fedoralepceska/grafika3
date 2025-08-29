@@ -1527,8 +1527,8 @@ export default {
             return job.file ? [job.file] : [];
         },
         getThumbnailUrl(jobId, fileIndex) {
-            const ts = Date.now();
-            return `/jobs/${jobId}/view-thumbnail/${fileIndex}?t=${ts}`;
+            // Rely on server ETag/immutable caching to avoid extra traffic
+            return `/jobs/${jobId}/view-thumbnail/${fileIndex}`;
         },
         handleThumbnailError(event, fileIndex) {
             // Try legacy image first (image formats). If not available, show PDF icon

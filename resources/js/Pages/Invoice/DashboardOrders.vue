@@ -486,10 +486,8 @@ export default {
         },
         
         getThumbnailUrl(jobId, fileIndex) {
-            // Add cache-busting like InvoiceDetails.vue
-            const url = route('jobs.viewThumbnail', { jobId: jobId, fileIndex: fileIndex });
-            const ts = Date.now();
-            return `${url}?t=${ts}`;
+            // Rely on server ETag/immutable caching to avoid extra traffic
+            return route('jobs.viewThumbnail', { jobId: jobId, fileIndex: fileIndex });
         },
         
         getOriginalFileUrl(jobId, fileIndex) {
@@ -556,28 +554,8 @@ export default {
 
         // Prefetching utilities
         preloadThumbnailsForOrder(order) {
-            if (!order || !order.jobs) return;
-            try {
-                order.jobs.forEach(job => {
-                    if (this.hasMultipleFiles(job)) {
-                        const total = this.getJobFiles(job).length;
-                        // Preload first 2 images for better UX
-                        const indices = new Set([0, 1]);
-                        indices.forEach(idx => {
-                            if (idx >= 0 && idx < total) {
-                                const url = this.getThumbnailUrl(job.id, idx);
-                                this.preloadImage(url);
-                            }
-                        });
-                    } else if (job.file && job.file !== 'placeholder.jpeg') {
-                        // Preload legacy images
-                        const url = this.getLegacyImageUrl(job);
-                        this.preloadImage(url);
-                    }
-                });
-            } catch (e) {
-                console.warn('Prefetch failed:', e);
-            }
+            // Disable aggressive preloading to reduce traffic; rely on lazy image loading
+            return;
         },
 
         preloadImage(url) {
