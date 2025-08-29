@@ -481,7 +481,8 @@ export default {
 
         // Image handling methods (from InvoiceDetails.vue)
         getLegacyImageUrl(job) {
-            return `/storage/uploads/${job.file}`;
+            // Proxy legacy files through backend so they are served from R2 (or local fallback)
+            return route ? route('jobs.viewLegacyFile', { jobId: job.id }) : `/jobs/${job.id}/view-legacy-file`;
         },
         
         getThumbnailUrl(jobId, fileIndex) {
@@ -526,19 +527,20 @@ export default {
             
             console.warn('Thumbnail failed to load:', { jobId, fileIndex, src: event.target.src });
             
+            const job = this.selectedOrder?.jobs?.find(j => j.id == jobId);
+            // Prefer legacy image fallback first (image formats) because originals are PDFs
+            if (job && job.file && job.file !== 'placeholder.jpeg') {
+                const legacyUrl = this.getLegacyImageUrl(job);
+                console.log('Trying fallback to legacy image:', legacyUrl);
+                event.target.src = legacyUrl;
+                return;
+            }
+
+            // As a secondary fallback, try original file URL (may be PDF and not displayable in <img>)
             if (jobId && fileIndex !== undefined) {
-                // Try to load the original file as fallback
                 const fallbackUrl = this.getOriginalFileUrl(jobId, fileIndex);
-                console.log('Trying fallback to original file:', fallbackUrl);
+                console.log('Trying fallback to original file (may be PDF):', fallbackUrl);
                 event.target.src = fallbackUrl;
-            } else {
-                // Fallback to legacy image if available
-                const job = this.selectedOrder?.jobs?.find(j => j.id == jobId);
-                if (job && job.file && job.file !== 'placeholder.jpeg') {
-                    const legacyUrl = this.getLegacyImageUrl(job);
-                    console.log('Trying fallback to legacy image:', legacyUrl);
-                    event.target.src = legacyUrl;
-                }
             }
         },
 

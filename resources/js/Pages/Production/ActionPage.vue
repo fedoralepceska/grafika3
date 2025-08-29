@@ -156,7 +156,7 @@
                                     <!-- Legacy single file support -->
                                     <template v-else>
                                         <button @click="toggleImagePopover(job)">
-                                            <img :src="getImageUrl(invoice.id, job.id)" alt="Job Image" class="jobImg thumbnail"/>
+                                            <img :src="getLegacyImageUrl(job)" alt="Job Image" class="jobImg thumbnail"/>
                                         </button>
                                         <div class="file-name">{{job.file}}</div>
                                     </template>
@@ -302,7 +302,7 @@
             <!-- Legacy image popover -->
             <div v-if="showImagePopover && selectedJob" class="popover">
                 <div class="popover-content bg-gray-700">
-                    <img :src="'/storage/uploads/' + selectedJob.file" alt="Job Image" />
+                    <img :src="getLegacyImageUrl(selectedJob)" alt="Job Image" />
                     <button @click="toggleImagePopover(null)" class="popover-close">
                         <i class="text-white fa fa-close"></i>
                     </button>
@@ -1267,9 +1267,8 @@ export default {
         viewJobs(index) {
             this.jobViewMode = this.jobViewMode === index ? null : index;
         },
-        getImageUrl(invoiceId, jobId) {
-            const job = this.invoices.find(i => i.id === invoiceId)?.jobs.find(j => j.id === jobId);
-            return `/storage/uploads/${job?.file}`
+        getLegacyImageUrl(job) {
+            return route ? route('jobs.viewLegacyFile', { jobId: job.id }) : `/jobs/${job.id}/view-legacy-file`;
         },
         openModal(index) {
             this.showModal = true;
@@ -1528,11 +1527,18 @@ export default {
             return job.file ? [job.file] : [];
         },
         getThumbnailUrl(jobId, fileIndex) {
-            return `/jobs/${jobId}/view-thumbnail/${fileIndex}`;
+            const ts = Date.now();
+            return `/jobs/${jobId}/view-thumbnail/${fileIndex}?t=${ts}`;
         },
         handleThumbnailError(event, fileIndex) {
-            // Show PDF icon as fallback for thumbnail errors
-            event.target.src = '/images/pdf.png';
+            // Try legacy image first (image formats). If not available, show PDF icon
+            const jobId = event?.target?.closest('tbody')?.dataset?.jobId;
+            const job = this.invoices.flatMap(inv => inv.jobs).find(j => j.id == jobId);
+            if (job && job.file && job.file !== 'placeholder.jpeg') {
+                event.target.src = this.getLegacyImageUrl(job);
+            } else {
+                event.target.src = '/images/pdf.png';
+            }
             console.log(`Thumbnail loading failed for file index ${fileIndex}`);
         },
         openPreviewModal(job, fileIndex) {

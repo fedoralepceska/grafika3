@@ -115,11 +115,11 @@
                                                 </template>
                                                 <!-- Single file preview (new system with 1 file) -->
                                                 <template v-else-if="hasSingleNewFile(job)">
-                                                    <img :src="getThumbnailUrl(job.id, 0)" alt="Job Image" class="multiple-files-preview jobImg thumbnail" @click="openFilePreview(job, 0)" @error="handleThumbnailError($event, 0)"/>
+                                                    <img :src="getThumbnailUrl(job.id, 0)" alt="Job Image" class="multiple-files-preview jobImg thumbnail" @click="openFilePreview(job, 0)" @error="handleThumbnailError($event, job, 0)"/>
                                                 </template>
                                                 <!-- Legacy single file preview -->
                                                 <template v-else>
-                                                    <img :src="getImageUrl(job.id)" alt="Job Image" class="jobImg thumbnail" @click="openSingleFileModal(job)"/>
+                                                    <img :src="getLegacyImageUrl(job)" alt="Job Image" class="jobImg thumbnail" @click="openSingleFileModal(job)"/>
                                                 </template>
                                             </div>
                                             <div v-if="job.total_area_m2" class="p-1 w-160">{{$t('Total Area')}}: <span class="bold">{{ formatTotalArea(job) }} m²</span> </div>
@@ -306,12 +306,8 @@ export default {
             if (status === 'Not started yet') return 'row-pending';
             return '';
         },
-        getImageUrl(id) {
-            const currentInvoice = this.invoices.data.find(invoice => invoice.id === this.currentInvoiceId);
-            if (currentInvoice && currentInvoice.jobs) {
-                const job = currentInvoice.jobs.find(j => j.id === id);
-                    return `/storage/uploads/${job.file}`;
-            }
+        getLegacyImageUrl(job) {
+            return route ? route('jobs.viewLegacyFile', { jobId: job.id }) : `/jobs/${job.id}/view-legacy-file`;
         },
         viewJobs(invoiceId) {
             if (this.currentInvoiceId && this.currentInvoiceId !== invoiceId) {
@@ -447,14 +443,19 @@ export default {
             this.showPdfModal = true;
         },
         getThumbnailUrl(jobId, fileIndex) {
-            return `/jobs/${jobId}/view-thumbnail/${fileIndex}`;
+            const ts = Date.now();
+            return `/jobs/${jobId}/view-thumbnail/${fileIndex}?t=${ts}`;
         },
         getOriginalFileUrl(jobId, fileIndex) {
             return `/jobs/${jobId}/view-original-file/${fileIndex}`;
         },
-        handleThumbnailError(event, fileIndex) {
-            // Show PDF icon as fallback for thumbnail errors
-            event.target.src = '/images/pdf.png';
+        handleThumbnailError(event, job, fileIndex) {
+            // Prefer legacy image (image formats) as fallback; otherwise show PDF icon
+            if (job && job.file && job.file !== 'placeholder.jpeg') {
+                event.target.src = this.getLegacyImageUrl(job);
+            } else {
+                event.target.src = '/images/pdf.png';
+            }
             console.log(`Thumbnail loading failed for file index ${fileIndex}`);
         },
         getFileName(filePath) {

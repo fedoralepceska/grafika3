@@ -530,7 +530,8 @@ export default {
     methods: {
         // Legacy method for old single-file system
         getLegacyImageUrl(job) {
-            return `/storage/uploads/${job.file}`;
+            // Proxy legacy files through backend so they are served from R2 (or local fallback)
+            return route ? route('jobs.viewLegacyFile', { jobId: job.id }) : `/jobs/${job.id}/view-legacy-file`;
         },
         
         // New method for multiple file thumbnails (add cache-busting)

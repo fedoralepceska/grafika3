@@ -3765,10 +3765,13 @@ class JobController extends Controller
             $disk = $this->templateStorageService->getDisk();
             $originalFilePath = $originalFiles[$fileIndex];
             $originalFileName = pathinfo(basename($originalFilePath), PATHINFO_FILENAME);
-            // Prefer newest stable index-only filename; if missing, try name-based, then legacy timestamped
-            $stableCandidate = 'job-thumbnails/job_' . $jobId . '_' . $fileIndex . '.jpg';
-            if ($disk->exists($stableCandidate)) {
-                $thumbnailPath = $stableCandidate;
+            // Prefer newest stable index-only filename; if missing, try WEBP/JPG variants, then name-based, then legacy timestamped
+            $stableJpg = 'job-thumbnails/job_' . $jobId . '_' . $fileIndex . '.jpg';
+            $stableWebp = 'job-thumbnails/job_' . $jobId . '_' . $fileIndex . '.webp';
+            if ($disk->exists($stableJpg)) {
+                $thumbnailPath = $stableJpg;
+            } elseif ($disk->exists($stableWebp)) {
+                $thumbnailPath = $stableWebp;
             } else {
                 // Fallback: scan and pick the latest timestamped match for this index and filename
                 try {
@@ -3789,9 +3792,12 @@ class JobController extends Controller
                         $thumbnailPath = $latestMatch;
                     } else {
                         // As a final fallback, try stable candidate including name (older stable scheme)
-                        $nameCandidate = 'job-thumbnails/job_' . $jobId . '_' . $fileIndex . '_' . $originalFileName . '.jpg';
-                        if ($disk->exists($nameCandidate)) {
-                            $thumbnailPath = $nameCandidate;
+                        $nameCandidateJpg = 'job-thumbnails/job_' . $jobId . '_' . $fileIndex . '_' . $originalFileName . '.jpg';
+                        $nameCandidateWebp = 'job-thumbnails/job_' . $jobId . '_' . $fileIndex . '_' . $originalFileName . '.webp';
+                        if ($disk->exists($nameCandidateJpg)) {
+                            $thumbnailPath = $nameCandidateJpg;
+                        } elseif ($disk->exists($nameCandidateWebp)) {
+                            $thumbnailPath = $nameCandidateWebp;
                         }
                     }
                 } catch (\Exception $e) {
@@ -3877,8 +3883,12 @@ class JobController extends Controller
                 'content_size' => strlen($thumbnailContent)
             ]);
 
+            // Determine content type by extension
+            $ext = strtolower(pathinfo($thumbnailPath, PATHINFO_EXTENSION));
+            $contentType = $ext === 'webp' ? 'image/webp' : 'image/jpeg';
+
             return response($thumbnailContent)
-                ->header('Content-Type', 'image/jpeg')
+                ->header('Content-Type', $contentType)
                 ->header('ETag', $etag)
                 ->header('Cache-Control', 'public, max-age=86400, immutable')
                 ->header('Expires', gmdate('D, d M Y H:i:s \G\M\T', time() + 86400));
@@ -3892,6 +3902,83 @@ class JobController extends Controller
             ]);
 
             return response()->json(['error' => 'Failed to serve thumbnail'], 500);
+        }
+    }
+
+    /**
+     * Serve legacy single-file job image via R2 (fallback to local public storage)
+     */
+    public function viewLegacyFile($jobId)
+    {
+        try {
+            $job = Job::findOrFail($jobId);
+            $filename = $job->file ?? null;
+            if (!$filename) {
+                return response()->json(['error' => 'Legacy file not set'], 404);
+            }
+
+            $relativePath = 'uploads/' . ltrim($filename, '/');
+
+            $disk = $this->templateStorageService->getDisk();
+            $content = null;
+            $source = null;
+
+            // Prefer R2
+            if ($disk->exists($relativePath)) {
+                $content = $disk->get($relativePath);
+                $source = 'r2';
+            } else {
+                // Fallback to local public storage for older data
+                if (\Storage::disk('public')->exists($relativePath)) {
+                    $content = \Storage::disk('public')->get($relativePath);
+                    $source = 'local';
+                }
+            }
+
+            if ($content === null) {
+                \Log::warning('Legacy file not found in R2 or local', [
+                    'job_id' => $jobId,
+                    'path' => $relativePath,
+                ]);
+                return response()->json(['error' => 'File not found'], 404);
+            }
+
+            $ext = strtolower(pathinfo($relativePath, PATHINFO_EXTENSION));
+            $mime = match ($ext) {
+                'jpg', 'jpeg' => 'image/jpeg',
+                'png' => 'image/png',
+                'webp' => 'image/webp',
+                default => 'application/octet-stream',
+            };
+
+            $etag = '"' . md5($relativePath) . '"';
+            $ifNoneMatch = request()->headers->get('If-None-Match');
+            if ($ifNoneMatch && trim($ifNoneMatch) === $etag) {
+                return response('', 304)
+                    ->header('ETag', $etag)
+                    ->header('Cache-Control', 'public, max-age=86400, immutable')
+                    ->header('Expires', gmdate('D, d M Y H:i:s \G\M\T', time() + 86400));
+            }
+
+            \Log::info('Serving legacy job file', [
+                'job_id' => $jobId,
+                'path' => $relativePath,
+                'source' => $source,
+                'size' => strlen($content),
+            ]);
+
+            return response($content)
+                ->header('Content-Type', $mime)
+                ->header('ETag', $etag)
+                ->header('Cache-Control', 'public, max-age=86400, immutable')
+                ->header('Expires', gmdate('D, d M Y H:i:s \G\M\T', time() + 86400));
+
+        } catch (\Exception $e) {
+            \Log::error('Error serving legacy job file', [
+                'job_id' => $jobId,
+                'error' => $e->getMessage(),
+            ]);
+            return response()->json(['error' => 'Failed to serve file'], 500);
         }
     }
 

@@ -169,6 +169,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
 Route::get('/jobs/{id}/articles', [JobController::class, 'getJobArticles'])->name('jobs.getArticles');
 Route::get('/jobs/{jobId}/view-original-file/{fileIndex}', [JobController::class, 'viewOriginalFile'])->name('jobs.viewOriginalFile');
 Route::get('/jobs/{jobId}/view-thumbnail/{fileIndex}', [JobController::class, 'viewThumbnail'])->name('jobs.viewThumbnail');
+Route::get('/jobs/{jobId}/view-legacy-file', [JobController::class, 'viewLegacyFile'])->name('jobs.viewLegacyFile');
     
     // Cutting Files Routes
     Route::post('/jobs/{id}/upload-cutting-files', [JobController::class, 'uploadCuttingFiles'])->name('jobs.uploadCuttingFiles');
