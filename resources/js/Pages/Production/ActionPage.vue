@@ -142,11 +142,18 @@
                                                 @click="openPreviewModal(job, fileIndex)"
                                             >
                                                 <img 
+                                                    v-if="shouldAttemptImageLoad(job, fileIndex)"
                                                     :src="getThumbnailUrl(job.id, fileIndex)" 
                                                     :alt="`File ${fileIndex + 1}`" 
                                                     class="jobImg thumbnail"
+                                                    loading="lazy"
+                                                    decoding="async"
                                                     @error="handleThumbnailError($event, fileIndex)"
                                                 />
+                                                <div v-else class="image-error-placeholder">
+                                                    <i class="fa fa-file-o"></i>
+                                                    <span>File not found</span>
+                                                </div>
                                                 <div class="thumbnail-number">{{ fileIndex + 1 }}</div>
                                             </div>
                                         </div>
@@ -156,7 +163,17 @@
                                     <!-- Legacy single file support -->
                                     <template v-else>
                                         <button @click="toggleImagePopover(job)">
-                                            <img :src="getLegacyImageUrl(job)" alt="Job Image" class="jobImg thumbnail"/>
+                                            <img 
+                                                v-if="shouldAttemptImageLoad(job, 'legacy')"
+                                                :src="getLegacyImageUrl(job)" 
+                                                alt="Job Image" 
+                                                class="jobImg thumbnail"
+                                                @error="handleLegacyImageError($event, job)"
+                                            />
+                                            <div v-else class="image-error-placeholder">
+                                                <i class="fa fa-file-o"></i>
+                                                <span>File not found</span>
+                                            </div>
                                         </button>
                                         <div class="file-name">{{job.file}}</div>
                                     </template>
@@ -302,7 +319,16 @@
             <!-- Legacy image popover -->
             <div v-if="showImagePopover && selectedJob" class="popover">
                 <div class="popover-content bg-gray-700">
-                    <img :src="getLegacyImageUrl(selectedJob)" alt="Job Image" />
+                    <img 
+                        v-if="shouldAttemptImageLoad(selectedJob, 'legacy')"
+                        :src="getLegacyImageUrl(selectedJob)" 
+                        alt="Job Image"
+                        @error="handleLegacyImageError($event, selectedJob)"
+                    />
+                    <div v-else class="popover-error-placeholder">
+                        <i class="fa fa-file-o"></i>
+                        <span>File not found</span>
+                    </div>
                     <button @click="toggleImagePopover(null)" class="popover-close">
                         <i class="text-white fa fa-close"></i>
                     </button>
@@ -396,6 +422,7 @@ export default {
             isPreSearching: false, // Show loading state during pre-search
             isAdmin: false,
             _roleCheck: null,
+            imageErrors: {}, // Track failed image loads
         };
     },
     async created() {
@@ -492,6 +519,11 @@ export default {
         }
     },
     methods: {
+        resetImageErrors() {
+            // Reset image errors when changing pages or searching
+            this.imageErrors = {};
+        },
+        
         async adminEndJob(job, invoiceIdExplicit = null) {
             try {
                 const { id: actionId } = this.getActionId(job);
@@ -590,6 +622,10 @@ export default {
             if (this.search) params.set('search', this.search);
             const url = `/actions/${this.actionId}/jobs?${params.toString()}`;
             console.log('Fetching jobs from:', url);
+            
+            // Reset image errors when fetching new data
+            this.resetImageErrors();
+            
             axios.get(url)
                 .then(response => {
                     console.log('Jobs response:', response.data);
@@ -621,18 +657,21 @@ export default {
             if (this.searchDebounce) clearTimeout(this.searchDebounce);
             this.searchDebounce = setTimeout(() => {
                 this.pagination.current_page = 1;
+                this.resetImageErrors(); // Reset image errors for new search
                 this.fetchJobs();
             }, 300);
         },
         nextPage() {
             if (this.pagination.current_page < this.pagination.last_page) {
                 this.pagination.current_page += 1;
+                this.resetImageErrors(); // Reset image errors for new page
                 this.fetchJobs();
             }
         },
         prevPage() {
             if (this.pagination.current_page > 1) {
                 this.pagination.current_page -= 1;
+                this.resetImageErrors(); // Reset image errors for new page
                 this.fetchJobs();
             }
         },
@@ -641,6 +680,7 @@ export default {
             const last = this.pagination.last_page || 1;
             if (typeof p === 'number' && p >= 1 && p <= last && p !== this.pagination.current_page) {
                 this.pagination.current_page = p;
+                this.resetImageErrors(); // Reset image errors for new page
                 this.fetchJobs();
             }
         },
@@ -1270,6 +1310,25 @@ export default {
         getLegacyImageUrl(job) {
             return route ? route('jobs.viewLegacyFile', { jobId: job.id }) : `/jobs/${job.id}/view-legacy-file`;
         },
+        
+        handleLegacyImageError(event, job) {
+            // Mark legacy image as failed to prevent repeated requests
+            const jobKey = `${job.id}_legacy`;
+            this.imageErrors[jobKey] = true;
+            
+            // Hide the broken image and show a placeholder
+            const parentElement = event.target.parentElement;
+            if (parentElement) {
+                const placeholder = document.createElement('div');
+                placeholder.className = 'image-error-placeholder';
+                placeholder.innerHTML = '<i class="fa fa-file-o"></i><span>File not found</span>';
+                
+                event.target.style.display = 'none';
+                parentElement.appendChild(placeholder);
+            }
+            
+            console.log(`Legacy image failed for job ${job.id}, marked as failed`);
+        },
         openModal(index) {
             this.showModal = true;
             this.selectedInvoiceIndex = index;
@@ -1519,6 +1578,15 @@ export default {
             // Check if job has originalFile array (new system) or if it's legacy single file
             return Array.isArray(job.originalFile) && job.originalFile.length > 0;
         },
+        
+        shouldAttemptImageLoad(job, fileIndex) {
+            if (fileIndex === 'legacy') {
+                const jobKey = `${job.id}_legacy`;
+                return !this.imageErrors[jobKey];
+            }
+            const jobKey = `${job.id}_${fileIndex}`;
+            return !this.imageErrors[jobKey];
+        },
         getJobFiles(job) {
             // Return originalFile array for new system, or create array from legacy file
             if (Array.isArray(job.originalFile)) {
@@ -1531,15 +1599,27 @@ export default {
             return `/jobs/${jobId}/view-thumbnail/${fileIndex}`;
         },
         handleThumbnailError(event, fileIndex) {
-            // Try legacy image first (image formats). If not available, show PDF icon
             const jobId = event?.target?.closest('tbody')?.dataset?.jobId;
             const job = this.invoices.flatMap(inv => inv.jobs).find(j => j.id == jobId);
-            if (job && job.file && job.file !== 'placeholder.jpeg') {
-                event.target.src = this.getLegacyImageUrl(job);
-            } else {
-                event.target.src = '/images/pdf.png';
+            
+            if (job) {
+                // Mark this image as failed to prevent repeated requests
+                const jobKey = `${job.id}_${fileIndex}`;
+                this.imageErrors[jobKey] = true;
+                
+                // Hide the broken image and show a placeholder instead
+                const parentElement = event.target.parentElement;
+                if (parentElement) {
+                    const placeholder = document.createElement('div');
+                    placeholder.className = 'image-error-placeholder';
+                    placeholder.innerHTML = '<i class="fa fa-file-o"></i><span>File not found</span>';
+                    
+                    event.target.style.display = 'none';
+                    parentElement.appendChild(placeholder);
+                }
             }
-            console.log(`Thumbnail loading failed for file index ${fileIndex}`);
+            
+            console.log(`Thumbnail loading failed for file index ${fileIndex}, marked as failed`);
         },
         openPreviewModal(job, fileIndex) {
             this.currentFileIndex = fileIndex;
@@ -1877,6 +1957,32 @@ td {
     position: relative;
 }
 
+.popover-error-placeholder {
+    width: 100%;
+    height: 200px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background-color: #fef2f2;
+    border: 2px dashed #fca5a5;
+    border-radius: 4px;
+    color: #dc2626;
+    font-size: 14px;
+    text-align: center;
+    
+    i {
+        font-size: 24px;
+        margin-bottom: 8px;
+        color: #f87171;
+    }
+    
+    span {
+        font-size: 12px;
+        line-height: 1;
+    }
+}
+
 .popover-close {
     position: absolute;
     top: 10px;
@@ -2023,6 +2129,32 @@ td {
     text-align: center;
     color: rgba(255, 255, 255, 0.7);
     margin-top: 3px;
+}
+
+.image-error-placeholder {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background-color: #fef2f2;
+    border: 2px dashed #fca5a5;
+    border-radius: 3px;
+    color: #dc2626;
+    font-size: 8px;
+    text-align: center;
+    
+    i {
+        font-size: 12px;
+        margin-bottom: 2px;
+        color: #f87171;
+    }
+    
+    span {
+        font-size: 7px;
+        line-height: 1;
+    }
 }
 
 /* Pagination styles */

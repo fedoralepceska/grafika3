@@ -3164,14 +3164,13 @@ class JobController extends Controller
             $imagick->setResolution(150, 150);
             $imagick->readImage($file->getPathname() . '[0]'); // Read the first page
             
-            // Use JPG for compatibility and deterministic naming
-            $imagick->setImageFormat('jpg');
-            $imagick->setImageCompression(\Imagick::COMPRESSION_JPEG);
-            $imagick->setImageCompressionQuality(80);
+            // Use WebP for better compression and faster loading
+            $imagick->setImageFormat('webp');
+            $imagick->setImageCompressionQuality(75); // Slightly lower quality for smaller files
             $imagick->stripImage();
             
-            // Create thumbnail - standardized size (max 800x800)
-            $imagick->resizeImage(800, 800, \Imagick::FILTER_LANCZOS, 1, true);
+            // Create thumbnail - optimized size (max 600x600 for faster loading)
+            $imagick->resizeImage(600, 600, \Imagick::FILTER_LANCZOS, 1, true);
             
             // Create thumbnail in memory
             $thumbnailBlob = $imagick->getImageBlob();

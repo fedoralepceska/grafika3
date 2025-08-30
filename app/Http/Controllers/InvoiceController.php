@@ -31,7 +31,16 @@ class InvoiceController extends Controller
     public function index(Request $request)
     {
         try {
-            $query = Invoice::with(['jobs', 'user', 'client']);
+            $query = Invoice::with([
+                'jobs' => function ($query) {
+                    $query->select([
+                        'jobs.id', 'jobs.invoice_id', 'jobs.name', 'jobs.status', 'jobs.quantity', 'jobs.copies',
+                        'jobs.file', 'jobs.originalFile', 'jobs.total_area_m2', 'jobs.dimensions_breakdown'
+                    ]);
+                },
+                'user:id,name',
+                'client:id,name'
+            ]);
 
             // Apply search filters
             $this->applySearch($query, $request, $request->input('status'));
@@ -375,13 +384,20 @@ class InvoiceController extends Controller
     public function show($id)
     {
         $invoice = Invoice::with([
+            'jobs' => function ($query) {
+                $query->select([
+                    'jobs.id', 'jobs.invoice_id', 'jobs.name', 'jobs.status', 'jobs.quantity', 'jobs.copies',
+                    'jobs.file', 'jobs.originalFile', 'jobs.total_area_m2', 'jobs.dimensions_breakdown',
+                    'jobs.small_material_id', 'jobs.large_material_id'
+                ]);
+            },
             'jobs.small_material.smallFormatMaterial', 
             'jobs.articles.categories',
             'jobs.articles.largeFormatMaterial',
             'jobs.articles.smallMaterial',
             'historyLogs', 
-            'user', 
-            'client', 
+            'user:id,name', 
+            'client:id,name', 
             'jobs.actions', 
             'jobs.large_material'
         ])->findOrFail($id);
@@ -499,7 +515,17 @@ class InvoiceController extends Controller
 
     public function latest()
     {
-        $invoices = Invoice::with(['jobs', 'historyLogs', 'user', 'client'])
+        $invoices = Invoice::with([
+            'jobs' => function ($query) {
+                $query->select([
+                    'jobs.id', 'jobs.invoice_id', 'jobs.name', 'jobs.status', 'jobs.quantity', 'jobs.copies',
+                    'jobs.file', 'jobs.originalFile', 'jobs.total_area_m2', 'jobs.dimensions_breakdown'
+                ]);
+            },
+            'historyLogs',
+            'user:id,name',
+            'client:id,name'
+        ])
             ->latest()
             ->take(3)
             ->get();
@@ -513,7 +539,16 @@ class InvoiceController extends Controller
      */
     public function latestOpenOrders(Request $request)
     {
-        $query = Invoice::with(['jobs', 'user', 'client']);
+        $query = Invoice::with([
+            'jobs' => function ($query) {
+                $query->select([
+                    'jobs.id', 'jobs.invoice_id', 'jobs.name', 'jobs.status', 'jobs.quantity', 'jobs.copies',
+                    'jobs.file', 'jobs.originalFile', 'jobs.total_area_m2', 'jobs.dimensions_breakdown'
+                ]);
+            },
+            'user:id,name',
+            'client:id,name'
+        ]);
 
         // Reuse generic search filters but do not apply a status from request here
         $this->applySearch($query, $request, null);
@@ -534,7 +569,16 @@ class InvoiceController extends Controller
      */
     public function completedOrders(Request $request)
     {
-        $query = Invoice::with(['jobs', 'user', 'client']);
+        $query = Invoice::with([
+            'jobs' => function ($query) {
+                $query->select([
+                    'jobs.id', 'jobs.invoice_id', 'jobs.name', 'jobs.status', 'jobs.quantity', 'jobs.copies',
+                    'jobs.file', 'jobs.originalFile', 'jobs.total_area_m2', 'jobs.dimensions_breakdown'
+                ]);
+            },
+            'user:id,name',
+            'client:id,name'
+        ]);
 
         // Reuse generic search filters but pin status to Completed regardless of request
         $this->applySearch($query, $request, null);
@@ -550,12 +594,19 @@ class InvoiceController extends Controller
     public function getOrderDetails($id)
     {
         $invoice = Invoice::with([
+            'jobs' => function ($query) {
+                $query->select([
+                    'jobs.id', 'jobs.invoice_id', 'jobs.name', 'jobs.status', 'jobs.quantity', 'jobs.copies',
+                    'jobs.file', 'jobs.originalFile', 'jobs.total_area_m2', 'jobs.dimensions_breakdown',
+                    'jobs.small_material_id', 'jobs.large_material_id'
+                ]);
+            },
             'jobs.small_material.smallFormatMaterial', 
             'jobs.large_material',
             'jobs.actions',
             'jobs.articles',
-            'user', 
-            'client'
+            'user:id,name', 
+            'client:id,name'
         ])->findOrFail($id);
 
         return response()->json($invoice);
@@ -840,7 +891,20 @@ class InvoiceController extends Controller
         try {
             $invoiceIds = explode(',', $request->query('invoices'));
 
-            $invoices = Invoice::with('jobs.small_material.smallFormatMaterial','jobs', 'user', 'client','jobs.actions', 'jobs.large_material')->whereIn('id', $invoiceIds)->get();
+            $invoices = Invoice::with([
+                'jobs' => function ($query) {
+                    $query->select([
+                        'jobs.id', 'jobs.invoice_id', 'jobs.name', 'jobs.status', 'jobs.quantity', 'jobs.copies',
+                        'jobs.file', 'jobs.originalFile', 'jobs.total_area_m2', 'jobs.dimensions_breakdown',
+                        'jobs.small_material_id', 'jobs.large_material_id'
+                    ]);
+                },
+                'jobs.small_material.smallFormatMaterial',
+                'user:id,name', 
+                'client:id,name',
+                'jobs.actions', 
+                'jobs.large_material'
+            ])->whereIn('id', $invoiceIds)->get();
 
             $invoices->each(function ($invoice) {
                 $invoice->jobs->each(function ($job) {
@@ -954,12 +1018,18 @@ class InvoiceController extends Controller
     {
         $invoiceIds = explode(',', $request->query->all()['invoices']);
 
-        $invoices = Invoice::with(
-            'jobs',
+        $invoices = Invoice::with([
+            'jobs' => function ($query) {
+                $query->select([
+                    'jobs.id', 'jobs.invoice_id', 'jobs.name', 'jobs.status', 'jobs.quantity', 'jobs.copies',
+                    'jobs.file', 'jobs.originalFile', 'jobs.total_area_m2', 'jobs.dimensions_breakdown',
+                    'jobs.small_material_id', 'jobs.large_material_id'
+                ]);
+            },
             'jobs.actions',
             'jobs.small_material.article',
             'jobs.large_material.article'
-        )->whereIn('id', $invoiceIds)->get();
+        ])->whereIn('id', $invoiceIds)->get();
 
         // Load the view and pass data
         $pdf = Pdf::loadView('invoices.generated_invoice', compact('invoices'), [
@@ -999,8 +1069,23 @@ class InvoiceController extends Controller
             // Apply pagination with 10 results per page
             $fakturas = $query->paginate(10);
 
-            // Eager load invoices with related models
-            $fakturas->load('invoices.jobs', 'invoices.user', 'invoices.client');
+            // Eager load invoices with related models and file information
+            $fakturas->load([
+                'invoices' => function ($query) {
+                    $query->select([
+                        'invoices.id', 'invoices.invoice_title', 'invoices.start_date', 'invoices.end_date', 
+                        'invoices.status', 'invoices.client_id', 'invoices.user_id'
+                    ]);
+                },
+                'invoices.jobs' => function ($query) {
+                    $query->select([
+                        'jobs.id', 'jobs.invoice_id', 'jobs.name', 'jobs.status', 'jobs.quantity', 'jobs.copies',
+                        'jobs.file', 'jobs.originalFile', 'jobs.total_area_m2', 'jobs.dimensions_breakdown'
+                    ]);
+                },
+                'invoices.user:id,name',
+                'invoices.client:id,name'
+            ]);
 
             // Handle AJAX requests for JSON responses
             if ($request->wantsJson()) {

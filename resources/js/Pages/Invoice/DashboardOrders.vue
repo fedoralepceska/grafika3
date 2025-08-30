@@ -1,3 +1,18 @@
+<!-- 
+    DashboardOrders.vue - Optimized for Instant Image Display
+    
+    PERFORMANCE IMPROVEMENTS:
+    ✅ Images are now pre-fetched with orders (no separate API calls needed)
+    ✅ Thumbnails are pre-loaded for smooth carousel navigation
+    ✅ File information is included in the initial order fetch
+    ✅ Reduced API calls from 2+ to 1 per order selection
+    ✅ Instant image display when clicking on orders
+    
+    DATA FLOW:
+    1. Orders are fetched with jobs and file information in one API call
+    2. When an order is selected, images start preloading immediately
+    3. No waiting for additional API calls - instant display
+-->
 <template>
     <div class="dashboard-orders">
         <div class="dashboard-layout">
@@ -208,20 +223,31 @@
                                         <!-- Carousel for this job's files -->
                                         <div class="carousel-container" v-if="hasDisplayableFiles(job)">
                                             <div class="carousel-image-container">
+                                                <!-- Loading state - only show briefly while image loads -->
+                                                <div v-if="!isImageLoaded(job.id)" class="loading-overlay">
+                                                    <i class="fa-solid fa-spinner fa-spin"></i>
+                                                    <span>Loading image...</span>
+                                                </div>
+                                                
                                                 <!-- New system: Multiple files -->
                                                 <div v-if="hasMultipleFiles(job)" class="carousel-slide">
                                                     <div class="image-container">
                                                         <img 
+                                                            v-if="shouldAttemptImageLoad(job, currentFileIndex[job.id] || 0)"
                                                             :src="getThumbnailUrl(job.id, currentFileIndex[job.id] || 0)" 
                                                             :alt="'File ' + ((currentFileIndex[job.id] || 0) + 1)"
-                                                         class="carousel-image"
+                                                            class="carousel-image"
                                                             :data-job-id="job.id"
                                                             :data-file-index="currentFileIndex[job.id] || 0"
-                                                         loading="eager"
-                                                         decoding="async"
+                                                            loading="eager"
+                                                            decoding="async"
                                                             @error="handleThumbnailError"
                                                             @load="handleImageLoad"
                                                         />
+                                                        <div v-else class="image-error-placeholder">
+                                                            <i class="fa fa-file-o"></i>
+                                                            <span>File not found</span>
+                                                        </div>
                                                     </div>
                                                     <div class="carousel-info">
                                                         <span class="file-counter">{{ (currentFileIndex[job.id] || 0) + 1 }} of {{ getJobFiles(job).length }}</span>
@@ -230,11 +256,18 @@
                                                 <!-- Legacy system: Single file -->
                                                 <div v-else-if="job.file && job.file !== 'placeholder.jpeg'" class="carousel-slide">
                                                     <img 
+                                                        v-if="shouldAttemptImageLoad(job, 'legacy')"
                                                         :src="getLegacyImageUrl(job)" 
                                                         alt="Job Image" 
+                                                        :data-job-id="job.id"
                                                         class="carousel-image"
                                                         @error="handleLegacyImageError"
+                                                        @load="handleImageLoad"
                                                     />
+                                                    <div v-else class="image-error-placeholder">
+                                                        <i class="fa fa-file-o"></i>
+                                                        <span>File not found</span>
+                                                    </div>
                                                     <div class="carousel-info">
                                                         <span class="file-counter">1 of 1</span>
                                                     </div>
@@ -333,13 +366,15 @@ export default {
                 data: [],
                 current_page: 1,
                 last_page: 1,
-                total: 0
+                total: 0,
+                per_page: 10
             },
             completedOrders: {
                 data: [],
                 current_page: 1,
                 last_page: 1,
-                total: 0
+                total: 0,
+                per_page: 5
             },
             selectedOrder: null,
             searchQuery: '',
@@ -348,7 +383,9 @@ export default {
             searchTimeout: null,
             completedSearchTimeout: null,
             currentFileIndex: {},
-            preloadedImages: {}
+            preloadedImages: {},
+            imageLoadStates: {},
+            imageErrors: {} // Track failed image loads
         }
     },
     mounted() {
@@ -439,23 +476,47 @@ export default {
         },
 
         async openOrderDetails(order) {
-            try {
-                const response = await axios.get(`/orders/${order.id}/details`);
-                this.selectedOrder = response.data;
-                console.log('Order details loaded:', this.selectedOrder);
-                this.$nextTick(() => {
-                    this.preloadThumbnailsForOrder(this.selectedOrder);
-                });
-            } catch (error) {
-                console.error('Error fetching order details:', error);
-                // Fallback to the basic order data if the detailed fetch fails
-                this.selectedOrder = order;
-                console.log('Using fallback order data:', this.selectedOrder);
-                this.$nextTick(() => {
-                    this.preloadThumbnailsForOrder(this.selectedOrder);
+            // Immediately show the order with available data (including files)
+            this.selectedOrder = order;
+            
+            // Reset image loading states for new order
+            this.resetImageLoadingStates();
+            
+            // Since we now have file information pre-fetched, we can start preloading immediately
+            this.$nextTick(() => {
+                this.preloadThumbnailsForOrder(this.selectedOrder);
+            });
+            
+            // No need for separate API call - we have all the data we need
+            // this.loadOrderDetailsInBackground(order.id);
+        },
+
+        resetImageLoadingStates() {
+            // Create a new reactive object
+            this.imageLoadStates = {};
+            this.currentFileIndex = {};
+            
+            // Initialize loading states for all jobs in the selected order
+            if (this.selectedOrder && this.selectedOrder.jobs) {
+                this.selectedOrder.jobs.forEach(job => {
+                    if (this.hasDisplayableFiles(job)) {
+                        // Set initial loading state to false (not loaded yet)
+                        this.imageLoadStates[job.id] = false;
+                        
+                        // Set a timeout to automatically hide loading state after 10 seconds
+                        setTimeout(() => {
+                            if (this.imageLoadStates[job.id] === false) {
+                                this.markImageAsFailed(job.id);
+                            }
+                        }, 10000);
+                    }
                 });
             }
+            
+            console.log('Reset image loading states:', this.imageLoadStates);
         },
+
+
 
         closeOrderDetails() {
             this.selectedOrder = null;
@@ -504,7 +565,20 @@ export default {
 
         hasDisplayableFiles(job) {
             // Check if job has any files to display (new or legacy system)
-            return this.hasMultipleFiles(job) || (job.file && job.file !== 'placeholder.jpeg');
+            // Now optimized for pre-fetched data
+            if (this.hasMultipleFiles(job)) {
+                return job.originalFile && Array.isArray(job.originalFile) && job.originalFile.length > 0;
+            }
+            return job.file && job.file !== 'placeholder.jpeg';
+        },
+        
+        shouldAttemptImageLoad(job, fileIndex) {
+            if (fileIndex === 'legacy') {
+                const jobKey = `${job.id}_legacy`;
+                return !this.imageErrors[jobKey];
+            }
+            const jobKey = `${job.id}_${fileIndex}`;
+            return !this.imageErrors[jobKey];
         },
         
         getJobFiles(job) {
@@ -519,43 +593,127 @@ export default {
         },
         
         handleThumbnailError(event) {
-            // Enhanced error handling like InvoiceDetails.vue
             const jobId = event.target.dataset.jobId;
             const fileIndex = event.target.dataset.fileIndex;
             
             console.warn('Thumbnail failed to load:', { jobId, fileIndex, src: event.target.src });
             
-            const job = this.selectedOrder?.jobs?.find(j => j.id == jobId);
-            // Prefer legacy image fallback first (image formats) because originals are PDFs
-            if (job && job.file && job.file !== 'placeholder.jpeg') {
-                const legacyUrl = this.getLegacyImageUrl(job);
-                console.log('Trying fallback to legacy image:', legacyUrl);
-                event.target.src = legacyUrl;
-                return;
-            }
-
-            // As a secondary fallback, try original file URL (may be PDF and not displayable in <img>)
+            // Mark image as failed to prevent repeated requests
             if (jobId && fileIndex !== undefined) {
-                const fallbackUrl = this.getOriginalFileUrl(jobId, fileIndex);
-                console.log('Trying fallback to original file (may be PDF):', fallbackUrl);
-                event.target.src = fallbackUrl;
+                const jobKey = `${jobId}_${fileIndex}`;
+                this.imageErrors[jobKey] = true;
+            }
+            
+            // Mark image as failed to hide loading overlay
+            if (jobId) {
+                this.markImageAsFailed(jobId);
+            }
+            
+            // Hide the broken image and show a placeholder instead
+            const parentElement = event.target.parentElement;
+            if (parentElement) {
+                const placeholder = document.createElement('div');
+                placeholder.className = 'image-error-placeholder';
+                placeholder.innerHTML = '<i class="fa fa-file-o"></i><span>File not found</span>';
+                
+                event.target.style.display = 'none';
+                parentElement.appendChild(placeholder);
             }
         },
 
         handleImageLoad(event) {
             // Image loaded successfully
+            const jobId = event.target.dataset.jobId || 
+                          event.target.closest('[data-job-id]')?.dataset.jobId;
+            
+            console.log('Image loaded successfully for job:', jobId);
+            
+            if (jobId) {
+                this.markImageAsLoaded(jobId);
+                // Force Vue to update the UI
+                this.$forceUpdate();
+            }
+        },
+
+        markImageAsLoaded(jobId) {
+            console.log(`Marking image as loaded for job ${jobId}`);
+            // Use direct assignment and force reactivity
+            this.imageLoadStates = { ...this.imageLoadStates, [jobId]: true };
+            console.log(`Image load states after update:`, this.imageLoadStates);
+        },
+
+        markImageAsFailed(jobId) {
+            // If image fails to load, still mark as "loaded" to hide loading overlay
+            this.imageLoadStates = { ...this.imageLoadStates, [jobId]: true };
+        },
+
+        isImageLoaded(jobId) {
+            const isLoaded = this.imageLoadStates[jobId] || false;
+            console.log(`Checking if image is loaded for job ${jobId}:`, isLoaded);
+            return isLoaded;
         },
 
         handleLegacyImageError(event) {
-            // Handle legacy image loading errors
+            const jobId = event.target.dataset.jobId;
             console.warn('Legacy image failed to load:', event.target.src);
-            // Could add fallback logic here if needed
+            
+            // Mark legacy image as failed to prevent repeated requests
+            if (jobId) {
+                const jobKey = `${jobId}_legacy`;
+                this.imageErrors[jobKey] = true;
+            }
+            
+            // Mark image as failed to hide loading overlay
+            if (jobId) {
+                this.markImageAsFailed(jobId);
+            }
+            
+            // Hide the broken image and show a placeholder
+            const parentElement = event.target.parentElement;
+            if (parentElement) {
+                const placeholder = document.createElement('div');
+                placeholder.className = 'image-error-placeholder';
+                placeholder.innerHTML = '<i class="fa fa-file-o"></i><span>File not found</span>';
+                
+                event.target.style.display = 'none';
+                parentElement.appendChild(placeholder);
+            }
         },
 
-        // Prefetching utilities
+        // Prefetching utilities - now optimized for pre-fetched data
         preloadThumbnailsForOrder(order) {
-            // Disable aggressive preloading to reduce traffic; rely on lazy image loading
-            return;
+            if (!order || !order.jobs) return;
+            
+            console.log('🚀 Preloading thumbnails for order:', order.id, 'with', order.jobs.length, 'jobs');
+            
+            // Preload first thumbnail for each job immediately
+            // Since we have file information, we can be more aggressive with preloading
+            order.jobs.forEach(job => {
+                if (this.hasDisplayableFiles(job)) {
+                    this.preloadFirstThumbnail(job);
+                    
+                    // Also preload next few thumbnails for smooth carousel navigation
+                    if (this.hasMultipleFiles(job) && job.originalFile && job.originalFile.length > 1) {
+                        const filesToPreload = Math.min(3, job.originalFile.length);
+                        console.log(`📁 Preloading ${filesToPreload} thumbnails for job ${job.id}`);
+                        for (let i = 1; i < filesToPreload; i++) {
+                            this.preloadImage(this.getThumbnailUrl(job.id, i));
+                        }
+                    }
+                }
+            });
+        },
+
+        preloadFirstThumbnail(job) {
+            if (this.hasMultipleFiles(job)) {
+                // Preload first file thumbnail
+                const firstThumbnailUrl = this.getThumbnailUrl(job.id, 0);
+                this.preloadImage(firstThumbnailUrl);
+            } else if (job.file && job.file !== 'placeholder.jpeg') {
+                // Preload legacy image
+                const legacyUrl = this.getLegacyImageUrl(job);
+                this.preloadImage(legacyUrl);
+            }
         },
 
         preloadImage(url) {
@@ -1228,15 +1386,18 @@ export default {
     justify-content: center;
     color: $white;
     border-radius: 4px;
+    z-index: 10;
 
     i {
         font-size: 1.5rem;
         margin-bottom: 0.5rem;
+        color: $blue;
     }
 
     span {
         font-size: 0.875rem;
         opacity: 0.8;
+        color: $white;
     }
 }
 
@@ -1327,6 +1488,32 @@ export default {
     i {
         font-size: 2rem;
         margin-bottom: 0.5rem;
+    }
+}
+
+.image-error-placeholder {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background-color: #fef2f2;
+    border: 2px dashed #fca5a5;
+    border-radius: 4px;
+    color: #dc2626;
+    font-size: 12px;
+    text-align: center;
+    
+    i {
+        font-size: 20px;
+        margin-bottom: 4px;
+        color: #f87171;
+    }
+    
+    span {
+        font-size: 10px;
+        line-height: 1;
     }
 }
 
