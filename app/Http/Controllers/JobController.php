@@ -1048,6 +1048,11 @@ class JobController extends Controller
 
             // Load only the matching jobs, exclude completed jobs
             $jobsWithActions = Job::with('actions')
+                ->select([
+                    'jobs.id', 'jobs.invoice_id', 'jobs.name', 'jobs.status', 'jobs.quantity', 'jobs.copies',
+                    'jobs.file', 'jobs.originalFile', 'jobs.total_area_m2', 'jobs.dimensions_breakdown',
+                    'jobs.small_material_id', 'jobs.large_material_id', 'jobs.machinePrint', 'jobs.machineCut'
+                ])
                 ->whereIn('id', $matchingJobIds)
                 ->where('status', '!=', 'Completed')
                 ->get();

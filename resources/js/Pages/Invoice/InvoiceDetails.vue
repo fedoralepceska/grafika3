@@ -140,11 +140,18 @@
                                                             class="thumbnail-btn"
                                                         >
                                                             <img 
+                                                                v-if="shouldAttemptImageLoad(job, fileIndex)"
                                                                 :src="getThumbnailUrl(job.id, fileIndex)" 
                                                                 :alt="'Thumbnail ' + (fileIndex + 1)"
                                                                 class="jobImg thumbnail"
+                                                                :data-job-id="job.id"
+                                                                :data-file-index="fileIndex"
                                                                 @error="handleThumbnailError($event, fileIndex)"
                                                             />
+                                                            <div v-else class="image-error-placeholder">
+                                                                <i class="fa fa-file-o"></i>
+                                                                <span>File not found</span>
+                                                            </div>
                                                             <span class="thumbnail-number">{{ fileIndex + 1 }}</span>
                                                         </button>
                                                     </div>
@@ -169,7 +176,18 @@
                                                     <!-- Thumbnail for legacy system -->
                                                     <div class="file-thumbnail">
                                                         <button v-if="job.file && job.file !== 'placeholder.jpeg'" @click="toggleImagePopover(job, 0)" class="thumbnail-btn">
-                                                            <img :src="getLegacyImageUrl(job)" alt="Job Image" class="jobImg thumbnail"/>
+                                                            <img 
+                                                                v-if="shouldAttemptImageLoad(job, 'legacy')"
+                                                                :src="getLegacyImageUrl(job)" 
+                                                                alt="Job Image" 
+                                                                class="jobImg thumbnail"
+                                                                :data-job-id="job.id"
+                                                                @error="handleLegacyImageError($event, job)"
+                                                            />
+                                                            <div v-else class="image-error-placeholder">
+                                                                <i class="fa fa-file-o"></i>
+                                                                <span>File not found</span>
+                                                            </div>
                                                         </button>
                                                         <div v-else class="no-files-placeholder">
                                                             <i class="fa fa-file-o"></i>
@@ -381,7 +399,8 @@ export default {
             backgroundColor: null,
             openDialog: false,
             showCostBreakdownModal: false,
-            costBreakdown: {}
+            costBreakdown: {},
+            imageErrors: {} // Track failed image loads
         }
     },
     computed: {
@@ -551,10 +570,57 @@ export default {
             return job.originalFile && Array.isArray(job.originalFile) && job.originalFile.length > 0;
         },
         
+        // Check if we should attempt to load an image (prevents repeated failed requests)
+        shouldAttemptImageLoad(job, fileIndex) {
+            if (fileIndex === 'legacy') {
+                const jobKey = `${job.id}_legacy`;
+                return !this.imageErrors[jobKey];
+            }
+            const jobKey = `${job.id}_${fileIndex}`;
+            return !this.imageErrors[jobKey];
+        },
+        
         // Handle thumbnail loading errors
         handleThumbnailError(event, fileIndex) {
             console.warn('Thumbnail failed to load for file index:', fileIndex);
-            // Could add fallback logic here if needed
+            
+            // Mark this image as failed to prevent repeated requests
+            const jobId = event.target.dataset.jobId;
+            if (jobId) {
+                const jobKey = `${jobId}_${fileIndex}`;
+                this.imageErrors = { ...this.imageErrors, [jobKey]: true };
+            }
+            
+            // Hide the broken image and show a placeholder instead
+            const parentElement = event.target.parentElement;
+            if (parentElement) {
+                const placeholder = document.createElement('div');
+                placeholder.className = 'image-error-placeholder';
+                placeholder.innerHTML = '<i class="fa fa-file-o"></i><span>File not found</span>';
+                
+                event.target.style.display = 'none';
+                parentElement.appendChild(placeholder);
+            }
+        },
+        
+        // Handle legacy image loading errors
+        handleLegacyImageError(event, job) {
+            console.warn('Legacy image failed to load for job:', job.id);
+            
+            // Mark legacy image as failed to prevent repeated requests
+            const jobKey = `${job.id}_legacy`;
+            this.imageErrors = { ...this.imageErrors, [jobKey]: true };
+            
+            // Hide the broken image and show a placeholder instead
+            const parentElement = event.target.parentElement;
+            if (parentElement) {
+                const placeholder = document.createElement('div');
+                placeholder.className = 'image-error-placeholder';
+                placeholder.innerHTML = '<i class="fa fa-file-o"></i><span>File not found</span>';
+                
+                event.target.style.display = 'none';
+                parentElement.appendChild(placeholder);
+            }
         },
         
         toggleImagePopover(job, fileIndex = null) {

@@ -633,11 +633,13 @@ export default {
             this.showPdfModal = true;
         },
         getThumbnailUrl(jobId, fileIndex) {
-            // Rely on server ETag/immutable caching to avoid extra traffic
-            return `/jobs/${jobId}/view-thumbnail/${fileIndex}`;
+            // Add cache-busting timestamp to prevent stale cache issues
+            const url = route('jobs.viewThumbnail', { jobId: jobId, fileIndex: fileIndex });
+            const ts = Date.now();
+            return `${url}?t=${ts}`;
         },
         getOriginalFileUrl(jobId, fileIndex) {
-            return `/jobs/${jobId}/view-original-file/${fileIndex}`;
+            return route('jobs.viewOriginalFile', { jobId: jobId, fileIndex: fileIndex });
         },
         handleThumbnailError(event, job, fileIndex) {
             const jobKey = `${job.id}_${fileIndex}`;
