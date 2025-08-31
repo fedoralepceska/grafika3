@@ -1087,6 +1087,14 @@ class JobController extends Controller
             }
 
             if (!empty($filteredJobs)) {
+                // Ensure originalFile is properly cast for each job
+                foreach ($filteredJobs as $job) {
+                    // Force cast originalFile to array if it's a string
+                    if (is_string($job->originalFile)) {
+                        $job->originalFile = json_decode($job->originalFile, true) ?: [];
+                    }
+                }
+                
                 $invoice->jobs = $filteredJobs;
                 $finalInvoices[] = $invoice;
             }

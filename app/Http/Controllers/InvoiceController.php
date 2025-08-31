@@ -564,6 +564,18 @@ class InvoiceController extends Controller
         $perPage = (int)($request->input('per_page', 10));
         $invoices = $query->paginate($perPage);
 
+        // Ensure originalFile is properly cast for each job
+        foreach ($invoices->items() as $invoice) {
+            if ($invoice->jobs) {
+                foreach ($invoice->jobs as $job) {
+                    // Force cast originalFile to array if it's a string
+                    if (is_string($job->originalFile)) {
+                        $job->originalFile = json_decode($job->originalFile, true) ?: [];
+                    }
+                }
+            }
+        }
+
         return response()->json($invoices);
     }
 
