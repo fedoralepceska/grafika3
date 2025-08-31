@@ -163,13 +163,15 @@
                                     <!-- Legacy single file support -->
                                     <template v-else>
                                         <button @click="toggleImagePopover(job)">
-                                            <img 
-                                                v-if="shouldAttemptImageLoad(job, 'legacy')"
-                                                :src="getLegacyImageUrl(job)" 
-                                                alt="Job Image" 
-                                                class="jobImg thumbnail"
-                                                @error="handleLegacyImageError($event, job)"
-                                            />
+                                                                                                <img 
+                                                        v-if="shouldAttemptImageLoad(job, 'legacy')"
+                                                        :src="getLegacyImageUrl(job)" 
+                                                        alt="Job Image" 
+                                                        class="jobImg thumbnail"
+                                                        loading="eager"
+                                                        decoding="async"
+                                                        @error="handleLegacyImageError($event, job)"
+                                                    />
                                             <div v-else class="image-error-placeholder">
                                                 <i class="fa fa-file-o"></i>
                                                 <span>File not found</span>
@@ -323,6 +325,8 @@
                         v-if="shouldAttemptImageLoad(selectedJob, 'legacy')"
                         :src="getLegacyImageUrl(selectedJob)" 
                         alt="Job Image"
+                        loading="eager"
+                        decoding="async"
                         @error="handleLegacyImageError($event, selectedJob)"
                     />
                     <div v-else class="popover-error-placeholder">
@@ -1308,6 +1312,8 @@ export default {
             this.jobViewMode = this.jobViewMode === index ? null : index;
         },
         getLegacyImageUrl(job) {
+            // Proxy legacy files through backend so they are served from R2 (or local fallback)
+            // Use stable URL without cache-busting to prevent flickering
             return route ? route('jobs.viewLegacyFile', { jobId: job.id }) : `/jobs/${job.id}/view-legacy-file`;
         },
         
@@ -1595,10 +1601,8 @@ export default {
             return job.file ? [job.file] : [];
         },
         getThumbnailUrl(jobId, fileIndex) {
-            // Add cache-busting timestamp to prevent stale cache issues
-            const url = route('jobs.viewThumbnail', { jobId: jobId, fileIndex: fileIndex });
-            const ts = Date.now();
-            return `${url}?t=${ts}`;
+
+            return route('jobs.viewThumbnail', { jobId: jobId, fileIndex: fileIndex });
         },
         handleThumbnailError(event, fileIndex) {
             const jobId = event?.target?.closest('tbody')?.dataset?.jobId;

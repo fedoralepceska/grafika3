@@ -261,6 +261,8 @@
                                                         alt="Job Image" 
                                                         :data-job-id="job.id"
                                                         class="carousel-image"
+                                                        loading="eager"
+                                                        decoding="async"
                                                         @error="handleLegacyImageError"
                                                         @load="handleImageLoad"
                                                     />
@@ -543,14 +545,14 @@ export default {
         // Image handling methods (from InvoiceDetails.vue)
         getLegacyImageUrl(job) {
             // Proxy legacy files through backend so they are served from R2 (or local fallback)
+            // Use stable URL without cache-busting to prevent flickering
             return route ? route('jobs.viewLegacyFile', { jobId: job.id }) : `/jobs/${job.id}/view-legacy-file`;
         },
         
         getThumbnailUrl(jobId, fileIndex) {
-            // Add cache-busting timestamp to prevent stale cache issues
-            const url = route('jobs.viewThumbnail', { jobId: jobId, fileIndex: fileIndex });
-            const ts = Date.now();
-            return `${url}?t=${ts}`;
+            // Use stable URL without cache-busting to prevent flickering
+            // The backend already handles caching with proper headers
+            return route('jobs.viewThumbnail', { jobId: jobId, fileIndex: fileIndex });
         },
         
         getOriginalFileUrl(jobId, fileIndex) {
@@ -569,8 +571,9 @@ export default {
             // Check if job has any files to display (new or legacy system)
             // Now optimized for pre-fetched data
             if (this.hasMultipleFiles(job)) {
-                return job.originalFile && Array.isArray(job.originalFile) && job.originalFile.length > 0;
+                return true;
             }
+            
             return job.file && job.file !== 'placeholder.jpeg';
         },
         
@@ -628,20 +631,14 @@ export default {
             const jobId = event.target.dataset.jobId || 
                           event.target.closest('[data-job-id]')?.dataset.jobId;
             
-            console.log('Image loaded successfully for job:', jobId);
-            
             if (jobId) {
                 this.markImageAsLoaded(jobId);
-                // Force Vue to update the UI
-                this.$forceUpdate();
             }
         },
 
         markImageAsLoaded(jobId) {
-            console.log(`Marking image as loaded for job ${jobId}`);
             // Use direct assignment and force reactivity
             this.imageLoadStates = { ...this.imageLoadStates, [jobId]: true };
-            console.log(`Image load states after update:`, this.imageLoadStates);
         },
 
         markImageAsFailed(jobId) {
@@ -650,9 +647,7 @@ export default {
         },
 
         isImageLoaded(jobId) {
-            const isLoaded = this.imageLoadStates[jobId] || false;
-            console.log(`Checking if image is loaded for job ${jobId}:`, isLoaded);
-            return isLoaded;
+            return this.imageLoadStates[jobId] || false;
         },
 
         handleLegacyImageError(event) {

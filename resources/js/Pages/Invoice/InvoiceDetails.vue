@@ -146,6 +146,8 @@
                                                                 class="jobImg thumbnail"
                                                                 :data-job-id="job.id"
                                                                 :data-file-index="fileIndex"
+                                                                loading="eager"
+                                                                decoding="async"
                                                                 @error="handleThumbnailError($event, fileIndex)"
                                                             />
                                                             <div v-else class="image-error-placeholder">
@@ -182,6 +184,8 @@
                                                                 alt="Job Image" 
                                                                 class="jobImg thumbnail"
                                                                 :data-job-id="job.id"
+                                                                loading="eager"
+                                                                decoding="async"
                                                                 @error="handleLegacyImageError($event, job)"
                                                             />
                                                             <div v-else class="image-error-placeholder">
@@ -333,7 +337,9 @@
                  <img 
                      v-else-if="selectedJob" 
                      :src="getLegacyImageUrl(selectedJob)" 
-                     alt="Job Image" 
+                     alt="Job Image"
+                     loading="eager"
+                     decoding="async"
                  />
                  <button @click="toggleImagePopover(null)" class="popover-close">
                      <i class="fa fa-close"></i>
@@ -553,11 +559,8 @@ export default {
             return route ? route('jobs.viewLegacyFile', { jobId: job.id }) : `/jobs/${job.id}/view-legacy-file`;
         },
         
-        // New method for multiple file thumbnails (add cache-busting)
         getThumbnailUrl(jobId, fileIndex) {
-            const url = route('jobs.viewThumbnail', { jobId: jobId, fileIndex: fileIndex });
-            const ts = Date.now();
-            return `${url}?t=${ts}`;
+            return route('jobs.viewThumbnail', { jobId: jobId, fileIndex: fileIndex });
         },
         
         // Get original file URL for PDF preview
