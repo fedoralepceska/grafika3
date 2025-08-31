@@ -1087,13 +1087,20 @@ class JobController extends Controller
             }
 
             if (!empty($filteredJobs)) {
-                // Ensure originalFile is properly cast for each job
-                foreach ($filteredJobs as $job) {
-                    // Force cast originalFile to array if it's a string
-                    if (is_string($job->originalFile)) {
-                        $job->originalFile = json_decode($job->originalFile, true) ?: [];
-                    }
+                            // Ensure originalFile is properly cast for each job
+            foreach ($filteredJobs as $job) {
+                // Force cast originalFile to array if it's a string
+                if (is_string($job->originalFile)) {
+                    $job->originalFile = json_decode($job->originalFile, true) ?: [];
                 }
+                
+                // Ensure file field is properly set (for legacy system)
+                if (empty($job->file) && !empty($job->originalFile) && is_array($job->originalFile) && count($job->originalFile) > 0) {
+                    // If no legacy file but we have originalFile, use the first file as legacy
+                    $firstOriginalFile = $job->originalFile[0];
+                    $job->file = pathinfo(basename($firstOriginalFile), PATHINFO_FILENAME) . '.jpg';
+                }
+            }
                 
                 $invoice->jobs = $filteredJobs;
                 $finalInvoices[] = $invoice;
