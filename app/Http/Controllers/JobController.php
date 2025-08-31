@@ -64,10 +64,10 @@ class JobController extends Controller
                 $job = new Job();
                 $job->machinePrint = $request->input('machinePrint');
                 $job->machineCut = $request->input('machineCut');
-                
+
                 // Handle articles from catalog item
                 $catalogItem = CatalogItem::with('articles')->find($request->input('catalog_item_id'));
-                
+
                 // Set legacy material fields to null (we'll use articles instead)
                 $job->large_material_id = null;
                 $job->small_material_id = null;
@@ -99,7 +99,7 @@ class JobController extends Controller
                 $tempJob->copies = $request->input('copies');
                 $tempJob->width = $request->input('width', 0);
                 $tempJob->height = $request->input('height', 0);
-                
+
                 $totalCostPrice = $catalogItem->calculateJobCostPrice($tempJob);
 
                 \Log::info('Creating job from catalog item', [
@@ -115,7 +115,7 @@ class JobController extends Controller
 
                 // Set the cost price (what it costs us to produce)
                 $job->price = $totalCostPrice;
-                
+
                 // Set the selling price (what customer pays)
                 if ($sellingPrice !== null) {
                     $job->salePrice = $sellingPrice;
@@ -133,12 +133,12 @@ class JobController extends Controller
                 // Step 1.5: Process catalog item articles and check stock availability using new material calculation
                 if ($catalogItem->articles()->exists()) {
                     $materialRequirements = $catalogItem->calculateMaterialRequirements($tempJob);
-                    
+
                     foreach ($materialRequirements as $requirement) {
                         $article = $requirement['article'];
                         $requiredQuantity = $requirement['actual_required'];
                         $unitType = $requirement['unit_type'];
-                        
+
                         // If this article was selected from a category, we need to get the actual article to use
                         $actualArticle = $article;
                         if ($article->pivot->category_id) {
@@ -152,7 +152,7 @@ class JobController extends Controller
                                 throw new \Exception("No available articles with sufficient stock in the selected category (ID: {$article->pivot->category_id}).");
                             }
                         }
-                        
+
                         // Check if the actual article has sufficient stock (validation only, no consumption)
                         if (!$actualArticle->hasStock($requiredQuantity)) {
                             throw new \Exception("Insufficient stock for article: {$actualArticle->name} ({$unitType}). Required: {$requiredQuantity}, Available: {$actualArticle->getCurrentStock()}");
@@ -165,11 +165,11 @@ class JobController extends Controller
                 // Step 1.6: Attach articles from catalog item to job
                 if ($catalogItem->articles()->exists()) {
                     $materialRequirements = $catalogItem->calculateMaterialRequirements($tempJob);
-                    
+
                     foreach ($materialRequirements as $requirement) {
                         $article = $requirement['article'];
                         $requiredQuantity = $requirement['actual_required'];
-                        
+
                         // If this article was selected from a category, we need to get the actual article to use
                         $actualArticle = $article;
                         if ($article->pivot->category_id) {
@@ -183,12 +183,12 @@ class JobController extends Controller
                                 throw new \Exception("No available articles with sufficient stock in the selected category (ID: {$article->pivot->category_id}).");
                             }
                         }
-                        
+
                         // Attach the actual article to the job with the required quantity
                         $job->articles()->attach($actualArticle->id, [
                             'quantity' => $requiredQuantity
                         ]);
-                        
+
                         \Log::info('Attached article to job', [
                             'job_id' => $job->id,
                             'article_id' => $actualArticle->id,
@@ -257,7 +257,7 @@ class JobController extends Controller
                 return response()->json(['error' => $e->getMessage()], 500);
             }
         }
-        
+
         // New R2 storage drag-and-drop file upload logic
         try {
             // Validate the request data
@@ -269,47 +269,47 @@ class JobController extends Controller
             if ($request->hasFile('file')) {
                 $file = $request->file('file');
                 $fileExtension = $file->getClientOriginalExtension();
-                
+
                 // Create a new job instance
                 $job = new Job();
 
                 if ($fileExtension === 'pdf') {
                     // Store the original PDF file in R2
                     $originalPath = $this->templateStorageService->storeTemplate($file, 'job-originals');
-                    
+
                     // Generate preview image and calculate dimensions for all pages
                     $imagick = new Imagick();
                     $this->setGhostscriptPath($imagick);
                     $imagick->readImage($file->getPathname());
                     $pageCount = $imagick->getNumberImages();
-                    
+
                     \Log::info('Processing single PDF file with multiple pages', [
                         'file' => $file->getClientOriginalName(),
                         'page_count' => $pageCount
                     ]);
-                    
+
                     // Variables to store cumulative area and page dimensions for this file
                     $fileTotalAreaM2 = 0;
                     $pageDimensions = [];
-                    
+
                     // Iterate through all pages of the PDF to calculate total area
                     for ($pageIndex = 0; $pageIndex < $pageCount; $pageIndex++) {
                         $pageImagick = new Imagick();
                         $this->setGhostscriptPath($pageImagick);
                         $pageImagick->readImage($file->getPathname() . '[' . $pageIndex . ']');
                         $pageImagick->setImageFormat('jpg');
-                        
+
                         // Create temporary image for dimension calculation
                         $tempImagePath = storage_path('app/temp/single_dim_calc_' . $pageIndex . '_' . time() . '.jpg');
                         $pageImagick->writeImage($tempImagePath);
-                        
+
                         // Calculate dimensions from the page
                         list($width, $height) = getimagesize($tempImagePath);
                         $dpi = 72; // Default DPI
                         $widthInMm = ($width / $dpi) * 25.4;
                         $heightInMm = ($height / $dpi) * 25.4;
                         $areaM2 = ($widthInMm * $heightInMm) / 1000000;
-                        
+
                         // Store individual page dimensions
                         $pageDimensions[] = [
                             'page' => $pageIndex + 1,
@@ -317,17 +317,17 @@ class JobController extends Controller
                             'height_mm' => $heightInMm,
                             'area_m2' => $areaM2
                         ];
-                        
+
                         // Add to file total area
                         $fileTotalAreaM2 += $areaM2;
-                        
+
                         // Clean up temp file
                         if (file_exists($tempImagePath)) {
                             unlink($tempImagePath);
                         }
-                        
+
                         $pageImagick->clear();
-                        
+
                         \Log::info('Calculated dimensions for page in single file upload', [
                             'file' => $file->getClientOriginalName(),
                             'page' => $pageIndex + 1,
@@ -336,18 +336,18 @@ class JobController extends Controller
                             'area_m2' => $areaM2
                         ]);
                     }
-                    
+
                     // Create preview image from first page only
                     $previewImagick = new Imagick();
                     $this->setGhostscriptPath($previewImagick);
                     $previewImagick->readImage($file->getPathname() . '[0]'); // First page only for preview
                     $previewImagick->setImageFormat('jpg');
-                    
+
                     // Create unique filename for preview
                     $imageFilename = pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME) . '.jpg';
                     $imagePath = storage_path('app/public/uploads/' . $imageFilename);
                     $previewImagick->writeImage($imagePath);
-                    
+
                     $previewImagick->clear();
                     $imagick->clear();
 
@@ -365,37 +365,37 @@ class JobController extends Controller
                         ]
                     ];
                     $job->save(); // Save to get ID
-                    
+
                     // Generate thumbnail and store in R2 (keyed by original file key)
                     $fileKey = pathinfo(basename($originalPath), PATHINFO_FILENAME);
                     $this->generateThumbnail($imagePath, $job->id, $fileKey);
-                    
+
                     \Log::info('Completed single PDF file upload with all pages', [
                         'file' => $file->getClientOriginalName(),
                         'total_pages' => $pageCount,
                         'total_area_m2' => $fileTotalAreaM2
                     ]);
-                    
+
                 } else if ($fileExtension === 'tiff' || $fileExtension === 'tif') {
                     // Store the original TIFF file in R2 (fully R2 system)
                     $originalPath = $this->templateStorageService->storeTemplate($file, 'job-originals');
-                    
+
                     // Generate preview JPG and calculate dimensions
                     $imagick = new Imagick();
                     $imagick->readImage($file->getPathname());
                     $imagick->setImageFormat('jpg');
-                    
+
                     $imageFilename = pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME) . '.jpg';
                     $imagePath = storage_path('app/public/uploads/' . $imageFilename);
                     $imagick->writeImage($imagePath);
-                    
+
                     // Calculate dimensions
                     list($width, $height) = getimagesize($imagePath);
                     $dpi = 72; // Default DPI
                     $widthInMm = ($width / $dpi) * 25.4;
                     $heightInMm = ($height / $dpi) * 25.4;
                     $areaM2 = ($widthInMm * $heightInMm) / 1000000;
-                    
+
                     $imagick->clear();
 
                     // Save job first to get ID - TIFF now also uses R2 storage
@@ -419,12 +419,12 @@ class JobController extends Controller
                         ]
                     ];
                     $job->save(); // Save to get ID
-                    
+
                     // Generate thumbnail and store in R2 (keyed by original file key)
                     $fileKey = pathinfo(basename($originalPath), PATHINFO_FILENAME);
                     $this->generateThumbnail($imagePath, $job->id, $fileKey);
                 }
-                
+
                 \Log::info('Job created via drag-and-drop - R2 storage', [
                     'job_id' => $job->id,
                     'file_type' => $fileExtension,
@@ -441,7 +441,7 @@ class JobController extends Controller
                     'original_files_count' => count($job->getOriginalFiles()),
                     'storage_type' => 'R2'
                 ]);
-                
+
             } else {
                 return response()->json(['message' => 'File not provided'], 400);
             }
@@ -519,7 +519,7 @@ class JobController extends Controller
 
                 // Calculate cost price from articles and actions
                 $costPrice = 0;
-                
+
                 // Get articles from catalog item if available
                 $catalogItem = CatalogItem::with('articles')->find($request->input('catalog_item_id'));
                 if ($catalogItem && $catalogItem->articles()->exists()) {
@@ -528,7 +528,7 @@ class JobController extends Controller
                     $tempJob->copies = $request->input('copies');
                     $tempJob->width = $job->width ?: 0;
                     $tempJob->height = $job->height ?: 0;
-                    
+
                     $costRequirements = $catalogItem->calculateCostRequirements($tempJob);
                     foreach ($costRequirements as $requirement) {
                         $costPrice += $requirement['total_cost'];
@@ -555,28 +555,28 @@ class JobController extends Controller
                 foreach ($request->input('jobsWithActions') as $jobWithActions) {
                     $jobId = $jobWithActions['job_id'];
                     $job = Job::find($jobId);
-                    
+
                     if ($job && isset($jobWithActions['actions'])) {
                         // Clear existing actions for this job
                         $existingActionIds = DB::table('job_job_action')
                             ->where('job_id', $jobId)
                             ->pluck('job_action_id');
-                        
+
                         if ($existingActionIds->count() > 0) {
                             // Delete from pivot table
                             DB::table('job_job_action')
                                 ->where('job_id', $jobId)
                                 ->delete();
-                            
+
                             // Delete from job_actions table
                             DB::table('job_actions')
                                 ->whereIn('id', $existingActionIds)
                                 ->delete();
                         }
-                        
+
                         // Create new actions
                         $newActions = [];
-                        
+
                         // Add machine print action
                         if ($job->machinePrint) {
                             $machineActionId = DB::table('job_actions')->insertGetId([
@@ -586,14 +586,14 @@ class JobController extends Controller
                                 'created_at' => now(),
                                 'updated_at' => now(),
                             ]);
-                            
+
                             $newActions[] = [
                                 'job_action_id' => $machineActionId,
                                 'quantity' => 0,
                                 'status' => 'Not started yet',
                             ];
                         }
-                        
+
                         // Add catalog actions
                         foreach ($jobWithActions['actions'] as $actionData) {
                             if (isset($actionData['action_id'])) {
@@ -601,9 +601,9 @@ class JobController extends Controller
                                 $refinement = DB::table('dorabotka')
                                     ->where('id', $actionData['action_id'])
                                     ->first();
-                                
+
                                 $actionName = $refinement ? $refinement->name : 'Unknown Action';
-                                
+
                                 $newActionId = DB::table('job_actions')->insertGetId([
                                     'name' => $actionName,
                                     'status' => 'Not started yet',
@@ -611,7 +611,7 @@ class JobController extends Controller
                                     'created_at' => now(),
                                     'updated_at' => now(),
                                 ]);
-                                
+
                                 $newActions[] = [
                                     'job_action_id' => $newActionId,
                                     'quantity' => $actionData['quantity'] ?? 0,
@@ -619,7 +619,7 @@ class JobController extends Controller
                                 ];
                             }
                         }
-                        
+
                         // Create pivot table entries
                         foreach ($newActions as $action) {
                             DB::table('job_job_action')->insert([
@@ -642,13 +642,13 @@ class JobController extends Controller
                     $article = DB::table('article')
                         ->where('id', $articleData['id'])
                         ->first();
-                    
+
                     if ($article) {
                         $articleCost = ($article->purchase_price ?? 0) * ($articleData['quantity'] ?? 0);
                         $totalArticlesCost += $articleCost;
                     }
                 }
-                
+
                 // Add articles cost to each job's price using appropriate multiplier
                 if ($totalArticlesCost > 0) {
                     foreach ($jobsToUpdate as $job) {
@@ -765,7 +765,7 @@ class JobController extends Controller
             ]);
 
             $job = Job::find($request->input('job_id'));
-            
+
             if (!$job) {
                 return response()->json(['error' => 'Job not found'], 404);
             }
@@ -808,12 +808,12 @@ class JobController extends Controller
             $costPrice = 0;
             $componentBreakdown = [];
             $materialDeduction = [];
-            
+
             if ($job->catalog_item_id) {
                 $catalogItem = CatalogItem::with('articles')->find($job->catalog_item_id);
                 if ($catalogItem) {
                     $costPrice = $catalogItem->calculateJobCostPrice($job);
-                    
+
                     // Get detailed breakdown for response
                     $costRequirements = $catalogItem->calculateCostRequirements($job);
                     foreach ($costRequirements as $requirement) {
@@ -827,17 +827,17 @@ class JobController extends Controller
                             'unit_type' => $requirement['unit_type']
                         ];
                     }
-                    
+
                     // Calculate material deduction information
                     $materialRequirements = $catalogItem->calculateMaterialRequirements($job);
                     foreach ($materialRequirements as $requirement) {
                         $article = $requirement['article'];
                         $neededQuantity = $requirement['actual_required'];
-                        
+
                         // Get current stock information
                         $stockBefore = $article->getCurrentStock();
                         $stockAfter = max(0, $stockBefore - $neededQuantity);
-                        
+
                         $materialDeduction[] = [
                             'article_id' => $article->id,
                             'article_name' => $article->name,
@@ -1221,7 +1221,7 @@ class JobController extends Controller
 
             // Find the job
             $job = Job::findOrFail($id);
-            
+
             // Store reference to old original file for cleanup
             $oldOriginalFile = $job->originalFile;
 
@@ -1229,7 +1229,7 @@ class JobController extends Controller
             if ($request->hasFile('file')) {
                 $file = $request->file('file');
                 $fileExtension = $file->getClientOriginalExtension();
-                
+
                 // Store the original file in R2 if it's a PDF
                 $pdfPath = null;
                 if ($fileExtension === 'pdf') {
@@ -1241,35 +1241,35 @@ class JobController extends Controller
                     $this->setGhostscriptPath($imagick);
                     $imagick->readImage($file->getPathname());
                     $pageCount = $imagick->getNumberImages();
-                    
+
                     \Log::info('Processing PDF file replacement with multiple pages', [
                         'job_id' => $id,
                         'file' => $file->getClientOriginalName(),
                         'page_count' => $pageCount
                     ]);
-                    
+
                     // Variables to store cumulative area and page dimensions for this file
                     $fileTotalAreaM2 = 0;
                     $pageDimensions = [];
-                    
+
                     // Iterate through all pages of the PDF to calculate total area
                     for ($pageIndex = 0; $pageIndex < $pageCount; $pageIndex++) {
                         $pageImagick = new Imagick();
                         $this->setGhostscriptPath($pageImagick);
                         $pageImagick->readImage($file->getPathname() . '[' . $pageIndex . ']');
                         $pageImagick->setImageFormat('jpg');
-                        
+
                         // Create temporary image for dimension calculation
                         $tempImagePath = storage_path('app/temp/replace_dim_calc_' . $pageIndex . '_' . time() . '.jpg');
                         $pageImagick->writeImage($tempImagePath);
-                        
+
                         // Calculate dimensions from the page
                         list($width, $height) = getimagesize($tempImagePath);
                         $dpi = 72; // Default DPI if not available
                         $widthInMm = ($width / $dpi) * 25.4;
                         $heightInMm = ($height / $dpi) * 25.4;
                         $areaM2 = ($widthInMm * $heightInMm) / 1000000;
-                        
+
                         // Store individual page dimensions
                         $pageDimensions[] = [
                             'page' => $pageIndex + 1,
@@ -1277,17 +1277,17 @@ class JobController extends Controller
                             'height_mm' => $heightInMm,
                             'area_m2' => $areaM2
                         ];
-                        
+
                         // Add to file total area
                         $fileTotalAreaM2 += $areaM2;
-                        
+
                         // Clean up temp file
                         if (file_exists($tempImagePath)) {
                             unlink($tempImagePath);
                         }
-                        
+
                         $pageImagick->clear();
-                        
+
                         \Log::info('Calculated dimensions for page in file replacement', [
                             'job_id' => $id,
                             'file' => $file->getClientOriginalName(),
@@ -1297,13 +1297,13 @@ class JobController extends Controller
                             'area_m2' => $areaM2
                         ]);
                     }
-                    
+
                     // Create preview image from first page only
                     $previewImagick = new Imagick();
                     $this->setGhostscriptPath($previewImagick);
                     $previewImagick->readImage($file->getPathname() . '[0]'); // First page only for preview
                     $previewImagick->setImageFormat('jpg');
-                    
+
                     $imageFilename = pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME) . '.jpg';
                     $imagePath = storage_path('app/public/uploads/' . $imageFilename);
                     $previewImagick->writeImage($imagePath);
@@ -1312,13 +1312,13 @@ class JobController extends Controller
 
                     // Update job with file info and dimensions
                     $job->file = $imageFilename;
-                    
+
                     // Clear old original files and add the new one
                     $job->originalFile = [];
                     if ($pdfPath) {
                         $job->addOriginalFile($pdfPath);
                     }
-                    
+
                     $job->total_area_m2 = $fileTotalAreaM2;
                     $job->dimensions_breakdown = [
                         [
@@ -1383,7 +1383,7 @@ class JobController extends Controller
 
                     // Clear original files since TIFF doesn't have an original file, but might be replacing a PDF
                     $job->originalFile = [];
-                    
+
                     // Clean up old original files if they exist (TIFF doesn't have originalFile, but might be replacing a PDF)
                     if ($oldOriginalFile) {
                         $oldFiles = is_array($oldOriginalFile) ? $oldOriginalFile : [$oldOriginalFile];
@@ -1452,21 +1452,21 @@ class JobController extends Controller
                 // Only recalculate price for catalog-based jobs (those with catalog_item_id and client_id)
                 if (!is_null($catalogItemId) && !is_null($clientId)) {
                     $catalogItem = \App\Models\CatalogItem::find($catalogItemId);
-                    
+
                     if ($catalogItem) {
                         // Get the new quantity and copies values
                         $newQuantity = $request->input('quantity', $job->quantity);
                         $newCopies = $request->input('copies', $job->copies);
-                        
+
                         // Get the pricing multiplier based on catalog item settings
                         $pricingMultiplier = $catalogItem->getPricingMultiplier($newQuantity, $newCopies);
-                        
+
                         // Get the base price from the catalog item
                         $basePrice = $catalogItem->getEffectivePrice($clientId, 1);
-                        
+
                         // Calculate new selling price
                         $newSalePrice = $basePrice * $pricingMultiplier;
-                        
+
                         \Log::info('Price calculation result for catalog job with new pricing method', [
                             'job_id' => $id,
                             'catalog_item_id' => $catalogItemId,
@@ -1477,16 +1477,16 @@ class JobController extends Controller
                             'new_copies' => $newCopies,
                             'calculated_sale_price' => $newSalePrice
                         ]);
-                        
+
                         // Update selling price (salePrice)
                         $job->salePrice = $newSalePrice;
-                        
+
                         // Recalculate cost price based on actual component article requirements
                         $job->quantity = $newQuantity;
                         $job->copies = $newCopies;
                         $newCostPrice = $catalogItem->calculateJobCostPrice($job);
                         $job->price = $newCostPrice;
-                        
+
                         \Log::info('Recalculated cost price for catalog job with new pricing method', [
                             'job_id' => $id,
                             'pricing_multiplier' => $pricingMultiplier,
@@ -1499,21 +1499,21 @@ class JobController extends Controller
                         'job_id' => $id,
                         'reason' => 'Missing catalog_item_id or client_id'
                     ]);
-                    
+
                     // For manual jobs, scale both selling price and cost price proportionally based on quantity change only
                     if ($request->has('quantity') && $job->quantity > 0) {
                         $quantityRatio = $request->input('quantity') / $job->quantity;
-                        
+
                         // Scale selling price if it exists
                         if ($job->salePrice) {
                             $job->salePrice = $job->salePrice * $quantityRatio;
                         }
-                        
+
                         // Scale cost price if it exists
                         if ($job->price) {
                             $job->price = $job->price * $quantityRatio;
                         }
-                        
+
                         \Log::info('Scaled both prices for manual job', [
                             'job_id' => $id,
                             'old_quantity' => $job->quantity,
@@ -1817,47 +1817,47 @@ class JobController extends Controller
             $actionName = $request->input('action_name');
             $jobId = $request->input('job');
             $invoiceId = $request->input('invoice');
-            
+
             \Log::info('fireStartJobEvent called', [
                 'action_id' => $actionId,
                 'request_data' => $request->all(),
                 'user_id' => auth()->id()
             ]);
-            
+
             // Load job and invoice first
             $job = Job::findOrFail($jobId);
             $invoice = Invoice::findOrFail($invoiceId);
 
             // Resolve action directly by id (model), avoid relation class confusion
             $action = JobAction::findOrFail($actionId);
-            
+
             \Log::info('Action found', [
                 'action_id' => $action->id,
                 'action_name' => $action->name,
                 'current_status' => $action->status
             ]);
-            
+
             // Check if action is already in progress
             if ($action->isInProgress()) {
                 \Log::warning('Action already in progress', ['action_id' => $actionId]);
                 return response()->json(['error' => 'Action is already in progress'], 400);
             }
-            
+
             // Check if action is already completed
             if ($action->isCompleted()) {
                 \Log::warning('Action already completed', ['action_id' => $actionId]);
                 return response()->json(['error' => 'Action is already completed'], 400);
             }
-            
+
             // Start the action
             $action->startAction(auth()->id());
-            
+
             \Log::info('Action started', [
                 'action_id' => $action->id,
                 'new_status' => $action->status,
                 'started_at' => $action->started_at
             ]);
-            
+
             // Create analytics record
             DB::table('workers_analytics')->insert([
                 'invoice_id' => $request->input('invoice'),
@@ -1868,9 +1868,9 @@ class JobController extends Controller
                 'created_at' => now(),
                 'updated_at' => now(),
             ]);
-            
+
             // Job and invoice already loaded above
-            
+
             \Log::info('Starting job action', [
                 'action_id' => $actionId,
                 'job_id' => $job->id,
@@ -1878,13 +1878,13 @@ class JobController extends Controller
                 'action_status' => $action->status,
                 'started_at' => $action->started_at
             ]);
-            
+
             // Update job status to "In progress"
             $job->update(['status' => 'In progress']);
-            
+
             // Update invoice status based on all job actions
             $this->updateInvoiceStatus($invoice);
-            
+
             // Dispatch the JobStarted event
             try {
                 event(new JobStarted($job, $invoice));
@@ -1897,7 +1897,7 @@ class JobController extends Controller
                 ]);
                 // Don't fail the entire request if event dispatch fails
             }
-            
+
             $responseData = [
                 'success' => true,
                 'action' => [
@@ -1907,11 +1907,11 @@ class JobController extends Controller
                 ],
                 'started_at' => $action->getStartedAtIso()
             ];
-            
+
             \Log::info('Sending success response', [
                 'response_data' => $responseData
             ]);
-            
+
             return response()->json($responseData);
         } catch (\Exception $e) {
             \Log::error('Error in fireStartJobEvent', [
@@ -1919,7 +1919,7 @@ class JobController extends Controller
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString()
             ]);
-            
+
             return response()->json(['error' => $e->getMessage()], 500);
         }
     }
@@ -1928,23 +1928,23 @@ class JobController extends Controller
         try {
             $actionId = $request->input('action');
             $time_spent = $request->input('time_spent');
-            
+
             // Find the action and end it
             $action = JobAction::findOrFail($actionId);
-            
+
             // Check if action is in progress
             if (!$action->isInProgress()) {
                 return response()->json(['error' => 'Action is not in progress'], 400);
             }
-            
+
             // Check if the current user started the action
             if ($action->started_by !== auth()->id()) {
                 return response()->json(['error' => 'Only the user who started the action can end it'], 403);
             }
-            
+
             // End the action
             $action->endAction();
-            
+
             // Update analytics record
             $workerAnalytics = DB::table('workers_analytics')
                 ->where('job_id', $request->input('job'))
@@ -1952,49 +1952,49 @@ class JobController extends Controller
                 ->where('action_id', $actionId)
                 ->where('user_id', auth()->id())
                 ->first();
-                
+
             if ($workerAnalytics) {
                 DB::table('workers_analytics')
                     ->where('id', $workerAnalytics->id)
                     ->update(['time_spent' => $time_spent]);
             }
-            
+
             // Find job and invoice for event
             $job = Job::findOrFail($request->input('job'));
             $invoice = Invoice::findOrFail($request->input('invoice'));
-            
+
             \Log::info('Ending job action', [
                 'action_id' => $actionId,
                 'job_id' => $job->id,
                 'invoice_id' => $invoice->id,
                 'action_status' => $action->status
             ]);
-            
+
             // Update job status based on all actions
             $this->updateJobStatus($job);
-            
+
             // Refresh job to get updated status
             $job->refresh();
-            
+
             \Log::info('Job status updated', [
                 'job_id' => $job->id,
                 'new_job_status' => $job->status
             ]);
-            
+
             // Update invoice status based on all job actions
             $this->updateInvoiceStatus($invoice);
-            
+
             // Refresh invoice to get updated status
             $invoice->refresh();
-            
+
             \Log::info('Invoice status updated', [
                 'invoice_id' => $invoice->id,
                 'new_invoice_status' => $invoice->status
             ]);
-            
+
             // Dispatch the JobEnded event
             event(new JobEnded($job, $invoice));
-            
+
             return response()->json([
                 'success' => true,
                 'action' => $action,
@@ -2138,14 +2138,14 @@ class JobController extends Controller
     public function getActionStatus(Request $request, $actionId) {
         try {
             $action = JobAction::findOrFail($actionId);
-            
+
             // Check for abandoned actions (running for more than 24 hours)
             if ($action->isInProgress() && $action->started_at) {
                 $hoursSinceStart = $action->started_at->diffInHours(now());
                 if ($hoursSinceStart > 24) {
                     // Auto-complete abandoned actions
                     $action->endAction();
-                    
+
                     // Update related job and invoice statuses
                     $jobs = $action->jobs()->get();
                     foreach ($jobs as $job) {
@@ -2155,7 +2155,7 @@ class JobController extends Controller
                             $this->updateInvoiceStatus($invoice);
                         }
                     }
-                    
+
                     \Log::warning("Auto-completed abandoned action", [
                         'action_id' => $actionId,
                         'started_at' => $action->started_at,
@@ -2163,7 +2163,7 @@ class JobController extends Controller
                     ]);
                 }
             }
-            
+
             return response()->json([
                 'success' => true,
                 'action' => [
@@ -2193,12 +2193,12 @@ class JobController extends Controller
         try {
             // Get all actions for this job with proper loading
             $actions = $job->actions()->get();
-            
+
             if ($actions->isEmpty()) {
                 $job->update(['status' => 'Not started yet']);
                 return;
             }
-            
+
             // Debug: Log all action statuses
             \Log::info('Action statuses for job', [
                 'job_id' => $job->id,
@@ -2208,7 +2208,7 @@ class JobController extends Controller
                 'all_completed' => $actions->every('status', 'Completed'),
                 'has_started_actions' => $actions->contains('status', 'In progress') || $actions->contains('status', 'In Progress') || $actions->contains('status', 'Completed')
             ]);
-            
+
             // Check if any action is in progress
             $hasInProgress = $actions->contains('status', 'In progress') || $actions->contains('status', 'In Progress');
             if ($hasInProgress) {
@@ -2216,7 +2216,7 @@ class JobController extends Controller
                 \Log::info('Job status set to In progress', ['job_id' => $job->id]);
                 return;
             }
-            
+
             // Check if all actions are completed
             $allCompleted = $actions->every('status', 'Completed');
             if ($allCompleted) {
@@ -2224,19 +2224,19 @@ class JobController extends Controller
                 \Log::info('Job status set to Completed', ['job_id' => $job->id]);
                 return;
             }
-            
+
             // Check if any actions have been started (either in progress or completed)
-            $hasStartedActions = $actions->contains('status', 'In progress') || 
-                                $actions->contains('status', 'In Progress') || 
+            $hasStartedActions = $actions->contains('status', 'In progress') ||
+                                $actions->contains('status', 'In Progress') ||
                                 $actions->contains('status', 'Completed');
-            
+
             if ($hasStartedActions) {
                 // If some actions have been started but not all are completed, keep as "In progress"
                 $job->update(['status' => 'In progress']);
                 \Log::info('Job status set to In progress (some actions started)', ['job_id' => $job->id]);
                 return;
             }
-            
+
             // Default to "Not started yet" only if no actions have been started
             $job->update(['status' => 'Not started yet']);
             \Log::info('Job status set to Not started yet', ['job_id' => $job->id]);
@@ -2258,19 +2258,19 @@ class JobController extends Controller
         try {
             // Get all jobs for this invoice with proper loading
             $jobs = $invoice->jobs()->get();
-            
+
             if ($jobs->isEmpty()) {
                 $invoice->update(['status' => 'Not started yet']);
                 return;
             }
-            
+
             // Debug: Log all job statuses
             \Log::info('Job statuses for invoice', [
                 'invoice_id' => $invoice->id,
                 'job_statuses' => $jobs->pluck('status')->toArray(),
                 'job_ids' => $jobs->pluck('id')->toArray()
             ]);
-            
+
             // Check if any job is in progress
             $hasInProgress = $jobs->contains('status', 'In progress');
             if ($hasInProgress) {
@@ -2278,7 +2278,7 @@ class JobController extends Controller
                 \Log::info('Invoice status set to In progress', ['invoice_id' => $invoice->id]);
                 return;
             }
-            
+
             // Check if all jobs are completed
             $allCompleted = $jobs->every('status', 'Completed');
             if ($allCompleted) {
@@ -2286,7 +2286,7 @@ class JobController extends Controller
                 \Log::info('Invoice status set to Completed', ['invoice_id' => $invoice->id]);
                 return;
             }
-            
+
             // Default to "Not started yet"
             $invoice->update(['status' => 'Not started yet']);
             \Log::info('Invoice status set to Not started yet', ['invoice_id' => $invoice->id]);
@@ -2308,7 +2308,7 @@ class JobController extends Controller
         try {
             $invoice = Invoice::findOrFail($invoiceId);
             $this->updateInvoiceStatus($invoice);
-            
+
             return response()->json([
                 'success' => true,
                 'message' => 'Invoice status updated successfully',
@@ -2346,20 +2346,20 @@ class JobController extends Controller
         try {
             $invoice = Invoice::findOrFail($invoiceId);
             $jobs = $invoice->jobs()->with('actions')->get();
-            
+
             $debugData = [
                 'invoice_id' => $invoice->id,
                 'invoice_status' => $invoice->status,
                 'jobs' => []
             ];
-            
+
             foreach ($jobs as $job) {
                 $jobData = [
                     'job_id' => $job->id,
                     'job_status' => $job->status,
                     'actions' => []
                 ];
-                
+
                 foreach ($job->actions as $action) {
                     $jobData['actions'][] = [
                         'action_id' => $action->id,
@@ -2369,10 +2369,10 @@ class JobController extends Controller
                         'ended_at' => $action->ended_at
                     ];
                 }
-                
+
                 $debugData['jobs'][] = $jobData;
             }
-            
+
             return response()->json($debugData);
         } catch (\Exception $e) {
             return response()->json(['error' => $e->getMessage()], 500);
@@ -2548,7 +2548,7 @@ class JobController extends Controller
                 try {
                     $thumbnailFiles = $this->templateStorageService->getDisk()->files('job-thumbnails');
                     $deletedThumbnails = 0;
-                    
+
                     foreach ($thumbnailFiles as $thumbFile) {
                         $thumbBasename = basename($thumbFile);
                         // Delete all thumbnails that belong to this job
@@ -2568,7 +2568,7 @@ class JobController extends Controller
                             }
                         }
                     }
-                    
+
                     \Log::info('Job deletion cleanup completed', [
                         'job_id' => $id,
                         'original_files_deleted' => count($originalFiles),
@@ -2633,17 +2633,17 @@ class JobController extends Controller
     private function getNextAvailableMaterial($categoryId, $type, $requiredQuantity)
     {
         $category = \App\Models\ArticleCategory::with([
-            'articles.largeFormatMaterial', 
+            'articles.largeFormatMaterial',
             'articles.smallMaterial'
         ])->find($categoryId);
-        
+
         if (!$category) {
             return null;
         }
 
         // Get all materials in the category and sort by creation date (oldest first, FIFO)
         $availableMaterials = [];
-        
+
         foreach ($category->articles as $article) {
             if ($type === 'large' && $article->largeFormatMaterial) {
                 $material = $article->largeFormatMaterial;
@@ -2692,7 +2692,7 @@ class JobController extends Controller
             $existingBreakdown = $job->dimensions_breakdown ?? []; // Start with existing dimensions
             $allFileDimensions = []; // Will store new file dimensions
             $finalTotalArea = $existingAreaM2; // Initialize final total area
-            
+
             \Log::info('Initial values set', [
                 'job_id' => $id,
                 'existing_area_m2' => $existingAreaM2,
@@ -2723,7 +2723,7 @@ class JobController extends Controller
             for ($batchStart = 0; $batchStart < $totalFiles; $batchStart += $batchSize) {
                 $batchEnd = min($batchStart + $batchSize, $totalFiles);
                 $batchFiles = array_slice($files, $batchStart, $batchEnd - $batchStart);
-                
+
                 \Log::info('Processing batch', [
                     'job_id' => $id,
                     'batch_start' => $batchStart,
@@ -2740,11 +2740,11 @@ class JobController extends Controller
                     $globalIndex = $batchStart + $batchIndex;
                     // Calculate the actual file index for the job (existing files + new files)
                     $actualFileIndex = count($existingBreakdown) + $globalIndex;
-                    
+
                     // Update progress for individual file (more granular)
                     $fileProgress = 10 + (($globalIndex + 1) / $totalFiles) * 70;
                     $this->updateUploadProgress($id, 'processing', $fileProgress, $globalIndex + 1, $totalFiles, "Processing file " . ($globalIndex + 1) . " of {$totalFiles}");
-                    
+
                     // Store file in R2
                     $filePath = $this->templateStorageService->storeTemplate($file, 'job-originals');
                     $uploadedFiles[] = $filePath;
@@ -2754,7 +2754,7 @@ class JobController extends Controller
 
                     // Calculate dimensions and generate thumbnail in parallel
                     $this->processFileDimensionsAndThumbnail($file, $actualFileIndex, $id, $filePath, $totalAreaM2, $allFileDimensions, $thumbnails, $firstFilePreview);
-                    
+
                     // Debug: Check area after processing this file
                     \Log::info('After processing file', [
                         'job_id' => $id,
@@ -2769,7 +2769,7 @@ class JobController extends Controller
                 if ($batchEnd < $totalFiles) {
                     usleep(300000); // 300ms delay
                 }
-                
+
                 // Debug: Check area after processing this batch
                 \Log::info('After processing batch', [
                     'job_id' => $id,
@@ -2814,9 +2814,9 @@ class JobController extends Controller
                     'allFileDimensions_count' => count($allFileDimensions),
                     'allFileDimensions_areas' => array_column($allFileDimensions, 'total_area_m2')
                 ]);
-                
+
                 $job->total_area_m2 = $finalTotalArea;
-                
+
                 // Debug: Log the job object after assignment
                 \Log::info('Debug: Job object after area assignment', [
                     'job_id' => $id,
@@ -2825,16 +2825,16 @@ class JobController extends Controller
                     'job_total_area_m2_debug' => var_export($job->total_area_m2, true),
                     'assigned_value' => $totalAreaM2
                 ]);
-                
+
                 // Merge new dimensions with existing ones to preserve previous files
                 $existingBreakdown = $job->dimensions_breakdown ?? [];
                 $job->dimensions_breakdown = array_merge($existingBreakdown, $allFileDimensions);
-                
+
                 // Update preview image if we have one
                 if ($firstFilePreview) {
                     $job->file = $firstFilePreview;
                 }
-                
+
                 \Log::info('Updated job with cumulative area and dimensions breakdown', [
                     'job_id' => $id,
                     'existing_area_m2' => $existingAreaM2,
@@ -2846,7 +2846,7 @@ class JobController extends Controller
                     'new_files_added' => $totalFiles,
                     'total_files_after' => count($job->dimensions_breakdown)
                 ]);
-                
+
                 \Log::info('Job object before save', [
                     'job_id' => $id,
                     'total_area_m2' => $job->total_area_m2,
@@ -2875,11 +2875,11 @@ class JobController extends Controller
                         'finalTotalArea' => $finalTotalArea,
                         'finalTotalArea_type' => gettype($finalTotalArea)
                     ]);
-                    
+
                     $updateResult = DB::table('jobs')->where('id', $id)->update([
                         'total_area_m2' => $finalTotalArea,
                     ]);
-                    
+
                     \Log::info('Debug: Fallback DB update result', [
                         'job_id' => $id,
                         'updateResult' => $updateResult,
@@ -2897,7 +2897,7 @@ class JobController extends Controller
                     'error' => $e->getMessage()
                 ]);
             }
-            
+
             \Log::info('Job save result', [
                 'job_id' => $id,
                 'save_result' => $saveResult,
@@ -2906,7 +2906,7 @@ class JobController extends Controller
 
             // Verify the save worked by reloading the job
             $job->refresh();
-            
+
             \Log::info('Job saved and reloaded', [
                 'job_id' => $id,
                 'saved_total_area_m2' => $job->total_area_m2,
@@ -2983,29 +2983,29 @@ class JobController extends Controller
     private function processFileDimensionsAndThumbnail($file, $index, $jobId, $filePath, &$totalAreaM2, &$allFileDimensions, &$thumbnails, &$firstFilePreview)
     {
         $originalFilename = pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME);
-        
+
         // Calculate dimensions for the file
         try {
             $imagick = new \Imagick();
-            
+
             // Set Ghostscript path based on environment
             $this->setGhostscriptPath($imagick);
-            
+
             // Read the PDF file to get page count
             $imagick->readImage($file->getPathname());
             $pageCount = $imagick->getNumberImages();
-            
+
             \Log::info('Processing PDF file with multiple pages', [
                 'job_id' => $jobId,
                 'file' => $file->getClientOriginalName(),
                 'page_count' => $pageCount,
                 'index' => $index
             ]);
-            
+
             // Variables to store cumulative dimensions for this file
             $fileTotalAreaM2 = 0;
             $pageDimensions = [];
-            
+
             // Iterate through all pages of the PDF
             for ($pageIndex = 0; $pageIndex < $pageCount; $pageIndex++) {
                 // Create a new Imagick instance for each page to avoid conflicts
@@ -3013,24 +3013,24 @@ class JobController extends Controller
                 $this->setGhostscriptPath($pageImagick);
                 $pageImagick->readImage($file->getPathname() . '[' . $pageIndex . ']');
                 $pageImagick->setImageFormat('jpg');
-                
+
                 // Create temporary image for dimension calculation
                 $tempImagePath = storage_path('app/temp/dim_calc_' . $index . '_page_' . $pageIndex . '_' . time() . '.jpg');
-                
+
                 // Ensure temp directory exists
                 if (!file_exists(dirname($tempImagePath))) {
                     mkdir(dirname($tempImagePath), 0755, true);
                 }
-                
+
                 $pageImagick->writeImage($tempImagePath);
-                
+
                 // Calculate dimensions from the page
                 list($width, $height) = getimagesize($tempImagePath);
                 $dpi = 72; // Default DPI if not available
                 $widthInMm = ($width / $dpi) * 25.4;
                 $heightInMm = ($height / $dpi) * 25.4;
                 $areaM2 = ($widthInMm * $heightInMm) / 1000000;
-                
+
                 // Store individual page dimensions
                 $pageDimensions[] = [
                     'page' => $pageIndex + 1,
@@ -3038,17 +3038,17 @@ class JobController extends Controller
                     'height_mm' => $heightInMm,
                     'area_m2' => round($areaM2, 6)
                 ];
-                
+
                 // Add to file totals
                 $fileTotalAreaM2 += $areaM2;
-                
+
                 // Clean up temp file
                 if (file_exists($tempImagePath)) {
                     unlink($tempImagePath);
                 }
-                
+
                 $pageImagick->clear();
-                
+
                 \Log::info('Calculated dimensions for page', [
                     'job_id' => $jobId,
                     'file' => $file->getClientOriginalName(),
@@ -3058,11 +3058,11 @@ class JobController extends Controller
                     'area_m2' => $areaM2
                 ]);
             }
-            
+
             // Add file totals to job totals
             $oldTotal = $totalAreaM2;
             $totalAreaM2 += $fileTotalAreaM2;
-            
+
             \Log::info('Accumulating file area to job total', [
                 'job_id' => $jobId,
                 'file' => $file->getClientOriginalName(),
@@ -3071,7 +3071,7 @@ class JobController extends Controller
                 'job_total_after' => $totalAreaM2,
                 'calculation' => $oldTotal . ' + ' . $fileTotalAreaM2 . ' = ' . $totalAreaM2
             ]);
-            
+
             // Store individual file dimensions (now includes all pages)
             $allFileDimensions[] = [
                 'filename' => $file->getClientOriginalName(),
@@ -3080,12 +3080,12 @@ class JobController extends Controller
                 'page_dimensions' => $pageDimensions,
                 'index' => $index
             ];
-            
+
             // For the FIRST file, also create preview image for the job (still using first page only)
             if ($index === 0) {
                 $imageFilename = pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME) . '.jpg';
                 $imagePath = storage_path('app/public/uploads/' . $imageFilename);
-                
+
                 // Create preview from first page only
                 $previewImagick = new \Imagick();
                 $this->setGhostscriptPath($previewImagick);
@@ -3100,9 +3100,9 @@ class JobController extends Controller
                 $previewImagick->clear();
                 $firstFilePreview = $imageFilename;
             }
-            
+
             $imagick->clear();
-            
+
             \Log::info('Completed processing PDF file with all pages', [
                 'job_id' => $jobId,
                 'file' => $file->getClientOriginalName(),
@@ -3110,7 +3110,7 @@ class JobController extends Controller
                 'file_total_area_m2' => $fileTotalAreaM2,
                 'cumulative_job_area_m2' => $totalAreaM2
             ]);
-            
+
         } catch (\Exception $e) {
             \Log::warning('Failed to calculate dimensions for file: ' . $e->getMessage(), [
                 'file' => $file->getClientOriginalName(),
@@ -3121,22 +3121,22 @@ class JobController extends Controller
                 'os_family' => PHP_OS_FAMILY,
                 'imagick_version' => \Imagick::getVersion()
             ]);
-            
+
             // Try fallback dimension calculation
             try {
                 $fallbackDimensions = $this->calculatePdfDimensionsFallback($file);
                 if ($fallbackDimensions) {
                     $fileTotalAreaM2 = ($fallbackDimensions['width_mm'] * $fallbackDimensions['height_mm']) / 1000000;
-                    
+
                     // Add file totals to job totals
                     $totalAreaM2 += $fileTotalAreaM2;
-                    
+
                     \Log::info('Successfully used fallback dimension calculation', [
                         'job_id' => $jobId,
                         'file' => $file->getClientOriginalName(),
                         'area_m2' => $fileTotalAreaM2
                     ]);
-                    
+
                     // Store individual file dimensions
                     $allFileDimensions[] = [
                         'filename' => $file->getClientOriginalName(),
@@ -3158,33 +3158,33 @@ class JobController extends Controller
         // Generate thumbnail and store in R2
         try {
             $imagick = new \Imagick();
-            
+
             // Set Ghostscript path based on environment
             $this->setGhostscriptPath($imagick);
-            
+
             // Set memory and resource limits for large PDFs
             $imagick->setResourceLimit(\Imagick::RESOURCETYPE_MEMORY, 128 * 1024 * 1024); // 128MB
             $imagick->setResourceLimit(\Imagick::RESOURCETYPE_MAP, 256 * 1024 * 1024);    // 256MB
-            
+
             // Read PDF at higher resolution for clearer preview
             $imagick->setResolution(150, 150);
             $imagick->readImage($file->getPathname() . '[0]'); // Read the first page
-            
+
             // Use WebP for better compression and faster loading
             $imagick->setImageFormat('webp');
             $imagick->setImageCompressionQuality(75); // Slightly lower quality for smaller files
             $imagick->stripImage();
-            
+
             // Create thumbnail - optimized size (max 600x600 for faster loading)
             $imagick->resizeImage(600, 600, \Imagick::FILTER_LANCZOS, 1, true);
-            
+
             // Create thumbnail in memory
             $thumbnailBlob = $imagick->getImageBlob();
             $imagick->clear();
-            
+
             // Store thumbnail in R2 using a stable, index-only name
             $thumbnailPath = 'job-thumbnails/job_' . $jobId . '_' . $index . '.jpg';
-            
+
             // Upload thumbnail to R2
             $this->templateStorageService->getDisk()->put($thumbnailPath, $thumbnailBlob);
 
@@ -3223,14 +3223,14 @@ class JobController extends Controller
             $fallbackThumbnailPath = null;
             try {
                 $fallbackThumbnailPath = $this->generateThumbnailFallback($file, $jobId, $index, $originalFilename);
-                
+
                 if ($fallbackThumbnailPath) {
                     \Log::info('Successfully generated thumbnail using fallback method', [
                         'job_id' => $jobId,
                         'file' => $file->getClientOriginalName(),
                         'thumbnail_path' => $fallbackThumbnailPath
                     ]);
-                    
+
                     $thumbnails[] = [
                         'originalFile' => $filePath,
                         'thumbnailPath' => $fallbackThumbnailPath,
@@ -3242,7 +3242,7 @@ class JobController extends Controller
                 } else {
                     throw new \Exception('Fallback thumbnail generation also failed');
                 }
-                
+
             } catch (\Exception $fallbackError) {
                 \Log::warning('Fallback thumbnail generation also failed: ' . $fallbackError->getMessage(), [
                     'job_id' => $jobId,
@@ -3250,7 +3250,7 @@ class JobController extends Controller
                     'original_error' => $e->getMessage(),
                     'fallback_error' => $fallbackError->getMessage()
                 ]);
-                
+
                 // Final fallback - show PDF icon
                 $thumbnails[] = [
                     'originalFile' => $filePath,
@@ -3291,7 +3291,7 @@ class JobController extends Controller
             // Get the file content from R2
             $fileContent = $this->templateStorageService->getDisk()->get($filePath);
             $originalName = $this->templateStorageService->getOriginalFilename($filePath);
-            
+
             return response($fileContent)
                 ->header('Content-Type', 'application/pdf')
                 ->header('Content-Disposition', 'attachment; filename="' . $originalName . '"')
@@ -3370,10 +3370,10 @@ class JobController extends Controller
                 // Recalculate job dimensions by subtracting the removed file's area
                 if ($removedFileDimensions && $removedFileDimensions['area_m2'] > 0) {
                     $currentArea = $job->total_area_m2 ?? 0;
-                    
+
                     // Subtract the removed file's area
                     $newArea = round(max(0, $currentArea - $removedFileDimensions['area_m2']), 6);
-                    
+
                     // Update job area - only set to null if no files remain
                     $remainingFiles = $job->getOriginalFiles();
                     if (empty($remainingFiles)) {
@@ -3381,7 +3381,7 @@ class JobController extends Controller
                         $job->dimensions_breakdown = [];
                     } else {
                         $job->total_area_m2 = $newArea;
-                        
+
                         // Update dimensions breakdown by removing the file at the specified index
                         if ($job->dimensions_breakdown) {
                             $breakdown = $job->dimensions_breakdown;
@@ -3393,7 +3393,7 @@ class JobController extends Controller
                             }
                         }
                     }
-                    
+
                     \Log::info('Recalculated job area after file removal', [
                         'job_id' => $id,
                         'removed_file_dimensions' => $removedFileDimensions,
@@ -3471,33 +3471,33 @@ class JobController extends Controller
         try {
             // Get the file content from R2
             $fileContent = $this->templateStorageService->getDisk()->get($filePath);
-            
+
             // Create a temporary file to process with ImageMagick
             $tempFilePath = storage_path('app/temp/remove_calc_' . $fileIndex . '_' . time() . '.pdf');
-            
+
             // Ensure temp directory exists
             if (!file_exists(dirname($tempFilePath))) {
                 mkdir(dirname($tempFilePath), 0755, true);
             }
-            
+
             // Write the file content to temp file
             file_put_contents($tempFilePath, $fileContent);
-            
+
             // Process with ImageMagick to get page count
             $imagick = new \Imagick();
             $this->setGhostscriptPath($imagick);
             $imagick->readImage($tempFilePath);
             $pageCount = $imagick->getNumberImages();
-            
+
             \Log::info('Calculating dimensions for file removal with multiple pages', [
                 'file_path' => $filePath,
                 'file_index' => $fileIndex,
                 'page_count' => $pageCount
             ]);
-            
+
             // Variables to store cumulative area for this file
             $fileTotalAreaM2 = 0;
-            
+
             // Iterate through all pages of the PDF
             for ($pageIndex = 0; $pageIndex < $pageCount; $pageIndex++) {
                 // Create a new Imagick instance for each page to avoid conflicts
@@ -3505,28 +3505,28 @@ class JobController extends Controller
                 $this->setGhostscriptPath($pageImagick);
                 $pageImagick->readImage($tempFilePath . '[' . $pageIndex . ']');
                 $pageImagick->setImageFormat('jpg');
-                
+
                 // Create temporary image for dimension calculation
                 $tempImagePath = storage_path('app/temp/remove_dim_calc_' . $fileIndex . '_page_' . $pageIndex . '_' . time() . '.jpg');
                 $pageImagick->writeImage($tempImagePath);
-                
+
                 // Calculate dimensions from the page
                 list($width, $height) = getimagesize($tempImagePath);
                 $dpi = 72; // Default DPI if not available
                 $widthInMm = ($width / $dpi) * 25.4;
                 $heightInMm = ($height / $dpi) * 25.4;
                 $areaM2 = ($widthInMm * $heightInMm) / 1000000;
-                
+
                 // Add to file total area
                 $fileTotalAreaM2 += $areaM2;
-                
+
                 // Clean up temp image file
                 if (file_exists($tempImagePath)) {
                     unlink($tempImagePath);
                 }
-                
+
                 $pageImagick->clear();
-                
+
                 \Log::info('Calculated dimensions for page during removal', [
                     'file_path' => $filePath,
                     'file_index' => $fileIndex,
@@ -3536,27 +3536,27 @@ class JobController extends Controller
                     'area_m2' => $areaM2
                 ]);
             }
-            
+
             // Clean up temp PDF file
             if (file_exists($tempFilePath)) {
                 unlink($tempFilePath);
             }
-            
+
             $imagick->clear();
-            
+
             \Log::info('Completed calculating dimensions for file removal', [
                 'file_path' => $filePath,
                 'file_index' => $fileIndex,
                 'total_pages' => $pageCount,
                 'total_area_m2' => $fileTotalAreaM2
             ]);
-            
+
             return [
                 'area_m2' => $fileTotalAreaM2,
                 'page_count' => $pageCount,
                 'index' => $fileIndex
             ];
-            
+
         } catch (\Exception $e) {
             \Log::warning('Failed to calculate dimensions for file removal: ' . $e->getMessage(), [
                 'file_path' => $filePath,
@@ -3599,7 +3599,7 @@ class JobController extends Controller
 
                 // Try to find thumbnail in R2 for this file
                 $thumbnailPath = null;
-                
+
                 try {
                     // List files in the job-thumbnails directory
                     $thumbnailFiles = $this->templateStorageService->getDisk()->files('job-thumbnails');
@@ -3683,7 +3683,7 @@ class JobController extends Controller
     {
         try {
             $job = Job::with('articles')->findOrFail($id);
-            
+
             return response()->json([
                 'articles' => $job->articles,
                 'job_id' => $id
@@ -3719,7 +3719,7 @@ class JobController extends Controller
             // Get the file content from R2
             $fileContent = $this->templateStorageService->getDisk()->get($filePath);
             $originalName = $this->templateStorageService->getOriginalFilename($filePath);
-            
+
             \Log::info('Serving job original file', [
                 'job_id' => $jobId,
                 'file_index' => $fileIndex,
@@ -3870,6 +3870,7 @@ class JobController extends Controller
                         return response()->json(['error' => 'Thumbnail not found'], 404);
                     }
                 } catch (\Exception $e) {
+                    dd($e);
                     \Log::warning('Thumbnail fallback search failed: ' . $e->getMessage());
                     return response()->json(['error' => 'Thumbnail not found'], 404);
                 }
@@ -4050,7 +4051,7 @@ class JobController extends Controller
                     'original_file_name' => $originalFileName
                 ]);
             }
-            
+
         } catch (\Exception $e) {
             \Log::error('Failed to cleanup specific thumbnail: ' . $e->getMessage(), [
                 'job_id' => $jobId,
@@ -4074,15 +4075,15 @@ class JobController extends Controller
             $imagick->setImageCompressionQuality(70);
             $imagick->stripImage();
             $imagick->resizeImage(800, 800, \Imagick::FILTER_LANCZOS, 1, true); // Resize to standardized thumbnail size
-            
+
             // Create thumbnail in memory
             $thumbnailBlob = $imagick->getImageBlob();
             $imagick->clear();
-            
+
             // Store thumbnail in R2 with stable name (no timestamp)
             $originalFilename = pathinfo($originalFileName, PATHINFO_FILENAME);
             $thumbnailPath = 'job-thumbnails/job_' . $jobId . '_' . $fileIndex . '_' . $originalFilename . '.jpg';
-            
+
             // Upload thumbnail to R2
             $this->templateStorageService->getDisk()->put($thumbnailPath, $thumbnailBlob);
 
@@ -4095,7 +4096,7 @@ class JobController extends Controller
             ]);
 
             return $thumbnailPath;
-            
+
         } catch (\Exception $e) {
             \Log::warning('Failed to generate thumbnail: ' . $e->getMessage(), [
                 'job_id' => $jobId,
@@ -4188,7 +4189,7 @@ class JobController extends Controller
             'message' => $message,
             'timestamp' => now()->timestamp
         ];
-        
+
         \Cache::put($cacheKey, $progressData, 300); // Cache for 5 minutes
     }
 
@@ -4210,7 +4211,7 @@ class JobController extends Controller
             if ($request->has('machinePrint') && $request->input('machinePrint') !== null) {
                 $machinePrint = $request->input('machinePrint');
                 $validPrintMachine = \App\Models\MachinesPrint::where('name', $machinePrint)->exists();
-                
+
                 if (!$validPrintMachine) {
                     return response()->json([
                         'error' => 'Invalid print machine specified',
@@ -4222,7 +4223,7 @@ class JobController extends Controller
             if ($request->has('machineCut') && $request->input('machineCut') !== null) {
                 $machineCut = $request->input('machineCut');
                 $validCutMachine = \App\Models\MachinesCut::where('name', $machineCut)->exists();
-                
+
                 if (!$validCutMachine) {
                     return response()->json([
                         'error' => 'Invalid cut machine specified',
@@ -4279,28 +4280,28 @@ class JobController extends Controller
             if ($request->has('machinePrint') && $request->input('machinePrint') !== null) {
                 $machinePrint = $request->input('machinePrint');
                 $validPrintMachine = \App\Models\MachinesPrint::where('name', $machinePrint)->exists();
-                
+
                 if (!$validPrintMachine) {
                     return response()->json([
                         'error' => 'Invalid print machine specified',
                         'details' => 'The specified print machine is not registered in the system'
                     ], 400);
                 }
-                
+
                 $job->machinePrint = $machinePrint;
             }
 
             if ($request->has('machineCut') && $request->input('machineCut') !== null) {
                 $machineCut = $request->input('machineCut');
                 $validCutMachine = \App\Models\MachinesCut::where('name', $machineCut)->exists();
-                
+
                 if (!$validCutMachine) {
                     return response()->json([
                         'error' => 'Invalid cut machine specified',
                         'details' => 'The specified cut machine is not registered in the system'
                     ], 400);
                 }
-                
+
                 $job->machineCut = $machineCut;
             }
 
@@ -4575,41 +4576,41 @@ class JobController extends Controller
         try {
             $imagick = new \Imagick();
             $this->setGhostscriptPath($imagick);
-            
+
             // Set very conservative memory limits
             $imagick->setResourceLimit(\Imagick::RESOURCETYPE_MEMORY, 64 * 1024 * 1024);  // 64MB only
             $imagick->setResourceLimit(\Imagick::RESOURCETYPE_MAP, 128 * 1024 * 1024);    // 128MB
             $imagick->setResourceLimit(\Imagick::RESOURCETYPE_DISK, 512 * 1024 * 1024);   // 512MB disk
-            
+
             // Read PDF at extremely low resolution - just for recognition
             $imagick->setResolution(30, 30); // Extremely low DPI
             $imagick->readImage($file->getPathname() . '[0]'); // First page only
-            
+
             // Convert to WebP immediately for better compression
             $imagick->setImageFormat('webp');
             $imagick->setImageCompressionQuality(30); // Very low quality = tiny file
             $imagick->stripImage(); // Remove all metadata
-            
+
             // Standardized thumbnail size
             $imagick->resizeImage(800, 800, \Imagick::FILTER_LANCZOS, 1, true);
-            
+
             // Get blob and clean up immediately
             $thumbnailBlob = $imagick->getImageBlob();
             $imagick->clear();
-            
+
             // Store in R2; keep fallback timestamped suffix but no dependency in lookup
             $thumbnailPath = 'job-thumbnails/job_' . $jobId . '_fallback_' . time() . '_' . $index . '_' . $originalFilename . '.webp';
             $this->templateStorageService->getDisk()->put($thumbnailPath, $thumbnailBlob);
-            
+
             \Log::info('Generated fallback thumbnail for large PDF', [
                 'job_id' => $jobId,
                 'file' => $file->getClientOriginalName(),
                 'thumbnail_path' => $thumbnailPath,
                 'method' => 'low_resolution_fallback'
             ]);
-            
+
             return $thumbnailPath;
-            
+
         } catch (\Exception $e) {
             \Log::warning('Fallback thumbnail generation failed: ' . $e->getMessage(), [
                 'job_id' => $jobId,
@@ -4629,7 +4630,7 @@ class JobController extends Controller
         try {
             // Read the PDF file content
             $content = file_get_contents($file->getPathname());
-            
+
             // Look for MediaBox entries in the PDF
             // MediaBox defines the page dimensions in points (1/72 inch)
             if (preg_match('/\/MediaBox\s*\[\s*(\d+(?:\.\d+)?)\s+(\d+(?:\.\d+)?)\s+(\d+(?:\.\d+)?)\s+(\d+(?:\.\d+)?)\s*\]/', $content, $matches)) {
@@ -4637,15 +4638,15 @@ class JobController extends Controller
                 $y1 = floatval($matches[2]);
                 $x2 = floatval($matches[3]);
                 $y2 = floatval($matches[4]);
-                
+
                 // Calculate dimensions in points
                 $widthPoints = $x2 - $x1;
                 $heightPoints = $y2 - $y1;
-                
+
                 // Convert points to millimeters (1 point = 1/72 inch, 1 inch = 25.4 mm)
                 $widthMm = ($widthPoints / 72) * 25.4;
                 $heightMm = ($heightPoints / 72) * 25.4;
-                
+
                 \Log::info('Extracted PDF dimensions using fallback method', [
                     'file' => $file->getClientOriginalName(),
                     'width_points' => $widthPoints,
@@ -4654,14 +4655,14 @@ class JobController extends Controller
                     'height_mm' => $heightMm,
                     'mediabox' => $matches[0]
                 ]);
-                
+
                 return [
                     'width_mm' => $widthMm,
                     'height_mm' => $heightMm,
                     'method' => 'pdf_parsing'
                 ];
             }
-            
+
             // If MediaBox is not found, try to look for other size indicators
             // Some PDFs use CropBox or TrimBox
             if (preg_match('/\/CropBox\s*\[\s*(\d+(?:\.\d+)?)\s+(\d+(?:\.\d+)?)\s+(\d+(?:\.\d+)?)\s+(\d+(?:\.\d+)?)\s*\]/', $content, $matches)) {
@@ -4669,29 +4670,29 @@ class JobController extends Controller
                 $y1 = floatval($matches[2]);
                 $x2 = floatval($matches[3]);
                 $y2 = floatval($matches[4]);
-                
+
                 $widthPoints = $x2 - $x1;
                 $heightPoints = $y2 - $y1;
-                
+
                 $widthMm = ($widthPoints / 72) * 25.4;
                 $heightMm = ($heightPoints / 72) * 25.4;
-                
+
                 \Log::info('Extracted PDF dimensions using CropBox fallback method', [
                     'file' => $file->getClientOriginalName(),
                     'width_mm' => $widthMm,
                     'height_mm' => $heightMm,
                     'cropbox' => $matches[0]
                 ]);
-                
+
                 return [
                     'width_mm' => $widthMm,
                     'height_mm' => $heightMm,
                     'method' => 'pdf_parsing_cropbox'
                 ];
             }
-            
+
             return null;
-            
+
         } catch (\Exception $e) {
             \Log::warning('PDF parsing fallback failed', [
                 'file' => $file->getClientOriginalName(),
@@ -4717,7 +4718,7 @@ class JobController extends Controller
                 '/opt/local/bin/gs',
                 '/bin/gs'
             ];
-            
+
             foreach ($commonPaths as $path) {
                 if (file_exists($path)) {
                     $imagick->setOption('gs', $path);
@@ -4725,7 +4726,7 @@ class JobController extends Controller
                     return;
                 }
             }
-            
+
             // If no specific path found, let Imagick use system default
             \Log::info('Using system default Ghostscript path');
         }
@@ -4759,7 +4760,7 @@ class JobController extends Controller
         if ($job->catalog_item_id && $job->catalogItem) {
             return $job->catalogItem->getPricingMultiplier($quantity, $copies);
         }
-        
+
         // For manually created jobs (no catalog item), default to quantity-based pricing
         return $quantity;
     }
