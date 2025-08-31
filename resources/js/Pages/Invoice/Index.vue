@@ -108,7 +108,7 @@
                             </div>
                                 <div v-if="currentInvoiceId" class="job-details-container" :class="{ active: currentInvoiceId === invoice.id }">
                                     <div v-if="currentInvoiceId===invoice.id" class="bgJobs text-white p-2 bold" style="line-height: normal;">
-                                        Jobs for Order #{{invoice.id}} {{invoice.invoice_title}} - Images are pre-loaded for instant display
+                                        Jobs for Order #{{invoice.id}} {{invoice.invoice_title}}
                                     </div>
                                     <div v-if="currentInvoiceId===invoice.id" class="jobInfo border-b" v-for="(job,index) in invoice.jobs">
                                             <div class=" jobInfo flex justify-between gap-1">
