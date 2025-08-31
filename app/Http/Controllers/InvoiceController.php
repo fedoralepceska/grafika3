@@ -546,6 +546,9 @@ class InvoiceController extends Controller
                     'jobs.file', 'jobs.originalFile', 'jobs.total_area_m2', 'jobs.dimensions_breakdown'
                 ]);
             },
+            'jobs.articles.categories',
+            'jobs.articles.largeFormatMaterial',
+            'jobs.articles.smallMaterial',
             'user:id,name',
             'client:id,name'
         ]);
@@ -576,6 +579,9 @@ class InvoiceController extends Controller
                     'jobs.file', 'jobs.originalFile', 'jobs.total_area_m2', 'jobs.dimensions_breakdown'
                 ]);
             },
+            'jobs.articles.categories',
+            'jobs.articles.largeFormatMaterial',
+            'jobs.articles.smallMaterial',
             'user:id,name',
             'client:id,name'
         ]);
