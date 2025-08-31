@@ -20,7 +20,9 @@ class PriemnicaController extends Controller
      */
     public function index(Request $request)
     {
-        $receiptsQuery = Priemnica::with(['client', 'articles'])
+        $receiptsQuery = Priemnica::with(['client', 'articles' => function($query) {
+            $query->withPivot('quantity', 'custom_price', 'custom_tax_type');
+        }])
             ->join('warehouses', 'priemnica.warehouse', '=', 'warehouses.id')
             ->select(
                 'priemnica.id',
@@ -48,13 +50,6 @@ class PriemnicaController extends Controller
 
         $receipts = $receiptsQuery->get();
 
-        foreach ($receipts as $receipt) {
-            $receipt->articles = DB::table('priemnica_articles')
-                ->where('priemnica_id', $receipt->id)
-                ->select('priemnica_id', 'article_id', 'quantity')
-                ->get();
-        }
-
         if ($request->wantsJson()) {
             return response()->json($receipts);
         }
@@ -79,7 +74,9 @@ class PriemnicaController extends Controller
         $warehouseId = $request->query('warehouse');
         $perPage = $request->query('per_page', 20);
 
-        $receiptsQuery = Priemnica::with(['client', 'articles'])
+        $receiptsQuery = Priemnica::with(['client', 'articles' => function($query) {
+            $query->withPivot('quantity', 'custom_price', 'custom_tax_type');
+        }])
             ->join('warehouses', 'priemnica.warehouse', '=', 'warehouses.id')
             ->select(
                 'priemnica.id',
@@ -94,13 +91,6 @@ class PriemnicaController extends Controller
         }
 
         $receipts = $receiptsQuery->get();
-
-        foreach ($receipts as $receipt) {
-            $receipt->articles = DB::table('priemnica_articles')
-                ->where('priemnica_id', $receipt->id)
-                ->select('priemnica_id', 'article_id', 'quantity')
-                ->get();
-        }
 
         $priemnica = $receiptsQuery->paginate($perPage);
 
@@ -119,7 +109,9 @@ class PriemnicaController extends Controller
      */
     public function show(Priemnica $priemnica)
     {
-        $priemnica->load(['client', 'articles']);
+        $priemnica->load(['client', 'articles' => function($query) {
+            $query->withPivot('quantity', 'custom_price', 'custom_tax_type');
+        }]);
         
         // Format articles data for frontend
         $articles = $priemnica->articles->map(function ($article) {
@@ -146,7 +138,9 @@ class PriemnicaController extends Controller
      */
     public function edit($id)
     {
-        $priemnica = Priemnica::with(['client', 'articles'])->findOrFail($id);
+        $priemnica = Priemnica::with(['client', 'articles' => function($query) {
+            $query->withPivot('quantity', 'custom_price', 'custom_tax_type');
+        }])->findOrFail($id);
         
         // Format articles for the frontend
         $formattedArticles = $priemnica->articles->map(function ($article) {
@@ -159,6 +153,11 @@ class PriemnicaController extends Controller
                 'quantity' => $article->pivot->quantity,
                 'width' => $article->width,
                 'height' => $article->height,
+                'pivot' => [
+                    'quantity' => $article->pivot->quantity,
+                    'custom_price' => $article->pivot->custom_price,
+                    'custom_tax_type' => $article->pivot->custom_tax_type,
+                ]
             ];
         });
 
@@ -187,6 +186,13 @@ class PriemnicaController extends Controller
         // Update priemnica basic info
         $priemnica->client_id = $data[0]['client_id'];
         $priemnica->warehouse = $data[0]['warehouse'];
+        
+        // Update date if provided
+        if (isset($data[0]['date']) && !empty($data[0]['date'])) {
+            $priemnica->created_at = $data[0]['date'] . ' 00:00:00';
+            $priemnica->updated_at = now();
+        }
+        
         $priemnica->save();
 
         // Process material inventory reversals for original articles
@@ -207,8 +213,24 @@ class PriemnicaController extends Controller
             $article = Article::where('code', $row['code'])->first();
 
             if ($article) {
-                // Attach new article with quantity
-                $priemnica->articles()->attach($article->id, ['quantity' => $row['quantity']]);
+                // Check if custom values are different from original article values
+                $customPrice = null;
+                $customTaxType = null;
+                
+                if (isset($row['purchase_price']) && $row['purchase_price'] != $article->purchase_price) {
+                    $customPrice = $row['purchase_price'];
+                }
+                
+                if (isset($row['tax_type']) && $row['tax_type'] != $article->tax_type) {
+                    $customTaxType = $row['tax_type'];
+                }
+                
+                // Attach new article with quantity and custom values
+                $priemnica->articles()->attach($article->id, [
+                    'quantity' => $row['quantity'],
+                    'custom_price' => $customPrice,
+                    'custom_tax_type' => $customTaxType
+                ]);
                 
                 // Update material inventory with new quantities
                 $this->updateMaterialQuantity($article, $row['quantity']);
@@ -227,6 +249,13 @@ class PriemnicaController extends Controller
         $priemnica = new Priemnica();
         $priemnica->client_id = $data[0]['client_id'];
         $priemnica->warehouse = $data[0]['warehouse'];
+        
+        // Set custom date if provided, otherwise use current timestamp
+        if (isset($data[0]['date']) && !empty($data[0]['date'])) {
+            $priemnica->created_at = $data[0]['date'] . ' 00:00:00';
+            $priemnica->updated_at = $data[0]['date'] . ' 00:00:00';
+        }
+        
         $priemnica->save();
 
         foreach ($data as $row) {
@@ -238,7 +267,23 @@ class PriemnicaController extends Controller
             $article = Article::where('code', $row['code'])->first();
 
             if ($article) {
-                $priemnica->articles()->attach($article->id, ['quantity' => $row['quantity']]);
+                // Check if custom values are different from original article values
+                $customPrice = null;
+                $customTaxType = null;
+                
+                if (isset($row['purchase_price']) && $row['purchase_price'] != $article->purchase_price) {
+                    $customPrice = $row['purchase_price'];
+                }
+                
+                if (isset($row['tax_type']) && $row['tax_type'] != $article->tax_type) {
+                    $customTaxType = $row['tax_type'];
+                }
+                
+                $priemnica->articles()->attach($article->id, [
+                    'quantity' => $row['quantity'],
+                    'custom_price' => $customPrice,
+                    'custom_tax_type' => $customTaxType
+                ]);
                 $materialData = [
                     'name' => $article->name,
                     'width' => $article->width,

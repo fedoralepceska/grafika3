@@ -46,7 +46,7 @@
                             </div>
                             <div>
                                  <h2 class="text-white bold">{{$t('Date')}}</h2>
-                                <input type="date" class="text-gray-700 rounded" style="width: 40vh;">
+                                <input type="date" class="text-gray-700 rounded" style="width: 40vh;" v-model="selectedDate">
                             </div>
                         </div>
                     </div>
@@ -95,9 +95,16 @@
                                         @article-selected="(article) => handleArticleSelected(article, index)"
                                     />
                                 </td>
-                                <td><input v-model.number="row.quantity" min="1" type="number" class="table-input" @input="updateRowValues(index)"></td>
-                                <td>{{row.purchase_price}}</td>
-                                <td>{{ taxTypePercentage(row.tax_type) }}%</td>
+                                <td><input v-model.number="row.quantity" min="0.00001" step="0.00001" type="number" class="table-input" @input="updateRowValues(index)"></td>
+                                <td><input v-model.number="row.purchase_price" min="0.01" step="0.01" type="number" class="table-input" @input="updateRowValues(index)"></td>
+                                <td>
+                                    <select v-model="row.tax_type" @change="updateRowValues(index)" class="table-input">
+                                        <option value="1">18%</option>
+                                        <option value="2">5%</option>
+                                        <option value="3">10%</option>
+                                        <option value="0">0%</option>
+                                    </select>
+                                </td>
                                 <td>{{formatNumber(row.priceWithVAT) }}</td>
                                 <td>{{ formatNumber(row.amount) }}</td>
                                 <td>{{ formatNumber(row.tax) }}</td>
@@ -140,6 +147,7 @@ export default {
             startX: 0,
             startWidth: 0,
             columnIndex: -1,
+            selectedDate: new Date().toISOString().split('T')[0], // Default to today's date
 
             warehouses: [],
             articles: [],
@@ -244,14 +252,18 @@ export default {
                 code: '',
                 name: '',
                 quantity: 1,
-                price: 0,
-                vat: 0,
+                purchase_price: 0,
+                tax_type: '1',
                 priceWithVAT: 0,
                 amount: 0,
                 tax: 0,
                 total: 0,
                 comment: ''
             });
+            
+            // Calculate initial values for the new row
+            const index = this.rows.length - 1;
+            this.updateRowValues(index);
         },
         deleteRow() {
             if (this.rows.length > 0) {
@@ -259,17 +271,36 @@ export default {
             }
         },
         formatNumber(number) {
-            return Number(number).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            const num = Number(number);
+            if (isNaN(num)) {
+                console.warn('formatNumber received NaN:', number);
+                return '0.00';
+            }
+            return num.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
         },
         updateRowValues(index) {
             let row = this.rows[index];
             console.log('Calculating VAT for row:', row); // Debug log
+            
+            // Ensure all values are numbers
+            const price = Number(row.purchase_price) || 0;
+            const quantity = Number(row.quantity) || 0;
             const vatPercentage = this.taxTypePercentage(row.tax_type);
-            console.log('VAT percentage:', vatPercentage); // Debug log
-            row.priceWithVAT = row.purchase_price + (row.purchase_price * vatPercentage / 100);
-            row.amount = row.quantity * row.purchase_price;
+            
+            console.log('Price:', price, 'Quantity:', quantity, 'VAT %:', vatPercentage); // Debug log
+            
+            // Calculate values with proper number handling
+            row.priceWithVAT = price + (price * vatPercentage / 100);
+            row.amount = quantity * price;
             row.tax = row.amount * vatPercentage / 100;
             row.total = row.amount + row.tax;
+            
+            console.log('Calculated values:', {
+                priceWithVAT: row.priceWithVAT,
+                amount: row.amount,
+                tax: row.tax,
+                total: row.total
+            }); // Debug log
         },
         taxTypePercentage(taxType) {
             console.log('Tax type received:', taxType, 'Type:', typeof taxType); // Debug log
@@ -316,6 +347,7 @@ export default {
                 receiptData.push({
                     client_id: this.selectedClientId,
                     warehouse: this.selectedWarehouseId,
+                    date: this.selectedDate, // Add selected date to the data
                     ...row, // Include all other data from each row
                 });
             }
@@ -609,6 +641,8 @@ legend {
         background-color: $dark-gray;
     }
 }
+
+
 
 /* Specific styling for numeric inputs */
 input[type="number"].table-input {

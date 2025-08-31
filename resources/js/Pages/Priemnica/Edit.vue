@@ -95,9 +95,16 @@
                                         @article-selected="(article) => handleArticleSelected(article, index)"
                                     />
                                 </td>
-                                <td><input v-model.number="row.quantity" min="1" type="number" class="table-input" @input="updateRowValues(index)"></td>
-                                <td>{{row.purchase_price}}</td>
-                                <td>{{ taxTypePercentage(row.tax_type) }}%</td>
+                                <td><input v-model.number="row.quantity" min="0.00001" step="0.00001" type="number" class="table-input" @input="updateRowValues(index)"></td>
+                                <td><input v-model.number="row.purchase_price" min="0.01" step="0.01" type="number" class="table-input" @input="updateRowValues(index)"></td>
+                                <td>
+                                    <select v-model="row.tax_type" @change="updateRowValues(index)" class="table-input">
+                                        <option value="1">18%</option>
+                                        <option value="2">5%</option>
+                                        <option value="3">10%</option>
+                                        <option value="0">0%</option>
+                                    </select>
+                                </td>
                                 <td>{{formatNumber(row.priceWithVAT) }}</td>
                                 <td>{{ formatNumber(row.amount) }}</td>
                                 <td>{{ formatNumber(row.tax) }}</td>
@@ -183,19 +190,28 @@ export default {
             this.updateWarehouseDetails();
 
             // Initialize rows with existing articles
-            this.rows = this.articles.map(article => ({
-                id: article.id,
-                code: article.code,
-                name: article.name,
-                quantity: article.quantity,
-                purchase_price: article.purchase_price,
-                tax_type: article.tax_type,
-                priceWithVAT: 0,
-                amount: 0,
-                tax: 0,
-                total: 0,
-                comment: ''
-            }));
+            this.rows = this.articles.map(article => {
+                // Safely get pivot data with fallbacks
+                const pivot = article.pivot || {};
+                const customPrice = pivot.custom_price && pivot.custom_price !== null ? pivot.custom_price : article.purchase_price;
+                const customTaxType = pivot.custom_tax_type && pivot.custom_tax_type !== null ? pivot.custom_tax_type : article.tax_type;
+                
+
+                
+                return {
+                    id: article.id,
+                    code: article.code,
+                    name: article.name,
+                    quantity: pivot.quantity || article.quantity || 1,
+                    purchase_price: customPrice,
+                    tax_type: customTaxType,
+                    priceWithVAT: 0,
+                    amount: 0,
+                    tax: 0,
+                    total: 0,
+                    comment: ''
+                };
+            });
 
             // Calculate initial values for all rows
             this.rows.forEach((row, index) => {
@@ -256,8 +272,8 @@ export default {
                 code: '',
                 name: '',
                 quantity: 1,
-                price: 0,
-                vat: 0,
+                purchase_price: 0,
+                tax_type: '1',
                 priceWithVAT: 0,
                 amount: 0,
                 tax: 0,
@@ -271,15 +287,30 @@ export default {
             }
         },
         formatNumber(number) {
-            return Number(number).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            const num = Number(number);
+            if (isNaN(num)) {
+                console.warn('formatNumber received NaN:', number);
+                return '0.00';
+            }
+            return num.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
         },
         updateRowValues(index) {
             let row = this.rows[index];
+            
+            // Ensure all values are numbers
+            const price = Number(row.purchase_price) || 0;
+            const quantity = Number(row.quantity) || 0;
             const vatPercentage = this.taxTypePercentage(row.tax_type);
-            row.priceWithVAT = row.purchase_price + (row.purchase_price * vatPercentage / 100);
-            row.amount = row.quantity * row.purchase_price;
+            
+
+            
+            // Calculate values with proper number handling
+            row.priceWithVAT = price + (price * vatPercentage / 100);
+            row.amount = quantity * price;
             row.tax = row.amount * vatPercentage / 100;
             row.total = row.amount + row.tax;
+            
+
         },
         taxTypePercentage(taxType) {
             const type = String(taxType);
@@ -331,6 +362,7 @@ export default {
                 receiptData.push({
                     client_id: this.selectedClientId,
                     warehouse: this.selectedWarehouseId,
+                    date: this.priemnicaDate, // Add selected date to the data
                     ...row,
                 });
             }
@@ -629,6 +661,8 @@ legend {
         background-color: $dark-gray;
     }
 }
+
+
 
 /* Specific styling for numeric inputs */
 input[type="number"].table-input {

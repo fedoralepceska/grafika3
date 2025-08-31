@@ -25,7 +25,7 @@ class Priemnica extends Model
 
     public function articles()
     {
-        return $this->belongsToMany(Article::class, 'priemnica_articles')->withPivot('quantity');
+        return $this->belongsToMany(Article::class, 'priemnica_articles')->withPivot('quantity', 'custom_price', 'custom_tax_type');
     }
 
     public static function calculateVatPercentage($vatType)

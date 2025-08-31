@@ -43,14 +43,14 @@
                                          <th>{{p.id}}</th>
                                          <th>{{p.code}}</th>
                                          <th>{{p.name}}</th>
-                                         <th>{{p.pivot.quantity}}</th>
-                                         <th>{{p.purchase_price}}</th>
-                                         <th>{{taxTypePercentage(p.tax_type)}}%</th>
-                                         <th>{{calculateVAT(p.purchase_price, p.tax_type)}}</th>
-                                         <th>{{priceWithVAT(p.purchase_price, p.tax_type)}}</th>
-                                         <th>{{calculateAmount(p.pivot.quantity, p.purchase_price)}}</th>
-                                         <th>{{calculateTax(p.purchase_price, p.tax_type, p.pivot.quantity)}}</th>
-                                         <th>{{calculateTotal(p.purchase_price, p.tax_type, p.pivot.quantity)}}</th>
+                                         <th>{{formatQuantity(p.pivot.quantity)}}</th>
+                                         <th>{{getDisplayPrice(p)}}</th>
+                                         <th>{{getDisplayTaxPercentage(p)}}%</th>
+                                         <th>{{calculateVAT(p)}}</th>
+                                         <th>{{priceWithVAT(p)}}</th>
+                                         <th>{{calculateAmount(p)}}</th>
+                                         <th>{{calculateTax(p)}}</th>
+                                         <th>{{calculateTotal(p)}}</th>
                                          <th>{{p.comment? p.comment:'/'}}</th>
                                      </tr>
                                 </tbody>
@@ -127,29 +127,51 @@ export default {
         formatNumber(number) {
             return Number(number).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
         },
-        calculateVAT(purchasePrice, taxType) {
-            const vatPercentage = this.taxTypePercentage(taxType);
-            const vatAmount = (purchasePrice * vatPercentage) / 100;
+        formatQuantity(quantity) {
+            // Format quantity to show up to 5 decimal places if needed
+            const num = Number(quantity);
+            if (Number.isInteger(num)) {
+                return num.toString();
+            }
+            // Show up to 5 decimal places, but remove trailing zeros
+            return num.toFixed(5).replace(/\.?0+$/, '');
+        },
+        getDisplayPrice(article) {
+            // Use custom price if available, otherwise use original article price
+            return article.pivot.custom_price || article.purchase_price;
+        },
+        getDisplayTaxPercentage(article) {
+            // Use custom tax type if available, otherwise use original article tax type
+            const taxType = article.pivot.custom_tax_type || article.tax_type;
+            return this.taxTypePercentage(taxType);
+        },
+        calculateVAT(article) {
+            const price = this.getDisplayPrice(article);
+            const vatPercentage = this.getDisplayTaxPercentage(article);
+            const vatAmount = (price * vatPercentage) / 100;
             return this.formatNumber(vatAmount);
         },
-        priceWithVAT(purchasePrice, taxType) {
-            const vatAmount = parseFloat(this.calculateVAT(purchasePrice, taxType).replace(/,/g, ''));
-            const totalPrice = parseFloat(purchasePrice) + vatAmount;
+        priceWithVAT(article) {
+            const price = this.getDisplayPrice(article);
+            const vatAmount = parseFloat(this.calculateVAT(article).replace(/,/g, ''));
+            const totalPrice = parseFloat(price) + vatAmount;
             return this.formatNumber(totalPrice);
         },
-        calculateAmount(quantity, purchasePrice) {
-            const amount = quantity * purchasePrice;
+        calculateAmount(article) {
+            const price = this.getDisplayPrice(article);
+            const amount = article.pivot.quantity * price;
             return this.formatNumber(amount);
         },
-        calculateTax(purchasePrice, taxType, quantity) {
-            const vatPercentage = this.taxTypePercentage(taxType);
-            const vatAmountPerUnit = (purchasePrice * vatPercentage) / 100;
-            const totalVatAmount = vatAmountPerUnit * quantity;
+        calculateTax(article) {
+            const price = this.getDisplayPrice(article);
+            const vatPercentage = this.getDisplayTaxPercentage(article);
+            const vatAmountPerUnit = (price * vatPercentage) / 100;
+            const totalVatAmount = vatAmountPerUnit * article.pivot.quantity;
             return this.formatNumber(totalVatAmount);
         },
-        calculateTotal(purchasePrice, taxType, quantity) {
-            const totalAmount = parseFloat(this.calculateAmount(quantity, purchasePrice).replace(/,/g, ''));
-            const totalTax = parseFloat(this.calculateTax(purchasePrice, taxType, quantity).replace(/,/g, ''));
+        calculateTotal(article) {
+            const totalAmount = parseFloat(this.calculateAmount(article).replace(/,/g, ''));
+            const totalTax = parseFloat(this.calculateTax(article).replace(/,/g, ''));
             const total = totalAmount + totalTax;
             return this.formatNumber(total);
         }
