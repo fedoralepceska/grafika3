@@ -3867,10 +3867,10 @@ class JobController extends Controller
                             'file_index' => $fileIndex,
                             'filename' => $originalFileName
                         ]);
+                        dd($latestMatch, $originalFileName, $fileIndex, $thumbnailPath);
                         return response()->json(['error' => 'Thumbnail not found'], 404);
                     }
                 } catch (\Exception $e) {
-                    dd($e);
                     \Log::warning('Thumbnail fallback search failed: ' . $e->getMessage());
                     return response()->json(['error' => 'Thumbnail not found'], 404);
                 }
