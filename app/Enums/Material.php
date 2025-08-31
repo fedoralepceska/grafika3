@@ -1,7 +1,5 @@
 <?php
 
-// app/Enums/JobAction.php
-
 namespace App\Enums;
 
 use Illuminate\Validation\Rules\Enum;

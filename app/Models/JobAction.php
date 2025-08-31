@@ -106,4 +106,28 @@ class JobAction extends Model
     {
         return !$this->started_at;
     }
+
+    /**
+     * Get started_at as ISO string, handling both Carbon instances and strings
+     */
+    public function getStartedAtIso(): ?string
+    {
+        if (!$this->started_at) {
+            return null;
+        }
+        
+        return is_string($this->started_at) ? $this->started_at : $this->started_at->toISOString();
+    }
+
+    /**
+     * Get ended_at as ISO string, handling both Carbon instances and strings
+     */
+    public function getEndedAtIso(): ?string
+    {
+        if (!$this->ended_at) {
+            return null;
+        }
+        
+        return is_string($this->ended_at) ? $this->ended_at : $this->ended_at->toISOString();
+    }
 }

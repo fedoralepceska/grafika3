@@ -3,7 +3,7 @@
 namespace App\Models;
 
 use App\Enums\InvoiceStatus;
-use App\Enums\JobAction;
+use App\Models\JobAction;
 use App\Enums\MachineCut;
 use App\Enums\MachinePrint;
 use App\Enums\Material;

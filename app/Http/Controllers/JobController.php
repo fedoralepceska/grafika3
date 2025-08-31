@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers;
 
-use App\Enums\JobAction;
+use App\Models\JobAction;
 use App\Events\InvoiceCreated;
 use App\Events\JobEnded;
 use App\Events\JobStarted;
@@ -203,10 +203,6 @@ class JobController extends Controller
                     $catalogActions = $request->input('actions');
 
                     // Step 3: Duplicate Actions into `job_actions`
-                    $printAction = new JobAction([
-                        'name' => $request->input('machinePrint'),
-                        'status' => 'Not started yet',
-                    ]);
                     $action = DB::table('job_actions')->insertGetId([
                         'name' => $request->input('machinePrint'), // Insert machine print
                         'status' => 'Not started yet',    // Default status
@@ -1064,8 +1060,8 @@ class JobController extends Controller
                         'id' => $action->id,
                         'name' => $action->name,
                         'status' => $action->status,
-                        'started_at' => $action->started_at ? $action->started_at->toISOString() : null,
-                        'ended_at' => $action->ended_at ? $action->ended_at->toISOString() : null,
+                        'started_at' => $action->getStartedAtIso(),
+                        'ended_at' => $action->getEndedAtIso(),
                         'started_by' => $action->started_by,
                         'hasNote' => $action->hasNote,
                         'quantity' => $action->pivot->quantity ?? null,
@@ -1828,7 +1824,7 @@ class JobController extends Controller
             $invoice = Invoice::findOrFail($invoiceId);
 
             // Resolve action directly by id (model), avoid relation class confusion
-            $action = \App\Models\JobAction::findOrFail($actionId);
+            $action = JobAction::findOrFail($actionId);
             
             \Log::info('Action found', [
                 'action_id' => $action->id,
@@ -1904,7 +1900,7 @@ class JobController extends Controller
                     'name' => $action->name,
                     'status' => $action->status
                 ],
-                'started_at' => $action->started_at ? $action->started_at->toISOString() : null
+                'started_at' => $action->getStartedAtIso()
             ];
             
             \Log::info('Sending success response', [
@@ -1929,7 +1925,7 @@ class JobController extends Controller
             $time_spent = $request->input('time_spent');
             
             // Find the action and end it
-            $action = \App\Models\JobAction::findOrFail($actionId);
+            $action = JobAction::findOrFail($actionId);
             
             // Check if action is in progress
             if (!$action->isInProgress()) {
@@ -1997,7 +1993,7 @@ class JobController extends Controller
             return response()->json([
                 'success' => true,
                 'action' => $action,
-                'ended_at' => $action->ended_at ? $action->ended_at->toISOString() : null,
+                'ended_at' => $action->getEndedAtIso(),
                 'duration' => $action->getDurationInSeconds()
             ]);
         } catch (\Exception $e) {
@@ -2047,7 +2043,7 @@ class JobController extends Controller
             // Try to infer job from action id
             $action = null;
             if ($actionId) {
-                $action = \App\Models\JobAction::find($actionId);
+                $action = JobAction::find($actionId);
                 if ($action && !$job) {
                     $job = $action->jobs()->first();
                 }
@@ -2106,8 +2102,8 @@ class JobController extends Controller
             return response()->json([
                 'success' => true,
                 'action' => $action,
-                'started_at' => $action->started_at ? $action->started_at->toISOString() : null,
-                'ended_at' => $action->ended_at ? $action->ended_at->toISOString() : null,
+                'started_at' => $action->getStartedAtIso(),
+                'ended_at' => $action->getEndedAtIso(),
             ]);
         } catch (\Exception $e) {
             return response()->json(['error' => $e->getMessage()], 500);
@@ -2136,7 +2132,7 @@ class JobController extends Controller
 
     public function getActionStatus(Request $request, $actionId) {
         try {
-            $action = \App\Models\JobAction::findOrFail($actionId);
+            $action = JobAction::findOrFail($actionId);
             
             // Check for abandoned actions (running for more than 24 hours)
             if ($action->isInProgress() && $action->started_at) {
@@ -2169,8 +2165,8 @@ class JobController extends Controller
                     'id' => $action->id,
                     'name' => $action->name,
                     'status' => $action->status,
-                    'started_at' => $action->started_at ? $action->started_at->toISOString() : null,
-                    'ended_at' => $action->ended_at ? $action->ended_at->toISOString() : null,
+                    'started_at' => $action->getStartedAtIso(),
+                    'ended_at' => $action->getEndedAtIso(),
                     'started_by' => $action->started_by,
                     'duration' => $action->getDurationInSeconds(),
                     'is_in_progress' => $action->isInProgress(),

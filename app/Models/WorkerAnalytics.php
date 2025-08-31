@@ -2,7 +2,7 @@
 
 namespace App\Models;
 
-use App\Enums\JobAction;
+use App\Models\JobAction;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 

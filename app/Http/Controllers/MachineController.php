@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers;
 
-use App\Enums\JobAction;
+use App\Models\JobAction;
 use App\Models\MachinesCut;
 use App\Models\MachinesPrint;
 use App\Models\Warehouse;

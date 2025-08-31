@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers;
 
-use App\Enums\JobAction;
+use App\Models\JobAction;
 use App\Events\InvoiceCreated;
 use App\Models\Article;
 use App\Models\Faktura;
