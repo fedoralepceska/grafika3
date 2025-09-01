@@ -402,4 +402,50 @@ class PriemnicaController extends Controller
             }
         }
     }
+
+    /**
+     * Get material import summary across all receipts
+     */
+    public function getMaterialImportSummary()
+    {
+        $materialSummary = DB::table('priemnica_articles')
+            ->join('article', 'priemnica_articles.article_id', '=', 'article.id')
+            ->join('priemnica', 'priemnica_articles.priemnica_id', '=', 'priemnica.id')
+            ->select(
+                'article.id as article_id',
+                'article.code',
+                'article.name',
+                'article.format_type',
+                'article.width',
+                'article.height',
+                DB::raw('SUM(priemnica_articles.quantity) as total_imported'),
+                DB::raw('AVG(COALESCE(priemnica_articles.custom_price, article.purchase_price)) as average_price'),
+                DB::raw('SUM(priemnica_articles.quantity * COALESCE(priemnica_articles.custom_price, article.purchase_price)) as total_value'),
+                DB::raw('MAX(priemnica.created_at) as last_import_date')
+            )
+            ->groupBy('article.id', 'article.code', 'article.name', 'article.format_type', 'article.width', 'article.height')
+            ->orderBy('total_imported', 'desc')
+            ->get();
+
+        // Add current stock information for each material
+        $materialSummary = $materialSummary->map(function ($material) {
+            $currentStock = 0;
+            
+            if ($material->format_type == 1) {
+                $smallMaterial = SmallMaterial::where('article_id', $material->article_id)->first();
+                $currentStock = $smallMaterial ? $smallMaterial->quantity : 0;
+            } elseif ($material->format_type == 2) {
+                $largeMaterial = LargeFormatMaterial::where('article_id', $material->article_id)->first();
+                $currentStock = $largeMaterial ? $largeMaterial->quantity : 0;
+            } elseif ($material->format_type == 3) {
+                $otherMaterial = OtherMaterial::where('article_id', $material->article_id)->first();
+                $currentStock = $otherMaterial ? $otherMaterial->quantity : 0;
+            }
+            
+            $material->current_stock = $currentStock;
+            return $material;
+        });
+
+        return response()->json($materialSummary);
+    }
 }

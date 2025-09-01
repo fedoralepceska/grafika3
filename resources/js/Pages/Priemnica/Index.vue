@@ -53,6 +53,7 @@
                             <!-- Filter Button -->
                             <div class="buttF gap-3">
                                 <button @click="applyFilter" class="btn create-order1">Filter</button>
+                                <MaterialImportSummaryDialog />
                             </div>
                         </div>
                         <table class="excel-table">
@@ -103,6 +104,7 @@ import MainLayout from "@/Layouts/MainLayout.vue";
 import Pagination from "@/Components/Pagination.vue";
 import Header from "@/Components/Header.vue";
 import PriemInfoDialog from "@/Components/PriemInfoDialog.vue";
+import MaterialImportSummaryDialog from "@/Components/MaterialImportSummaryDialog.vue";
 import axios from "axios";
 
 export default {
@@ -110,7 +112,8 @@ export default {
         MainLayout,
         Pagination,
         Header,
-        PriemInfoDialog
+        PriemInfoDialog,
+        MaterialImportSummaryDialog
     },
     props: {
         receipts: Array,
@@ -213,6 +216,9 @@ select{
 }
 .buttF{
     padding-top: 23.5px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
 }
 .btn {
     padding: 9px 12px;
