@@ -3170,6 +3170,9 @@ class JobController extends Controller
             }
         }
 
+        // Clean up any existing thumbnails at this index before generating new ones
+        $this->cleanupThumbnailsAtIndex($jobId, $index);
+
         // Generate thumbnail and store in R2
         try {
             $imagick = new \Imagick();
@@ -3197,10 +3200,10 @@ class JobController extends Controller
             $thumbnailBlob = $imagick->getImageBlob();
             $imagick->clear();
 
-            // Store thumbnail in R2 using a stable, index-only name
-            $thumbnailPath = 'job-thumbnails/job_' . $jobId . '_' . $index . '.jpg';
+            // Store thumbnail in R2 using consistent naming pattern
+            $thumbnailPath = 'job-thumbnails/job_' . $jobId . '_' . $index . '_' . $originalFilename . '.jpg';
 
-            // Upload thumbnail to R2
+            // Always override existing thumbnail at this index (in case deletion failed)
             $this->templateStorageService->getDisk()->put($thumbnailPath, $thumbnailBlob);
 
             \Log::info('Generated and stored thumbnail in R2', [
@@ -3438,6 +3441,10 @@ class JobController extends Controller
                         // Don't fail the operation if file cleanup fails
                     }
                 }
+
+                // Clean up the corresponding thumbnail from R2 storage
+                $originalFileName = basename($fileToRemove);
+                $this->cleanupThumbnailForFile($id, $fileIndex, $originalFileName);
 
                 // Regenerate thumbnails for all remaining files to ensure stable mapping
                 $updatedThumbnails = $this->regenerateJobThumbnails($job);
@@ -4018,6 +4025,59 @@ class JobController extends Controller
     }
 
     /**
+     * Clean up any existing thumbnails at a specific index (used before generating new thumbnails)
+     */
+    private function cleanupThumbnailsAtIndex($jobId, $fileIndex)
+    {
+        try {
+            // List all thumbnails in R2 for this job
+            $thumbnailFiles = $this->templateStorageService->getDisk()->files('job-thumbnails');
+
+            $deleted = 0;
+            foreach ($thumbnailFiles as $thumbFile) {
+                $thumbBasename = basename($thumbFile);
+                // Must belong to this job
+                if (strpos($thumbBasename, 'job_' . $jobId . '_') !== 0) {
+                    continue;
+                }
+                // Match the index pattern exactly (handles both naming patterns)
+                if (strpos($thumbBasename, '_' . $fileIndex . '_') !== false || 
+                    preg_match('/job_' . $jobId . '_' . $fileIndex . '\.(jpg|webp)$/', $thumbBasename) ||
+                    preg_match('/job_' . $jobId . '_' . $fileIndex . '_.*\.(jpg|webp)$/', $thumbBasename)) {
+                    try {
+                        $this->templateStorageService->getDisk()->delete($thumbFile);
+                        $deleted++;
+                        \Log::info('Cleaned up existing thumbnail before generating new one', [
+                            'job_id' => $jobId,
+                            'file_index' => $fileIndex,
+                            'thumbnail_path' => $thumbFile
+                        ]);
+                    } catch (\Exception $e) {
+                        \Log::warning('Failed to cleanup existing thumbnail: ' . $e->getMessage(), [
+                            'thumbnail' => $thumbFile
+                        ]);
+                    }
+                }
+            }
+
+            if ($deleted > 0) {
+                \Log::info('Cleaned up existing thumbnails before generating new one', [
+                    'job_id' => $jobId,
+                    'file_index' => $fileIndex,
+                    'deleted_count' => $deleted
+                ]);
+            }
+
+        } catch (\Exception $e) {
+            \Log::error('Failed to cleanup thumbnails at index: ' . $e->getMessage(), [
+                'job_id' => $jobId,
+                'file_index' => $fileIndex,
+                'trace' => $e->getTraceAsString()
+            ]);
+        }
+    }
+
+    /**
      * Clean up a specific thumbnail for a removed file
      */
     private function cleanupThumbnailForFile($jobId, $fileIndex, $originalFileName)
@@ -4587,6 +4647,9 @@ class JobController extends Controller
      */
     private function generateThumbnailFallback($file, $jobId, $index, $originalFilename)
     {
+        // Clean up any existing thumbnails at this index before generating fallback
+        $this->cleanupThumbnailsAtIndex($jobId, $index);
+        
         try {
             $imagick = new \Imagick();
             $this->setGhostscriptPath($imagick);
