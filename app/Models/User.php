@@ -52,4 +52,38 @@ class User extends Authenticatable
     {
         return $this->role && $this->role->name === $role;
     }
+
+    /**
+     * Check if user has any jobs/orders/invoices
+     */
+    public function hasJobs()
+    {
+        return $this->startedJobs()->exists() || 
+               $this->workerAnalytics()->exists() ||
+               $this->createdInvoices()->exists();
+    }
+
+    /**
+     * Jobs started by this user
+     */
+    public function startedJobs()
+    {
+        return $this->hasMany(Job::class, 'started_by');
+    }
+
+    /**
+     * Worker analytics records for this user
+     */
+    public function workerAnalytics()
+    {
+        return $this->hasMany(WorkerAnalytics::class);
+    }
+
+    /**
+     * Invoices created by this user
+     */
+    public function createdInvoices()
+    {
+        return $this->hasMany(Invoice::class, 'created_by');
+    }
 }

@@ -515,6 +515,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::prefix('api')->group(function () {
         Route::get('/users', [UserController::class, 'index']);
         Route::put('/users/{user}/role', [UserController::class, 'updateRole']);
+        Route::put('/users/{user}/password', [UserController::class, 'changePassword']);
+        Route::get('/users/{user}/orders', [UserController::class, 'checkUserOrders']);
+        Route::delete('/users/{user}', [UserController::class, 'destroy']);
     });
 });
 
