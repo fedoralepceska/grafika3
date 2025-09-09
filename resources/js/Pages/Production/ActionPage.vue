@@ -1517,26 +1517,10 @@ export default {
                     delete this.jobDisabledStatus[actionId];
                     localStorage.setItem('jobDisabledStatus', JSON.stringify(this.jobDisabledStatus));
 
-                    // Show success toast and handle redirection
+                    // Show success toast
                     const toast = useToast();
                     toast.success(`Job finished for ${finalTime}`, {
-                        timeout: 2000,
-                        onClose: () => {
-                            // Check if there's a next action and if it exists in the job's actions
-                            const hasNextAction = currentIndex < job.actions.length - 1 && job.actions[currentIndex + 1];
-
-                            if (hasNextAction) {
-                                // Redirect to next action
-                                const nextAction = job.actions[currentIndex + 1];
-                                this.$inertia.visit(`/actions/${nextAction.name}`);
-                            } else {
-                                // If no next action exists, redirect to orders page
-                                const invoiceWithJob = this.invoices.find(invoice =>
-                                    invoice.jobs.some(j => j.id === job.id)
-                                );
-                                this.$inertia.visit(`/orders/${invoiceWithJob.id}`);
-                            }
-                        }
+                        timeout: 2000
                     });
                 }
             } catch (error) {
