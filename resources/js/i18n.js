@@ -515,6 +515,16 @@ const messages = {
         TotalMaterials: 'Total Materials',
         TotalImportedQuantity: 'Total Imported Quantity',
         CurrentStockValue: 'Current Stock Value',
+        tradeInvoice: 'Trade Invoice',
+        createTradeInvoice: 'Create Trade Invoice',
+        tradeInvoiceDetails: 'Trade Invoice Details',
+        NewRow: 'New Row',
+        Delete: 'Delete',
+        LoadArticles: 'Load Articles',
+        Available: 'Available',
+        notes: 'Notes',
+        addNotesHere: 'Add notes here',
+        allTradeInvoices: 'All Trade Invoices',
     },
     mk: {
         // Define your Macedonian translations here
@@ -1032,6 +1042,16 @@ const messages = {
         TotalMaterials: 'Вкупно материјали',
         TotalImportedQuantity: 'Вкупна увезена количина',
         CurrentStockValue: 'Вредност на моментална залиха',
+        tradeInvoice: 'Торговска Фактура',
+        createTradeInvoice: 'Креирај торговска фактура',
+        tradeInvoiceDetails: 'Детали за торговска фактура',
+        NewRow: 'Нов ред',
+        Delete: 'Избриши',
+        LoadArticles: 'Најди артикли',
+        Available: 'Наоѓање на артикли',
+        notes: 'Забелешки',
+        addNotesHere: 'Додади забелешки тука',
+        allTradeInvoices: 'Сите торговски фактури',
     },
 };
 

@@ -21,4 +21,9 @@ class Faktura extends Model
     {
         return $this->belongsTo(User::class, 'created_by');
     }
+
+    public function tradeItems()
+    {
+        return $this->hasMany(FakturaTradeItem::class);
+    }
 }

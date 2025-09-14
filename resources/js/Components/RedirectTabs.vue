@@ -3,6 +3,7 @@
         <button @click="navigate('/allInvoices')" :class="{ active: currentRoute === '/allInvoices' }">All Invoices</button>
         <button @click="navigate('/notInvoiced')" :class="{ active: currentRoute === '/notInvoiced' }">Not Invoiced</button>
         <button @click="navigate('/incomingInvoice')" :class="{ active: currentRoute === '/incomingInvoice' }">Incoming Invoice</button>
+        <button @click="navigate('/trade-invoices')" :class="{ active: currentRoute === '/trade-invoices' }">Trade Invoices</button>
         <button @click="navigate('/statements')" :class="{ active: currentRoute === '/statements' }">Bank Statements</button>
         <button @click="navigate('/cardStatements')" :class="{ active: currentRoute === '/cardStatements' }">Client Card Statements</button>
     </div>

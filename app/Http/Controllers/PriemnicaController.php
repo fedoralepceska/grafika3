@@ -8,6 +8,7 @@ use App\Models\LargeFormatMaterial;
 use App\Models\OtherMaterial;
 use App\Models\Priemnica;
 use App\Models\SmallMaterial;
+use App\Models\TradeWarehouseInventory;
 use App\Models\Warehouse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -195,9 +196,24 @@ class PriemnicaController extends Controller
         
         $priemnica->save();
 
+        // Check if this is a special warehouse
+        $warehouse = Warehouse::find($priemnica->warehouse);
+        $isSpecialWarehouse = $warehouse && $warehouse->isSpecialWarehouse();
+
         // Process material inventory reversals for original articles
         foreach ($originalArticles as $originalArticle) {
-            $this->reverseMaterialQuantity($originalArticle, $originalArticle->pivot->quantity);
+            if ($isSpecialWarehouse && $warehouse->isTradeWarehouse()) {
+                // Reverse trade warehouse inventory
+                TradeWarehouseInventory::removeStock(
+                    $originalArticle->id,
+                    $warehouse->id,
+                    $originalArticle->pivot->quantity
+                );
+            } elseif (!$isSpecialWarehouse) {
+                // Reverse regular material inventory
+                $this->reverseMaterialQuantity($originalArticle, $originalArticle->pivot->quantity);
+            }
+            // For "магацин 3 основни средства", do nothing
         }
 
         // Clear existing article associations
@@ -232,8 +248,21 @@ class PriemnicaController extends Controller
                     'custom_tax_type' => $customTaxType
                 ]);
                 
-                // Update material inventory with new quantities
-                $this->updateMaterialQuantity($article, $row['quantity']);
+                // Update inventory based on warehouse type
+                if ($isSpecialWarehouse && $warehouse->isTradeWarehouse()) {
+                    // Add to trade warehouse inventory
+                    TradeWarehouseInventory::addStock(
+                        $article->id,
+                        $warehouse->id,
+                        $row['quantity'],
+                        $customPrice ?? $article->purchase_price,
+                        $article->price_1
+                    );
+                } elseif (!$isSpecialWarehouse) {
+                    // Update regular material inventory
+                    $this->updateMaterialQuantity($article, $row['quantity']);
+                }
+                // For "магацин 3 основни средства", do nothing
             }
         }
 
@@ -257,6 +286,10 @@ class PriemnicaController extends Controller
         }
         
         $priemnica->save();
+
+        // Check if this is a special warehouse that should skip material updates
+        $warehouse = Warehouse::find($data[0]['warehouse']);
+        $isSpecialWarehouse = $warehouse && $warehouse->isSpecialWarehouse();
 
         foreach ($data as $row) {
             // Skip processing if the required fields are missing
@@ -284,40 +317,56 @@ class PriemnicaController extends Controller
                     'custom_price' => $customPrice,
                     'custom_tax_type' => $customTaxType
                 ]);
-                $materialData = [
-                    'name' => $article->name,
-                    'width' => $article->width,
-                    'height' => $article->height,
-                    'price_per_unit' => $article->purchase_price,
-                    'article_id' => $article->id
-                ];
 
-                if ($article->format_type === 1) {
-                    $existingMaterial = SmallMaterial::where('name', $materialData['name'])->first();
-                }
-                if ($article->format_type === 2) {
-                    $existingMaterial = LargeFormatMaterial::where('name', $materialData['name'])->first();
-                }
-                if ($article->format_type === 3) {
-                    $existingMaterial = OtherMaterial::where('name', $materialData['name'])->first();
-                }
-                if ($existingMaterial && isset($data[0])) {
-                    // Update existing material quantity
-                    $existingMaterial->quantity += $data[0]['quantity'];
-                    $existingMaterial->save();
+                if ($isSpecialWarehouse) {
+                    // For special warehouses, add to trade warehouse inventory instead of material tables
+                    if ($warehouse->isTradeWarehouse()) {
+                        TradeWarehouseInventory::addStock(
+                            $article->id,
+                            $warehouse->id,
+                            $row['quantity'],
+                            $customPrice ?? $article->purchase_price,
+                            $article->price_1
+                        );
+                    }
+                    // For "магацин 3 основни средства", we just skip material updates entirely
                 } else {
-                    // Create a new material with additional data from $data['quantity']
+                    // Regular warehouse - update material inventory as before
+                    $materialData = [
+                        'name' => $article->name,
+                        'width' => $article->width,
+                        'height' => $article->height,
+                        'price_per_unit' => $article->purchase_price,
+                        'article_id' => $article->id
+                    ];
+
                     if ($article->format_type === 1) {
-                        $materialData['quantity'] = $data[0]['quantity'];
-                        SmallMaterial::create($materialData);
+                        $existingMaterial = SmallMaterial::where('name', $materialData['name'])->first();
                     }
-                    else if ($article->format_type === 2) {
-                        $materialData['quantity'] = $data[0]['quantity'];
-                        LargeFormatMaterial::create($materialData);
+                    if ($article->format_type === 2) {
+                        $existingMaterial = LargeFormatMaterial::where('name', $materialData['name'])->first();
                     }
-                    else {
-                        $materialData['quantity'] = $data[0]['quantity'];
-                        OtherMaterial::create($materialData);
+                    if ($article->format_type === 3) {
+                        $existingMaterial = OtherMaterial::where('name', $materialData['name'])->first();
+                    }
+                    if ($existingMaterial && isset($data[0])) {
+                        // Update existing material quantity
+                        $existingMaterial->quantity += $row['quantity'];
+                        $existingMaterial->save();
+                    } else {
+                        // Create a new material with additional data from $data['quantity']
+                        if ($article->format_type === 1) {
+                            $materialData['quantity'] = $row['quantity'];
+                            SmallMaterial::create($materialData);
+                        }
+                        else if ($article->format_type === 2) {
+                            $materialData['quantity'] = $row['quantity'];
+                            LargeFormatMaterial::create($materialData);
+                        }
+                        else {
+                            $materialData['quantity'] = $row['quantity'];
+                            OtherMaterial::create($materialData);
+                        }
                     }
                 }
             }

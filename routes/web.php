@@ -31,6 +31,8 @@ use App\Http\Controllers\ItemController;
 use App\Http\Controllers\PriceController;
 use App\Http\Controllers\IncomingFakturaController;
 use App\Http\Controllers\SubcategoryController;
+use App\Http\Controllers\TradeInvoiceController;
+use App\Http\Controllers\TradeArticlesController;
 use App\Http\Controllers\UserRoleController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\QuestionController;
@@ -74,11 +76,12 @@ Route::resource('invoices', \App\Http\Controllers\InvoiceController::class)
     ->only(['index', 'store'])
     ->middleware(['auth', 'verified']);
 Route::middleware(['auth', 'verified'])->group(function() {
-    Route::get('/orders', [InvoiceController::class, 'index'])->name('invoices.index');
+    Route::get('/orders', [InvoiceController::class, 'index'])->name('orders.index');
     Route::get('/notInvoiced', [InvoiceController::class, 'invoiceReady'])->name('invoices.invoiceReady');
     Route::get('/invoiceGeneration',  [InvoiceController::class, 'showGenerateInvoice'])->name('invoices.showGenerateInvoice');
     Route::get('/allInvoices',  [InvoiceController::class, 'allFaktura'])->name('invoices.allFaktura');
     Route::post('/generate-invoice',  [InvoiceController::class, 'generateInvoice'])->name('invoices.generateInvoice');
+    Route::post('/preview-invoice',  [InvoiceController::class, 'previewInvoice'])->name('invoices.previewInvoice');
     Route::get('orders/latest', [InvoiceController::class, 'latest'])->name('invoices.latest');
     Route::get('orders/latest-open', [InvoiceController::class, 'latestOpenOrders'])->name('invoices.latestOpen');
     Route::get('orders/completed', [InvoiceController::class, 'completedOrders'])->name('invoices.completed');
@@ -105,7 +108,17 @@ Route::middleware(['auth', 'verified'])->group(function() {
     Route::post('/outgoing/invoice', [InvoiceController::class, 'outgoingInvoicePdf'])->name('invoices.outgoingInvoicePdf');
     Route::put('/incomingInvoice/{id}', [IncomingFakturaController::class, 'update'])->name('incomingInvoice.update');
 
+    // Trade Invoice routes
+    Route::resource('trade-invoices', TradeInvoiceController::class);
+    Route::get('/trade-invoices/{warehouseId}/available-articles', [TradeInvoiceController::class, 'getAvailableArticles'])->name('trade-invoices.available-articles');
+    Route::put('/trade-invoices/{id}/status', [TradeInvoiceController::class, 'updateStatus'])->name('trade-invoices.update-status');
+    Route::get('/trade-invoices/{id}/pdf', [TradeInvoiceController::class, 'generatePdf'])->name('trade-invoices.pdf');
 
+    // Trade Articles routes
+    Route::get('/trade-articles', [TradeArticlesController::class, 'index'])->name('trade-articles.index');
+    Route::get('/trade-articles/summary', [TradeArticlesController::class, 'summary'])->name('trade-articles.summary');
+    Route::get('/trade-articles/low-stock', [TradeArticlesController::class, 'lowStock'])->name('trade-articles.low-stock');
+    Route::put('/trade-articles/{id}/selling-price', [TradeArticlesController::class, 'updateSellingPrice'])->name('trade-articles.update-selling-price');
 
     // finance routes
     Route::get('/statements', [CertificateController::class, 'index'])->name('certificates.index');

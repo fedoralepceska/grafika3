@@ -5,20 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Фактури</title>
     <style>
-        @font-face {
-            font-family: 'Tahoma';
-            src: url('{{ storage_path('fonts/tahoma.ttf') }}') format('truetype');
-            font-weight: normal;
-            font-style: normal;
-        }
-        @font-face {
-            font-family: 'Tahoma';
-            src: url('{{ storage_path('fonts/tahomabd.ttf') }}') format('truetype');
-            font-weight: bold;
-            font-style: normal;
-        }
         html, body {
-            font-family: 'Tahoma', sans-serif;
+            font-family: 'DejaVu Sans', sans-serif;
             height: 100%;
             margin: 0;
         }
@@ -199,11 +187,11 @@
                             <div class="client-border">
                                 <div class="client-name">{{$invoice['client']['name']}}</div>
                                 <div class="contact-info">
-                                    <div>{{$invoice['client']['client_card_statement']['fax'] || ''}}</div>
-                                    <div>{{$invoice['client']['address']}}</div>
+                                    <div>{{$invoice['client']['client_card_statement']['fax'] ?? ''}}</div>
+                                    <div>{{$invoice['client']['address'] ?? ''}}</div>
                                 </div>
                                 <div class="edb">
-                                   ЕДБ: {{$invoice['client']['client_card_statement']['edb'] || ''}}
+                                   ЕДБ: {{$invoice['client']['client_card_statement']['edb'] ?? ''}}
                                 </div>
                             </div>
                             <div style=" text-align: right "><span style="font-weight: bold; font-size: 7px">Датум :</span> {{$invoice['end_date']}}</div>
@@ -251,6 +239,25 @@
                     <td>{{ $invoice['priceWithTax'] }}</td>
                 </tr>
             @endforeach
+            @if(isset($invoice['trade_items']) && count($invoice['trade_items']) > 0)
+                @foreach($invoice['trade_items'] as $tIndex => $tradeItem)
+                    <tr>
+                        <td>{{ (isset($invoice['jobs']) && is_countable($invoice['jobs']) ? count($invoice['jobs']) : 0) + $tIndex + 1 }}.</td>
+                        <td>{{ $tradeItem['article_id'] }}</td>
+                        <td>{{ $tradeItem['article_name'] }}</td>
+                        <td>ед.</td>
+                        <td>{{ $tradeItem['quantity'] }}</td>
+                        <td>{{ number_format($tradeItem['unit_price'], 2) }}</td>
+                        <td>0%</td>
+                        <td>{{ number_format($tradeItem['unit_price'], 2) }}</td>
+                        <td>{{ $tradeItem['vat_rate'] }}%</td>
+                        <td>{{ number_format($tradeItem['unit_price'] * (1 + $tradeItem['vat_rate'] / 100), 2) }}</td>
+                        <td>{{ number_format($tradeItem['total_price'], 2) }}</td>
+                        <td>{{ number_format($tradeItem['vat_amount'], 2) }}</td>
+                        <td>{{ number_format($tradeItem['total_price'] + $tradeItem['vat_amount'], 2) }}</td>
+                    </tr>
+                @endforeach
+            @endif
             </tbody>
         </table>
     </div>
@@ -282,6 +289,23 @@
                             @php
                                 $totals = calculateTotalsByTaxRate($invoices, (float) $data['ddv_percent']);
                                 $verticalSums = calculateVerticalSums($invoices);
+                                
+                                // Add trade items totals
+                                $tradeItemsTotal = 0;
+                                $tradeItemsVatTotal = 0;
+                                foreach ($invoices as $invoice) {
+                                    if (isset($invoice['trade_items'])) {
+                                        foreach ($invoice['trade_items'] as $tradeItem) {
+                                            $tradeItemsTotal += $tradeItem['total_price'];
+                                            $tradeItemsVatTotal += $tradeItem['vat_amount'];
+                                        }
+                                    }
+                                }
+                                
+                                // Update totals to include trade items
+                                $verticalSums['totalPriceWithTaxSum'] += $tradeItemsTotal;
+                                $verticalSums['totalTaxSum'] += $tradeItemsVatTotal;
+                                $verticalSums['totalOverallSum'] += $tradeItemsTotal + $tradeItemsVatTotal;
                             @endphp
                             <tr>
                                 <td style="border: 1px solid black; padding: 1px; font-size: 7px; text-align: left">{{ $data['danok'] }}</td>

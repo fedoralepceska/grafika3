@@ -30,7 +30,8 @@ class Invoice extends Model
         'rush',
         'additionalArt',
         'LockedNote',
-        'article_id'
+        'article_id',
+        'faktura_id'
     ];
 
 
@@ -72,5 +73,10 @@ class Invoice extends Model
     public function contact()
     {
         return $this->belongsTo(Contact::class, 'contact_id');
+    }
+
+    public function faktura()
+    {
+        return $this->belongsTo(Faktura::class, 'faktura_id');
     }
 }

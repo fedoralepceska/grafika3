@@ -198,13 +198,29 @@ export default {
             const selectedId = this.invoice[0].id;
 
             try {
-                const response = await axios.post('/outgoing/invoice', { invoiceIds: [selectedId], generated: true }, {
-                    responseType: 'blob',
+                const response = await axios.post('/outgoing/invoice', { invoiceIds: [selectedId], generated: true, debug: true }, {
+                    responseType: 'json',
+                    validateStatus: () => true,
                 });
 
-                const blob = new Blob([response.data], { type: 'application/pdf' });
-                const url = window.URL.createObjectURL(blob);
-                window.open(url, '_blank');
+                if (response.headers['content-type']?.includes('application/json')) {
+                    console.log('Print data sent to PDF:', response.data);
+                    const hasTrade = Array.isArray(response.data?.invoices) && response.data.invoices.some(inv => (inv.trade_items || []).length > 0);
+                    if (!hasTrade) {
+                        toast.error('No trade items found in print payload.');
+                    } else {
+                        toast.success('Trade items present in print payload. Switching to PDF...');
+                    }
+                    // Now request the actual PDF (non-debug)
+                    const pdfResp = await axios.post('/outgoing/invoice', { invoiceIds: [selectedId], generated: true }, { responseType: 'blob' });
+                    const blob = new Blob([pdfResp.data], { type: 'application/pdf' });
+                    const url = window.URL.createObjectURL(blob);
+                    window.open(url, '_blank');
+                } else {
+                    const blob = new Blob([response.data], { type: 'application/pdf' });
+                    const url = window.URL.createObjectURL(blob);
+                    window.open(url, '_blank');
+                }
             } catch (error) {
                 console.error('Error generating invoices:', error);
                 toast.error('An error occurred while generating the invoice. Please try again.');

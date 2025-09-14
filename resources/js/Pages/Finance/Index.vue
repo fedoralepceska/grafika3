@@ -147,7 +147,7 @@ export default {
         this.invoices.data.forEach(invoice => {
             this.iconStates[invoice.id] = false;
         });
-        this.filteredInvoices = this.invoices.data.filter(invoice => !invoice.faktura_id);
+        this.filteredInvoices = this.invoices.data; // Backend now handles the faktura_id filtering
     },
     computed:{
         hasSelectedInvoices() {
@@ -280,19 +280,9 @@ export default {
                 return;
             }
 
-            try {
-                const response = await axios.post('/outgoing/invoice', { invoiceIds: selectedIds }, {
-                    responseType: 'blob',
-                });
-
-                const blob = new Blob([response.data], { type: 'application/pdf' });
-                const url = window.URL.createObjectURL(blob);
-                window.open(url, '_blank');
-                this.searchInvoices();
-            } catch (error) {
-                console.error('Error generating invoices:', error);
-                toast.error('An error occurred while generating the invoices. Please try again.');
-            }
+            // Redirect to invoice generation page with selected orders
+            const queryParams = selectedIds.map(id => `orders[]=${id}`).join('&');
+            this.$inertia.visit(`/invoiceGeneration?${queryParams}`);
         },
     },
 };

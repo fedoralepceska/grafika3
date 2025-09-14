@@ -55,6 +55,10 @@ class MenuService
                             'href' => '/materials/large',
                             'title' => 'Large Materials',
                         ],
+                        [
+                            'href' => '/trade-articles',
+                            'title' => 'Trade Articles',
+                        ],
                     ],
                 
                 ],
@@ -133,6 +137,10 @@ class MenuService
                         [
                             'href' => '/materials/large',
                             'title' => 'Large Materials',
+                        ],
+                        [
+                            'href' => '/trade-articles',
+                            'title' => 'Trade Articles',
                         ],
                     ],
                 
@@ -230,6 +238,10 @@ class MenuService
                         [
                             'href' => '/notInvoiced',
                             'title' => 'Uninvoiced Orders',
+                        ],
+                        [
+                            'href' => '/trade-invoices',
+                            'title' => 'Trade Invoices',
                         ],
                         [
                             'href' => '/incomingInvoice',

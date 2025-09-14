@@ -18,6 +18,12 @@
                                 {{ spreadsheetMode ?  'Edit' : 'Exit Edit Mode' }}
                                 <i class="fa-regular fa-edit"></i>
                             </button>
+                            <button class="btn blue" @click="showTradeItemsModal = true">
+                                Add Trade Items <i class="fa-solid fa-plus"></i>
+                            </button>
+                            <button class="btn orange" @click="previewInvoice">
+                                Preview <i class="fa-solid fa-eye"></i>
+                            </button>
                             <button  class="btn generate-invoice" @click="generateInvoice">Generate Invoice <i class="fa-solid fa-file-invoice-dollar"></i></button>
                         </div>
                     </div>
@@ -74,7 +80,7 @@
                                             <span class="bold">
                                             <span v-if="job.articles && job.articles.length > 0">
                                                 <span v-for="(article, index) in job.articles" :key="article.id">
-                                                    {{ article.name }} ({{ article.pivot.quantity }} {{ article.in_square_meters ? 'm²' : (article.in_pieces ? 'ком.' : (article.in_kilograms ? 'кг' : (article.in_meters ? 'м' : 'ед.'))) }})
+                                                    {{ article.name }} ({{ article.pivot.quantity }} {{ getUnitText(article) }})
                                                     <span v-if="index < job.articles.length - 1">, </span>
                                                 </span>
                                             </span>
@@ -84,7 +90,7 @@
                                         </div>
                                         <div>{{$t('totalm')}}<sup>2</sup>: <span class="bold">{{(job.computed_total_area_m2 && typeof job.computed_total_area_m2 === 'number') ? job.computed_total_area_m2.toFixed(4) : '0.0000'}}</span></div>
                                     </div>
-                                        <OrderJobDetails :job="job" :invoice-id="invoice.id"/>
+                                        <OrderJobDetails :job="job" :invoice-id="invoiceData.id"/>
                                     <div class="jobInfo relative pt-3">
                                         <div class="jobShippingInfo">
                                             <div class=" bg-white text-black bold ">
@@ -116,6 +122,105 @@
                             <OrderSpreadsheet :invoice="invoiceData"/>
                         </div>
                     </div>
+                </div>
+
+                <!-- Trade Items Section -->
+                <div class="dark-gray p-5 text-white mt-4" v-if="tradeItems.length > 0">
+                    <div class="form-container p-2 light-gray">
+                        <div class="sub-title pl-2">Trade Items</div>
+                        <table class="trade-items-table">
+                            <thead>
+                                <tr>
+                                    <th>Article</th>
+                                    <th>Quantity</th>
+                                    <th>Unit Price</th>
+                                    <th>Total</th>
+                                    <th>VAT</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr v-for="(item, index) in tradeItems" :key="index">
+                                    <td>{{ item.article_name }}</td>
+                                    <td>{{ item.quantity }}</td>
+                                    <td>{{ formatNumber(item.unit_price) }} ден</td>
+                                    <td>{{ formatNumber(item.total_price) }} ден</td>
+                                    <td>{{ formatNumber(item.vat_amount) }} ден</td>
+                                    <td>
+                                        <button @click="removeTradeItem(index)" class="btn delete">
+                                            <i class="fa-solid fa-trash"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                        <div class="trade-items-total">
+                            <strong>Trade Items Total: {{ formatNumber(tradeItemsTotal) }} ден (incl. VAT)</strong>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Trade Items Modal -->
+        <div v-if="showTradeItemsModal" class="modal-overlay" @click="closeModal">
+            <div class="modal-content" @click.stop>
+                <div class="modal-header">
+                    <h3>Add Trade Items</h3>
+                    <button @click="closeModal" class="close-btn">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label>Select Article:</label>
+                        <select v-model="selectedArticle" class="form-control">
+                            <option value="">Choose an article...</option>
+                            <option v-for="article in availableTradeArticles" :key="article.id" :value="article">
+                                {{ article.article.name }} ({{ article.article.code }}) - Stock: {{ article.quantity }} - Price: {{ formatNumber(article.selling_price || 0) }} ден
+                            </option>
+                        </select>
+                    </div>
+                    <div class="form-group" v-if="selectedArticle">
+                        <label>Quantity:</label>
+                        <input type="number" v-model.number="tradeItemQuantity" :max="selectedArticle.quantity" min="1" class="form-control">
+                        <small class="form-help-text">Available: {{ selectedArticle.quantity }}</small>
+                    </div>
+                    <div class="form-group" v-if="selectedArticle">
+                        <label>Unit Price:</label>
+                        <input type="number" v-model.number="tradeItemPrice" step="0.01" min="0" class="form-control">
+                    </div>
+                    <div class="form-group" v-if="selectedArticle && tradeItemQuantity && tradeItemPrice">
+                        <div class="price-breakdown">
+                            <div>Subtotal: {{ formatNumber(tradeItemQuantity * tradeItemPrice) }} ден</div>
+                            <div>VAT (18%): {{ formatNumber((tradeItemQuantity * tradeItemPrice) * 0.18) }} ден</div>
+                            <div><strong>Total: {{ formatNumber((tradeItemQuantity * tradeItemPrice) * 1.18) }} ден</strong></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button @click="addTradeItem" :disabled="!canAddTradeItem" class="btn green">Add Item</button>
+                    <button @click="closeModal" class="btn delete">Cancel</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Preview Modal -->
+        <div v-if="showPreviewModalFlag" class="modal-overlay" @click="closePreviewModal">
+            <div class="preview-modal-content" @click.stop>
+                <div class="modal-header">
+                    <h3>Invoice Preview</h3>
+                    <button @click="closePreviewModal" class="close-btn">&times;</button>
+                </div>
+                <div class="preview-modal-body">
+                    <iframe 
+                        :src="previewPdfUrl" 
+                        width="100%" 
+                        height="600px" 
+                        frameborder="0"
+                        title="Invoice Preview">
+                    </iframe>
+                </div>
+                <div class="modal-footer">
+                    <button @click="closePreviewModal" class="btn delete">Close Preview</button>
                 </div>
             </div>
         </div>
@@ -150,15 +255,33 @@ export default {
                 return "green-text";
             }
         },
+        tradeItemsTotal() {
+            return this.tradeItems.reduce((total, item) => total + (item.total_price + item.vat_amount), 0);
+        },
+        canAddTradeItem() {
+            return this.selectedArticle && 
+                   this.tradeItemQuantity > 0 && 
+                   this.tradeItemQuantity <= this.selectedArticle.quantity &&
+                   this.tradeItemPrice > 0;
+        }
     },
     data() {
         return {
             showImagePopover: false,
             selectedJob: null,
             isSidebarVisible: false,
-            spreadsheetMode:true,
+            spreadsheetMode: true,
             backgroundColor: null,
-            openDialog: false
+            openDialog: false,
+            comment: '',
+            showTradeItemsModal: false,
+            availableTradeArticles: [],
+            selectedArticle: null,
+            tradeItemQuantity: 1,
+            tradeItemPrice: 0,
+            tradeItems: [],
+            showPreviewModalFlag: false,
+            previewPdfUrl: null
         }
     },
     methods: {
@@ -171,35 +294,156 @@ export default {
         generatePdf(invoiceId) {
             window.open(`/orders/${invoiceId}/pdf`, '_blank');
         },
+        async loadTradeArticles() {
+            try {
+                const response = await axios.get('/trade-articles');
+                this.availableTradeArticles = response.data.data || [];
+            } catch (error) {
+                console.error('Error loading trade articles:', error);
+            }
+        },
+        closeModal() {
+            this.showTradeItemsModal = false;
+            this.selectedArticle = null;
+            this.tradeItemQuantity = 1;
+            this.tradeItemPrice = 0;
+        },
+        addTradeItem() {
+            if (!this.canAddTradeItem) return;
+            
+            const subtotal = this.tradeItemQuantity * this.tradeItemPrice;
+            const vatAmount = subtotal * 0.18;
+            
+            this.tradeItems.push({
+                article_id: this.selectedArticle.article.id,
+                article_name: this.selectedArticle.article.name,
+                article_code: this.selectedArticle.article.code,
+                quantity: this.tradeItemQuantity,
+                unit_price: this.tradeItemPrice,
+                total_price: subtotal,
+                vat_rate: 18.00,
+                vat_amount: vatAmount
+            });
+            
+            this.closeModal();
+        },
+        removeTradeItem(index) {
+            this.tradeItems.splice(index, 1);
+        },
+        formatNumber(number) {
+            return Number(number).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        },
+        getUnitText(article) {
+            if (article.in_square_meters) return 'm²';
+            if (article.in_pieces) return 'ком.';
+            if (article.in_kilograms) return 'кг';
+            if (article.in_meters) return 'м';
+            return 'ед.';
+        },
+        async previewInvoice() {
+            const toast = useToast();
+            try {
+                const orderIds = Object.values(this.invoiceData).map(order => order.id);
+                
+                const response = await axios.post('/preview-invoice', {
+                    orders: orderIds,
+                    comment: this.comment,
+                    trade_items: this.tradeItems
+                }, {
+                    responseType: 'blob' // Important for PDF response
+                });
+                
+                // Create blob URL for iframe display
+                const blob = new Blob([response.data], { type: 'application/pdf' });
+                const url = window.URL.createObjectURL(blob);
+                
+                // Show preview in modal with iframe
+                this.showPreviewModal(url);
+                
+            } catch (error) {
+                let serverMessage = 'Internal Server Error';
+                try {
+                    if (error?.response?.data instanceof Blob) {
+                        const text = await error.response.data.text();
+                        try {
+                            const parsed = JSON.parse(text);
+                            serverMessage = parsed.error || parsed.message || text;
+                        } catch (_) {
+                            serverMessage = text;
+                        }
+                    } else if (error?.response?.data) {
+                        const data = error.response.data;
+                        serverMessage = data.error || data.message || JSON.stringify(data);
+                    }
+                } catch (_) {}
+                console.error('Error generating preview:', serverMessage, error);
+                toast.error(`Error generating preview: ${serverMessage}`);
+            }
+        },
+        showPreviewModal(pdfUrl) {
+            this.previewPdfUrl = pdfUrl;
+            this.showPreviewModalFlag = true;
+        },
+        closePreviewModal() {
+            this.showPreviewModalFlag = false;
+            if (this.previewPdfUrl) {
+                window.URL.revokeObjectURL(this.previewPdfUrl);
+                this.previewPdfUrl = null;
+            }
+        },
         async generateInvoice() {
             const toast = useToast();
             try {
-                // Your array of order ids
-                // These are the main orders, naming is strange
                 const orderIds = Object.values(this.invoiceData).map(order => order.id);
-                const comment = this.comment;
-                // Send a POST request to your Laravel backend
+                
                 const response = await axios.post('/generate-invoice', {
                     orders: orderIds,
-                    comment: comment
+                    comment: this.comment,
+                    trade_items: this.tradeItems
+                }, {
+                    responseType: 'blob' // Important for PDF response
                 });
 
-                if (response.data.invoice_id) {
-                    this.$inertia.visit(`/invoice/${response.data.invoice_id}`);
-                }
+                // Open PDF in new tab
+                const blob = new Blob([response.data], { type: 'application/pdf' });
+                const url = window.URL.createObjectURL(blob);
+                window.open(url, '_blank');
 
-                // Handle successful response here (if needed)
                 toast.success('Invoice generated successfully');
             } catch (error) {
-                // Handle errors here (if needed)
+                console.error('Error generating invoice:', error);
                 toast.error('Error generating invoice!');
             }
         }
     },
-};
-</script>
+    mounted() {
+        this.loadTradeArticles();
+        
+        // Watch for changes in selected article to auto-fill price
+        this.$watch('selectedArticle', (newArticle) => {
+            if (newArticle && newArticle.selling_price) {
+                this.tradeItemPrice = newArticle.selling_price;
+            }
+        });
+      }
+  };
+  </script>
 
 <style scoped lang="scss">
+// Import color variables
+$background-color: #1a2732;
+$gray: #3c4e59;
+$dark-gray: #2a3946;
+$light-gray: #54606b;
+$ultra-light-gray: #77808b;
+$white: #ffffff;
+$black: #000000;
+$green: #408a0b;
+$light-green: #81c950;
+$blue: #0073a9;
+$red: #9e2c30;
+$orange: #a36a03;
+
 .circle {
     width: 40px;
     height: 40px;
@@ -280,6 +524,7 @@ export default {
     border: none;
     cursor: pointer;
     font-weight: bold;
+    color: white;
     border-radius: 2px;
 }
 .btn2{
@@ -430,6 +675,244 @@ table th {
     border-top: 1px solid #ddd;
     border-bottom: 1px solid #ddd;
     background-color: $ultra-light-gray;
+}
 
+/* Trade Items Styles */
+.trade-items-table {
+    width: 100%;
+    margin-top: 10px;
+    border-collapse: collapse;
+}
+
+.trade-items-table th,
+.trade-items-table td {
+    padding: 8px;
+    border: 1px solid #ddd;
+    text-align: center;
+}
+
+.trade-items-table th {
+    background-color: $ultra-light-gray;
+    color: white;
+}
+
+.trade-items-total {
+    text-align: right;
+    margin-top: 10px;
+    padding: 10px;
+    background-color: $dark-gray;
+    border-radius: 4px;
+}
+
+/* Modal Styles */
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.7);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+}
+
+.modal-content {
+    background-color: $dark-gray;
+    border: 1px solid $ultra-light-gray;
+    border-radius: 8px;
+    width: 90%;
+    max-width: 600px;
+    max-height: 80vh;
+    overflow-y: auto;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem 1.5rem;
+    border-bottom: 1px solid $ultra-light-gray;
+    background-color: $dark-gray;
+}
+
+.modal-header h3 {
+    color: $white;
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin: 0;
+    display: flex;
+    align-items: center;
+}
+
+.close-btn {
+    background: none;
+    border: none;
+    color: $white;
+    font-size: 1.5rem;
+    cursor: pointer;
+    padding: 0.25rem;
+    width: 30px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+    transition: background-color 0.2s;
+}
+
+.close-btn:hover {
+    background-color: $ultra-light-gray;
+}
+
+.modal-body {
+    padding: 1.5rem;
+    color: $white;
+    background-color: $dark-gray;
+}
+
+.modal-footer {
+    padding: 1rem 1.5rem;
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+    border-top: 1px solid $ultra-light-gray;
+    background-color: $dark-gray;
+}
+
+.form-group {
+    margin-bottom: 1rem;
+}
+
+.form-group label {
+    display: block;
+    color: $white;
+    font-size: 0.875rem;
+    font-weight: 500;
+    margin-bottom: 0.375rem;
+}
+
+.form-control {
+    width: 100%;
+    padding: 0.5rem 0.75rem;
+    border: 1px solid $ultra-light-gray;
+    border-radius: 4px;
+    background-color: $light-gray;
+    color: $white;
+    font-size: 0.875rem;
+    transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.form-control:focus {
+    outline: none;
+    border-color: $blue;
+    box-shadow: 0 0 0 2px rgba($blue, 0.2);
+}
+
+.form-control::placeholder {
+    color: $ultra-light-gray;
+}
+
+.form-control option {
+    background-color: $light-gray;
+    color: $white;
+}
+
+.form-help-text {
+    display: block;
+    color: $ultra-light-gray;
+    font-size: 0.75rem;
+    margin-top: 0.25rem;
+    font-style: italic;
+}
+
+.price-breakdown {
+    background-color: $light-gray;
+    padding: 12px;
+    border-radius: 4px;
+    border: 1px solid $ultra-light-gray;
+    margin-top: 8px;
+}
+
+.price-breakdown div {
+    margin-bottom: 4px;
+    color: $white;
+}
+
+.price-breakdown div:last-child {
+    margin-bottom: 0;
+    font-weight: bold;
+    color: $white;
+}
+
+.btn {
+    padding: 8px 16px;
+    border: none;
+    border-radius: 4px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: background-color 0.2s;
+    font-size: 0.875rem;
+}
+
+.btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.btn.green {
+    background-color: $green;
+    color: white;
+}
+
+.btn.green:hover:not(:disabled) {
+    background-color: darken($green, 10%);
+}
+
+.btn.delete {
+    background-color: $red;
+    color: white;
+}
+
+.btn.delete:hover:not(:disabled) {
+    background-color: darken($red, 10%);
+}
+
+.btn.orange {
+    background-color: $orange;
+    color: white;
+}
+
+.btn.orange:hover:not(:disabled) {
+    background-color: darken($orange, 10%);
+}
+
+/* Preview Modal Styles */
+.preview-modal-content {
+    background-color: $dark-gray;
+    border: 1px solid $ultra-light-gray;
+    border-radius: 8px;
+    width: 95%;
+    max-width: 1200px;
+    max-height: 90vh;
+    overflow: hidden;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+}
+
+.preview-modal-body {
+    padding: 0;
+    background-color: $dark-gray;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+
+.preview-modal-body iframe {
+    border: none;
+    border-radius: 4px;
+    background-color: white;
 }
 </style>

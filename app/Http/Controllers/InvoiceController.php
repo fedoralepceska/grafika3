@@ -6,6 +6,7 @@ use App\Models\JobAction;
 use App\Events\InvoiceCreated;
 use App\Models\Article;
 use App\Models\Faktura;
+use App\Models\FakturaTradeItem;
 use App\Models\Invoice;
 use App\Models\Job;
 use App\Models\LargeFormatMaterial;
@@ -821,7 +822,8 @@ class InvoiceController extends Controller
     public function invoiceReady(Request $request){
         try {
             $query = Invoice::with(['jobs', 'user', 'client'])
-                ->where('status', 'Completed'); // Filter by 'Completed' status
+                ->where('status', 'Completed') // Filter by 'Completed' status
+                ->whereNull('faktura_id'); // Only show invoices that haven't been invoiced yet
 
             $this->applySearch($query, $request, $request->input('status'));
 
@@ -847,16 +849,17 @@ class InvoiceController extends Controller
     {
         $invoiceIds = $request->input('invoiceIds', []);
         $isAlreadyGenerated = $request->input('generated', false);
+        $debug = filter_var($request->input('debug', false), FILTER_VALIDATE_BOOLEAN);
 
         if (empty($invoiceIds)) {
             return response()->json(['error' => 'No invoices selected'], 400);
         }
 
-        $invoices = Invoice::with(['article','client','client.clientCardStatement'])->findOrFail($invoiceIds);
+        $invoices = Invoice::with(['article','client','client.clientCardStatement','faktura.tradeItems.article'])->findOrFail($invoiceIds);
 
         $dns1d = new DNS1D();
         // Create a transformed array for PDF generation without modifying the original invoices
-        $transformedInvoices = $invoices->map(function ($invoice) use ($dns1d) {
+        $transformedInvoices = $invoices->map(function ($invoice) use ($dns1d, $isAlreadyGenerated) {
             $barcodeString = $invoice->id . '-' . date('m-Y', strtotime($invoice->end_date));
             $barcodeImage = base64_encode($dns1d->getBarcodePNG($barcodeString, 'C128'));
 
@@ -866,6 +869,23 @@ class InvoiceController extends Controller
             $taxRate = 0.18;
             $priceWithTax = $totalSalePrice * (1 + $taxRate);
             $taxAmount = $totalSalePrice * $taxRate;
+
+            // Include trade items for already generated invoices (load from Faktura)
+            $tradeItemsArray = [];
+            if ($isAlreadyGenerated && $invoice->faktura) {
+                $tradeItems = $invoice->faktura->tradeItems; // allow lazy/eager
+                $tradeItemsArray = $tradeItems->map(function ($item) {
+                    return [
+                        'article_id' => $item->article_id,
+                        'article_name' => optional($item->article)->name,
+                        'quantity' => (float) $item->quantity,
+                        'unit_price' => (float) $item->unit_price,
+                        'total_price' => (float) $item->total_price,
+                        'vat_rate' => (float) $item->vat_rate,
+                        'vat_amount' => (float) $item->vat_amount,
+                    ];
+                })->toArray();
+            }
 
             // Return a new array for this invoice with the required fields
             return array_merge(
@@ -877,12 +897,18 @@ class InvoiceController extends Controller
                     'priceWithTax' => $priceWithTax,
                     'taxAmount' => $taxAmount,
                     'copies' => $totalCopies,
+                    'trade_items' => $tradeItemsArray,
                 ]
             );
         })->toArray(); // Convert the collection to an array for the PDF
 
         // Attempt to generate the PDF before creating Faktura
         try {
+            if ($debug) {
+                \Log::info('OutgoingInvoice PDF data', ['invoices' => $transformedInvoices]);
+                return response()->json(['invoices' => $transformedInvoices], 200);
+            }
+
             $pdf = PDF::loadView('invoices.outgoing_invoice', [
                 'invoices' => $transformedInvoices,
                 'isHtml5ParserEnabled' => true,
@@ -914,7 +940,14 @@ class InvoiceController extends Controller
     public function showGenerateInvoice(Request $request)
     {
         try {
-            $invoiceIds = explode(',', $request->query('invoices'));
+            // Handle both old format (invoices=1,2,3) and new format (orders[]=1&orders[]=2)
+            if ($request->has('invoices')) {
+                $invoiceIds = explode(',', $request->query('invoices'));
+            } elseif ($request->has('orders')) {
+                $invoiceIds = $request->query('orders');
+            } else {
+                throw new \Exception('No invoice IDs provided');
+            }
 
             $invoices = Invoice::with([
                 'jobs' => function ($query) {
@@ -965,34 +998,115 @@ class InvoiceController extends Controller
     {
         $invoiceIds = $request->input('orders');
         $comment = $request->input('comment');
+        $tradeItems = $request->input('trade_items', []);
+        
         try {
             // Start a database transaction
             DB::beginTransaction();
 
             // Create a new Faktura instance
             $faktura = Faktura::create([
-                'isInvoiced' => true,
+                'isInvoiced' => 1,
                 'comment' => $comment,
                 'created_by' => auth()->id()
             ]);
 
             // Retrieve the Invoice instances based on the provided IDs
-            $invoices = Invoice::find($invoiceIds);
+            $invoices = Invoice::with(['jobs.actions', 'contact', 'user', 'client', 'article', 'client.clientCardStatement'])
+                ->find($invoiceIds);
 
             // Associate the retrieved Invoice instances with the new Faktura
-            $faktura->invoices()->saveMany($invoices);
+            foreach ($invoices as $invoice) {
+                $invoice->faktura_id = $faktura->id;
+                $invoice->save();
+            }
+
+            // Handle trade items if provided
+            \Log::info('GenerateInvoice received trade items', [
+                'count' => is_array($tradeItems) ? count($tradeItems) : 0,
+                'items' => $tradeItems,
+            ]);
+            foreach ($tradeItems as $tradeItem) {
+                FakturaTradeItem::create([
+                    'faktura_id' => $faktura->id,
+                    'article_id' => $tradeItem['article_id'] ?? null,
+                    'quantity' => $tradeItem['quantity'] ?? 0,
+                    'unit_price' => $tradeItem['unit_price'] ?? 0,
+                    'total_price' => $tradeItem['total_price'] ?? 0,
+                    'vat_rate' => $tradeItem['vat_rate'] ?? 0,
+                    'vat_amount' => $tradeItem['vat_amount'] ?? 0,
+                ]);
+            }
+            \Log::info('Faktura trade items stored', [
+                'faktura_id' => $faktura->id,
+                'stored_count' => $faktura->tradeItems()->count()
+            ]);
 
             // Commit the transaction
             DB::commit();
 
-            // Return success response
-            return response()->json([
-                'message' => 'Faktura created successfully',
-                'invoice_id' => $faktura->id
-            ], 200);
+            // Generate PDF for the created invoice
+            $dns1d = new DNS1D();
+            $transformedInvoices = $invoices->map(function ($invoice) use ($dns1d, $tradeItems, $comment) {
+                $barcodeString = $invoice->id . '-' . date('m-Y', strtotime($invoice->end_date));
+                $barcodeImage = base64_encode($dns1d->getBarcodePNG($barcodeString, 'C128'));
+
+                $totalSalePrice = $invoice->jobs->sum('salePrice');
+                $totalCopies = $invoice->jobs->sum('copies');
+
+                $taxRate = 0.18;
+                $priceWithTax = $totalSalePrice * (1 + $taxRate);
+                $taxAmount = $totalSalePrice * $taxRate;
+
+                // Add trade items to this invoice's data
+                $invoiceTradeItems = collect($tradeItems)->map(function ($item) {
+                    return [
+                        'article_id' => $item['article_id'],
+                        'article_name' => $item['article_name'],
+                        'quantity' => $item['quantity'],
+                        'unit_price' => $item['unit_price'],
+                        'total_price' => $item['total_price'],
+                        'vat_rate' => $item['vat_rate'],
+                        'vat_amount' => $item['vat_amount']
+                    ];
+                });
+
+                // Return a new array for this invoice with the required fields
+                return array_merge(
+                    $invoice->toArray(),
+                    [
+                        'barcodeImage' => $barcodeImage,
+                        'totalSalePrice' => $totalSalePrice,
+                        'taxRate' => $taxRate * 100,
+                        'priceWithTax' => $priceWithTax,
+                        'taxAmount' => $taxAmount,
+                        'copies' => $totalCopies,
+                        'trade_items' => $invoiceTradeItems,
+                        'comment' => $comment
+                    ]
+                );
+            })->toArray();
+
+            // Generate PDF using outgoing_invoice template
+            $pdf = PDF::loadView('invoices.outgoing_invoice', [
+                'invoices' => $transformedInvoices,
+                'isHtml5ParserEnabled' => true,
+                'isRemoteEnabled' => true,
+                'isFontSubsettingEnabled' => true,
+                'chroot' => storage_path('fonts'),
+                'dpi' => 150,
+            ]);
+
+            // Return success response with PDF
+            return response($pdf->output(), 200, [
+                'Content-Type' => 'application/pdf',
+                'Content-Disposition' => 'inline; filename="invoice_' . $faktura->id . '.pdf"'
+            ]);
+
         } catch (\Exception $e) {
             // Rollback the transaction in case of error
             DB::rollback();
+            Log::error('Generate Invoice Error: ' . $e->getMessage());
 
             // Return error response
             return response()->json(['error' => 'Failed to create Faktura'], 500);
@@ -1003,7 +1117,14 @@ class InvoiceController extends Controller
     {
         try {
             // Find the Faktura by its ID
-            $faktura = Faktura::with('invoices.jobs.small_material.smallFormatMaterial', 'invoices.user', 'invoices.client', 'invoices.jobs.actions', 'invoices.jobs.large_material')->findOrFail($id);
+            $faktura = Faktura::with([
+                'invoices.jobs.small_material.smallFormatMaterial', 
+                'invoices.user', 
+                'invoices.client', 
+                'invoices.jobs.actions', 
+                'invoices.jobs.large_material',
+                'tradeItems.article'
+            ])->findOrFail($id);
 
             $faktura->invoices->each(function ($invoice)  {
                 $invoice->jobs->each(function ($job) {
@@ -1070,7 +1191,14 @@ class InvoiceController extends Controller
     public function allFaktura(Request $request)
     {
         try {
-            $query = Faktura::with('createdBy')->where('isInvoiced', true); // Filter for generated Fakturas
+
+            
+            $query = Faktura::with([
+                'createdBy:id,name',
+                'invoices.client:id,name',
+                'invoices.user:id,name',
+                'tradeItems.article:id,name,code'
+            ])->where('isInvoiced', 1); // Filter for generated Fakturas (isInvoiced = 1)
 
             // Apply search query if provided
             if ($request->has('searchQuery')) {
@@ -1090,41 +1218,122 @@ class InvoiceController extends Controller
             $sortOrder = $request->input('sortOrder', 'desc');
             $query->orderBy('created_at', $sortOrder);
 
-
             // Apply pagination with 10 results per page
             $fakturas = $query->paginate(10);
-
-            // Eager load invoices with related models and file information
-            $fakturas->load([
-                'invoices' => function ($query) {
-                    $query->select([
-                        'invoices.id', 'invoices.invoice_title', 'invoices.start_date', 'invoices.end_date', 
-                        'invoices.status', 'invoices.client_id', 'invoices.user_id'
-                    ]);
-                },
-                'invoices.jobs' => function ($query) {
-                    $query->select([
-                        'jobs.id', 'jobs.invoice_id', 'jobs.name', 'jobs.status', 'jobs.quantity', 'jobs.copies',
-                        'jobs.file', 'jobs.originalFile', 'jobs.total_area_m2', 'jobs.dimensions_breakdown'
-                    ]);
-                },
-                'invoices.user:id,name',
-                'invoices.client:id,name'
-            ]);
 
             // Handle AJAX requests for JSON responses
             if ($request->wantsJson()) {
                 return response()->json($fakturas);
             }
 
+
             return Inertia::render('Finance/AllInvoices', [
                 'fakturas' => $fakturas,
             ]);
         } catch (\Exception $e) {
-            Log::error($e->getMessage());
-            return response()->json(['error' => 'Internal Server Error'], 500);
+            Log::error('AllFaktura Error: ' . $e->getMessage());
+            Log::error('Stack trace: ' . $e->getTraceAsString());
+            
+            // For AJAX requests, return JSON
+            if ($request->wantsJson()) {
+                return response()->json(['error' => 'Internal Server Error'], 500);
+            }
+            
+            // For Inertia requests, return proper Inertia response
+            return Inertia::render('Finance/AllInvoices', [
+                'fakturas' => collect([]), // Empty collection
+                'error' => 'Unable to load invoices. Please try again.'
+            ]);
         }
     }
+
+    public function previewInvoice(Request $request)
+    {
+        try {
+            $invoiceIds = $request->input('orders');
+            $comment = $request->input('comment');
+            $tradeItems = $request->input('trade_items', []);
+
+            // Basic validation
+            if (empty($invoiceIds) || !is_array($invoiceIds)) {
+                return response()->json(['error' => 'No invoices selected'], 400);
+            }
+
+            // Get the invoices for preview with necessary relationships (same as generateInvoice)
+            $invoices = Invoice::with(['jobs.actions', 'contact', 'user', 'client', 'article', 'client.clientCardStatement'])
+                ->find($invoiceIds);
+
+            // Transform invoices for PDF generation (same as outgoingInvoicePdf)
+            $dns1d = new DNS1D();
+            $transformedInvoices = $invoices->map(function ($invoice) use ($dns1d, $tradeItems, $comment) {
+                // Compose barcode safely (GD may be missing in some environments)
+                $period = $invoice->end_date ? date('m-Y', strtotime($invoice->end_date)) : date('m-Y');
+                $barcodeString = $invoice->id . '-' . $period;
+                try {
+                    $barcodePng = $dns1d->getBarcodePNG($barcodeString, 'C128');
+                    $barcodeImage = base64_encode($barcodePng);
+                } catch (\Exception $e) {
+                    $barcodeImage = null;
+                }
+
+                $totalSalePrice = (float) $invoice->jobs->sum('salePrice');
+                $totalCopies = (int) $invoice->jobs->sum('copies');
+
+                $taxRate = 0.18;
+                $priceWithTax = $totalSalePrice * (1 + $taxRate);
+                $taxAmount = $totalSalePrice * $taxRate;
+
+                // Add trade items to this invoice's data
+                $invoiceTradeItems = collect($tradeItems)->map(function ($item) {
+                    return [
+                        'article_id' => $item['article_id'],
+                        'article_name' => $item['article_name'],
+                        'quantity' => $item['quantity'],
+                        'unit_price' => $item['unit_price'],
+                        'total_price' => $item['total_price'],
+                        'vat_rate' => $item['vat_rate'],
+                        'vat_amount' => $item['vat_amount']
+                    ];
+                });
+
+                // Return a new array for this invoice with the required fields
+                return array_merge(
+                    $invoice->toArray(),
+                    [
+                        'barcodeImage' => $barcodeImage,
+                        'totalSalePrice' => $totalSalePrice,
+                        'taxRate' => $taxRate * 100,
+                        'priceWithTax' => $priceWithTax,
+                        'taxAmount' => $taxAmount,
+                        'copies' => $totalCopies,
+                        'trade_items' => $invoiceTradeItems,
+                        'comment' => $comment
+                    ]
+                );
+            })->toArray();
+
+            // Generate PDF using outgoing_invoice template
+            $pdf = PDF::loadView('invoices.outgoing_invoice', [
+                'invoices' => $transformedInvoices,
+                'isHtml5ParserEnabled' => true,
+                'isRemoteEnabled' => true,
+                'isFontSubsettingEnabled' => true,
+                'chroot' => storage_path('fonts'),
+                'dpi' => 150,
+            ]);
+            
+            return response($pdf->output(), 200, [
+                'Content-Type' => 'application/pdf',
+                'Content-Disposition' => 'inline; filename="invoice_preview.pdf"'
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Preview Invoice Error: ' . $e->getMessage());
+            return response()->json(['error' => 'Failed to generate preview'], 500);
+        }
+    }
+
+
     public function updateInvoiceComment(Request $request, $id)
     {
         try {

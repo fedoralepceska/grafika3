@@ -6,6 +6,7 @@ use App\Models\ClientCardStatement;
 use App\Models\Faktura;
 use App\Models\IncomingFaktura;
 use App\Models\Item;
+use App\Models\TradeInvoice;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\Log;
@@ -125,6 +126,21 @@ class ClientCardStatementController extends Controller
 
         $totalIncomingFromFaktura = $incomingFakturasQuery->get()->sum('amount');
 
+        // Fetch relevant trade invoices (client_id matches and status is sent or paid)
+        $tradeInvoicesQuery = TradeInvoice::query()
+            ->where('client_id', $cardStatement->client_id)
+            ->whereIn('status', ['sent', 'paid']);
+
+        if ($fromDate) {
+            $tradeInvoicesQuery->whereDate('invoice_date', '>=', $fromDate);
+        }
+
+        if ($toDate) {
+            $tradeInvoicesQuery->whereDate('invoice_date', '<=', $toDate);
+        }
+
+        $tradeInvoices = $tradeInvoicesQuery->get();
+
         if ($fromDate) {
             $fakturasQuery->whereDate('created_at', '>=', $fromDate);
         }
@@ -204,7 +220,21 @@ class ClientCardStatementController extends Controller
             ];
         })->filter()->toArray();
 
-        $tableData = array_merge($formattedItems, $formattedFakturas);
+        // Format data for trade invoices
+        $formattedTradeInvoices = $tradeInvoices->map(function ($tradeInvoice) {
+            return [
+                'date' => $tradeInvoice->invoice_date->format('Y-m-d'),
+                'document' => 'Outcome Invoice',
+                'number' => $tradeInvoice->invoice_number,
+                'incoming_invoice' => 0,
+                'output_invoice' => $tradeInvoice->total_amount,
+                'statement_income' => 0,
+                'statement_expense' => 0,
+                'comment' => $tradeInvoice->notes ?? '',
+            ];
+        })->toArray();
+
+        $tableData = array_merge($formattedItems, $formattedFakturas, $formattedTradeInvoices);
         usort($tableData, fn ($a, $b) => strtotime($a['date']) <=> strtotime($b['date']));
 
         // Paginate table data
@@ -219,8 +249,8 @@ class ClientCardStatementController extends Controller
         // Calculate total statement expense
         $totalStatementExpense = collect($formattedItems)->sum('statement_expense');
 
-        // Calculate total output invoice amount
-        $totalOutputInvoice = collect($formattedFakturas)->sum('output_invoice');
+        // Calculate total output invoice amount (including trade invoices)
+        $totalOutputInvoice = collect($formattedFakturas)->sum('output_invoice') + collect($formattedTradeInvoices)->sum('output_invoice');
 
         // Calculate total statement income
         $totalStatementIncome = collect($formattedItems)->sum('statement_income');
