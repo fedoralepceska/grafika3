@@ -4,6 +4,8 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 class Warehouse extends Model
 {
@@ -23,7 +25,9 @@ class Warehouse extends Model
     public function isSpecialWarehouse()
     {
         $specialWarehouses = ['магацин 2 трговија', 'магацин 3 основни средства'];
-        return in_array(strtolower($this->name), array_map('strtolower', $specialWarehouses));
+        $warehouseNameLower = Str::lower($this->name);
+        $specialLower = array_map(fn ($n) => Str::lower($n), $specialWarehouses);
+        return in_array($warehouseNameLower, $specialLower, true);
     }
 
     /**
@@ -31,7 +35,7 @@ class Warehouse extends Model
      */
     public function isTradeWarehouse()
     {
-        return strtolower($this->name) === strtolower('магацин 2 трговија');
+        return Str::lower($this->name) === Str::lower('магацин 2 трговија');
     }
 
     /**
@@ -40,9 +44,18 @@ class Warehouse extends Model
     public static function getSpecialWarehouses()
     {
         $specialWarehouses = ['магацин 2 трговија', 'магацин 3 основни средства'];
+
+        // SQLite LOWER is ASCII-only; fallback to PHP filter when using sqlite
+        if (DB::getDriverName() === 'sqlite') {
+            $specialLower = array_map(fn ($n) => Str::lower($n), $specialWarehouses);
+            return self::all()->filter(function ($warehouse) use ($specialLower) {
+                return in_array(Str::lower($warehouse->name), $specialLower, true);
+            })->values();
+        }
+
         return self::where(function($query) use ($specialWarehouses) {
             foreach ($specialWarehouses as $warehouse) {
-                $query->orWhereRaw('LOWER(name) = ?', [strtolower($warehouse)]);
+                $query->orWhereRaw('LOWER(name) = LOWER(?)', [$warehouse]);
             }
         })->get();
     }
@@ -52,6 +65,14 @@ class Warehouse extends Model
      */
     public static function getTradeWarehouses()
     {
-        return self::whereRaw('LOWER(name) = ?', [strtolower('магацин 2 трговија')])->get();
+        $target = 'магацин 2 трговија';
+
+        if (DB::getDriverName() === 'sqlite') {
+            return self::all()->filter(function ($warehouse) use ($target) {
+                return Str::lower($warehouse->name) === Str::lower($target);
+            })->values();
+        }
+
+        return self::whereRaw('LOWER(name) = LOWER(?)', [$target])->get();
     }
 }
