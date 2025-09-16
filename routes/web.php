@@ -458,6 +458,7 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/client-prices/{clientPrice}/edit', [ClientPriceController::class, 'edit'])->name('client-prices.edit');
     Route::put('/client-prices/{clientPrice}', [ClientPriceController::class, 'update'])->name('client-prices.update');
     Route::delete('/client-prices/{clientPrice}', [ClientPriceController::class, 'destroy'])->name('client-prices.destroy');
+    Route::get('/catalog-items/{catalogItem}/client-prices', [ClientPriceController::class, 'getByCatalogItem'])->name('client-prices.get-by-catalog-item');
 
     // Grouped Quantity Prices
     Route::get('/quantity-prices', [PricePerQuantityController::class, 'index'])->name('quantity-prices.index');

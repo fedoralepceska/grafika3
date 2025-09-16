@@ -100,4 +100,22 @@ class ClientPriceController extends Controller
 
         return back()->with('success', 'Client price deleted successfully.');
     }
+
+    public function getByCatalogItem(Request $request, CatalogItem $catalogItem)
+    {
+        $perPage = $request->query('per_page', 10);
+        $page = $request->query('page', 1);
+
+        $clientPrices = PricePerClient::with(['client'])
+            ->where('catalog_item_id', $catalogItem->id)
+            ->paginate($perPage, ['*'], 'page', $page);
+
+        return response()->json([
+            'data' => $clientPrices->items(),
+            'current_page' => $clientPrices->currentPage(),
+            'total' => $clientPrices->total(),
+            'per_page' => $clientPrices->perPage(),
+            'last_page' => $clientPrices->lastPage(),
+        ]);
+    }
 } 
