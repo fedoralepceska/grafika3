@@ -22,7 +22,8 @@ class Offer extends Model
         'status',
         'decline_reason',
         'contact_id',
-        'production_time'
+        'production_time',
+        'created_by'
     ];
 
     protected $casts = [
@@ -50,6 +51,11 @@ class Offer extends Model
     public function contact()
     {
         return $this->belongsTo(Contact::class);
+    }
+
+    public function creator()
+    {
+        return $this->belongsTo(User::class, 'created_by');
     }
 
     public function isPending()

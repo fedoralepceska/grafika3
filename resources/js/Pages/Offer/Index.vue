@@ -124,6 +124,7 @@
                             <th>Client</th>
                             <th>Status</th>
                             <th>Validity Days</th>
+                            <th>Created By</th>
                             <th>Items</th>
                             <th>Created At</th>
                             <th class="flex justify-center">Actions</th>
@@ -142,6 +143,7 @@
                                 </span>
                             </td>
                             <td>{{ offer.validity_days }} days</td>
+                            <td>{{ offer.created_by_name || '-' }}</td>
                             <td>
                                 <button
                                     @click="viewItems(offer)"

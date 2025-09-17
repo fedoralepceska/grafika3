@@ -9,6 +9,7 @@ use App\Services\PriceCalculationService;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Barryvdh\DomPDF\Facade\Pdf;
+use Illuminate\Support\Facades\Auth;
 
 class OfferController extends Controller
 {
@@ -25,7 +26,7 @@ class OfferController extends Controller
         $perPage = 15;
         $status = $request->get('status', 'pending'); // Default to 'pending' if no status is provided
         
-        $query = Offer::with(['client', 'catalogItems.largeMaterial', 'catalogItems.smallMaterial']);
+        $query = Offer::with(['client', 'creator', 'catalogItems.largeMaterial', 'catalogItems.smallMaterial']);
         
         // Apply status filter (keep existing functionality)
         if ($status) {
@@ -61,6 +62,8 @@ class OfferController extends Controller
                     'name' => $offer->name,
                     'client' => $offer->client->name,
                     'client_id' => $offer->client_id,
+                    'created_by' => $offer->created_by,
+                    'created_by_name' => optional($offer->creator)->name,
                     'validity_days' => $offer->validity_days,
                     'production_start_date' => $offer->production_start_date,
                     'production_end_date' => $offer->production_end_date,
@@ -177,7 +180,8 @@ class OfferController extends Controller
             'price2' => $request->price2 ?? 0,
             'price3' => $request->price3 ?? 0,
             'status' => 'pending',
-            'production_time' => $request->production_time
+            'production_time' => $request->production_time,
+            'created_by' => Auth::id()
         ]);
 
         // Attach catalog items with their quantities and descriptions
