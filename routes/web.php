@@ -108,6 +108,11 @@ Route::middleware(['auth', 'verified'])->group(function() {
     Route::post('/outgoing/invoice', [InvoiceController::class, 'outgoingInvoicePdf'])->name('invoices.outgoingInvoicePdf');
     Route::put('/incomingInvoice/{id}', [IncomingFakturaController::class, 'update'])->name('incomingInvoice.update');
 
+    // Individual Orders (Физичко лице)
+    Route::get('/individual', [\App\Http\Controllers\IndividualOrderController::class, 'index'])->name('individual.index');
+    Route::put('/individual/{id}/status', [\App\Http\Controllers\IndividualOrderController::class, 'updateStatus'])->name('individual.update-status');
+    Route::put('/individual/{id}/notes', [\App\Http\Controllers\IndividualOrderController::class, 'updateNotes'])->name('individual.update-notes');
+
     // Trade Invoice routes
     Route::resource('trade-invoices', TradeInvoiceController::class);
     Route::get('/trade-invoices/{warehouseId}/available-articles', [TradeInvoiceController::class, 'getAvailableArticles'])->name('trade-invoices.available-articles');

@@ -177,6 +177,9 @@ class InvoiceController extends Controller
 
             $errorMessages = [];
 
+            // Skip stock/material consumption entirely for individual client 'Физичко лице'
+            $shouldSkipConsumption = ($clientName === 'Физичко лице');
+
             foreach ($jobs as $job) {
                 // Check if job has a catalog item before proceeding
                 if (!$job->catalogItem) {
@@ -241,34 +244,36 @@ class InvoiceController extends Controller
                 }
                 
                 // Process all articles for stock consumption
-                foreach ($articlesToConsume as $articleData) {
-                    $article = $articleData['article'];
-                    $neededQuantity = $articleData['quantity'];
-                    $source = $articleData['source'];
-                    
-                    // Check stock availability
-                    if (!$article->hasStock($neededQuantity)) {
-                        $errorMessages[] = "For the job '{$job->name}', article '{$article->name}' needs {$neededQuantity} units, but only {$article->getCurrentStock()} are available in stock.";
-                        continue;
+                if (!$shouldSkipConsumption) {
+                    foreach ($articlesToConsume as $articleData) {
+                        $article = $articleData['article'];
+                        $neededQuantity = $articleData['quantity'];
+                        $source = $articleData['source'];
+                        
+                        // Check stock availability
+                        if (!$article->hasStock($neededQuantity)) {
+                            $errorMessages[] = "For the job '{$job->name}', article '{$article->name}' needs {$neededQuantity} units, but only {$article->getCurrentStock()} are available in stock.";
+                            continue;
+                        }
+                        
+                        // Consume article stock
+                        $this->consumeArticleStock($article, $neededQuantity);
+                        
+                        \Log::info('Consumed article stock for job', [
+                            'job_id' => $job->id,
+                            'article_id' => $article->id,
+                            'article_name' => $article->name,
+                            'quantity_consumed' => $neededQuantity,
+                            'source' => $source
+                        ]);
                     }
-                    
-                    // Consume article stock
-                    $this->consumeArticleStock($article, $neededQuantity);
-                    
-                    \Log::info('Consumed article stock for job', [
-                        'job_id' => $job->id,
-                        'article_id' => $article->id,
-                        'article_name' => $article->name,
-                        'quantity_consumed' => $neededQuantity,
-                        'source' => $source
-                    ]);
                 }
 
                 // Only process legacy large/small material reduction if we DID NOT consume any component articles
                 // Component articles (either attached to the job or resolved from catalog) take precedence over legacy material assignments
                 if (empty($articlesToConsume)) {
                     // Update Large Material (legacy fallback)
-                    if ($job->large_material_id !== null) {
+                    if ($job->large_material_id !== null && !$shouldSkipConsumption) {
                         $large_material = LargeFormatMaterial::with('article')->find($job->large_material_id);
                         if ($large_material) {
                             $units = ($job->catalogItem && $job->catalogItem->by_copies) ? (int)$job->copies : (int)$job->quantity;
@@ -299,7 +304,7 @@ class InvoiceController extends Controller
                     }
                     
                     // Update Small Material (legacy fallback)
-                    if ($job->small_material_id !== null) {
+                    if ($job->small_material_id !== null && !$shouldSkipConsumption) {
                         $small_material = SmallMaterial::with('article')->find($job->small_material_id);
                         if ($small_material) {
                             $units = ($job->catalogItem && $job->catalogItem->by_copies) ? (int)$job->copies : (int)$job->quantity;
@@ -826,6 +831,11 @@ class InvoiceController extends Controller
                 ->whereNull('faktura_id'); // Only show invoices that haven't been invoiced yet
 
             $this->applySearch($query, $request, $request->input('status'));
+
+            // Exclude completed orders for the individual client 'Физичко лице'
+            $query->whereDoesntHave('client', function($q){
+                $q->where('name', 'Физичко лице');
+            });
 
             $query->orderBy('created_at', $request->input('sortOrder', 'desc'));
 
