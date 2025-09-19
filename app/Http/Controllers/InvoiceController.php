@@ -865,11 +865,27 @@ class InvoiceController extends Controller
             return response()->json(['error' => 'No invoices selected'], 400);
         }
 
-        $invoices = Invoice::with(['article','client','client.clientCardStatement','faktura.tradeItems.article'])->findOrFail($invoiceIds);
+        // If already generated, fetch ALL invoices that belong to the same faktura
+        if ($isAlreadyGenerated) {
+            $firstInvoice = Invoice::with(['faktura'])->findOrFail($invoiceIds[0]);
+            if ($firstInvoice->faktura) {
+                // Get all invoices that belong to this faktura
+                $invoices = Invoice::with(['article','client','client.clientCardStatement','faktura.tradeItems.article','jobs'])
+                    ->where('faktura_id', $firstInvoice->faktura->id)
+                    ->get();
+            } else {
+                // Fallback to original behavior if no faktura
+                $invoices = Invoice::with(['article','client','client.clientCardStatement','faktura.tradeItems.article'])->findOrFail($invoiceIds);
+            }
+        } else {
+            // For preview/generation, use the provided invoice IDs
+            $invoices = Invoice::with(['article','client','client.clientCardStatement','faktura.tradeItems.article'])->findOrFail($invoiceIds);
+        }
 
         $dns1d = new DNS1D();
         // Create a transformed array for PDF generation without modifying the original invoices
-        $transformedInvoices = $invoices->map(function ($invoice) use ($dns1d, $isAlreadyGenerated) {
+        $nextFakturaId = (int) (\App\Models\Faktura::max('id') ?? 0) + 1;
+        $transformedInvoices = $invoices->map(function ($invoice) use ($dns1d, $isAlreadyGenerated, $nextFakturaId, $invoices) {
             $barcodeString = $invoice->id . '-' . date('m-Y', strtotime($invoice->end_date));
             $barcodeImage = base64_encode($dns1d->getBarcodePNG($barcodeString, 'C128'));
 
@@ -881,8 +897,9 @@ class InvoiceController extends Controller
             $taxAmount = $totalSalePrice * $taxRate;
 
             // Include trade items for already generated invoices (load from Faktura)
+            // Only add trade items to the first invoice to avoid duplicates
             $tradeItemsArray = [];
-            if ($isAlreadyGenerated && $invoice->faktura) {
+            if ($isAlreadyGenerated && $invoice->faktura && $invoice->id === $invoices->first()->id) {
                 $tradeItems = $invoice->faktura->tradeItems; // allow lazy/eager
                 $tradeItemsArray = $tradeItems->map(function ($item) {
                     return [
@@ -908,6 +925,11 @@ class InvoiceController extends Controller
                     'taxAmount' => $taxAmount,
                     'copies' => $totalCopies,
                     'trade_items' => $tradeItemsArray,
+                    // For this flow, use current timestamp as generated_at (pre or post generation)
+                    'generated_at' => now()->toDateTimeString(),
+                    // If already generated, include faktura_id; else propose next
+                    'faktura_id' => optional($invoice->faktura)->id,
+                    'preview_faktura_id' => $isAlreadyGenerated ? null : $nextFakturaId,
                 ]
             );
         })->toArray(); // Convert the collection to an array for the PDF
@@ -919,7 +941,7 @@ class InvoiceController extends Controller
                 return response()->json(['invoices' => $transformedInvoices], 200);
             }
 
-            $pdf = PDF::loadView('invoices.outgoing_invoice', [
+            $pdf = PDF::loadView('invoices.outgoing_invoice_v2', [
                 'invoices' => $transformedInvoices,
                 'isHtml5ParserEnabled' => true,
                 'isRemoteEnabled' => true,
@@ -1057,7 +1079,7 @@ class InvoiceController extends Controller
 
             // Generate PDF for the created invoice
             $dns1d = new DNS1D();
-            $transformedInvoices = $invoices->map(function ($invoice) use ($dns1d, $tradeItems, $comment) {
+            $transformedInvoices = $invoices->map(function ($invoice) use ($dns1d, $tradeItems, $comment, $faktura) {
                 $barcodeString = $invoice->id . '-' . date('m-Y', strtotime($invoice->end_date));
                 $barcodeImage = base64_encode($dns1d->getBarcodePNG($barcodeString, 'C128'));
 
@@ -1092,13 +1114,16 @@ class InvoiceController extends Controller
                         'taxAmount' => $taxAmount,
                         'copies' => $totalCopies,
                         'trade_items' => $invoiceTradeItems,
-                        'comment' => $comment
+                        'comment' => $comment,
+                        // Use Faktura creation time as the official generated time
+                        'generated_at' => optional($faktura->created_at)->toDateTimeString(),
+                        'faktura_id' => $faktura->id,
                     ]
                 );
             })->toArray();
 
-            // Generate PDF using outgoing_invoice template
-            $pdf = PDF::loadView('invoices.outgoing_invoice', [
+            // Generate PDF using v2 template for preview
+            $pdf = PDF::loadView('invoices.outgoing_invoice_v2', [
                 'invoices' => $transformedInvoices,
                 'isHtml5ParserEnabled' => true,
                 'isRemoteEnabled' => true,
@@ -1275,7 +1300,8 @@ class InvoiceController extends Controller
 
             // Transform invoices for PDF generation (same as outgoingInvoicePdf)
             $dns1d = new DNS1D();
-            $transformedInvoices = $invoices->map(function ($invoice) use ($dns1d, $tradeItems, $comment) {
+            $nextFakturaId = (int) (\App\Models\Faktura::max('id') ?? 0) + 1;
+            $transformedInvoices = $invoices->map(function ($invoice) use ($dns1d, $tradeItems, $comment, $nextFakturaId) {
                 // Compose barcode safely (GD may be missing in some environments)
                 $period = $invoice->end_date ? date('m-Y', strtotime($invoice->end_date)) : date('m-Y');
                 $barcodeString = $invoice->id . '-' . $period;
@@ -1317,13 +1343,16 @@ class InvoiceController extends Controller
                         'taxAmount' => $taxAmount,
                         'copies' => $totalCopies,
                         'trade_items' => $invoiceTradeItems,
-                        'comment' => $comment
+                        'comment' => $comment,
+                        // Freeze time at preview click
+                        'generated_at' => now()->toDateTimeString(),
+                        'preview_faktura_id' => $nextFakturaId,
                     ]
                 );
             })->toArray();
 
-            // Generate PDF using outgoing_invoice template
-            $pdf = PDF::loadView('invoices.outgoing_invoice', [
+            // Generate PDF using v2 template for preview
+            $pdf = PDF::loadView('invoices.outgoing_invoice_v2', [
                 'invoices' => $transformedInvoices,
                 'isHtml5ParserEnabled' => true,
                 'isRemoteEnabled' => true,

@@ -380,12 +380,16 @@ class TradeInvoiceController extends Controller
                     'vat_amount' => $item->vat_amount
                 ];
             }),
-            'comment' => $invoice->notes ?? ''
+            'comment' => $invoice->notes ?? '',
+            // Use trade invoice's invoice_date as generation date
+            'generated_at' => optional($invoice->invoice_date)->toDateTimeString(),
+            'is_trade' => true,
+            'invoice_number' => $invoice->invoice_number,
         ];
 
         try {
-            // Use the same template as outgoing invoices
-            $pdf = PDF::loadView('invoices.outgoing_invoice', [
+            // Use the same template as outgoing invoices, allow v2 via query param
+            $pdf = PDF::loadView('invoices.outgoing_invoice_v2', [
                 'invoices' => [$transformedInvoice], // Wrap in array as expected by template
                 'isHtml5ParserEnabled' => true,
                 'isRemoteEnabled' => true,
