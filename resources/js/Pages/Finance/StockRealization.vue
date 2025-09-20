@@ -1,0 +1,1266 @@
+<template>
+    <MainLayout>
+        <div class="pl-7 pr-7">
+            <Header title="invoice2" subtitle="StockRealization" icon="invoice.png" link="stock-realizations"/>
+            <div class="dark-gray p-2 text-white">
+                <RedirectTabs :route="$page.url" />
+                <div class="form-container p-2">
+                    <h2 class="sub-title">
+                        Stock Realization Management
+                    </h2>
+                    <div class="filter-container flex gap-4 pb-10">
+                        <div class="search flex gap-2">
+                            <input 
+                                v-model="searchQuery" 
+                                placeholder="Enter order number or order name" 
+                                class="text-black search-input" 
+                                @keyup.enter="searchStockRealizations" 
+                            />
+                            <button class="btn create-order1" @click="searchStockRealizations">Search</button>
+                        </div>
+                        <div class="flex gap-2 filters-group">
+                            <div class="status">
+                                <label class="pr-3">Filter by Status</label>
+                                <select v-model="filterStatus" class="text-black filter-select" @change="applyFilter">
+                                    <option value="All" hidden>Status</option>
+                                    <option value="All">All Status</option>
+                                    <option value="Pending">Pending</option>
+                                    <option value="Realized">Realized</option>
+                                </select>
+                            </div>
+                            <div class="client">
+                                <label class="pr-3">Filter by Client</label>
+                                <select v-model="filterClient" class="text-black filter-select" @change="applyFilter">
+                                    <option value="All" hidden>Clients</option>
+                                    <option value="All">All Clients</option>
+                                    <option v-for="client in uniqueClients" :key="client.id" :value="client.name">{{ client.name }}</option>
+                                </select>
+                            </div>
+                            <div class="date">
+                                <select v-model="sortOrder" class="text-black filter-select" @change="applyFilter">
+                                    <option value="desc" hidden>Date</option>
+                                    <option value="desc">Newest to Oldest</option>
+                                    <option value="asc">Oldest to Newest</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div v-if="loading" class="loading-container">
+                        <div class="loading-spinner">
+                            <i class="fa fa-spinner fa-spin"></i>
+                            <span>Loading stock realizations...</span>
+                        </div>
+                    </div>
+                    <div v-else-if="filteredStockRealizations && filteredStockRealizations.length > 0">
+                        <div 
+                            :class="['border mb-2 invoice-row', getStatusRowClass(stockRealization.is_realized)]" 
+                            v-for="stockRealization in filteredStockRealizations" 
+                            :key="stockRealization.id"
+                        >
+                            <div class="flex row-columns pl-2 pt-1 pb-1" style="line-height: initial">
+                                <div class="info col-stock-id">
+                                    <div class="info-label">Stock ID</div>
+                                    <div class="bold">#{{stockRealization.id}}</div>
+                                </div>
+                                <div class="info col-order-connection">
+                                    <div class="info-label">Connected Order</div>
+                                    <div class="bold order-link" @click="viewConnectedOrder(stockRealization.invoice_id)">
+                                        #{{stockRealization.invoice_id}} - {{stockRealization.invoice_title}}
+                                    </div>
+                                </div>
+                                <div class="info col-client">
+                                    <div class="info-label">Customer</div>
+                                    <div class="bold ellipsis">{{ stockRealization.client.name }}</div>
+                                </div>
+                                <div class="info col-status">
+                                    <div class="info-label">Status</div>
+                                    <div :class="[getStatusColorClass(stockRealization.is_realized), 'bold', 'truncate', 'status-pill']">
+                                        {{ stockRealization.is_realized ? 'Realized' : 'Pending' }}
+                                    </div>
+                                </div>
+                                <div v-if="stockRealization.is_realized && stockRealization.realized_by" class="info col-realized-by">
+                                    <div class="info-label">Realized By</div>
+                                    <div class="bold truncate">{{ stockRealization.realized_by.name }}</div>
+                                </div>
+                                <div class="info col-expand">
+                                    <div class="info-label">Actions</div>
+                                    <div class="flex gap-2">
+                                        <button 
+                                            class="flex items-center p-1" 
+                                            @click="toggleExpanded(stockRealization.id)"
+                                            :title="expandedRows[stockRealization.id] ? 'Collapse' : 'Expand'"
+                                        >
+                                            <i 
+                                                :class="[
+                                                    expandedRows[stockRealization.id] ? 'fa fa-chevron-up' : 'fa fa-chevron-down',
+                                                    'bg-gray-300 p-2 rounded'
+                                                ]" 
+                                                aria-hidden="true"
+                                            ></i>
+                                        </button>
+                                        <button 
+                                            class="flex items-center p-1 pdf-button" 
+                                            @click="generatePDF(stockRealization)"
+                                            :disabled="generatingPDF[stockRealization.id]"
+                                            :title="generatingPDF[stockRealization.id] ? 'Generating PDF...' : 'Generate PDF Report'"
+                                        >
+                                            <i 
+                                                :class="[
+                                                    generatingPDF[stockRealization.id] ? 'fa fa-spinner fa-spin' : 'fa fa-file-pdf-o',
+                                                    'bg-red-500 text-white p-2 rounded'
+                                                ]" 
+                                                aria-hidden="true"
+                                            ></i>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Expanded Jobs Table -->
+                            <transition name="expand-collapse" appear>
+                                <div v-if="expandedRows[stockRealization.id]" class="jobs-expanded-section">
+                                <!-- <div class="jobs-summary">
+                                    <span class="jobs-count">{{ stockRealization.jobs?.length || 0 }} Jobs</span>
+                                    <span v-if="!stockRealization.is_realized" class="edit-hint">Click values to edit</span>
+                                </div> -->
+                                
+                                <div class="jobs-table-container">
+                                    <table class="jobs-table">
+                                        <thead>
+                                            <tr>
+                                                <th>Job Name</th>
+                                                <th>Quantity</th>
+                                                <th>Copies</th>
+                                                <th>Area (m²)</th>
+                                                <th>Dimensions</th>
+                                                <!-- <th>Materials</th> -->
+                                                <!-- <th>Articles</th> -->
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr v-for="job in stockRealization.jobs" :key="job.id" class="job-row">
+                                                <td class="job-name">
+                                                    <span>{{ job.name }}</span>
+                                                </td>
+                                                <td class="editable-cell">
+                                                    <input 
+                                                        v-if="!stockRealization.is_realized"
+                                                        v-model.number="job.quantity" 
+                                                        type="number" 
+                                                        min="1"
+                                                        class="edit-input"
+                                                        @blur="updateJob(stockRealization.id, job)"
+                                                        @keyup.enter="$event.target.blur()"
+                                                    />
+                                                    <span v-else>{{ job.quantity }}</span>
+                                                </td>
+                                                <td class="editable-cell">
+                                                    <input 
+                                                        v-if="!stockRealization.is_realized"
+                                                        v-model.number="job.copies" 
+                                                        type="number" 
+                                                        min="1"
+                                                        class="edit-input"
+                                                        @blur="updateJob(stockRealization.id, job)"
+                                                        @keyup.enter="$event.target.blur()"
+                                                    />
+                                                    <span v-else>{{ job.copies }}</span>
+                                                </td>
+                                                <td class="editable-cell">
+                                                    <input 
+                                                        v-if="!stockRealization.is_realized"
+                                                        v-model.number="job.total_area_m2" 
+                                                        type="number" 
+                                                        step="0.0001"
+                                                        min="0"
+                                                        class="edit-input"
+                                                        @blur="updateJob(stockRealization.id, job)"
+                                                        @keyup.enter="$event.target.blur()"
+                                                    />
+                                                    <span v-else>{{ parseFloat(job.total_area_m2 || 0).toFixed(4) }}</span>
+                                                </td>
+                                                <td class="dimensions-cell">
+                                                    <div class="dimensions-inputs" v-if="!stockRealization.is_realized">
+                                                        <input 
+                                                            v-model.number="job.width" 
+                                                            type="number" 
+                                                            step="0.01"
+                                                            min="0"
+                                                            placeholder="W"
+                                                            class="dimension-input"
+                                                            @blur="updateJob(stockRealization.id, job)"
+                                                            @keyup.enter="$event.target.blur()"
+                                                        />
+                                                        <span class="dimension-separator">×</span>
+                                                        <input 
+                                                            v-model.number="job.height" 
+                                                            type="number" 
+                                                            step="0.01"
+                                                            min="0"
+                                                            placeholder="H"
+                                                            class="dimension-input"
+                                                            @blur="updateJob(stockRealization.id, job)"
+                                                            @keyup.enter="$event.target.blur()"
+                                                        />
+                                                    </div>
+                                                    <span v-else>{{ job.width || 0 }}cm × {{ job.height || 0 }}cm</span>
+                                                </td>
+                                                <!-- <td class="materials-cell">
+                                                    <div class="materials-list">
+                                                        <div v-if="job.small_material" class="material-item">
+                                                            <span class="material-label">Small:</span>
+                                                            <span class="material-name">{{ job.small_material.name || 'Unknown' }}</span>
+                                                        </div>
+                                                        <div v-if="job.large_material" class="material-item">
+                                                            <span class="material-label">Large:</span>
+                                                            <span class="material-name">{{ job.large_material.name || 'Unknown' }}</span>
+                                                        </div>
+                                                        <div v-if="!job.small_material && !job.large_material" class="no-materials">
+                                                            No legacy materials
+                                                        </div>
+                                                    </div>
+                                                </td> -->
+                                                <!-- <td class="articles-cell">
+                                                    <div class="articles-summary">
+                                                        <span v-if="job.articles && job.articles.length > 0">
+                                                            {{ job.articles.length }} article(s)
+                                                        </span>
+                                                        <span v-else class="no-articles">
+                                                            No articles
+                                                        </span>
+                                                    </div>
+                                                </td> -->
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                                
+                                <!-- Articles Section - Displayed directly under the table -->
+                                <div class="articles-grid">
+                                    <div v-for="job in stockRealization.jobs" :key="job.id" class="job-articles">
+                                        <div class="job-articles-header">
+                                            <h6 class="job-name">Materials used</h6>
+                                        </div>
+                                        <div v-if="job.articles && job.articles.length > 0" class="articles-list">
+                                            <div 
+                                                v-for="articleData in job.articles" 
+                                                :key="articleData.id"
+                                                class="article-item"
+                                            >
+                                                <div class="article-name">{{ articleData.article.name }}</div>
+                                                <div class="article-quantity">
+                                                    <input 
+                                                        v-if="!stockRealization.is_realized"
+                                                        v-model.number="articleData.quantity" 
+                                                        type="number" 
+                                                        step="0.01"
+                                                        min="0"
+                                                        class="article-input"
+                                                        @blur="updateArticle(stockRealization.id, job.id, articleData)"
+                                                        @keyup.enter="$event.target.blur()"
+                                                    />
+                                                    <span v-else>{{ parseFloat(articleData.quantity).toFixed(2) }}</span>
+                                                    <span class="unit-type">{{ articleData.unit_type }}</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div v-else class="no-articles">
+                                            No articles for this job
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- Stock Realization Button - Bottom Right Corner -->
+                                <div v-if="!stockRealization.is_realized" class="stock-realization-button-container">
+                                    <button 
+                                        class="stock-realization-button" 
+                                        @click="realizeStock(stockRealization)"
+                                        :disabled="realizingStocks[stockRealization.id]"
+                                        title="Complete Stock Realization"
+                                    >
+                                        <i 
+                                            :class="[
+                                                realizingStocks[stockRealization.id] ? 'fa fa-spinner fa-spin' : 'fa fa-check',
+                                                'mr-2'
+                                            ]" 
+                                            aria-hidden="true"
+                                        ></i>
+                                        {{ realizingStocks[stockRealization.id] ? 'Processing...' : 'Complete Realization' }}
+                                    </button>
+                                </div>
+                                </div>
+                            </transition>
+                        </div>
+                    </div>
+                    <div v-else class="text-center p-8">
+                        <p class="text-gray-400">No stock realizations found.</p>
+                    </div>
+                </div>
+                <Pagination :pagination="stockRealizations"/>
+            </div>
+        </div>
+    </MainLayout>
+</template>
+
+<script>
+import MainLayout from "@/Layouts/MainLayout.vue";
+import Header from "@/Components/Header.vue";
+import Pagination from "@/Components/Pagination.vue";
+import RedirectTabs from "@/Components/RedirectTabs.vue";
+import axios from 'axios';
+import { reactive, ref } from "vue";
+
+export default {
+    components: {
+        MainLayout,
+        Header,
+        Pagination,
+        RedirectTabs,
+    },
+    props: {
+        stockRealizations: Object,
+    },
+    setup(props) {
+        const searchQuery = ref('');
+        const filterStatus = ref('All');
+        const filterClient = ref('All');
+        const sortOrder = ref('desc');
+        const loading = ref(false);
+        const filteredStockRealizations = ref(props.stockRealizations.data || []);
+        const uniqueClients = ref([]);
+        const realizingStocks = reactive({});
+        const expandedRows = reactive({});
+        const updatingJobs = reactive({});
+        const generatingPDF = reactive({});
+
+        return {
+            searchQuery,
+            filterStatus,
+            filterClient,
+            sortOrder,
+            loading,
+            filteredStockRealizations,
+            uniqueClients,
+            realizingStocks,
+            expandedRows,
+            updatingJobs,
+            generatingPDF,
+        };
+    },
+    mounted() {
+        this.filteredStockRealizations = this.stockRealizations.data || [];
+        this.loadUniqueClients();
+    },
+    methods: {
+        async loadUniqueClients() {
+            try {
+                const response = await axios.get('/unique-clients');
+                this.uniqueClients = response.data;
+            } catch (error) {
+                console.error('Error loading unique clients:', error);
+            }
+        },
+        async searchStockRealizations() {
+            this.applyFilter();
+        },
+        async applyFilter() {
+            this.loading = true;
+            try {
+                const params = {
+                    searchQuery: this.searchQuery,
+                    status: this.filterStatus,
+                    client: this.filterClient,
+                    sortOrder: this.sortOrder,
+                };
+                
+                const response = await axios.get('/stock-realizations', { params });
+                this.filteredStockRealizations = response.data.data || [];
+                this.$inertia.replace('/stock-realizations', { data: response.data });
+            } catch (error) {
+                console.error('Error filtering stock realizations:', error);
+            } finally {
+                this.loading = false;
+            }
+        },
+        viewStockRealization(id) {
+            this.$inertia.visit(`/stock-realizations/${id}`);
+        },
+        viewConnectedOrder(invoiceId) {
+            this.$inertia.visit(`/orders/${invoiceId}`);
+        },
+        async realizeStock(stockRealization) {
+            if (this.realizingStocks[stockRealization.id]) return;
+            
+            this.realizingStocks[stockRealization.id] = true;
+            
+            try {
+                const response = await axios.post(`/stock-realizations/${stockRealization.id}/realize`);
+                
+                if (response.data.message) {
+                    // Update the local data
+                    const index = this.filteredStockRealizations.findIndex(sr => sr.id === stockRealization.id);
+                    if (index !== -1) {
+                        this.filteredStockRealizations[index].is_realized = true;
+                        this.filteredStockRealizations[index].realized_at = new Date().toISOString();
+                        this.filteredStockRealizations[index].realized_by = response.data.stockRealization.realized_by;
+                    }
+                    
+                    this.$toast.success('Stock realization completed successfully!');
+                } else {
+                    this.$toast.error('Failed to complete stock realization');
+                }
+            } catch (error) {
+                console.error('Error realizing stock:', error);
+                this.$toast.error(error.response?.data?.error || 'Failed to complete stock realization');
+            } finally {
+                this.realizingStocks[stockRealization.id] = false;
+            }
+        },
+        formatDate(dateString) {
+            if (!dateString) return '';
+            const date = new Date(dateString);
+            return date.toLocaleDateString('en-US', {
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric'
+            });
+        },
+        getStatusRowClass(isRealized) {
+            return isRealized ? 'status-completed' : 'status-pending';
+        },
+        getStatusColorClass(isRealized) {
+            return isRealized ? 'status-completed-text' : 'status-pending-text';
+        },
+        toggleExpanded(stockRealizationId) {
+            this.expandedRows[stockRealizationId] = !this.expandedRows[stockRealizationId];
+            
+            // Load job details if expanding for the first time
+            if (this.expandedRows[stockRealizationId]) {
+                this.loadJobDetails(stockRealizationId);
+            }
+        },
+        async loadJobDetails(stockRealizationId) {
+            try {
+                const response = await axios.get(`/stock-realizations/${stockRealizationId}`);
+                const stockRealization = response.data.stockRealization;
+                
+                // Find and update the stock realization in our local data
+                const index = this.filteredStockRealizations.findIndex(sr => sr.id === stockRealizationId);
+                if (index !== -1) {
+                    this.filteredStockRealizations[index] = stockRealization;
+                }
+            } catch (error) {
+                console.error('Error loading job details:', error);
+            }
+        },
+        async updateJob(stockRealizationId, job) {
+            if (this.updatingJobs[job.id]) return;
+            
+            this.updatingJobs[job.id] = true;
+            
+            try {
+                const response = await axios.put(
+                    `/stock-realizations/${stockRealizationId}/jobs/${job.id}`,
+                    {
+                        quantity: job.quantity,
+                        copies: job.copies,
+                        width: job.width,
+                        height: job.height,
+                        total_area_m2: job.total_area_m2,
+                    }
+                );
+                
+                if (response.data.message) {
+                    this.$toast.success('Job updated successfully!');
+                } else {
+                    this.$toast.error('Failed to update job');
+                }
+            } catch (error) {
+                console.error('Error updating job:', error);
+                this.$toast.error(error.response?.data?.error || 'Failed to update job');
+            } finally {
+                this.updatingJobs[job.id] = false;
+            }
+        },
+        async updateArticle(stockRealizationId, jobId, articleData) {
+            try {
+                const response = await axios.put(
+                    `/stock-realizations/${stockRealizationId}/jobs/${jobId}/articles/${articleData.id}`,
+                    {
+                        quantity: articleData.quantity,
+                    }
+                );
+                
+                if (response.data.message) {
+                    this.$toast.success('Article quantity updated successfully!');
+                } else {
+                    this.$toast.error('Failed to update article');
+                }
+            } catch (error) {
+                console.error('Error updating article:', error);
+                this.$toast.error(error.response?.data?.error || 'Failed to update article');
+            }
+        },
+        async generatePDF(stockRealization) {
+            if (this.generatingPDF[stockRealization.id]) return;
+            
+            this.generatingPDF[stockRealization.id] = true;
+            
+            try {
+                // Open PDF in new tab using the backend route
+                const pdfUrl = `/stock-realizations/${stockRealization.id}/pdf`;
+                window.open(pdfUrl, '_blank');
+                
+                this.$toast.success('PDF opened in new tab!');
+            } catch (error) {
+                console.error('Error opening PDF:', error);
+                this.$toast.error('Failed to open PDF');
+            } finally {
+                this.generatingPDF[stockRealization.id] = false;
+            }
+        },
+    },
+};
+</script>
+
+<style scoped lang="scss">
+/* Modern invoice row styling matching Index.vue */
+.dark-gray {
+    background-color: $dark-gray;
+    justify-content: left;
+    border-radius: 8px;
+    align-items: center;
+    min-height: 20vh;
+    min-width: 80vh;
+}
+
+.filter-container{
+    justify-content: space-between;
+    flex-wrap: wrap;
+}
+
+.filter-container .search {
+    flex: 1 1 320px;
+}
+
+.filter-container .filters-group {
+    flex: 2 1 500px;
+    flex-wrap: wrap;
+}
+
+.search-input{
+    width: 50vh;
+    max-width: 100%;
+    border-radius: 3px;
+}
+
+.filter-select{
+    width: 25vh;
+    max-width: 100%;
+    border-radius: 3px;
+}
+
+select{
+    width: 25vh;
+    border-radius: 3px;
+}
+
+.btn {
+    padding: 9px 12px;
+    border: none;
+    cursor: pointer;
+    font-weight: bold;
+    border-radius: 2px;
+}
+
+.create-order1{
+    background-color: $blue;
+    color: white;
+}
+.invoice-row {
+    border: 3px solid rgba(255,255,255,0.25);
+    border-radius: 8px;
+    overflow: hidden;
+    background: rgba(255,255,255,0.06);
+    box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+    transition: box-shadow 0.2s ease, transform 0.2s ease, border-color 0.2s ease;
+}
+
+.invoice-row:nth-child(odd) {
+    background-color: rgba(255, 255, 255, 0.05);
+}
+.invoice-row:nth-child(even) {
+    background-color: rgba(255, 255, 255, 0.09);
+}
+.invoice-row .order-info {
+    border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+}
+.invoice-row .row-columns {
+    padding-bottom: 8px;
+}
+
+/* Status-based row accents for a more lively UI */
+.status-pending {
+    border-color: rgba(234, 179, 8, 0.35); /* amber */
+    background-color: rgba(234, 179, 8, 0.05);
+}
+
+.status-completed {
+    border-color: rgba(16, 185, 129, 0.35); /* green */
+    background-color: rgba(16, 185, 129, 0.05);
+}
+
+/* Status pill styling matching Index.vue */
+.status-pill {
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: 9999px;
+    background-color: rgba(255,255,255,0.08);
+    width: fit-content;
+}
+
+.status-pending-text {
+    color: #ea8a00;
+    background-color: rgba(234, 179, 8, 0.2);
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 0.875rem;
+    font-weight: 500;
+}
+
+.status-completed-text {
+    color: #10b981;
+    background-color: rgba(16, 185, 129, 0.2);
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 0.875rem;
+    font-weight: 500;
+}
+
+.loading-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 40px;
+    color: white;
+}
+
+.loading-spinner {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+}
+
+.loading-spinner i {
+    font-size: 24px;
+    color: #0073a9;
+}
+
+.loading-spinner span {
+    font-size: 16px;
+    color: white;
+}
+
+/* Expanded Jobs Section Styling - Modern Design */
+.jobs-expanded-section {
+    background-color: rgba(255, 255, 255, 0.06);
+    border-top: 1px solid rgba(255, 255, 255, 0.12);
+    padding: 1rem;
+    margin-top: 0.5rem;
+    border-radius: 0 0 8px 8px;
+}
+
+/* Smooth Expand/Collapse Transitions */
+.expand-collapse-enter-active {
+    transition: all 0.3s ease-out;
+    overflow: hidden;
+}
+
+.expand-collapse-leave-active {
+    transition: all 0.3s ease-in;
+    overflow: hidden;
+}
+
+.expand-collapse-enter-from {
+    opacity: 0;
+    transform: translateY(-20px);
+    max-height: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+    margin-top: 0;
+}
+
+.expand-collapse-leave-to {
+    opacity: 0;
+    transform: translateY(-20px);
+    max-height: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+    margin-top: 0;
+}
+
+.expand-collapse-enter-to,
+.expand-collapse-leave-from {
+    opacity: 1;
+    transform: translateY(0);
+    max-height: 2000px;
+}
+
+.jobs-summary {
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+    margin-bottom: 0.75rem;
+}
+
+.jobs-count {
+    background-color: rgba(0, 115, 169, 0.2);
+    color: #0073a9;
+    padding: 0.25rem 0.75rem;
+    border-radius: 12px;
+    font-size: 0.875rem;
+    font-weight: 500;
+}
+
+.edit-hint {
+    color: #ea8a00;
+    font-size: 0.75rem;
+    font-style: italic;
+}
+
+.jobs-table-container {
+    overflow-x: auto;
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    background: rgba(255, 255, 255, 0.02);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+    backdrop-filter: blur(10px);
+}
+
+.jobs-table {
+    width: 100%;
+    border-collapse: collapse;
+    background-color: rgba(255, 255, 255, 0.02);
+}
+
+.jobs-table thead {
+    background-color: rgba(255, 255, 255, 0.08);
+    backdrop-filter: blur(10px);
+}
+
+.jobs-table th {
+    padding: 0.75rem;
+    text-align: left;
+    font-weight: 600;
+    color: white;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+    font-size: 0.875rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.jobs-table td {
+    padding: 0.75rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    vertical-align: top;
+    transition: background-color 0.2s ease;
+}
+
+.job-row:hover {
+    background-color: rgba(255, 255, 255, 0.06);
+}
+
+.job-name {
+    font-size: 18px;
+    font-weight: 500;
+    color: white;
+    min-width: 150px;
+}
+
+.editable-cell {
+    min-width: 80px;
+}
+
+.edit-input {
+    width: 100%;
+    padding: 0.5rem 0.75rem;
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    border-radius: 6px;
+    background-color: rgba(255, 255, 255, 0.1);
+    color: white;
+    font-size: 0.875rem;
+    transition: all 0.3s ease;
+    backdrop-filter: blur(10px);
+}
+
+.edit-input:focus {
+    outline: none;
+    border-color: #0073a9;
+    background-color: rgba(255, 255, 255, 0.15);
+    box-shadow: 0 0 0 3px rgba(0, 115, 169, 0.2);
+}
+
+.dimensions-cell {
+    min-width: 120px;
+}
+
+.dimensions-inputs {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+}
+
+.dimension-input {
+    width: 50px;
+    padding: 0.5rem 0.25rem;
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    border-radius: 6px;
+    background-color: rgba(255, 255, 255, 0.1);
+    color: white;
+    font-size: 0.75rem;
+    text-align: center;
+    transition: all 0.3s ease;
+    backdrop-filter: blur(10px);
+}
+
+.dimension-input:focus {
+    outline: none;
+    border-color: #0073a9;
+    background-color: rgba(255, 255, 255, 0.15);
+    box-shadow: 0 0 0 2px rgba(0, 115, 169, 0.2);
+}
+
+.dimension-separator {
+    color: rgba(255, 255, 255, 0.6);
+    font-size: 0.75rem;
+    font-weight: bold;
+}
+
+.materials-cell {
+    min-width: 150px;
+}
+
+.materials-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.material-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.material-label {
+    font-size: 0.75rem;
+    color: rgba(255, 255, 255, 0.7);
+    font-weight: 500;
+    min-width: 40px;
+}
+
+.material-name {
+    font-size: 0.875rem;
+    color: white;
+    font-weight: 400;
+}
+
+.no-materials {
+    font-size: 0.75rem;
+    color: rgba(255, 255, 255, 0.5);
+    font-style: italic;
+}
+
+.articles-cell {
+    min-width: 200px;
+}
+
+.articles-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.article-item {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 0.85rem;
+    padding: 0.25rem;
+    background-color: rgba(255, 255, 255, 0.08);
+    border-radius: 6px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    transition: all 0.3s ease;
+    backdrop-filter: blur(10px);
+}
+
+.article-name {
+    font-size: 0.875rem;
+    color: white;
+    font-weight: 500;
+}
+
+.article-quantity {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.article-input {
+    width: 80px;
+    padding: 0.20rem 0.20rem;
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    border-radius: 6px;
+    background-color: rgba(255, 255, 255, 0.1);
+    color: white;
+    font-size: 0.75rem;
+    transition: all 0.3s ease;
+    backdrop-filter: blur(10px);
+}
+
+.article-input:focus {
+    outline: none;
+    border-color: #0073a9;
+    background-color: rgba(255, 255, 255, 0.15);
+    box-shadow: 0 0 0 2px rgba(0, 115, 169, 0.2);
+}
+
+.unit-type {
+    font-size: 0.75rem;
+    color: rgba(255, 255, 255, 0.6);
+    font-weight: 500;
+}
+
+.no-articles {
+    font-size: 0.75rem;
+    color: rgba(255, 255, 255, 0.5);
+    font-style: italic;
+}
+
+/* Articles Section Styling - Simplified */
+.articles-grid {
+    margin-top: 0.75rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+/* Stock Realization Button Styling */
+.stock-realization-button-container {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 1rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.stock-realization-button {
+    display: flex;
+    align-items: center;
+    padding: 0.75rem 1.5rem;
+    background: linear-gradient(135deg, #10b981, #059669);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-weight: 600;
+    font-size: 0.875rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+    backdrop-filter: blur(10px);
+}
+
+.stock-realization-button:hover:not(:disabled) {
+    background: linear-gradient(135deg, #059669, #047857);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(16, 185, 129, 0.4);
+}
+
+.stock-realization-button:active:not(:disabled) {
+    transform: translateY(0);
+    box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);
+}
+
+.stock-realization-button:disabled {
+    background: linear-gradient(135deg, #6b7280, #4b5563);
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: 0 2px 8px rgba(107, 114, 128, 0.2);
+}
+
+.stock-realization-button i {
+    font-size: 0.875rem;
+}
+
+.job-articles {
+    background-color: rgba(255, 255, 255, 0.04);
+    border-radius: 4px;
+    padding: 0.5rem;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.job-articles-header {
+    margin-bottom: 0.5rem;
+}
+
+.job-articles-header .job-name {
+    color: white;
+    font-size: 0.875rem;
+    font-weight: 600;
+    margin: 0;
+}
+
+.articles-summary {
+    font-size: 0.75rem;
+    color: rgba(255, 255, 255, 0.7);
+}
+
+/* Improved Layout and Spacing - Minimal Padding */
+.info {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 0.25rem 0.5rem;
+}
+
+.info-label {
+    font-size: 0.75rem;
+    color: rgba(255, 255, 255, 0.7);
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 0.25rem;
+}
+
+.order-link {
+    color: #0073a9;
+    cursor: pointer;
+    transition: color 0.2s ease;
+    text-decoration: underline;
+    text-decoration-color: transparent;
+    transition: all 0.2s ease;
+}
+
+.row-columns {
+    gap: 1.5rem;
+    align-items: center;
+    background-color: rgba(255, 255, 255, 0.02);
+    padding: 0.5rem 0;
+}
+
+/* Column Widths - More Spacious */
+.col-stock-id {
+    width: 120px;
+    flex-shrink: 0;
+}
+
+.col-order-connection {
+    width: 350px;
+    flex-shrink: 0;
+}
+
+.col-client {
+    width: 300px;
+    flex-shrink: 0;
+}
+
+.col-status {
+    width: 140px;
+    flex-shrink: 0;
+}
+
+.col-realized-by {
+    width: 180px;
+    flex-shrink: 0;
+}
+
+.col-expand {
+    width: 160px;
+    flex-shrink: 0;
+    margin-left: auto;
+}
+
+/* PDF Button Styling */
+.pdf-button {
+    transition: all 0.3s ease;
+}
+
+.pdf-button:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+}
+
+.pdf-button:active:not(:disabled) {
+    transform: translateY(0);
+    box-shadow: 0 2px 8px rgba(239, 68, 68, 0.3);
+}
+
+.pdf-button:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+}
+
+.pdf-button i {
+    transition: all 0.3s ease;
+}
+
+.truncate {
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.ellipsis {
+    width: 100%;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    overflow: hidden;
+    display: inline-block;
+    max-width: 100%;
+}
+
+.bold {
+    font-weight: bold;
+}
+
+/* Responsive Design Improvements */
+@media (max-width: 1024px) {
+    .filter-container { 
+        gap: 12px; 
+    }
+    .search-input { 
+        width: 100%; 
+    }
+    .filter-select { 
+        width: 100%; 
+    }
+    .filters-group { 
+        flex: 1 1 100%; 
+    }
+    
+    .jobs-table-container {
+        font-size: 0.875rem;
+    }
+    
+    .jobs-table th,
+    .jobs-table td {
+        padding: 0.5rem;
+    }
+    
+    .dimensions-inputs {
+        flex-direction: column;
+        gap: 0.125rem;
+    }
+    
+    .dimension-input {
+        width: 60px;
+    }
+    
+    .invoice-row {
+        margin-bottom: 1rem;
+    }
+    
+    .row-columns {
+        gap: 1rem;
+        flex-wrap: wrap;
+    }
+    
+    .col-order-connection {
+        width: 300px;
+    }
+    
+    .col-client {
+        width: 250px;
+    }
+    
+    .col-status {
+        width: 120px;
+    }
+    
+    .col-realized-by {
+        width: 160px;
+    }
+    
+    .col-expand {
+        width: 140px;
+    }
+}
+
+@media (max-width: 768px) {
+    .jobs-table {
+        font-size: 0.75rem;
+    }
+    
+    .jobs-table th,
+    .jobs-table td {
+        padding: 0.375rem;
+    }
+    
+    .article-item {
+        padding: 0.5rem;
+    }
+    
+    .row-columns {
+        gap: 0.5rem;
+        flex-direction: column;
+        padding: 0.25rem 0;
+    }
+    
+    .info {
+        padding: 0.125rem 0.25rem;
+    }
+    
+    .col-stock-id,
+    .col-order-connection,
+    .col-client,
+    .col-status,
+    .col-realized-by,
+    .col-expand {
+        width: 100%;
+    }
+    
+    .filter-container {
+        flex-direction: column;
+        gap: 1rem;
+    }
+    
+    .filters-group {
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+    
+    .search-input {
+        width: 100%;
+    }
+    
+    .filter-select {
+        width: 100%;
+    }
+}
+
+@media (max-width: 480px) {
+    .jobs-table-container {
+        overflow-x: scroll;
+    }
+    
+    .jobs-table {
+        min-width: 600px;
+    }
+    
+    .edit-input,
+    .dimension-input,
+    .article-input {
+        font-size: 0.875rem;
+        padding: 0.75rem;
+    }
+    
+    .jobs-expanded-section {
+        padding: 0.5rem;
+    }
+}
+</style>

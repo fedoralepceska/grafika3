@@ -4,6 +4,7 @@ namespace App\Observers;
 
 use App\Models\Invoice;
 use App\Models\IndividualOrder;
+use App\Models\StockRealization;
 
 class InvoiceObserver
 {
@@ -28,21 +29,43 @@ class InvoiceObserver
         $originalStatus = $invoice->getOriginal('status');
         $newStatus = $invoice->status;
 
-        // When invoice becomes Completed and client is 'Физичко лице'
-        $clientName = $invoice->client?->name;
-        if ($originalStatus !== 'Completed' && $newStatus === 'Completed' && $clientName === 'Физичко лице') {
-            // Compute total from jobs' salePrice
-            $invoice->loadMissing('jobs', 'client');
-            $total = (float) $invoice->jobs->sum('salePrice');
+        // When invoice becomes Completed
+        if ($originalStatus !== 'Completed' && $newStatus === 'Completed') {
+            $clientName = $invoice->client?->name;
+            
+            // Handle Individual Orders (Физичко лице)
+            if ($clientName === 'Физичко лице') {
+                // Compute total from jobs' salePrice
+                $invoice->loadMissing('jobs', 'client');
+                $total = (float) $invoice->jobs->sum('salePrice');
 
-            // Upsert to avoid duplicates
-            IndividualOrder::updateOrCreate(
-                ['invoice_id' => $invoice->id],
-                [
-                    'client_id' => $invoice->client_id,
-                    'total_amount' => $total,
-                ]
-            );
+                // Upsert to avoid duplicates
+                IndividualOrder::updateOrCreate(
+                    ['invoice_id' => $invoice->id],
+                    [
+                        'client_id' => $invoice->client_id,
+                        'total_amount' => $total,
+                    ]
+                );
+            }
+
+            // Create Stock Realization record for all completed invoices
+            // Check if stock realization already exists to avoid duplicates
+            $existingStockRealization = StockRealization::where('invoice_id', $invoice->id)->first();
+            if (!$existingStockRealization) {
+                try {
+                    StockRealization::createFromInvoice($invoice);
+                    \Log::info('Stock realization created for completed invoice', [
+                        'invoice_id' => $invoice->id,
+                        'client_name' => $clientName
+                    ]);
+                } catch (\Exception $e) {
+                    \Log::error('Failed to create stock realization for completed invoice', [
+                        'invoice_id' => $invoice->id,
+                        'error' => $e->getMessage()
+                    ]);
+                }
+            }
         }
     }
 

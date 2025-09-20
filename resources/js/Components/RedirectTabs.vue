@@ -5,6 +5,7 @@
         <button @click="navigate('/incomingInvoice')" :class="{ active: currentRoute === '/incomingInvoice' }">Incoming Invoice</button>
         <button @click="navigate('/trade-invoices')" :class="{ active: currentRoute === '/trade-invoices' }">Trade Invoices</button>
         <button @click="navigate('/individual')" :class="{ active: currentRoute === '/individual' }">Физичко лице</button>
+        <button @click="navigate('/stock-realizations')" :class="{ active: currentRoute === '/stock-realizations' || currentRoute.startsWith('/stock-realizations/') }">Stock Realization</button>
         <button @click="navigate('/statements')" :class="{ active: currentRoute === '/statements' }">Bank Statements</button>
         <button @click="navigate('/cardStatements')" :class="{ active: currentRoute === '/cardStatements' }">Client Card Statements</button>
     </div>

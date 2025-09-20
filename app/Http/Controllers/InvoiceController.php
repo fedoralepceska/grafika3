@@ -177,8 +177,16 @@ class InvoiceController extends Controller
 
             $errorMessages = [];
 
-            // Skip stock/material consumption entirely for individual client 'Физичко лице'
-            $shouldSkipConsumption = ($clientName === 'Физичко лице');
+            // STOCK DEDUCTION DISABLED: Stock consumption is now handled by the Stock Realization system
+            // When an invoice is completed, a StockRealization record is created which can be edited
+            // and then realized to actually consume the materials. This allows for adjustments
+            // based on actual material usage rather than estimated usage at order creation time.
+            $shouldSkipConsumption = true; // Always skip - stock deduction moved to realization system
+            
+            \Log::info('Stock deduction skipped - using Stock Realization system', [
+                'invoice_id' => $invoiceId,
+                'client_name' => $clientName
+            ]);
 
             foreach ($jobs as $job) {
                 // Check if job has a catalog item before proceeding

@@ -36,6 +36,7 @@ use App\Http\Controllers\TradeArticlesController;
 use App\Http\Controllers\UserRoleController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\QuestionController;
+use App\Http\Controllers\StockRealizationController;
 
 
 /*
@@ -147,6 +148,17 @@ Route::middleware(['auth', 'verified'])->group(function() {
     Route::get('/banks-list', [CertificateController::class, 'getBanksList'])->name('banks.list');
     Route::post('/client_card_statement', [ClientCardStatementController::class, 'store'])->name('ccs.store');
     Route::get('/client_card_statement/{id}', [ClientCardStatementController::class, 'getCCSByClientId'])->name('ccs.getCCSByClientId');
+
+    // Stock Realization routes
+    Route::get('/stock-realizations', [StockRealizationController::class, 'index'])->name('stock-realizations.index');
+    Route::get('/stock-realizations/pending', [StockRealizationController::class, 'pending'])->name('stock-realizations.pending');
+    Route::get('/stock-realizations/{id}', [StockRealizationController::class, 'show'])->name('stock-realizations.show');
+    Route::get('/stock-realizations/{id}/pdf', [StockRealizationController::class, 'generatePDF'])->name('stock-realizations.pdf');
+    Route::get('/stock-realizations/{id}/debug', [StockRealizationController::class, 'debugData'])->name('stock-realizations.debug');
+    Route::put('/stock-realizations/{id}/jobs/{jobId}', [StockRealizationController::class, 'updateJob'])->name('stock-realizations.updateJob');
+    Route::put('/stock-realizations/{id}/jobs/{jobId}/articles/{articleId}', [StockRealizationController::class, 'updateArticle'])->name('stock-realizations.updateArticle');
+    Route::post('/stock-realizations/{id}/realize', [StockRealizationController::class, 'realize'])->name('stock-realizations.realize');
+    Route::get('/stock-realizations/articles/available', [StockRealizationController::class, 'getAvailableArticles'])->name('stock-realizations.availableArticles');
 });
 
 //Rotues For Client
