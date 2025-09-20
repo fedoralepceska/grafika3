@@ -1436,6 +1436,7 @@ class JobController extends Controller
 
             // Validate request
             $validatedData = $request->validate([
+                'name' => 'sometimes|string|max:255',
                 'quantity' => 'sometimes|required|numeric',
                 'copies' => 'sometimes|required|numeric',
                 'catalog_item_id' => 'sometimes|nullable|exists:catalog_items,id',
@@ -1550,6 +1551,9 @@ class JobController extends Controller
             }
 
             // Update other fields from validated data
+            if (isset($validatedData['name'])) {
+                $job->name = $validatedData['name'];
+            }
             if (isset($validatedData['quantity'])) {
                 $job->quantity = $validatedData['quantity'];
             }

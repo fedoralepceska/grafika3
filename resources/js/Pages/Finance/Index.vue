@@ -8,46 +8,46 @@
                     <h2 class="sub-title">
                         {{ $t('listOfNotInvoiced') }}
                     </h2>
-                    <div class="filter-container flex pb-10">
+                    <div class="filter-container flex gap-4 pb-10">
                         <div class="search flex gap-2">
-                            <input v-model="searchQuery" placeholder="Enter order number or order name" class="text-black" style="width: 50vh; border-radius: 3px" @keyup.enter="searchInvoices" />
+                            <input v-model="searchQuery" placeholder="Enter order number or order name" class="text-black search-input" @keyup.enter="searchInvoices" />
                             <button class="btn create-order1" @click="searchInvoices">Search</button>
                         </div>
-                        <div class="flex gap-3">
-                        <div class="client">
+                        <div class="flex gap-2 filters-group">
+                        <div class="status">
                             <label class="pr-3">Filter orders</label>
-                            <select v-model="filterClient" class="text-black">
+                            <select v-model="filterClient" class="text-black filter-select" @change="applyFilter">
                                 <option value="All" hidden>Clients</option>
                                 <option value="All">All Clients</option>
                                 <option v-for="client in uniqueClients" :key="client">{{ client.name }}</option>
                             </select>
                         </div>
                         <div class="date">
-                            <select v-model="sortOrder" class="text-black">
+                            <select v-model="sortOrder" class="text-black filter-select" @change="applyFilter">
                                 <option value="desc" hidden>Date</option>
                                 <option value="desc">Newest to Oldest</option>
                                 <option value="asc">Oldest to Newest</option>
                             </select>
                         </div>
-                            <button @click="applyFilter" class="btn create-order1">Filter</button>
                         </div>
-                        <div class="button flex gap-4">
+                        <div class="button flex gap-3">
                             <button @click="generateInvoices" class="btn create-order" >
                                 Generate Invoice <i class="fa-solid fa-file-invoice-dollar"></i>
                             </button>
                         </div>
                     </div>
 
-                    <div v-if="filteredInvoices">
-                        <div class="border mb-1" v-for="invoice in filteredInvoices" :key="invoice.id">
-                            <div class="bg-white text-black flex justify-between">
-
-                                <div class="p-2 bold">{{invoice.invoice_title}}</div>
-                                <div class="flex">
-                                    <button class="flex items-center p-1" @click="viewJobs(invoice.id)">
-                                        <i v-if="iconStates[invoice.id]" class="fa-solid fa-angles-up bg-gray-300 p-2 rounded" aria-hidden="true"></i>
-                                        <i v-else class="fa-solid fa-angles-down bg-gray-300 p-2 rounded" aria-hidden="true"></i>
-                                    </button>
+                    <div v-if="loading" class="loading-container">
+                        <div class="loading-spinner">
+                            <i class="fa fa-spinner fa-spin"></i>
+                            <span>Loading orders...</span>
+                        </div>
+                    </div>
+                    <div v-else-if="filteredInvoices && filteredInvoices.length > 0">
+                        <div :class="['border mb-2 invoice-row', getStatusRowClass(invoice.status)]" v-for="invoice in filteredInvoices" :key="invoice.id">
+                            <div class="text-black flex justify-between order-info" style="line-height: normal">
+                                <div class="p-2 bold" style="font-size: 16px">{{invoice.invoice_title}}</div>
+                                <div class="flex" style="font-size: 12px">
                                     <button class="flex items-center p-1" @click="viewInvoice(invoice.id)">
                                         <i class="fa fa-eye bg-gray-300 p-2 rounded" aria-hidden="true"></i>
                                     </button>
@@ -56,51 +56,29 @@
                                     </div>
                                 </div>
                             </div>
-                            <div class="flex gap-40 p-2">
-                                <div class="info">
+                            <div class="flex row-columns pl-2 pt-1" style="line-height: initial">
+                                <div class="info col-order">
                                     <div>Order</div>
                                     <div class="bold">#{{invoice.id}}</div>
                                 </div>
-                                <div class="info">
+                                <div class="info min-w-80 no-wrap col-client">
                                     <div>Customer</div>
-                                    <div class="bold">{{ invoice.client.name }}</div>
+                                    <div class="bold ellipsis">{{ invoice.client.name }}</div>
                                 </div>
-                                <div class="info">
+                                <div class="info col-date">
                                     <div>End Date</div>
-                                    <div  class="bold">{{invoice.end_date}}</div>
+                                    <div class="bold truncate">{{ formatDate(invoice.end_date) }}</div>
                                 </div>
-                                <div class="info">
+                                <div class="info col-user">
                                     <div>Created By</div>
-                                    <div  class="bold">{{ invoice.user.name }}</div>
-                                </div>
-                                <div class="info">
-                                    <div>Status</div>
-                                    <div :class="getStatusColorClass(invoice.status)" class="bold" >{{invoice.status}}</div>
+                                    <div class="bold truncate">{{ invoice.user.name }}</div>
                                 </div>
                                 <div v-if="invoice.LockedNote" class="info locked">
                                     <ViewLockDialog :invoice="invoice"/>
                                 </div>
-                            </div>
-                            <div v-if="currentInvoiceId" class="job-details-container" :class="{ active: currentInvoiceId === invoice.id }">
-                                <div v-if="currentInvoiceId===invoice.id" class="bgJobs text-white p-2 bold">
-                                    Jobs for Order #{{invoice.id}} {{invoice.invoice_title}}
-                                </div>
-                                <div v-if="currentInvoiceId===invoice.id" class="jobInfo border-b" v-for="(job,index) in invoice.jobs">
-                                    <div class=" jobInfo flex justify-between gap-3">
-                                        <div class="text-white bold p-1">
-                                            #{{index+1}} {{job.file}}
-                                        </div>
-                                        <div class="p-1 img">
-                                            <img :src="getImageUrl(job.id)" alt="Job Image" class="jobImg thumbnail"/>
-                                        </div>
-                                                                <div class="p-1">{{$t('Height')}}: <span class="bold">{{(job.height && typeof job.height === 'number') ? job.height.toFixed(2) : '0.00'}}</span> </div>
-                        <div class="p-1">{{$t('Width')}}: <span class="bold">{{(job.width && typeof job.width === 'number') ? job.width.toFixed(2) : '0.00'}}</span> </div>
-                                        <div class="p-1">{{$t('Quantity')}}: <span class="bold">{{job.quantity}}</span> </div>
-                                        <div class="p-1">{{$t('Copies')}}: <span class="bold">{{job.copies}}</span> </div>
-                                    </div>
-                                    <div class="ultra-light-gray pt-4">
-                                        <OrderJobDetails :job="job" :invoice-id="invoice.id"/>
-                                    </div>
+                                <div class="info col-status">
+                                    <div>Status</div>
+                                    <div :class="[getStatusColorClass(invoice.status), 'bold', 'truncate', 'status-pill']">{{invoice.status}}</div>
                                 </div>
                             </div>
                         </div>
@@ -136,17 +114,13 @@ export default {
             localInvoices: [],
             uniqueClients:[],
             filteredInvoices: [],
-            currentInvoiceId: null,
             selectedInvoices:{},
-            iconStates : reactive({}),
+            loading: false,
         };
     },
     mounted() {
         this.localInvoices = this.invoices.data.slice();
         this.fetchUniqueClients()
-        this.invoices.data.forEach(invoice => {
-            this.iconStates[invoice.id] = false;
-        });
         this.filteredInvoices = this.invoices.data; // Backend now handles the faktura_id filtering
     },
     computed:{
@@ -155,6 +129,21 @@ export default {
         },
     },
     methods: {
+        formatDate(dateStr) {
+            if (!dateStr) return '';
+            const d = new Date(dateStr);
+            if (isNaN(d.getTime())) return dateStr;
+            const dd = String(d.getDate()).padStart(2, '0');
+            const mm = String(d.getMonth() + 1).padStart(2, '0');
+            const yyyy = d.getFullYear();
+            return `${dd}/${mm}/${yyyy}`;
+        },
+        getStatusRowClass(status) {
+            if (status === 'Completed') return 'row-completed';
+            if (status === 'In progress' || status === 'In Progress') return 'row-progress';
+            if (status === 'Not started yet') return 'row-pending';
+            return '';
+        },
         toggleInvoiceSelection(invoice, event) {
             const toast = useToast(); // Initialize toast here to use directly
 
@@ -193,23 +182,6 @@ export default {
             this.selectedInvoices[invoice.id] = !this.selectedInvoices[invoice.id];
         },
 
-        getImageUrl(id) {
-            const currentInvoice = this.invoices.data.find(invoice => invoice.id === this.currentInvoiceId);
-            if (currentInvoice && currentInvoice.jobs) {
-                const job = currentInvoice.jobs.find(j => j.id === id);
-                return `/storage/uploads/${job.file}`;
-            }
-        },
-        viewJobs(invoiceId) {
-            if (this.currentInvoiceId && this.currentInvoiceId !== invoiceId) {
-                this.iconStates[this.currentInvoiceId] = false;
-                this.currentInvoiceId = null;
-            }
-
-            // Toggle the icon state for the clicked invoice
-            this.currentInvoiceId = this.currentInvoiceId === invoiceId ? null : invoiceId;
-            this.iconStates[invoiceId] = !this.iconStates[invoiceId];
-        },
         getStatusColorClass(status) {
             if (status === "Not started yet") {
                 return "orange";
@@ -221,42 +193,48 @@ export default {
         },
         async applyFilter() {
             try {
-                const response = await axios.get('/orders', {
+                this.loading = true;
+                
+                const response = await axios.get('/api/notInvoiced/filtered', {
                     params: {
-                        searchQuery: encodeURIComponent(this.searchQuery),
-                        status: this.filterStatus,
+                        searchQuery: this.searchQuery,
                         sortOrder: this.sortOrder,
                         client: this.filterClient,
                     },
                 });
-                this.localInvoices = response.data;
+                
+                // Update the filtered invoices directly without showing all orders
+                this.filteredInvoices = response.data.data || response.data;
+                
+                // Build URL with current filters for browser history
                 let redirectUrl = '/notInvoiced';
+                const params = [];
+                
                 if (this.searchQuery) {
-                    redirectUrl += `?searchQuery=${encodeURIComponent(this.searchQuery)}`;
-                }
-                if (this.filterStatus) {
-                    redirectUrl += `${this.searchQuery ? '&' : '?'}status=${this.filterStatus}`;
+                    params.push(`searchQuery=${encodeURIComponent(this.searchQuery)}`);
                 }
                 if (this.sortOrder) {
-                    redirectUrl += `${this.searchQuery || this.filterStatus ? '&' : '?'}sortOrder=${this.sortOrder}`;
+                    params.push(`sortOrder=${this.sortOrder}`);
                 }
-                if (this.filterClient) {
-                    redirectUrl += `${this.searchQuery || this.filterStatus || this.sortOrder ? '&' : '?'}client=${this.filterClient}`;
+                if (this.filterClient && this.filterClient !== 'All') {
+                    params.push(`client=${encodeURIComponent(this.filterClient)}`);
+                }
+                
+                if (params.length > 0) {
+                    redirectUrl += '?' + params.join('&');
                 }
 
-                this.$inertia.visit(redirectUrl);
+                // Update URL without full page reload
+                window.history.pushState({}, '', redirectUrl);
             } catch (error) {
-                console.error(error);
+                console.error('Error applying filters:', error);
+            } finally {
+                this.loading = false;
             }
         },
         async searchInvoices() {
-            try {
-                const response = await axios.get(`?searchQuery=${encodeURIComponent(this.searchQuery)}`);
-                this.localInvoices = response.data;
-                this.$inertia.visit(`/notInvoiced?searchQuery=${this.searchQuery}`);
-            } catch (error) {
-                console.error(error);
-            }
+            // Use the same applyFilter method for consistency
+            await this.applyFilter();
         },
         async fetchUniqueClients() {
             try {
@@ -288,66 +266,99 @@ export default {
 };
 </script>
 <style scoped lang="scss">
+
+.border:nth-child(odd) .order-info {
+    background-color: white;
+}
+
+.border:nth-child(even) .order-info {
+    background-color: rgba(255, 255, 255, 0.65);
+}
+ 
 .info {
-    flex: 1;
     min-width: 0;
     display: flex;
     flex-direction: column;
     justify-content: center;
 }
-.jobInfo{
-    align-items: center;
+
+.filter-container{
+    justify-content: space-between;
+    flex-wrap: wrap;
 }
+
+.filter-container .search {
+    flex: 1 1 320px;
+}
+
+.filter-container .filters-group {
+    flex: 2 1 500px;
+    flex-wrap: wrap;
+}
+
+.search-input{
+    width: 50vh;
+    max-width: 100%;
+    border-radius: 3px;
+}
+
+.filter-select{
+    width: 25vh;
+    max-width: 100%;
+}
+
 .locked{
     display: flex;
     justify-content: center;
 }
-.img{
-    width: 70px;
-    height: 70px;
-}
+
 select{
     width: 25vh;
     border-radius: 3px;
 }
+
 .orange{
     color: $orange;
 }
+
 .blue-text{
-    color: #1ba5e4;
+    color: $blue;
 }
+
 .bold{
     font-weight: bold;
 }
+
 .green-text{
     color: $green;
 }
+
 .blue{
     background-color: $blue;
 }
+
 .green{
     background-color: $green;
 }
+
 .green:hover{
     background-color: green;
 }
+
 .header{
     display: flex;
     align-items: center;
 }
-.bgJobs{
-    background-color: $ultra-light-gray;
-}
+
 .dark-gray {
     background-color: $dark-gray;
     justify-content: left;
+    border-radius: 8px;
     align-items: center;
     min-height: 20vh;
     min-width: 80vh;
 }
-.ultra-light-gray{
-    background-color: $ultra-light-gray;
-}
+
 .sub-title{
     font-size: 20px;
     font-weight: bold;
@@ -355,9 +366,6 @@ select{
     display: flex;
     align-items: center;
     color: $white;
-}
-.filter-container{
-    justify-content: space-between;
 }
 
 .button-container{
@@ -372,25 +380,157 @@ select{
     font-weight: bold;
     border-radius: 2px;
 }
+
 .create-order1{
     background-color: $blue;
     color: white;
 }
+
 .create-order{
     background-color: $green;
     color: white;
 }
-.job-details-container {
-    max-height: 0;
-    opacity: 0;
-    overflow: hidden;
-    transition: max-height 0.3s ease-in-out, opacity 0.3s ease-in-out;
-    will-change: max-height, opacity;
+
+.min-w-80 {
+    min-width: 320px;
+    flex-shrink: 0;
+    display: block;
 }
 
-.job-details-container.active {
-    max-height: 400px;
-    opacity: 1;
+.row-columns {
+    gap: 2rem;
+    align-items: center;
+    background-color: $background-color;
+}
+
+.col-status { margin-left: auto; }
+
+.row-columns > .info div:nth-child(2) {
+    white-space: nowrap;
+}
+
+.col-order { width: 90px; }
+.col-client { width: 450px; }
+.col-date { width: 170px; }
+.col-user { width: 200px; }
+.col-status { width: 180px; }
+
+.truncate {
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.ellipsis {
+    width: 100%;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    overflow: hidden;
+    display: inline-block;
+    max-width: 100%;
+}
+
+.ellipsis-file {
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    overflow: hidden;
+    display: inline-block;
+    width: 150px;
+}
+
+.w-150 {
+    width: 150px;
+}
+
+.loading-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 40px;
+    color: white;
+}
+
+.loading-spinner {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    
+    i {
+        font-size: 24px;
+        color: $blue;
+    }
+    
+    span {
+        font-size: 16px;
+        color: white;
+    }
+}
+
+/* Improved invoice row styling */
+.invoice-row {
+    border: 3px solid rgba(255,255,255,0.25);
+    border-radius: 8px;
+    overflow: hidden;
+    background: rgba(255,255,255,0.06);
+    box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+    transition: box-shadow 0.2s ease, transform 0.2s ease, border-color 0.2s ease;
+}
+
+.invoice-row:nth-child(odd) {
+    background-color: rgba(255, 255, 255, 0.05);
+}
+
+.invoice-row:nth-child(even) {
+    background-color: rgba(255, 255, 255, 0.09);
+}
+
+.invoice-row .order-info {
+    border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.invoice-row .row-columns {
+    padding-bottom: 8px;
+}
+
+/* Status-based row accents for a more lively UI */
+.row-completed {
+    border-color: rgba(16, 185, 129, 0.35); /* green */
+}
+
+.row-progress {
+    border-color: rgba(59, 130, 246, 0.35); /* blue */
+}
+
+.row-pending {
+    border-color: rgba(234, 179, 8, 0.35); /* amber */
+}
+
+/* Status pill styling */
+.status-pill {
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: 9999px;
+    background-color: rgba(255,255,255,0.08);
+    width: fit-content;
+}
+
+@media (max-width: 1024px) {
+    .filter-container { gap: 12px; }
+    .search-input { width: 100%; }
+    .filter-select { width: 100%; }
+    .filters-group { flex: 1 1 100%; }
+    .row-columns { gap: 1rem; }
+    .col-client { width: 300px; }
+    .col-user { width: 150px; }
+    .col-status { width: 140px; }
+}
+
+@media (max-width: 768px) {
+    .row-columns { gap: 0.75rem; }
+    .col-client { width: 250px; }
+    .col-user { width: 120px; }
+    .col-status { width: 120px; }
 }
 </style>
 

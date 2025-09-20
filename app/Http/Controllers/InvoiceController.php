@@ -855,6 +855,80 @@ class InvoiceController extends Controller
         }
     }
 
+    public function getFilteredUninvoicedOrders(Request $request)
+    {
+        try {
+            $query = Invoice::with(['jobs', 'user', 'client'])
+                ->where('status', 'Completed') // Filter by 'Completed' status
+                ->whereNull('faktura_id'); // Only show invoices that haven't been invoiced yet
+
+            // Apply search, client filter, and status filter
+            $this->applySearch($query, $request, $request->input('status'));
+
+            // Exclude completed orders for the individual client 'Физичко лице'
+            $query->whereDoesntHave('client', function($q){
+                $q->where('name', 'Физичко лице');
+            });
+
+            // Apply sort order
+            $query->orderBy('created_at', $request->input('sortOrder', 'desc'));
+
+            // Get paginated results
+            $invoices = $query->latest()->paginate(10);
+
+            // Return JSON response for AJAX calls
+            return response()->json($invoices);
+            
+        } catch (\Exception $e) {
+            Log::error('Filtered Uninvoiced Orders Error: ' . $e->getMessage());
+            Log::error('Stack trace: ' . $e->getTraceAsString());
+            
+            return response()->json(['error' => 'Internal Server Error'], 500);
+        }
+    }
+
+    public function getFilteredAllInvoices(Request $request)
+    {
+        try {
+            $query = Faktura::with([
+                'createdBy:id,name',
+                'invoices.client:id,name',
+                'invoices.user:id,name',
+                'tradeItems.article:id,name,code'
+            ])->where('isInvoiced', 1); // Filter for generated Fakturas (isInvoiced = 1)
+
+            // Apply search query if provided
+            if ($request->has('searchQuery')) {
+                $searchQuery = $request->input('searchQuery');
+                $query->where('id', 'like', "%{$searchQuery}%");
+            }
+
+            // Apply filter client if provided
+            if ($request->has('client') && $request->input('client') !== 'All') {
+                $client = $request->input('client');
+                $query->whereHas('invoices.client', function ($q) use ($client) {
+                    $q->where('name', $client);
+                });
+            }
+
+            // Apply sort order
+            $sortOrder = $request->input('sortOrder', 'desc');
+            $query->orderBy('created_at', $sortOrder);
+
+            // Apply pagination with 10 results per page
+            $fakturas = $query->paginate(10);
+
+            // Return JSON response for AJAX calls
+            return response()->json($fakturas);
+            
+        } catch (\Exception $e) {
+            Log::error('Filtered All Invoices Error: ' . $e->getMessage());
+            Log::error('Stack trace: ' . $e->getTraceAsString());
+            
+            return response()->json(['error' => 'Internal Server Error'], 500);
+        }
+    }
+
     public function outgoingInvoicePdf(Request $request)
     {
         $invoiceIds = $request->input('invoiceIds', []);
@@ -1156,6 +1230,7 @@ class InvoiceController extends Controller
                 'invoices.jobs.small_material.smallFormatMaterial', 
                 'invoices.user', 
                 'invoices.client', 
+                'invoices.client.clientCardStatement',
                 'invoices.jobs.actions', 
                 'invoices.jobs.large_material',
                 'tradeItems.article'
@@ -1167,12 +1242,13 @@ class InvoiceController extends Controller
                 });
             });
 
-            // Prepare data as an object
+            // Prepare data as an object - trade items belong to faktura, not individual invoices
             $invoiceData = $faktura->invoices->map(function ($invoice) use ($faktura) {
                 return [
                     'id' => $invoice->id,
                     'invoice_title' => $invoice->invoice_title,
                     'client' => $invoice->client->name,
+                    'client_data' => $invoice->client,
                     'jobs' => $invoice->jobs,
                     'user' => $invoice->user->name,
                     'start_date' => $invoice->start_date,
@@ -1182,12 +1258,28 @@ class InvoiceController extends Controller
                     'fakturaId' => $faktura->id,
                     'createdBy' => $faktura->createdBy->name,
                     'created' => $faktura->created_at
-                    // ... other invoice data ...
+                ];
+            });
+
+            // Trade items are separate from invoices - they belong to the faktura
+            $tradeItems = $faktura->tradeItems->map(function ($tradeItem) {
+                return [
+                    'id' => $tradeItem->id,
+                    'article_id' => $tradeItem->article_id,
+                    'article_name' => $tradeItem->article->name ?? 'Unknown Article',
+                    'article_code' => $tradeItem->article->code ?? '',
+                    'quantity' => $tradeItem->quantity,
+                    'unit_price' => $tradeItem->unit_price,
+                    'total_price' => $tradeItem->total_price,
+                    'vat_rate' => $tradeItem->vat_rate,
+                    'vat_amount' => $tradeItem->vat_amount
                 ];
             });
 
             return Inertia::render('Finance/Invoice', [
                 'invoice' => $invoiceData,
+                'faktura' => $faktura,
+                'tradeItems' => $tradeItems
             ]);
         } catch (Exception $e) {
             // If Faktura with the given ID is not found, return error response
@@ -1542,6 +1634,359 @@ class InvoiceController extends Controller
             
             // Attach the article with negative quantity to track consumption
             $consumptionPriemnica->articles()->attach($article->id, ['quantity' => -$quantity]);
+        }
+    }
+
+    /**
+     * Update a job within an invoice
+     */
+    public function updateInvoiceJob(Request $request, $fakturaId, $jobId)
+    {
+        try {
+            DB::beginTransaction();
+
+            // Validate the faktura exists and user has access
+            $faktura = Faktura::findOrFail($fakturaId);
+            
+            // First check if the job exists
+            $job = Job::find($jobId);
+            if (!$job) {
+                return response()->json([
+                    'error' => 'Job not found',
+                    'message' => "Job with ID {$jobId} does not exist"
+                ], 404);
+            }
+
+            // Check if the job belongs to this faktura
+            $jobBelongsToFaktura = Job::whereHas('invoice', function ($query) use ($faktura) {
+                $query->where('faktura_id', $faktura->id);
+            })->where('id', $jobId)->exists();
+
+            if (!$jobBelongsToFaktura) {
+                return response()->json([
+                    'error' => 'Job access denied',
+                    'message' => "Job with ID {$jobId} does not belong to the specified invoice"
+                ], 403);
+            }
+
+            // Get the job with the relationship
+            $job = Job::whereHas('invoice', function ($query) use ($faktura) {
+                $query->where('faktura_id', $faktura->id);
+            })->find($jobId);
+
+            // Validate request data
+            $validatedData = $request->validate([
+                'name' => 'sometimes|string|max:255',
+                'quantity' => 'sometimes|required|numeric|min:1',
+                'copies' => 'sometimes|required|numeric|min:1',
+                'salePrice' => 'sometimes|required|numeric|min:0',
+                'width' => 'sometimes|numeric|min:0',
+                'height' => 'sometimes|numeric|min:0',
+                'status' => 'sometimes|string'
+            ]);
+
+            // Update the job with validated data
+            $job->fill($validatedData);
+            $job->save();
+
+            DB::commit();
+
+            return response()->json([
+                'message' => 'Job updated successfully',
+                'job' => $job->fresh()->append('totalPrice')
+            ]);
+
+        } catch (\Exception $e) {
+            DB::rollback();
+            \Log::error('Error updating invoice job:', [
+                'faktura_id' => $fakturaId,
+                'job_id' => $jobId,
+                'error' => $e->getMessage()
+            ]);
+
+            return response()->json([
+                'error' => 'Failed to update job',
+                'message' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Add a new trade item to an existing faktura
+     */
+    public function addTradeItem(Request $request, $fakturaId)
+    {
+        try {
+            DB::beginTransaction();
+
+            $faktura = Faktura::findOrFail($fakturaId);
+
+            $validatedData = $request->validate([
+                'article_id' => 'required|exists:article,id',
+                'quantity' => 'required|numeric|min:1',
+                'unit_price' => 'required|numeric|min:0',
+                'vat_rate' => 'sometimes|numeric|min:0|max:100'
+            ]);
+
+            // Calculate totals
+            $totalPrice = $validatedData['quantity'] * $validatedData['unit_price'];
+            $vatRate = $validatedData['vat_rate'] ?? 18.00;
+            $vatAmount = $totalPrice * ($vatRate / 100);
+
+            $tradeItem = FakturaTradeItem::create([
+                'faktura_id' => $faktura->id,
+                'article_id' => $validatedData['article_id'],
+                'quantity' => $validatedData['quantity'],
+                'unit_price' => $validatedData['unit_price'],
+                'total_price' => $totalPrice,
+                'vat_rate' => $vatRate,
+                'vat_amount' => $vatAmount
+            ]);
+
+            $tradeItem->load('article');
+
+            DB::commit();
+
+            return response()->json([
+                'message' => 'Trade item added successfully',
+                'trade_item' => [
+                    'id' => $tradeItem->id,
+                    'article_id' => $tradeItem->article_id,
+                    'article_name' => $tradeItem->article->name,
+                    'article_code' => $tradeItem->article->code ?? '',
+                    'quantity' => $tradeItem->quantity,
+                    'unit_price' => $tradeItem->unit_price,
+                    'total_price' => $tradeItem->total_price,
+                    'vat_rate' => $tradeItem->vat_rate,
+                    'vat_amount' => $tradeItem->vat_amount
+                ]
+            ]);
+
+        } catch (\Exception $e) {
+            DB::rollback();
+            \Log::error('Error adding trade item:', [
+                'faktura_id' => $fakturaId,
+                'error' => $e->getMessage()
+            ]);
+
+            return response()->json([
+                'error' => 'Failed to add trade item',
+                'message' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Update an existing trade item
+     */
+    public function updateTradeItem(Request $request, $fakturaId, $tradeItemId)
+    {
+        try {
+            DB::beginTransaction();
+
+            $faktura = Faktura::findOrFail($fakturaId);
+            $tradeItem = FakturaTradeItem::where('faktura_id', $faktura->id)
+                ->findOrFail($tradeItemId);
+
+            $validatedData = $request->validate([
+                'quantity' => 'sometimes|required|numeric|min:1',
+                'unit_price' => 'sometimes|required|numeric|min:0',
+                'vat_rate' => 'sometimes|numeric|min:0|max:100'
+            ]);
+
+            // Update fields
+            if (isset($validatedData['quantity'])) {
+                $tradeItem->quantity = $validatedData['quantity'];
+            }
+            if (isset($validatedData['unit_price'])) {
+                $tradeItem->unit_price = $validatedData['unit_price'];
+            }
+            if (isset($validatedData['vat_rate'])) {
+                $tradeItem->vat_rate = $validatedData['vat_rate'];
+            }
+
+            // Recalculate totals
+            $tradeItem->total_price = $tradeItem->quantity * $tradeItem->unit_price;
+            $tradeItem->vat_amount = $tradeItem->total_price * ($tradeItem->vat_rate / 100);
+            $tradeItem->save();
+
+            $tradeItem->load('article');
+
+            DB::commit();
+
+            return response()->json([
+                'message' => 'Trade item updated successfully',
+                'trade_item' => [
+                    'id' => $tradeItem->id,
+                    'article_id' => $tradeItem->article_id,
+                    'article_name' => $tradeItem->article->name,
+                    'article_code' => $tradeItem->article->code ?? '',
+                    'quantity' => $tradeItem->quantity,
+                    'unit_price' => $tradeItem->unit_price,
+                    'total_price' => $tradeItem->total_price,
+                    'vat_rate' => $tradeItem->vat_rate,
+                    'vat_amount' => $tradeItem->vat_amount
+                ]
+            ]);
+
+        } catch (\Exception $e) {
+            DB::rollback();
+            \Log::error('Error updating trade item:', [
+                'faktura_id' => $fakturaId,
+                'trade_item_id' => $tradeItemId,
+                'error' => $e->getMessage()
+            ]);
+
+            return response()->json([
+                'error' => 'Failed to update trade item',
+                'message' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Delete a trade item
+     */
+    public function deleteTradeItem($fakturaId, $tradeItemId)
+    {
+        try {
+            DB::beginTransaction();
+
+            $faktura = Faktura::findOrFail($fakturaId);
+            $tradeItem = FakturaTradeItem::where('faktura_id', $faktura->id)
+                ->findOrFail($tradeItemId);
+
+            $tradeItem->delete();
+
+            DB::commit();
+
+            return response()->json([
+                'message' => 'Trade item deleted successfully'
+            ]);
+
+        } catch (\Exception $e) {
+            DB::rollback();
+            \Log::error('Error deleting trade item:', [
+                'faktura_id' => $fakturaId,
+                'trade_item_id' => $tradeItemId,
+                'error' => $e->getMessage()
+            ]);
+
+            return response()->json([
+                'error' => 'Failed to delete trade item',
+                'message' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Get available articles for trade items
+     */
+    public function getAvailableArticles()
+    {
+        try {
+            $articles = \App\Models\Article::select('id', 'name', 'code', 'price_1', 'tax_type')
+                ->orderBy('name')
+                ->get()
+                ->map(function ($article) {
+                    return [
+                        'id' => $article->id,
+                        'name' => $article->name,
+                        'code' => $article->code,
+                        'price' => $article->price_1,
+                        'tax_type' => $article->tax_type
+                    ];
+                });
+
+            return response()->json($articles);
+
+        } catch (\Exception $e) {
+            \Log::error('Error fetching articles:', ['error' => $e->getMessage()]);
+            
+            return response()->json([
+                'error' => 'Failed to fetch articles',
+                'message' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Update invoice title
+     */
+    public function updateInvoiceTitle(Request $request, $fakturaId, $invoiceId)
+    {
+        try {
+            DB::beginTransaction();
+
+            $faktura = Faktura::findOrFail($fakturaId);
+            $invoice = Invoice::where('faktura_id', $faktura->id)
+                ->findOrFail($invoiceId);
+
+            $validatedData = $request->validate([
+                'invoice_title' => 'required|string|max:255'
+            ]);
+
+            $invoice->invoice_title = $validatedData['invoice_title'];
+            $invoice->save();
+
+            DB::commit();
+
+            return response()->json([
+                'message' => 'Invoice title updated successfully',
+                'invoice' => $invoice
+            ]);
+
+        } catch (\Exception $e) {
+            DB::rollback();
+            \Log::error('Error updating invoice title:', [
+                'faktura_id' => $fakturaId,
+                'invoice_id' => $invoiceId,
+                'error' => $e->getMessage()
+            ]);
+
+            return response()->json([
+                'error' => 'Failed to update invoice title',
+                'message' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Update invoice date
+     */
+    public function updateInvoiceDate(Request $request, $fakturaId)
+    {
+        try {
+            DB::beginTransaction();
+
+            $faktura = Faktura::findOrFail($fakturaId);
+
+            $validatedData = $request->validate([
+                'created' => 'required|date'
+            ]);
+
+            $faktura->created_at = $validatedData['created'];
+            $faktura->save();
+
+            DB::commit();
+
+            return response()->json([
+                'message' => 'Invoice date updated successfully',
+                'success' => true,
+                'faktura' => $faktura
+            ]);
+
+        } catch (\Exception $e) {
+            DB::rollback();
+            \Log::error('Error updating invoice date:', [
+                'faktura_id' => $fakturaId,
+                'error' => $e->getMessage()
+            ]);
+
+            return response()->json([
+                'error' => 'Failed to update invoice date',
+                'message' => $e->getMessage()
+            ], 500);
         }
     }
 }

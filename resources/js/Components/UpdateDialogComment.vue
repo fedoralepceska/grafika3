@@ -117,7 +117,7 @@ export default {
 }
 .btn{
     margin-right: 4px;
-    padding: 12px 15px;
+    padding: 8.5px 12px;
     border: none;
     cursor: pointer;
     font-weight: bold;
@@ -126,7 +126,7 @@ export default {
     color: white;
 }
 .bt{
-    margin: 12px 24px;
+ margin-left: 3px;
 }
 
 .background {

@@ -388,7 +388,7 @@
                         <td style="font-size: 10pt; padding: 6px; text-align: left;">{{ $item['invoice_title'] }}</td>
                         <td style="font-size: 10pt; padding: 6px; text-align: center; background-color: #E7F1F2;">{{ $item['taxRate'] }}%</td>
                         <td style="font-size: 10pt; padding: 6px; text-align: center; background-color: #E7F1F2;">{{getUnit($item['job'])}}</td>
-                        <td style="font-size: 10pt; padding: 6px; text-align: center; background-color: #E7F1F2;">{{ $item['copies'] }}</td>
+                        <td style="font-size: 10pt; padding: 6px; text-align: center; background-color: #E7F1F2;">{{ $item['job']['quantity'] }}</td>
                         <td style="font-size: 10pt; padding: 6px; text-align: right; background-color: #E7F1F2;">{{ number_format($item['totalSalePrice'] / $item['copies'], 2) }}</td>
                         <td style="font-size: 10pt; padding: 6px; text-align: right; background-color: #E7F1F2;">{{ number_format($item['totalSalePrice'], 2) }}</td>
                     </tr>

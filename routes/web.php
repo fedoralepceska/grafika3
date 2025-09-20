@@ -78,8 +78,10 @@ Route::resource('invoices', \App\Http\Controllers\InvoiceController::class)
 Route::middleware(['auth', 'verified'])->group(function() {
     Route::get('/orders', [InvoiceController::class, 'index'])->name('orders.index');
     Route::get('/notInvoiced', [InvoiceController::class, 'invoiceReady'])->name('invoices.invoiceReady');
+    Route::get('/api/notInvoiced/filtered', [InvoiceController::class, 'getFilteredUninvoicedOrders'])->name('api.invoices.filteredUninvoiced');
     Route::get('/invoiceGeneration',  [InvoiceController::class, 'showGenerateInvoice'])->name('invoices.showGenerateInvoice');
     Route::get('/allInvoices',  [InvoiceController::class, 'allFaktura'])->name('invoices.allFaktura');
+    Route::get('/api/allInvoices/filtered', [InvoiceController::class, 'getFilteredAllInvoices'])->name('api.invoices.filteredAllInvoices');
     Route::post('/generate-invoice',  [InvoiceController::class, 'generateInvoice'])->name('invoices.generateInvoice');
     Route::post('/preview-invoice',  [InvoiceController::class, 'previewInvoice'])->name('invoices.previewInvoice');
     Route::get('orders/latest', [InvoiceController::class, 'latest'])->name('invoices.latest');
@@ -100,6 +102,7 @@ Route::middleware(['auth', 'verified'])->group(function() {
     Route::get('/order/download', [InvoiceController::class, 'downloadInvoiceFiles'])->name('invoice.download');
     Route::get('/unique-clients', [ClientController::class, 'getUniqueClients']);
     Route::get('/orders/{id}/pdf', [InvoiceController::class, 'generateInvoicePdf'])->name('invoice.generateInvoicePdf');
+    Route::get('/invoice/available-articles', [InvoiceController::class, 'getAvailableArticles'])->name('invoices.getAvailableArticles');
     Route::get('/invoice/{id}', [InvoiceController::class, 'getGeneratedInvoice'])->name('invoices.getGeneratedInvoice');
     Route::put('/invoice/{id}/update-comment', [InvoiceController::class, 'updateInvoiceComment'])->name('invoices.updateInvoiceComment');
     Route::get('/incomingInvoice', [\App\Http\Controllers\IncomingFakturaController::class, 'index'])->name('incomingInvoice.index');
@@ -107,6 +110,14 @@ Route::middleware(['auth', 'verified'])->group(function() {
     Route::get('/invoice-generation', [InvoiceController::class, 'generateAllInvoicesPdf'])->name('invoices.generateAllInvoicesPdf');
     Route::post('/outgoing/invoice', [InvoiceController::class, 'outgoingInvoicePdf'])->name('invoices.outgoingInvoicePdf');
     Route::put('/incomingInvoice/{id}', [IncomingFakturaController::class, 'update'])->name('incomingInvoice.update');
+
+    // Invoice editing routes
+    Route::put('/invoice/{fakturaId}/job/{jobId}', [InvoiceController::class, 'updateInvoiceJob'])->name('invoices.updateJob');
+    Route::post('/invoice/{fakturaId}/trade-items', [InvoiceController::class, 'addTradeItem'])->name('invoices.addTradeItem');
+    Route::put('/invoice/{fakturaId}/trade-items/{tradeItemId}', [InvoiceController::class, 'updateTradeItem'])->name('invoices.updateTradeItem');
+    Route::delete('/invoice/{fakturaId}/trade-items/{tradeItemId}', [InvoiceController::class, 'deleteTradeItem'])->name('invoices.deleteTradeItem');
+    Route::put('/invoice/{fakturaId}/invoice/{invoiceId}/title', [InvoiceController::class, 'updateInvoiceTitle'])->name('invoices.updateTitle');
+    Route::put('/invoice/{fakturaId}/date', [InvoiceController::class, 'updateInvoiceDate'])->name('invoices.updateDate');
 
     // Individual Orders (Физичко лице)
     Route::get('/individual', [\App\Http\Controllers\IndividualOrderController::class, 'index'])->name('individual.index');
