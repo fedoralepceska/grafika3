@@ -79,6 +79,14 @@
                                     <button class="flex items-center p-1" @click="viewInvoice(invoice.id)">
                                     <i class="fa fa-eye bg-gray-300 p-2 rounded" aria-hidden="true"></i>
                                     </button>
+                                    <button
+                                        v-if="canDeleteInvoice(invoice)"
+                                        class="flex items-center px-2 m-1 delete-btn"
+                                        @click="openDeleteModal(invoice)"
+                                        title="Delete order"
+                                    >
+                                        <i class="fa fa-trash" aria-hidden="true"></i>
+                                    </button>
                                 </div>
                             </div>
                             <div class="flex row-columns pl-2 pt-1" style="line-height: initial">
@@ -332,6 +340,65 @@
                     </div>
                 </div>
             </div>
+            
+            <!-- Delete Confirmation Modal -->
+            <div v-if="showDeleteModal" class="files-modal" @click="closeDeleteModal">
+                <div class="files-modal-content centered" @click.stop>
+                    <div class="files-modal-header">
+                        <h3>Delete Order #{{ targetInvoice?.id }}</h3>
+                        <button @click="closeDeleteModal" class="close-btn">
+                            <i class="fa fa-times"></i>
+                        </button>
+                    </div>
+                    <div class="files-modal-body center">
+                        <p>Type admin passcode to confirm deletion of this order and all related data.</p>
+                        <div class="code-inputs">
+                            <input
+                                ref="codeInput0"
+                                class="code-box text-black"
+                                type="password"
+                                maxlength="1"
+                                :value="codeDigits[0]"
+                                @input="onCodeInput(0, $event)"
+                                @keydown="onCodeKeydown(0, $event)"
+                                @paste.prevent="onCodePaste($event)"
+                            />
+                            <input
+                                ref="codeInput1"
+                                class="code-box text-black"
+                                type="password"
+                                maxlength="1"
+                                :value="codeDigits[1]"
+                                @input="onCodeInput(1, $event)"
+                                @keydown="onCodeKeydown(1, $event)"
+                            />
+                            <input
+                                ref="codeInput2"
+                                class="code-box text-black"
+                                type="password"
+                                maxlength="1"
+                                :value="codeDigits[2]"
+                                @input="onCodeInput(2, $event)"
+                                @keydown="onCodeKeydown(2, $event)"
+                            />
+                            <input
+                                ref="codeInput3"
+                                class="code-box text-black"
+                                type="password"
+                                maxlength="1"
+                                :value="codeDigits[3]"
+                                @input="onCodeInput(3, $event)"
+                                @keydown="onCodeKeydown(3, $event)"
+                                @keyup.enter="confirmDelete"
+                            />
+                        </div>
+                    </div>
+                    <div class="pdf-modal-footer" style="justify-content: flex-end; gap: 8px;">
+                        <button class="nav-btn" @click="closeDeleteModal">Cancel</button>
+                        <button class="nav-btn danger" :disabled="deleting" @click="confirmDelete">{{ deleting ? 'Deleting…' : 'Delete' }}</button>
+                    </div>
+                </div>
+            </div>
         </div>
     </MainLayout>
 </template>
@@ -344,6 +411,7 @@ import axios from 'axios';
 import {reactive} from "vue";
 import OrderJobDetails from "@/Pages/Invoice/OrderJobDetails.vue";
 import ViewLockDialog from "@/Components/ViewLockDialog.vue";
+import { useToast } from 'vue-toastification';
 
 export default {
     components: {Header, MainLayout, AdvancedPagination, OrderJobDetails, ViewLockDialog },
@@ -376,6 +444,12 @@ export default {
             loading: false,
             // Image error tracking
             imageErrors: {},
+            // Delete modal state
+            showDeleteModal: false,
+            targetInvoice: null,
+            deletePasscode: '',
+            deleting: false,
+            codeDigits: ['', '', '', ''],
         };
     },
     computed: {
@@ -425,6 +499,97 @@ export default {
         this.sortOrder = urlParams.get('sortOrder') || 'desc';
     },
     methods: {
+        canDeleteInvoice(invoice) {
+            // Show the button for eligible orders; backend enforces admin + passcode
+            const statusOk = (invoice?.status || '').toLowerCase() === 'not started yet';
+            return statusOk;
+        },
+        openDeleteModal(invoice){
+            this.targetInvoice = invoice;
+            this.deletePasscode = '';
+            this.codeDigits = ['', '', '', ''];
+            this.showDeleteModal = true;
+            this.$nextTick(() => {
+                const first = this.$refs['codeInput0'];
+                first && first.focus();
+            });
+        },
+        closeDeleteModal(){
+            if (this.deleting) return;
+            this.showDeleteModal = false;
+            this.targetInvoice = null;
+            this.deletePasscode = '';
+            this.codeDigits = ['', '', '', ''];
+            // Clear any input DOM values
+            for (let i = 0; i < 4; i++) {
+                const el = this.$refs[`codeInput${i}`];
+                if (el) el.value = '';
+            }
+        },
+        async confirmDelete(){
+            if (!this.targetInvoice || this.deleting) return;
+            const toast = useToast();
+            // Build passcode from split inputs if used
+            const built = this.codeDigits.join('');
+            const pass = built && built.length === 4 ? built : this.deletePasscode;
+            if (pass !== '9632') {
+                toast.error('Invalid passcode');
+                return;
+            }
+            try{
+                this.deleting = true;
+                await axios.delete(`/orders/${this.targetInvoice.id}`, { data: { passcode: pass } });
+                toast.success('Order deleted successfully');
+                this.localInvoices = this.localInvoices.filter(inv => inv.id !== this.targetInvoice.id);
+                this.closeDeleteModal();
+            } catch (e){
+                const msg = e?.response?.data?.error || 'Failed to delete order';
+                toast.error(msg);
+            } finally {
+                this.deleting = false;
+            }
+        },
+        onCodeInput(index, event){
+            const val = (event.target.value || '').replace(/\D/g, '').slice(0,1);
+            this.$set ? this.$set(this.codeDigits, index, val) : (this.codeDigits[index] = val);
+            event.target.value = val;
+            if (val && index < 3) {
+                const next = this.$refs[`codeInput${index+1}`];
+                next && next.focus();
+            } else if (!val && index > 0) {
+                const prev = this.$refs[`codeInput${index-1}`];
+                prev && prev.focus();
+            }
+        },
+        onCodeKeydown(index, event){
+            if (event.key === 'Backspace' && !event.target.value && index > 0) {
+                const prev = this.$refs[`codeInput${index-1}`];
+                prev && prev.focus();
+            }
+            if (event.key === 'ArrowLeft' && index > 0) {
+                const prev = this.$refs[`codeInput${index-1}`];
+                prev && prev.focus();
+                event.preventDefault();
+            }
+            if (event.key === 'ArrowRight' && index < 3) {
+                const next = this.$refs[`codeInput${index+1}`];
+                next && next.focus();
+                event.preventDefault();
+            }
+        },
+        onCodePaste(event){
+            const text = (event.clipboardData || window.clipboardData).getData('text');
+            const digits = (text || '').replace(/\D/g, '').slice(0,4).split('');
+            for (let i=0;i<4;i++) {
+                const d = digits[i] || '';
+                this.$set ? this.$set(this.codeDigits, i, d) : (this.codeDigits[i] = d);
+                const input = this.$refs[`codeInput${i}`];
+                if (input) input.value = d;
+            }
+            const nextIndex = Math.min(digits.length, 3);
+            const next = this.$refs[`codeInput${nextIndex}`];
+            next && next.focus();
+        },
         formatDate(dateStr) {
             if (!dateStr) return '';
             const d = new Date(dateStr);
@@ -1008,6 +1173,12 @@ select{
     background-color: $green;
     color: white;
 }
+
+.delete-btn {
+    background-color: $red;
+    color: white;
+    border-radius: 4px;
+}
 .job-details-container {
     max-height: 0;
     opacity: 0;
@@ -1396,11 +1567,15 @@ select{
     background-color: #2d3748;
     padding: 20px;
     border-radius: 8px;
-    width: 70%;
-    max-width: 600px;
+    width: 90%;
+    max-width: 520px;
     max-height: 80vh;
     position: relative;
     color: white;
+}
+
+.files-modal-content.centered {
+    margin: 0 auto;
 }
 
 .files-modal-header {
@@ -1434,6 +1609,27 @@ select{
 .files-modal-body {
     overflow-y: auto;
     max-height: 50vh;
+}
+
+.files-modal-body.center {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+}
+
+.code-inputs {
+    display: flex;
+    gap: 12px;
+    margin-top: 6px;
+}
+
+.code-box {
+    width: 56px;
+    height: 56px;
+    text-align: center;
+    font-size: 22px;
+    border-radius: 6px;
 }
 
 .thumbnail-grid {
@@ -1627,14 +1823,15 @@ select{
         border-radius: 4px;
         transition: background-color 0.2s;
 
-        &:hover:not(:disabled) {
-            background-color: #2d3748;
-        }
+ 
 
         &:disabled {
             opacity: 0.5;
             cursor: not-allowed;
         }
+    }
+    .nav-btn.danger {
+        background-color: $red;
     }
 
     .file-counter {

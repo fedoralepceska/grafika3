@@ -19,6 +19,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 use Milon\Barcode\DNS1D;
@@ -116,6 +117,29 @@ class InvoiceController extends Controller
     }
     public function store(Request $request)
     {
+        // Simple idempotency: prevent duplicate creations from the same user with same payload within 5 seconds
+        try {
+            $payloadHash = hash('sha256', json_encode([
+                'user' => Auth::id(),
+                'title' => $request->input('invoice_title'),
+                'client' => $request->input('client_id'),
+                'contact' => $request->input('contact_id'),
+                'start' => $request->input('start_date'),
+                'end' => $request->input('end_date'),
+                'jobs' => array_map(function ($j) { return ['id' => $j['id'] ?? null]; }, (array) $request->input('jobs', [])),
+            ]));
+            $lockKey = 'orders:create:lock:' . $payloadHash;
+            $lock = Cache::lock($lockKey, 5);
+            if (!$lock->get()) {
+                return response()->json([
+                    'error' => 'Duplicate create detected. Please wait a moment.',
+                    'message' => 'Order is already being created'
+                ], 409);
+            }
+        } catch (\Throwable $t) {
+            // If locking fails, continue without blocking (fail-open) but log it
+            Log::warning('Idempotency lock failed', ['error' => $t->getMessage()]);
+        }
         $request->validate([
             'invoice_title' => 'required',
             'client_id' => 'required',
@@ -431,6 +455,113 @@ class InvoiceController extends Controller
             'invoice' => $invoice,
             'canViewPrice' => !auth()->user()->hasRole('Rabotnik')
         ]);
+    }
+
+    /**
+     * Delete an invoice in Not started yet status with all related data.
+     * Only admin users can perform this action and must provide a frontend passcode.
+     */
+    public function destroy(Request $request, $id)
+    {
+        try {
+            // Authorization: only Admin role
+            if (!auth()->user() || !auth()->user()->hasRole('Admin')) {
+                return response()->json(['error' => 'Forbidden'], 403);
+            }
+
+            // Simple in-house passcode verification (frontend-provided). This is intentionally not secure for internet use.
+            $request->validate([
+                'passcode' => 'required|string'
+            ]);
+
+            if ($request->input('passcode') !== '9632') {
+                return response()->json(['error' => 'Invalid passcode'], 422);
+            }
+
+            $invoice = Invoice::with(['jobs', 'historyLogs'])->findOrFail($id);
+
+            // Only allow delete for specific status
+            if (strtolower((string)$invoice->status) !== strtolower('Not started yet')) {
+                return response()->json(['error' => 'Only orders with status Not started yet can be deleted'], 409);
+            }
+
+            DB::beginTransaction();
+
+            // Detach jobs from invoice and collect for deletion
+            $jobs = $invoice->jobs()->get();
+            $jobIds = $jobs->pluck('id')->all();
+            $invoice->jobs()->detach();
+
+            // Delete history logs for this invoice
+            $invoice->historyLogs()->delete();
+
+            // Delete the invoice itself
+            $invoice->delete();
+
+            DB::commit();
+
+            // After the invoice is deleted, delete the jobs and their related artifacts using existing JobController logic contract
+            // We inline a simplified cleanup here to avoid controller coupling
+            try {
+                foreach ($jobIds as $jobId) {
+                    try {
+                        // Use direct cleanup similar to JobController::destroy without importing controller
+                        $job = Job::find($jobId);
+                        if (!$job) continue;
+
+                        // Store original files for cleanup, then remove DB records
+                        $originalFiles = $job->getOriginalFiles();
+
+                        // Remove pivot to actions and actions
+                        $actionIds = DB::table('job_job_action')
+                            ->where('job_id', $job->id)
+                            ->pluck('job_action_id');
+
+                        DB::table('job_job_action')->where('job_id', $job->id)->delete();
+                        DB::table('job_actions')->whereIn('id', $actionIds)->delete();
+
+                        // Finally delete job
+                        $job->delete();
+
+                        // Best-effort thumbnails/original files cleanup
+                        try {
+                            $templateStorage = app(\App\Services\TemplateStorageService::class);
+                            if (!empty($originalFiles)) {
+                                foreach ($originalFiles as $filePath) {
+                                    if ($filePath && str_starts_with($filePath, 'job-originals/')) {
+                                        try { $templateStorage->deleteTemplate($filePath); } catch (\Exception $e) { /* ignore */ }
+                                    }
+                                }
+                            }
+                            // Remove thumbnails
+                            try {
+                                $thumbs = $templateStorage->getDisk()->files('job-thumbnails');
+                                foreach ($thumbs as $thumbFile) {
+                                    $base = basename($thumbFile);
+                                    if (strpos($base, 'job_' . $jobId . '_') === 0) {
+                                        try { $templateStorage->getDisk()->delete($thumbFile); } catch (\Exception $e) { /* ignore */ }
+                                    }
+                                }
+                            } catch (\Exception $e) { /* ignore */ }
+                        } catch (\Exception $e) {
+                            // ignore storage cleanup failures
+                        }
+                    } catch (\Throwable $jobDelErr) {
+                        Log::warning('Failed to delete job during invoice destroy', ['job_id' => $jobId, 'error' => $jobDelErr->getMessage()]);
+                    }
+                }
+            } catch (\Throwable $e) {
+                // ignore
+            }
+
+            return response()->json(['message' => 'Invoice and related data deleted successfully']);
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            return response()->json(['error' => 'Invoice not found'], 404);
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            Log::error('Invoice destroy failed', ['invoice_id' => $id, 'error' => $e->getMessage()]);
+            return response()->json(['error' => 'Failed to delete invoice'], 500);
+        }
     }
     public function update(Request $request, $id)
     {

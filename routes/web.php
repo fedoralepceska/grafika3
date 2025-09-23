@@ -91,6 +91,7 @@ Route::middleware(['auth', 'verified'])->group(function() {
     Route::get('/orders/create', [InvoiceController::class, 'create'])->name('invoices.create');
     Route::put('/orders', [InvoiceController::class, 'store'])->name('invoices.store');
     Route::post('/orders', [InvoiceController::class, 'store'])->name('invoices.store');
+    Route::delete('/orders/{id}', [InvoiceController::class, 'destroy'])->name('invoices.destroy');
     Route::get('/orders/{id}', [InvoiceController::class, 'show'])->name('invoices.show');
     Route::get('/orders/{id}/details', [InvoiceController::class, 'getOrderDetails'])->name('invoices.getOrderDetails');
     Route::put('/orders/update-note-flag', [InvoiceController::class, 'updateNoteProperty'])->name('invoices.updateNoteProperty');

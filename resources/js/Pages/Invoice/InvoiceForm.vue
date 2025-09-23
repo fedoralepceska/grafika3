@@ -72,7 +72,12 @@
                             </div>
                             <!-- BUTTON MUST BE IN THE FORM TAG -->
                             <div class="button-container mt-10 p-1">
-                                <PrimaryButton onclick="submitForm()" type="submit">{{ $t('createInvoice') }}</PrimaryButton>
+                                <PrimaryButton
+                                    type="submit"
+                                    :disabled="isSubmittingInvoice"
+                                >
+                                    {{ isSubmittingInvoice ? $t('creating') ?? 'Creating…' : $t('createInvoice') }}
+                                </PrimaryButton>
                             </div>
                         </form>
                     </div>
@@ -302,6 +307,7 @@ export default {
         },
 
         async submitForm() {
+            if (this.isSubmittingInvoice) return; // guard against rapid double-clicks
             // Check if the device is currently online
             if (!navigator.onLine) {
                 // Handle the case when the device is offline
