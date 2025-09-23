@@ -49,21 +49,23 @@ class InvoiceObserver
                 );
             }
 
-            // Create Stock Realization record for all completed invoices
-            // Check if stock realization already exists to avoid duplicates
-            $existingStockRealization = StockRealization::where('invoice_id', $invoice->id)->first();
-            if (!$existingStockRealization) {
-                try {
-                    StockRealization::createFromInvoice($invoice);
-                    \Log::info('Stock realization created for completed invoice', [
-                        'invoice_id' => $invoice->id,
-                        'client_name' => $clientName
-                    ]);
-                } catch (\Exception $e) {
-                    \Log::error('Failed to create stock realization for completed invoice', [
-                        'invoice_id' => $invoice->id,
-                        'error' => $e->getMessage()
-                    ]);
+            // Create Stock Realization record for all completed invoices except individual clients
+            if ($clientName !== 'Физичко лице') {
+                // Check if stock realization already exists to avoid duplicates
+                $existingStockRealization = StockRealization::where('invoice_id', $invoice->id)->first();
+                if (!$existingStockRealization) {
+                    try {
+                        StockRealization::createFromInvoice($invoice);
+                        \Log::info('Stock realization created for completed invoice', [
+                            'invoice_id' => $invoice->id,
+                            'client_name' => $clientName
+                        ]);
+                    } catch (\Exception $e) {
+                        \Log::error('Failed to create stock realization for completed invoice', [
+                            'invoice_id' => $invoice->id,
+                            'error' => $e->getMessage()
+                        ]);
+                    }
                 }
             }
         }
