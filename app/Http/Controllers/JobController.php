@@ -299,15 +299,20 @@ class JobController extends Controller
                         $pageImagick->readImage($file->getPathname() . '[' . $pageIndex . ']');
                         $pageImagick->setImageFormat('jpg');
 
-                        // Create temporary image for dimension calculation
-                        $tempImagePath = storage_path('app/temp/single_dim_calc_' . $pageIndex . '_' . time() . '.jpg');
-                        $pageImagick->writeImage($tempImagePath);
-
-                        // Calculate dimensions from the page
-                        list($width, $height) = getimagesize($tempImagePath);
-                        $dpi = 72; // Default DPI
-                        $widthInMm = ($width / $dpi) * 25.4;
-                        $heightInMm = ($height / $dpi) * 25.4;
+                        // Calculate original PDF dimensions using MediaBox/CropBox (no raster)
+                        $pdfDims = $this->calculatePdfDimensionsFallback($file);
+                        if ($pdfDims) {
+                            $widthInMm = (float)$pdfDims['width_mm'];
+                            $heightInMm = (float)$pdfDims['height_mm'];
+                        } else {
+                            // Fallback to conservative defaults if parsing fails
+                            $widthInMm = 0;
+                            $heightInMm = 0;
+                            \Log::warning('PDF dimension calculation failed, using zero dimensions', [
+                                'file' => $file->getClientOriginalName(),
+                                'page' => $pageIndex + 1
+                            ]);
+                        }
                         $areaM2 = ($widthInMm * $heightInMm) / 1000000;
 
                         // Store individual page dimensions
@@ -321,11 +326,6 @@ class JobController extends Controller
                         // Add to file total area
                         $fileTotalAreaM2 += $areaM2;
 
-                        // Clean up temp file
-                        if (file_exists($tempImagePath)) {
-                            unlink($tempImagePath);
-                        }
-
                         $pageImagick->clear();
 
                         \Log::info('Calculated dimensions for page in single file upload', [
@@ -333,7 +333,9 @@ class JobController extends Controller
                             'page' => $pageIndex + 1,
                             'width_mm' => $widthInMm,
                             'height_mm' => $heightInMm,
-                            'area_m2' => $areaM2
+                            'area_m2' => $areaM2,
+                            'pdf_dims_result' => $pdfDims ? 'success' : 'failed',
+                            'pdf_dims_data' => $pdfDims
                         ]);
                     }
 
@@ -364,6 +366,15 @@ class JobController extends Controller
                             'index' => 0
                         ]
                     ];
+                    
+                    \Log::info('Final dimensions breakdown for single file upload', [
+                        'job_id' => $id,
+                        'file' => $file->getClientOriginalName(),
+                        'total_area_m2' => $fileTotalAreaM2,
+                        'page_dimensions' => $pageDimensions,
+                        'dimensions_breakdown' => $job->dimensions_breakdown
+                    ]);
+                    
                     $job->save(); // Save to get ID
 
                     // Generate thumbnail and store in R2 (keyed by original file key)
@@ -1274,15 +1285,16 @@ class JobController extends Controller
                         $pageImagick->readImage($file->getPathname() . '[' . $pageIndex . ']');
                         $pageImagick->setImageFormat('jpg');
 
-                        // Create temporary image for dimension calculation
-                        $tempImagePath = storage_path('app/temp/replace_dim_calc_' . $pageIndex . '_' . time() . '.jpg');
-                        $pageImagick->writeImage($tempImagePath);
-
-                        // Calculate dimensions from the page
-                        list($width, $height) = getimagesize($tempImagePath);
-                        $dpi = 72; // Default DPI if not available
-                        $widthInMm = ($width / $dpi) * 25.4;
-                        $heightInMm = ($height / $dpi) * 25.4;
+                        // Calculate original PDF dimensions using MediaBox/CropBox (no raster)
+                        $pdfDims = $this->calculatePdfDimensionsFallback($file);
+                        if ($pdfDims) {
+                            $widthInMm = (float)$pdfDims['width_mm'];
+                            $heightInMm = (float)$pdfDims['height_mm'];
+                        } else {
+                            // Fallback to conservative defaults if parsing fails
+                            $widthInMm = 0;
+                            $heightInMm = 0;
+                        }
                         $areaM2 = ($widthInMm * $heightInMm) / 1000000;
 
                         // Store individual page dimensions
@@ -1295,11 +1307,6 @@ class JobController extends Controller
 
                         // Add to file total area
                         $fileTotalAreaM2 += $areaM2;
-
-                        // Clean up temp file
-                        if (file_exists($tempImagePath)) {
-                            unlink($tempImagePath);
-                        }
 
                         $pageImagick->clear();
 
@@ -1327,6 +1334,12 @@ class JobController extends Controller
 
                     // Update job with file info and dimensions
                     $job->file = $imageFilename;
+                    
+                    // Set job width and height from first page dimensions for single file display
+                    if (!empty($pageDimensions)) {
+                        $job->width = $pageDimensions[0]['width_mm'];
+                        $job->height = $pageDimensions[0]['height_mm'];
+                    }
 
                     // Clear old original files and add the new one
                     $job->originalFile = [];
@@ -2697,7 +2710,7 @@ class JobController extends Controller
             // Validate the request
             $request->validate([
                 'files' => 'required|array',
-                'files.*' => 'required|mimes:pdf|max:153600', // 150MB max per file
+                'files.*' => 'required|mimes:pdf|max:307200', // 300MB max per file
             ]);
 
             // Find the job
@@ -2848,6 +2861,23 @@ class JobController extends Controller
                 // Merge new dimensions with existing ones to preserve previous files
                 $existingBreakdown = $job->dimensions_breakdown ?? [];
                 $job->dimensions_breakdown = array_merge($existingBreakdown, $allFileDimensions);
+
+                // Set job width and height from first file's first page for fallback display
+                $allBreakdown = $job->dimensions_breakdown;
+                if (!empty($allBreakdown) && !empty($allBreakdown[0]['page_dimensions'])) {
+                    $firstPage = $allBreakdown[0]['page_dimensions'][0];
+                    $job->width = $firstPage['width_mm'];
+                    $job->height = $firstPage['height_mm'];
+                }
+                
+                \Log::info('Final dimensions breakdown for multi-file upload', [
+                    'job_id' => $id,
+                    'total_area_m2' => $finalTotalArea,
+                    'all_file_dimensions' => $allFileDimensions,
+                    'final_dimensions_breakdown' => $job->dimensions_breakdown,
+                    'job_width' => $job->width,
+                    'job_height' => $job->height
+                ]);
 
                 // Update preview image if we have one
                 if ($firstFilePreview) {
@@ -3030,6 +3060,13 @@ class JobController extends Controller
                 // Create a new Imagick instance for each page to avoid conflicts
                 $pageImagick = new \Imagick();
                 $this->setGhostscriptPath($pageImagick);
+                
+                // Set conservative memory limits for dimension calculation
+                $pageImagick->setResourceLimit(\Imagick::RESOURCETYPE_MEMORY, 64 * 1024 * 1024);   // 64MB
+                $pageImagick->setResourceLimit(\Imagick::RESOURCETYPE_MAP, 128 * 1024 * 1024);     // 128MB
+                
+                // Use low resolution for dimension calculation only (we just need the aspect ratio)
+                $pageImagick->setResolution(36, 36);
                 $pageImagick->readImage($file->getPathname() . '[' . $pageIndex . ']');
                 $pageImagick->setImageFormat('jpg');
 
@@ -3043,11 +3080,20 @@ class JobController extends Controller
 
                 $pageImagick->writeImage($tempImagePath);
 
-                // Calculate dimensions from the page
-                list($width, $height) = getimagesize($tempImagePath);
-                $dpi = 72; // Default DPI if not available
-                $widthInMm = ($width / $dpi) * 25.4;
-                $heightInMm = ($height / $dpi) * 25.4;
+                // Calculate original PDF dimensions using MediaBox/CropBox (no raster)
+                $pdfDims = $this->calculatePdfDimensionsFallback($file);
+                if ($pdfDims) {
+                    $widthInMm = (float)$pdfDims['width_mm'];
+                    $heightInMm = (float)$pdfDims['height_mm'];
+                } else {
+                    // Fallback to conservative defaults if parsing fails
+                    $widthInMm = 0;
+                    $heightInMm = 0;
+                    \Log::warning('PDF dimension calculation failed in multi-file upload, using zero dimensions', [
+                        'file' => $file->getClientOriginalName(),
+                        'page' => $pageIndex + 1
+                    ]);
+                }
                 $areaM2 = ($widthInMm * $heightInMm) / 1000000;
 
                 // Store individual page dimensions
@@ -3067,6 +3113,16 @@ class JobController extends Controller
                 }
 
                 $pageImagick->clear();
+                
+                \Log::info('Multi-file upload page dimension calculation result', [
+                    'file' => $file->getClientOriginalName(),
+                    'page' => $pageIndex + 1,
+                    'width_mm' => $widthInMm,
+                    'height_mm' => $heightInMm,
+                    'area_m2' => $areaM2,
+                    'pdf_dims_result' => $pdfDims ? 'success' : 'failed',
+                    'pdf_dims_data' => $pdfDims
+                ]);
 
                 \Log::info('Calculated dimensions for page', [
                     'job_id' => $jobId,
@@ -3105,19 +3161,65 @@ class JobController extends Controller
                 $imageFilename = pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME) . '.jpg';
                 $imagePath = storage_path('app/public/uploads/' . $imageFilename);
 
-                // Create preview from first page only
-                $previewImagick = new \Imagick();
-                $this->setGhostscriptPath($previewImagick);
-                $previewImagick->readImage($file->getPathname() . '[0]'); // First page only for preview
-                $previewImagick->setImageFormat('jpg');
-                $previewImagick->setImageCompression(\Imagick::COMPRESSION_JPEG);
-                $previewImagick->setImageCompressionQuality(70);
-                $previewImagick->stripImage();
-                // Limit preview to 800x800 while preserving aspect ratio
-                $previewImagick->thumbnailImage(800, 800, true, true);
-                $previewImagick->writeImage($imagePath);
-                $previewImagick->clear();
-                $firstFilePreview = $imageFilename;
+                try {
+                    // Check PDF dimensions for preview generation too
+                    $pdfDimensions = $this->calculatePdfDimensionsFallback($file);
+                    $skipPreview = false;
+                    $useUltraLowPreview = false;
+                    
+                    if ($pdfDimensions) {
+                        $maxDimension = max($pdfDimensions['width_mm'], $pdfDimensions['height_mm']);
+                        if ($maxDimension > 4000) {
+                            $skipPreview = true;
+                            \Log::info('Skipping preview generation for extremely large PDF', [
+                                'file' => $file->getClientOriginalName(),
+                                'dimensions' => $pdfDimensions
+                            ]);
+                        } else if ($maxDimension > 2500) {
+                            $useUltraLowPreview = true;
+                        }
+                    }
+                    
+                    if (!$skipPreview) {
+                        // Create preview from first page only
+                        $previewImagick = new \Imagick();
+                        $this->setGhostscriptPath($previewImagick);
+                        
+                        // Set appropriate limits and resolution for preview
+                        if ($useUltraLowPreview) {
+                            $previewImagick->setResourceLimit(\Imagick::RESOURCETYPE_MEMORY, 32 * 1024 * 1024);
+                            $previewImagick->setResourceLimit(\Imagick::RESOURCETYPE_MAP, 64 * 1024 * 1024);
+                            $previewImagick->setResolution(18, 18); // Ultra-low DPI
+                        } else {
+                            $previewImagick->setResourceLimit(\Imagick::RESOURCETYPE_MEMORY, 64 * 1024 * 1024);
+                            $previewImagick->setResourceLimit(\Imagick::RESOURCETYPE_MAP, 128 * 1024 * 1024);
+                            $previewImagick->setResolution(72, 72); // Standard preview DPI
+                        }
+                        
+                        $previewImagick->readImage($file->getPathname() . '[0]'); // First page only for preview
+                        $previewImagick->setImageFormat('jpg');
+                        $previewImagick->setImageCompression(\Imagick::COMPRESSION_JPEG);
+                        $previewImagick->setImageCompressionQuality($useUltraLowPreview ? 50 : 70);
+                        $previewImagick->stripImage();
+                        // Limit preview to 800x800 while preserving aspect ratio
+                        $previewImagick->thumbnailImage(800, 800, true, true);
+                        $previewImagick->writeImage($imagePath);
+                        $previewImagick->clear();
+                        $firstFilePreview = $imageFilename;
+                    } else {
+                        // Create a placeholder preview for extremely large PDFs
+                        $firstFilePreview = 'placeholder.jpeg';
+                        \Log::info('Using placeholder preview for extremely large PDF', [
+                            'file' => $file->getClientOriginalName()
+                        ]);
+                    }
+                } catch (\Exception $e) {
+                    \Log::warning('Failed to generate preview image, using placeholder', [
+                        'file' => $file->getClientOriginalName(),
+                        'error' => $e->getMessage()
+                    ]);
+                    $firstFilePreview = 'placeholder.jpeg';
+                }
             }
 
             $imagick->clear();
@@ -3156,11 +3258,19 @@ class JobController extends Controller
                         'area_m2' => $fileTotalAreaM2
                     ]);
 
-                    // Store individual file dimensions
+                    // Store individual file dimensions with page dimensions
                     $allFileDimensions[] = [
                         'filename' => $file->getClientOriginalName(),
                         'page_count' => 1, // Fallback assumes single page
                         'total_area_m2' => round($fileTotalAreaM2, 6),
+                        'page_dimensions' => [
+                            [
+                                'page' => 1,
+                                'width_mm' => $fallbackDimensions['width_mm'],
+                                'height_mm' => $fallbackDimensions['height_mm'],
+                                'area_m2' => round($fileTotalAreaM2, 6)
+                            ]
+                        ],
                         'index' => $index,
                         'method' => 'fallback'
                     ];
@@ -3177,6 +3287,69 @@ class JobController extends Controller
         // Clean up any existing thumbnails at this index before generating new ones
         $this->cleanupThumbnailsAtIndex($jobId, $index);
 
+        // Check PDF dimensions before processing to avoid memory and timeout issues
+        $pdfDimensions = $this->calculatePdfDimensionsFallback($file);
+        $useLowResolution = false;
+        $useUltraLowResolution = false;
+        $skipThumbnail = false;
+        
+        if ($pdfDimensions) {
+            $maxDimension = max($pdfDimensions['width_mm'], $pdfDimensions['height_mm']);
+            
+            // If any dimension is larger than 4000mm (~157 inches), skip thumbnail generation
+            if ($maxDimension > 4000) {
+                $skipThumbnail = true;
+                \Log::warning('Extremely large PDF detected, skipping thumbnail generation', [
+                    'file' => $file->getClientOriginalName(),
+                    'width_mm' => $pdfDimensions['width_mm'],
+                    'height_mm' => $pdfDimensions['height_mm'],
+                    'max_dimension' => $maxDimension
+                ]);
+            }
+            // If any dimension is larger than 2500mm (~98 inches), use ultra-low resolution
+            else if ($maxDimension > 2500) {
+                $useUltraLowResolution = true;
+                // Increase execution time for very large PDFs
+                ini_set('max_execution_time', 180); // 3 minutes
+                \Log::info('Very large PDF detected, using ultra-low resolution processing', [
+                    'file' => $file->getClientOriginalName(),
+                    'width_mm' => $pdfDimensions['width_mm'],
+                    'height_mm' => $pdfDimensions['height_mm'],
+                    'max_dimension' => $maxDimension
+                ]);
+            }
+            // If any dimension is larger than 1500mm (~59 inches), use low resolution
+            else if ($maxDimension > 1500) {
+                $useLowResolution = true;
+                \Log::info('Large PDF detected, using low resolution processing', [
+                    'file' => $file->getClientOriginalName(),
+                    'width_mm' => $pdfDimensions['width_mm'],
+                    'height_mm' => $pdfDimensions['height_mm'],
+                    'max_dimension' => $maxDimension
+                ]);
+            }
+        }
+        
+        // If we need to skip thumbnail generation, return early with file info only
+        if ($skipThumbnail) {
+            \Log::info('Skipping thumbnail generation for extremely large PDF', [
+                'job_id' => $jobId,
+                'file' => $file->getClientOriginalName(),
+                'file_path' => $filePath
+            ]);
+            
+            $thumbnails[] = [
+                'originalFile' => $filePath,
+                'thumbnailPath' => null, // No thumbnail
+                'filename' => $originalFilename,
+                'type' => 'pdf',
+                'index' => $index,
+                'skipped' => true,
+                'reason' => 'PDF too large for thumbnail generation'
+            ];
+            return;
+        }
+
         // Generate thumbnail and store in R2
         try {
             $imagick = new \Imagick();
@@ -3184,17 +3357,40 @@ class JobController extends Controller
             // Set Ghostscript path based on environment
             $this->setGhostscriptPath($imagick);
 
-            // Set memory and resource limits for large PDFs
-            $imagick->setResourceLimit(\Imagick::RESOURCETYPE_MEMORY, 128 * 1024 * 1024); // 128MB
-            $imagick->setResourceLimit(\Imagick::RESOURCETYPE_MAP, 256 * 1024 * 1024);    // 256MB
+            // Set memory and resource limits based on PDF size
+            if ($useUltraLowResolution) {
+                // Ultra-conservative limits for very large PDFs
+                $imagick->setResourceLimit(\Imagick::RESOURCETYPE_MEMORY, 32 * 1024 * 1024);   // 32MB
+                $imagick->setResourceLimit(\Imagick::RESOURCETYPE_MAP, 64 * 1024 * 1024);      // 64MB
+                $imagick->setResourceLimit(\Imagick::RESOURCETYPE_DISK, 128 * 1024 * 1024);    // 128MB
+                $imagick->setResourceLimit(\Imagick::RESOURCETYPE_THREAD, 1);                  // Single thread
+                $dpi = 18; // Ultra-low DPI for very large PDFs
+            } else if ($useLowResolution) {
+                // Conservative limits for large PDFs
+                $imagick->setResourceLimit(\Imagick::RESOURCETYPE_MEMORY, 64 * 1024 * 1024);   // 64MB
+                $imagick->setResourceLimit(\Imagick::RESOURCETYPE_MAP, 128 * 1024 * 1024);     // 128MB
+                $imagick->setResourceLimit(\Imagick::RESOURCETYPE_DISK, 256 * 1024 * 1024);    // 256MB
+                $dpi = 36; // Very low DPI for large PDFs
+            } else {
+                // Standard limits for normal PDFs
+                $imagick->setResourceLimit(\Imagick::RESOURCETYPE_MEMORY, 128 * 1024 * 1024); // 128MB
+                $imagick->setResourceLimit(\Imagick::RESOURCETYPE_MAP, 256 * 1024 * 1024);    // 256MB
+                $dpi = 150; // Standard DPI
+            }
 
-            // Read PDF at higher resolution for clearer preview
-            $imagick->setResolution(150, 150);
+            // Read PDF with appropriate resolution
+            $imagick->setResolution($dpi, $dpi);
             $imagick->readImage($file->getPathname() . '[0]'); // Read the first page
 
             // Use WebP for better compression and faster loading
             $imagick->setImageFormat('webp');
-            $imagick->setImageCompressionQuality(75); // Slightly lower quality for smaller files
+            if ($useUltraLowResolution) {
+                $imagick->setImageCompressionQuality(30); // Ultra-low quality for massive PDFs
+            } else if ($useLowResolution) {
+                $imagick->setImageCompressionQuality(50); // Low quality for large PDFs
+            } else {
+                $imagick->setImageCompressionQuality(75); // Standard quality
+            }
             $imagick->stripImage();
 
             // Create thumbnail - optimized size (max 600x600 for faster loading)
@@ -3217,9 +3413,16 @@ class JobController extends Controller
                 'original_file' => $filePath
             ]);
 
+            // Generate thumbnail URL
+            $thumbnailUrl = route('jobs.viewThumbnail', [
+                'jobId' => $jobId,
+                'fileIndex' => $index
+            ]) . '?t=' . time();
+
             $thumbnails[] = [
                 'originalFile' => $filePath,
                 'thumbnailPath' => $thumbnailPath,
+                'thumbnailUrl' => $thumbnailUrl,
                 'filename' => $originalFilename,
                 'type' => 'pdf',
                 'index' => $index
@@ -3253,9 +3456,16 @@ class JobController extends Controller
                         'thumbnail_path' => $fallbackThumbnailPath
                     ]);
 
+                    // Generate thumbnail URL for fallback
+                    $fallbackThumbnailUrl = route('jobs.viewThumbnail', [
+                        'jobId' => $jobId,
+                        'fileIndex' => $index
+                    ]) . '?t=' . time();
+
                     $thumbnails[] = [
                         'originalFile' => $filePath,
                         'thumbnailPath' => $fallbackThumbnailPath,
+                        'thumbnailUrl' => $fallbackThumbnailUrl,
                         'filename' => $originalFilename,
                         'type' => 'pdf',
                         'index' => $index,
@@ -3662,9 +3872,20 @@ class JobController extends Controller
                     \Log::warning('Failed to list R2 thumbnails: ' . $e->getMessage());
                 }
 
+                // Generate thumbnail URL if thumbnail exists
+                $thumbnailUrl = null;
+                if ($thumbnailPath) {
+                    // Generate URL for the thumbnail
+                    $thumbnailUrl = route('jobs.viewThumbnail', [
+                        'jobId' => $id,
+                        'fileIndex' => $index
+                    ]) . '?t=' . time();
+                }
+
                 $thumbnailData = [
                     'type' => 'pdf',
                     'thumbnailPath' => $thumbnailPath,
+                    'thumbnailUrl' => $thumbnailUrl,
                     'originalFile' => $originalFile,
                     'index' => $index,
                     'filename' => $originalFileName
@@ -4417,7 +4638,7 @@ class JobController extends Controller
         try {
             $request->validate([
                 'files' => 'required|array',
-                'files.*' => 'required|mimes:pdf,svg,dxf,cdr,ai|max:153600', // 150MB max per file
+                'files.*' => 'required|mimes:pdf,svg,dxf,cdr,ai|max:307200', // 300MB max per file
             ]);
 
             $job = Job::findOrFail($id);
@@ -4617,15 +4838,44 @@ class JobController extends Controller
             $ext = strtolower($file->getClientOriginalExtension());
             $imagick = new \Imagick();
             $this->setGhostscriptPath($imagick);
+            
+            // Check if it's a large PDF and set appropriate settings
+            $useLowResolution = false;
             if ($ext === 'pdf') {
+                $pdfDimensions = $this->calculatePdfDimensionsFallback($file);
+                if ($pdfDimensions) {
+                    $maxDimension = max($pdfDimensions['width_mm'], $pdfDimensions['height_mm']);
+                    if ($maxDimension > 1500) {
+                        $useLowResolution = true;
+                        \Log::info('Large cutting PDF detected, using low resolution processing', [
+                            'file' => $file->getClientOriginalName(),
+                            'width_mm' => $pdfDimensions['width_mm'],
+                            'height_mm' => $pdfDimensions['height_mm'],
+                            'max_dimension' => $maxDimension
+                        ]);
+                    }
+                }
+                
+                // Set memory limits based on PDF size
+                if ($useLowResolution) {
+                    $imagick->setResourceLimit(\Imagick::RESOURCETYPE_MEMORY, 64 * 1024 * 1024);   // 64MB
+                    $imagick->setResourceLimit(\Imagick::RESOURCETYPE_MAP, 128 * 1024 * 1024);     // 128MB
+                    $imagick->setResolution(36, 36); // Very low DPI
+                } else {
+                    $imagick->setResourceLimit(\Imagick::RESOURCETYPE_MEMORY, 128 * 1024 * 1024);  // 128MB
+                    $imagick->setResourceLimit(\Imagick::RESOURCETYPE_MAP, 256 * 1024 * 1024);     // 256MB
+                    $imagick->setResolution(72, 72); // Standard DPI for cutting files
+                }
+                
                 $imagick->readImage($file->getPathname() . '[0]');
             } elseif ($ext === 'svg') {
                 $imagick->readImage($file->getPathname());
             } else {
                 return null; // No thumbnail for other types
             }
+            
             $imagick->setImageFormat('webp');
-            $imagick->setImageCompressionQuality(50);
+            $imagick->setImageCompressionQuality($useLowResolution ? 40 : 50);
             $imagick->stripImage();
             $imagick->resizeImage(800, 800, \Imagick::FILTER_LANCZOS, 1, true); // Standardized preview size
             $thumbnailBlob = $imagick->getImageBlob();
@@ -4781,6 +5031,41 @@ class JobController extends Controller
             ]);
             return null;
         }
+    }
+
+    /**
+     * Validate PDF dimensions to warn about potentially problematic files
+     */
+    private function validatePdfDimensions($file)
+    {
+        $dimensions = $this->calculatePdfDimensionsFallback($file);
+        if (!$dimensions) {
+            return ['valid' => true, 'message' => null];
+        }
+
+        $maxDimension = max($dimensions['width_mm'], $dimensions['height_mm']);
+        $minDimension = min($dimensions['width_mm'], $dimensions['height_mm']);
+        
+        // Warn about extremely large PDFs (over 5000mm = ~197 inches)
+        if ($maxDimension > 5000) {
+            return [
+                'valid' => false, 
+                'message' => "PDF dimensions are extremely large ({$dimensions['width_mm']}mm x {$dimensions['height_mm']}mm). This may cause processing issues. Consider reducing the PDF size or dimensions.",
+                'dimensions' => $dimensions
+            ];
+        }
+        
+        // Warn about very large PDFs (over 2000mm = ~79 inches) 
+        if ($maxDimension > 2000) {
+            return [
+                'valid' => true,
+                'warning' => true,
+                'message' => "PDF has large dimensions ({$dimensions['width_mm']}mm x {$dimensions['height_mm']}mm). Processing may take longer and use lower resolution for thumbnails.",
+                'dimensions' => $dimensions
+            ];
+        }
+        
+        return ['valid' => true, 'message' => null, 'dimensions' => $dimensions];
     }
 
     /**

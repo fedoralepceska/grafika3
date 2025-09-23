@@ -121,6 +121,7 @@
                             @change="(e) => handleMultipleFiles(e, job)"
                             class="file-input"
                             :id="'files-input-' + job.id"
+                            :disabled="isGeneralUploadDisabled(job.id)"
                             style="display: none;"
                         />
 
@@ -138,18 +139,29 @@
                                         @click="removeOriginalFile(job, fileIndex)"
                                         class="thumbnail-remove-btn"
                                         :class="{ 'removing': fileRemovalStates[job.id] === 'removing' }"
-                                        :disabled="fileRemovalStates[job.id] === 'removing'"
+                                        :disabled="fileRemovalStates[job.id] === 'removing' || isGeneralUploadDisabled(job.id)"
                                         title="Remove file"
                                     >
                                         <i v-if="fileRemovalStates[job.id] === 'removing'" class="fa fa-spinner fa-spin"></i>
                                         <i v-else class="fa fa-times"></i>
                                     </button>
 
-                                    <!-- Inline PDF preview with iframe; click opens full preview modal -->
+                                    <!-- Thumbnail preview; click opens full preview modal -->
                                     <div @click="openPreviewModal({ index: fileIndex }, job)" class="thumbnail-preview">
-                                        <iframe
-                                            :src="getPdfUrl(job, fileIndex)"
+                                        <!-- Show thumbnail image if available -->
+                                        <img
+                                            v-if="getJobThumbnails(job)[fileIndex] && getJobThumbnails(job)[fileIndex].thumbnailUrl && !getJobThumbnails(job)[fileIndex].imageLoadError"
+                                            :src="getJobThumbnails(job)[fileIndex].thumbnailUrl"
                                             class="thumbnail-image"
+                                            :alt="getJobThumbnails(job)[fileIndex].filename"
+                                            @error="handleThumbnailError(getJobThumbnails(job)[fileIndex], $event)"
+                                            @load="handleThumbnailLoad(getJobThumbnails(job)[fileIndex])"
+                                        />
+                                        <!-- Fallback to PDF iframe if no thumbnail or thumbnail failed -->
+                                        <iframe
+                                            v-else
+                                            :src="getPdfUrl(job, fileIndex)"
+                                            class="thumbnail-image thumbnail-iframe"
                                             title="PDF preview"
                                             frameborder="0"
                                         ></iframe>
@@ -160,30 +172,33 @@
                             </div>
 
                             <!-- Placeholder when no files -->
-                            <div v-else class="placeholder-upload">
-                                <div class="placeholder-content" @click="triggerFilesInput(job.id)">
-                                    <span class="placeholder-text">Drop Files</span>
+                            <div v-else class="placeholder-upload" :class="{ 'disabled': isGeneralUploadDisabled(job.id) }">
+                                <div 
+                                    class="placeholder-content" 
+                                    @click="!isGeneralUploadDisabled(job.id) && triggerFilesInput(job.id)"
+                                    :class="{ 'disabled': isGeneralUploadDisabled(job.id) }"
+                                >
+                                    <span class="placeholder-text">
+                                        {{ getGeneralUploadState(job.id).isUploading ? 'Uploading...' : 'Drop Files' }}
+                                    </span>
                             </div>
                         </div>
 
                             <!-- Upload Progress Indicator -->
-                            <div v-if="uploadStates[job.id] === 'starting' || uploadStates[job.id] === 'uploading' || uploadStates[job.id] === 'processing' || uploadStates[job.id] === 'finalizing'" class="upload-progress-container">
+                            <div v-if="getGeneralUploadState(job.id).isUploading" class="upload-progress-container">
                                 <div class="upload-progress-header">
                                     <div class="upload-status">
-                                        <div class="status-indicator" :class="uploadStates[job.id]"></div>
+                                        <div class="status-indicator" :class="getGeneralUploadState(job.id).state"></div>
                                         <span class="status-text">
-                                            <span v-if="uploadStates[job.id] === 'starting'">Starting upload...</span>
-                                            <span v-else-if="uploadStates[job.id] === 'uploading'">Files uploaded, processing...</span>
-                                            <span v-else-if="uploadStates[job.id] === 'processing'">Processing files...</span>
-                                            <span v-else-if="uploadStates[job.id] === 'finalizing'">Finalizing...</span>
+                                            {{ getGeneralUploadState(job.id).stage.message }}
                                         </span>
                                     </div>
-                                    <div class="upload-percentage">{{ uploadProgress[job.id] || 0 }}%</div>
+                                    <div class="upload-percentage">{{ getGeneralUploadState(job.id).progress }}%</div>
                                 </div>
                                 <div class="upload-progress-bar">
                                     <div 
                                         class="upload-progress-fill" 
-                                        :style="{ width: `${uploadProgress[job.id] || 0}%` }"
+                                        :style="{ width: `${getGeneralUploadState(job.id).progress}%` }"
                                     ></div>
                                     <div class="upload-progress-glow"></div>
                                 </div>
@@ -194,11 +209,11 @@
                                 <button
                                     @click="triggerFilesInput(job.id)"
                                     class="file-action-btn primary"
-                                    :disabled="uploadStates[job.id] === 'starting' || uploadStates[job.id] === 'uploading' || uploadStates[job.id] === 'processing' || uploadStates[job.id] === 'finalizing'"
+                                    :disabled="isGeneralUploadDisabled(job.id)"
                                     title="Upload files"
                                 >
                                     <i class="fa fa-upload"></i> 
-                                    {{ uploadStates[job.id] === 'starting' || uploadStates[job.id] === 'uploading' || uploadStates[job.id] === 'processing' || uploadStates[job.id] === 'finalizing' ? 'Uploading...' : 'Upload Files' }}
+                                    {{ getGeneralUploadState(job.id).isUploading ? 'Uploading...' : 'Upload Files' }}
                                 </button>
                                 <button
                                     v-if="job.originalFile && job.originalFile.length > 0"
@@ -222,6 +237,7 @@
                                 @change="(e) => handleCuttingFiles(e, job)"
                                 class="file-input"
                                 :id="'cutting-files-input-' + job.id"
+                                :disabled="isCuttingUploadDisabled(job.id)"
                                 style="display: none;"
                             />
                             <!-- Cutting Files Display -->
@@ -237,7 +253,7 @@
                                         <button 
                                             @click="removeCuttingFile(job, cuttingIndex)" 
                                             class="cutting-file-remove-btn"
-                                            :disabled="cuttingFileRemovalStates[job.id] && cuttingFileRemovalStates[job.id][cuttingIndex] === 'removing'"
+                                            :disabled="(cuttingFileRemovalStates[job.id] && cuttingFileRemovalStates[job.id][cuttingIndex] === 'removing') || isCuttingUploadDisabled(job.id)"
                                             title="Remove cutting file"
                                         >
                                             <i v-if="!(cuttingFileRemovalStates[job.id] && cuttingFileRemovalStates[job.id][cuttingIndex] === 'removing')" class="fa fa-times"></i>
@@ -257,9 +273,15 @@
                                 </div>
 
                                 <!-- Placeholder when no cutting files -->
-                                <div v-else class="cutting-placeholder-upload">
-                                    <div class="cutting-placeholder-content" @click="triggerCuttingFilesInput(job.id)">
-                                        <span class="cutting-placeholder-text">Drop Cutting Files</span>
+                                <div v-else class="cutting-placeholder-upload" :class="{ 'disabled': isCuttingUploadDisabled(job.id) }">
+                                    <div 
+                                        class="cutting-placeholder-content" 
+                                        @click="!isCuttingUploadDisabled(job.id) && triggerCuttingFilesInput(job.id)"
+                                        :class="{ 'disabled': isCuttingUploadDisabled(job.id) }"
+                                    >
+                                        <span class="cutting-placeholder-text">
+                                            {{ getCuttingUploadState(job.id).isUploading ? 'Uploading...' : 'Drop Cutting Files' }}
+                                        </span>
                                         <div class="cutting-file-types-info">
                                             <small>PDF, SVG, DXF, CDR, AI</small>
                                         </div>
@@ -267,23 +289,20 @@
                                 </div>
 
                                 <!-- Cutting Files Upload Progress -->
-                                <div v-if="cuttingUploadStates[job.id] === 'starting' || cuttingUploadStates[job.id] === 'uploading' || cuttingUploadStates[job.id] === 'processing' || cuttingUploadStates[job.id] === 'finalizing'" class="cutting-upload-progress-container">
+                                <div v-if="getCuttingUploadState(job.id).isUploading" class="cutting-upload-progress-container">
                                     <div class="cutting-upload-progress-header">
                                         <div class="cutting-upload-status">
-                                            <div class="cutting-status-indicator" :class="cuttingUploadStates[job.id]"></div>
+                                            <div class="cutting-status-indicator" :class="getCuttingUploadState(job.id).state"></div>
                                             <span class="cutting-status-text">
-                                                <span v-if="cuttingUploadStates[job.id] === 'starting'">Starting upload...</span>
-                                                <span v-else-if="cuttingUploadStates[job.id] === 'uploading'">Files uploaded, processing...</span>
-                                                <span v-else-if="cuttingUploadStates[job.id] === 'processing'">Processing files...</span>
-                                                <span v-else-if="cuttingUploadStates[job.id] === 'finalizing'">Finalizing...</span>
+                                                {{ getCuttingUploadState(job.id).stage.message }}
                                             </span>
                                         </div>
-                                        <div class="cutting-upload-percentage">{{ cuttingUploadProgress[job.id] || 0 }}%</div>
+                                        <div class="cutting-upload-percentage">{{ getCuttingUploadState(job.id).progress }}%</div>
                                     </div>
                                     <div class="cutting-upload-progress-bar">
                                         <div 
                                             class="cutting-upload-progress-fill" 
-                                            :style="{ width: `${cuttingUploadProgress[job.id] || 0}%` }"
+                                            :style="{ width: `${getCuttingUploadState(job.id).progress}%` }"
                                         ></div>
                                         <div class="cutting-upload-progress-glow"></div>
                                     </div>
@@ -294,11 +313,11 @@
                                     <button
                                         @click="triggerCuttingFilesInput(job.id)"
                                         class="cutting-file-action-btn primary"
-                                        :disabled="cuttingUploadStates[job.id] === 'starting' || cuttingUploadStates[job.id] === 'uploading' || cuttingUploadStates[job.id] === 'processing' || cuttingUploadStates[job.id] === 'finalizing'"
+                                        :disabled="isCuttingUploadDisabled(job.id)"
                                         title="Upload cutting files"
                                     >
                                         <i class="fa fa-scissors"></i> 
-                                        {{ cuttingUploadStates[job.id] === 'starting' || cuttingUploadStates[job.id] === 'uploading' || cuttingUploadStates[job.id] === 'processing' || cuttingUploadStates[job.id] === 'finalizing' ? 'Uploading...' : 'Upload Cutting Files' }}
+                                        {{ getCuttingUploadState(job.id).isUploading ? 'Uploading...' : 'Upload Cutting Files' }}
                                     </button>
                                 </div>
                             </div>
@@ -312,7 +331,7 @@
                                         <div class="file-name" :title="file.filename">{{ file.filename }}</div>
                                         <div v-for="(page, pageIndex) in file.page_dimensions" :key="pageIndex" class="page-dimensions">
                                             <span class="page-label">Page {{ page.page }}:</span>
-                                            <span class="dimensions">{{ (page.width_mm && typeof page.width_mm === 'number') ? page.width_mm.toFixed(2) : '0.00' }}×{{ (page.height_mm && typeof page.height_mm === 'number') ? page.height_mm.toFixed(2) : '0.00' }}mm</span>
+                                            <span class="dimensions">{{ (page.width_mm && !isNaN(parseFloat(page.width_mm))) ? parseFloat(page.width_mm).toFixed(2) : '0.00' }}×{{ (page.height_mm && !isNaN(parseFloat(page.height_mm))) ? parseFloat(page.height_mm).toFixed(2) : '0.00' }}mm</span>
                                         </div>
                                         <div class="file-total">
                                             <span class="file-total-label">File Total:</span>
@@ -532,6 +551,7 @@ import useRoleCheck from '@/Composables/useRoleCheck';
 import { computed, ref } from 'vue';
 import OrderJobProgressCompact from './OrderJobProgressCompact.vue';
 import CostBreakdownModal from '@/Components/CostBreakdownModal.vue';
+import { uploadManager } from '@/utils/UploadManager.js';
 
 export default {
     name: "OrderLines",
@@ -588,16 +608,14 @@ export default {
             previewFile: null, // Store file info for PDF preview
             previewUrl: null, // Store the direct URL for iframe
             selectedThumbnail: null, // Store selected thumbnail info
-            uploadProgress: {}, // Track upload progress for each job
-            uploadStates: {}, // Track upload states: 'idle', 'uploading', 'processing', 'finalizing', 'complete', 'error'
             machinesPrint: [], // Available print machines
             machinesCut: [], // Available cut machines
             machinePrintInput: null,
             machineCutInput: null,
             // Cutting files data
             jobCuttingFiles: {}, // Store cutting files for each job
-            cuttingUploadProgress: {}, // Track cutting upload progress for each job
-            cuttingUploadStates: {}, // Track cutting upload states
+            // Upload manager instance
+            uploadManager: uploadManager,
             showCuttingFilePreviewModal: false,
             cuttingPreviewFile: null,
             // File removal states
@@ -798,20 +816,21 @@ export default {
 
         // Initialize upload states for a job
         initializeJobStates(jobId) {
-            if (!this.uploadStates[jobId]) {
-                this.uploadStates[jobId] = 'idle';
-            }
-            if (!this.uploadProgress[jobId]) {
-                this.uploadProgress[jobId] = 0;
-            }
+            // Initialize upload manager for general files
+            this.uploadManager.initializeJob(jobId, 'general');
             // Initialize file removal state
             if (!this.fileRemovalStates[jobId]) {
                 this.fileRemovalStates[jobId] = 'idle';
             }
         },
         triggerFilesInput(jobId) {
+            // Don't trigger if upload is disabled
+            if (this.isGeneralUploadDisabled(jobId)) {
+                return;
+            }
+            
             const fileInput = document.getElementById('files-input-' + jobId);
-            if (fileInput) {
+            if (fileInput && !fileInput.disabled) {
                 fileInput.click();
             }
         },
@@ -946,8 +965,8 @@ export default {
         },
 
         handleThumbnailLoad(thumb) {
-            thumb.imageLoaded = true; // Mark as loaded
-            thumb.imageLoadError = false; // Ensure error is false
+            thumb.imageLoaded = true;
+            thumb.imageLoadError = false;
         },
 
 
@@ -1025,82 +1044,41 @@ export default {
 
 
 
-        // Removed handleFileDrop - now using handleMultipleFiles for all uploads
-
+        // Professional file upload handler using UploadManager
         async handleMultipleFiles(event, job) {
             const files = Array.from(event.target.files);
             if (!files.length) return;
 
             const toast = useToast();
 
-            // Initialize upload state
-            this.uploadStates[job.id] = 'uploading';
-            this.uploadProgress[job.id] = 0;
-            // this.thumbnailLoading[job.id] = true; // Removed global loading state
-
             // Clear existing thumbnails immediately to prevent showing old ones
             this.jobThumbnails[job.id] = [];
             this.$forceUpdate();
 
             try {
-                const formData = new FormData();
-                
-                // Add all files to FormData
-                files.forEach((file, index) => {
-                    formData.append(`files[${index}]`, file);
-                });
+                const uploadConfig = {
+                    uploadType: 'general',
+                    endpoint: `/jobs/${job.id}/upload-multiple-files`,
+                    progressEndpoint: `/jobs/${job.id}/upload-progress`
+                };
 
-                // Start progress polling
-                const progressInterval = setInterval(async () => {
-                    try {
-                        const progressResponse = await axios.get(`/jobs/${job.id}/upload-progress`);
-                        const progressData = progressResponse.data;
-                        
-                        if (progressData.status === 'starting') {
-                            this.uploadProgress[job.id] = progressData.progress;
-                            this.uploadStates[job.id] = progressData.status;
-                        } else if (progressData.status === 'uploading') {
-                            this.uploadProgress[job.id] = progressData.progress;
-                            this.uploadStates[job.id] = progressData.status;
-                        } else if (progressData.status === 'processing' || progressData.status === 'finalizing') {
-                            this.uploadProgress[job.id] = progressData.progress;
-                            this.uploadStates[job.id] = progressData.status;
-                        } else if (progressData.status === 'complete') {
-                            this.uploadProgress[job.id] = 100;
-                            this.uploadStates[job.id] = 'complete';
-                            clearInterval(progressInterval);
-                        } else if (progressData.status === 'error') {
-                            this.uploadStates[job.id] = 'error';
-                            clearInterval(progressInterval);
-                        }
-                    } catch (error) {
-                        console.error('Failed to get progress:', error);
+                const callbacks = {
+                    onStateChange: (uploadState) => {
+                        // Force UI update when state changes
+                        this.$forceUpdate();
+                    },
+                    onProgress: (progressData) => {
+                        console.log('Upload progress:', progressData);
+                    },
+                    onUploadProgress: (progress) => {
+                        console.log('File upload progress:', progress);
+                    },
+                    onError: (error) => {
+                        console.error('Upload error:', error);
                     }
-                }, 300); // Poll every 300ms for more responsive updates
+                };
 
-                // Create axios instance with progress tracking
-                const response = await axios.post(
-                    `/jobs/${job.id}/upload-multiple-files`, 
-                    formData, 
-                    {
-                        headers: {
-                            'Content-Type': 'multipart/form-data',
-                        },
-                        onUploadProgress: (progressEvent) => {
-                            if (progressEvent.total) {
-                                // Only update progress if backend hasn't started processing yet
-                                if (this.uploadStates[job.id] === 'uploading') {
-                                    this.uploadProgress[job.id] = Math.round(
-                                        (progressEvent.loaded * 100) / progressEvent.total
-                                    );
-                                }
-                            }
-                        },
-                    }
-                );
-
-                // Clear progress polling
-                clearInterval(progressInterval);
+                const response = await this.uploadManager.startUpload(job.id, files, uploadConfig, callbacks);
 
                 // Update job with new original files and total area
                 const existingBreakdown = Array.isArray(job.dimensions_breakdown) ? job.dimensions_breakdown : [];
@@ -1128,19 +1106,6 @@ export default {
                     totalArea: response.data.total_area_m2,
                     originalFiles: response.data.originalFiles?.length || 0,
                     responseData: response.data
-                });
-                
-                // Also log the job object before and after update
-                console.log('Job before update:', {
-                    id: job.id,
-                    total_area_m2: job.total_area_m2,
-                    dimensions_breakdown: job.dimensions_breakdown
-                });
-                
-                console.log('Updated job object:', {
-                    id: updatedJob.id,
-                    total_area_m2: updatedJob.total_area_m2,
-                    dimensions_breakdown: updatedJob.dimensions_breakdown
                 });
 
                 // Update in jobsWithPrices
@@ -1183,17 +1148,11 @@ export default {
                         imageLoaded: false // Mark as not loaded initially
                     }));
                     this.$forceUpdate();
-                    this.uploadProgress[job.id] = 100;
-                    this.uploadStates[job.id] = 'complete';
-                    // this.thumbnailLoading[job.id] = false; // Removed global loading state
                 } else {
                     // Wait a moment for backend processing, then reload thumbnails
                     setTimeout(async () => {
                         await this.loadJobThumbnails(job.id);
-                        this.uploadProgress[job.id] = 100;
-                        this.uploadStates[job.id] = 'complete';
-                        // this.thumbnailLoading[job.id] = false; // Removed global loading state
-                    }, 1000); // Reduced from 2000ms to 1000ms
+                    }, 1000);
                 }
 
                                 // Emit updates
@@ -1218,17 +1177,8 @@ export default {
                     toast.success(`${files.length} files uploaded successfully`);
                 }
 
-                // Reset upload state after a delay
-                setTimeout(() => {
-                    this.uploadStates[job.id] = 'idle';
-                    this.uploadProgress[job.id] = 0;
-                }, 2000);
-
             } catch (error) {
                 console.error('Error uploading files:', error);
-                this.uploadStates[job.id] = 'error';
-                this.uploadProgress[job.id] = 0;
-                // this.thumbnailLoading[job.id] = false; // Removed global loading state
                 
                 if (error.response) {
                     console.error('Server response:', error.response.data);
@@ -1236,11 +1186,6 @@ export default {
                 } else {
                     toast.error('Failed to upload files: Network error');
             }
-
-                // Reset error state after a delay
-                setTimeout(() => {
-                    this.uploadStates[job.id] = 'idle';
-                }, 3000);
             }
 
             // Reset the input
@@ -1616,6 +1561,9 @@ export default {
                     toast.success('File removed successfully');
                 }
                 
+                // Reset upload manager state when files are removed
+                this.uploadManager.forceResetJob(job.id);
+                
                 // Set removal state to complete
                 this.fileRemovalStates[job.id] = 'complete';
                 this.$forceUpdate();
@@ -1645,8 +1593,13 @@ export default {
         // --- CUTTING FILES METHODS ---
 
         triggerCuttingFilesInput(jobId) {
+            // Don't trigger if upload is disabled
+            if (this.isCuttingUploadDisabled(jobId)) {
+                return;
+            }
+            
             const fileInput = document.getElementById('cutting-files-input-' + jobId);
-            if (fileInput) {
+            if (fileInput && !fileInput.disabled) {
                 fileInput.value = '';
                 fileInput.click();
             }
@@ -1760,6 +1713,7 @@ export default {
             }
         },
 
+        // Professional cutting files upload handler using UploadManager
         async handleCuttingFiles(event, job) {
             const files = Array.from(event.target.files);
             if (!files.length) {
@@ -1769,66 +1723,34 @@ export default {
 
             const toast = useToast();
 
-            this.cuttingUploadStates[job.id] = 'uploading';
-            this.cuttingUploadProgress[job.id] = 0;
-
+            // Clear existing cutting files immediately to prevent showing old ones
             this.jobCuttingFiles[job.id] = [];
             this.$forceUpdate();
 
             try {
-                const formData = new FormData();
-                
-                files.forEach((file, index) => {
-                    formData.append(`files[${index}]`, file);
-                });
+                const uploadConfig = {
+                    uploadType: 'cutting',
+                    endpoint: `/jobs/${job.id}/upload-cutting-files`,
+                    progressEndpoint: `/jobs/${job.id}/cutting-upload-progress`
+                };
 
-                const progressInterval = setInterval(async () => {
-                    try {
-                        const progressResponse = await axios.get(`/jobs/${job.id}/cutting-upload-progress`);
-                        const progressData = progressResponse.data;
-                        
-                        if (progressData.status === 'starting') {
-                            this.cuttingUploadProgress[job.id] = progressData.progress;
-                            this.cuttingUploadStates[job.id] = progressData.status;
-                        } else if (progressData.status === 'uploading') {
-                            this.cuttingUploadProgress[job.id] = progressData.progress;
-                            this.cuttingUploadStates[job.id] = progressData.status;
-                        } else if (progressData.status === 'processing' || progressData.status === 'finalizing') {
-                            this.cuttingUploadProgress[job.id] = progressData.progress;
-                            this.cuttingUploadStates[job.id] = progressData.status;
-                        } else if (progressData.status === 'complete') {
-                            this.cuttingUploadProgress[job.id] = 100;
-                            this.cuttingUploadStates[job.id] = 'complete';
-                            clearInterval(progressInterval);
-                        } else if (progressData.status === 'error') {
-                            this.cuttingUploadStates[job.id] = 'error';
-                            clearInterval(progressInterval);
-                        }
-                    } catch (error) {
-                        console.error('Failed to get cutting upload progress:', error);
+                const callbacks = {
+                    onStateChange: (uploadState) => {
+                        // Force UI update when state changes
+                        this.$forceUpdate();
+                    },
+                    onProgress: (progressData) => {
+                        console.log('Cutting files upload progress:', progressData);
+                    },
+                    onUploadProgress: (progress) => {
+                        console.log('Cutting files upload progress:', progress);
+                    },
+                    onError: (error) => {
+                        console.error('Cutting files upload error:', error);
                     }
-                }, 300);
+                };
 
-                const response = await axios.post(
-                    `/jobs/${job.id}/upload-cutting-files`, 
-                    formData, 
-                    {
-                        headers: {
-                            'Content-Type': 'multipart/form-data',
-                        },
-                        onUploadProgress: (progressEvent) => {
-                            if (progressEvent.total) {
-                                if (this.cuttingUploadStates[job.id] === 'uploading') {
-                                    this.cuttingUploadProgress[job.id] = Math.round(
-                                        (progressEvent.loaded * 100) / progressEvent.total
-                                    );
-                                }
-                            }
-                        },
-                    }
-                );
-
-                clearInterval(progressInterval);
+                const response = await this.uploadManager.startUpload(job.id, files, uploadConfig, callbacks);
 
                 const updatedJob = {
                     ...job,
@@ -1863,13 +1785,9 @@ export default {
                         imageLoaded: false
                     }));
                     this.$forceUpdate();
-                    this.cuttingUploadProgress[job.id] = 100;
-                    this.cuttingUploadStates[job.id] = 'complete';
                 } else {
                     setTimeout(async () => {
                         await this.loadJobCuttingFiles(job.id);
-                        this.cuttingUploadProgress[job.id] = 100;
-                        this.cuttingUploadStates[job.id] = 'complete';
                     }, 1000);
                 }
 
@@ -1881,25 +1799,14 @@ export default {
                 
                 toast.success(`${files.length} cutting files uploaded successfully`);
 
-                setTimeout(() => {
-                    this.cuttingUploadStates[job.id] = 'idle';
-                    this.cuttingUploadProgress[job.id] = 0;
-                }, 2000);
-
             } catch (error) {
                 console.error('Error uploading cutting files:', error);
-                this.cuttingUploadStates[job.id] = 'error';
-                this.cuttingUploadProgress[job.id] = 0;
                 
                 if (error.response) {
                     toast.error(`Failed to upload cutting files: ${error.response.data.details || error.response.data.error}`);
                 } else {
                     toast.error('Failed to upload cutting files: Network error');
                 }
-
-                setTimeout(() => {
-                    this.cuttingUploadStates[job.id] = 'idle';
-                }, 3000);
             }
 
             event.target.value = '';
@@ -1960,6 +1867,9 @@ export default {
                 // Force UI update to show new dimensions
                 this.forceUpdateDimensions();
                 
+                // Reset upload manager state when cutting files are removed
+                this.uploadManager.forceResetJob(job.id);
+                
                 // Set removal state to complete
                 this.cuttingFileRemovalStates[job.id][fileIndex] = 'complete';
                 this.$forceUpdate();
@@ -1976,12 +1886,25 @@ export default {
 
         // Initialize cutting file states for a job
         initializeCuttingJobStates(jobId) {
-            if (!this.cuttingUploadStates[jobId]) {
-                this.cuttingUploadStates[jobId] = 'idle';
-            }
-            if (!this.cuttingUploadProgress[jobId]) {
-                this.cuttingUploadProgress[jobId] = 0;
-            }
+            // Initialize upload manager for cutting files
+            this.uploadManager.initializeJob(jobId, 'cutting');
+        },
+
+        // Helper methods for upload states
+        getGeneralUploadState(jobId) {
+            return this.uploadManager.getUploadState(jobId, 'general');
+        },
+
+        getCuttingUploadState(jobId) {
+            return this.uploadManager.getUploadState(jobId, 'cutting');
+        },
+
+        isGeneralUploadDisabled(jobId) {
+            return this.uploadManager.isDisabled(jobId, 'general') || this.fileRemovalStates[jobId] === 'removing';
+        },
+
+        isCuttingUploadDisabled(jobId) {
+            return this.uploadManager.isDisabled(jobId, 'cutting') || (this.cuttingFileRemovalStates[jobId] && Object.values(this.cuttingFileRemovalStates[jobId]).includes('removing'));
         },
 
         // Force UI update when dimensions change
@@ -2043,6 +1966,14 @@ export default {
                 console.error('Error recalculating job cost:', error);
             }
         },
+    },
+
+    // Cleanup when component is destroyed
+    beforeUnmount() {
+        // Clean up upload manager resources
+        if (this.uploadManager) {
+            this.uploadManager.destroy();
+        }
     },
 };
 </script>
@@ -2397,10 +2328,26 @@ input, select {
 .thumbnail-image {
     width: 100%;
     height: 100%;
-    object-fit: cover;
+    object-fit: contain;
     border-radius: 4px;
     cursor: pointer;
     transition: all 0.2s ease;
+    background-color: #f8f9fa;
+
+    &:hover {
+        transform: scale(1.02);
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+    }
+}
+
+.thumbnail-iframe {
+    width: 100%;
+    height: 100%;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    background-color: #f8f9fa;
+    overflow: hidden;
 
     &:hover {
         transform: scale(1.02);
@@ -2711,7 +2658,7 @@ input, select {
 .thumbnail-image {
     width: 100%;
     height: 100%;
-    object-fit: cover;
+    object-fit: contain;
     border-radius: 4px;
     cursor: pointer;
     transition: all 0.2s ease;
@@ -2794,8 +2741,10 @@ input, select {
 }
 
 .preview-image {
-    max-width: 100%;
-    max-height: 100%;
+    max-width: 90vw;
+    max-height: 90vh;
+    width: auto;
+    height: auto;
     object-fit: contain;
     border-radius: 8px;
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
@@ -2977,7 +2926,7 @@ input, select {
 .cutting-file-image {
     width: 100%;
     height: 100%;
-    object-fit: cover;
+    object-fit: contain;
     border-radius: 4px;
     cursor: pointer;
     transition: all 0.2s ease;
@@ -3776,6 +3725,20 @@ input, select {
 .cutting-file-remove-btn:disabled {
     opacity: 0.6;
     cursor: not-allowed;
+}
+
+/* Disabled drop zone states */
+.placeholder-upload.disabled,
+.cutting-placeholder-upload.disabled {
+    opacity: 0.6;
+    pointer-events: none;
+}
+
+.placeholder-content.disabled,
+.cutting-placeholder-content.disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
+    pointer-events: none;
 }
 
 </style>
