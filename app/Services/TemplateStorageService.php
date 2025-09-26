@@ -86,6 +86,44 @@ class TemplateStorageService
             throw $e; // Re-throw to allow calling code to handle
         }
     }
+
+    /**
+     * Delete multiple template files efficiently
+     *
+     * @param array $paths
+     * @return array Results with success/failure for each path
+     */
+    public function deleteMultipleTemplates(array $paths): array
+    {
+        $results = [];
+        
+        foreach ($paths as $path) {
+            try {
+                $results[$path] = $this->deleteTemplate($path);
+            } catch (\Exception $e) {
+                $results[$path] = false;
+                \Log::warning('Failed to delete template file', [
+                    'path' => $path,
+                    'error' => $e->getMessage()
+                ]);
+            }
+        }
+        
+        return $results;
+    }
+
+    /**
+     * Delete template files asynchronously using a queued job
+     *
+     * @param array $paths
+     * @return void
+     */
+    public function deleteTemplatesAsync(array $paths): void
+    {
+        if (!empty($paths)) {
+            \App\Jobs\DeleteR2Files::dispatch($paths);
+        }
+    }
     
     /**
      * Get a temporary signed URL for a template (valid for 1 hour)

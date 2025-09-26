@@ -16,6 +16,7 @@ use App\Http\Controllers\ArticleCategoryController;
 use App\Http\Controllers\ArticleAnalyticsController;
 use App\Http\Controllers\AnalyticsController;
 use App\Http\Controllers\CatalogItemController;
+use App\Http\Controllers\MultipartUploadController;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
@@ -206,11 +207,13 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/jobs/{id}/download-original-file', [JobController::class, 'downloadOriginalFile'])->name('jobs.downloadOriginalFile');
     Route::post('/jobs/{id}/download-original-file', [JobController::class, 'downloadOriginalFile'])->name('jobs.downloadOriginalFilePost');
     Route::delete('/jobs/{id}/remove-original-file', [JobController::class, 'removeOriginalFile'])->name('jobs.removeOriginalFile');
+    Route::delete('/jobs/{id}/remove-multiple-original-files', [JobController::class, 'removeMultipleOriginalFiles'])->name('jobs.removeMultipleOriginalFiles');
     Route::post('/orders/download-all-files', [InvoiceController::class, 'downloadAllFiles'])->name('orders.downloadAllFiles');
-    Route::get('/jobs/{id}/thumbnails', [JobController::class, 'getJobThumbnails'])->name('jobs.getThumbnails');
+
 Route::get('/jobs/{id}/articles', [JobController::class, 'getJobArticles'])->name('jobs.getArticles');
 Route::get('/jobs/{jobId}/view-original-file/{fileIndex}', [JobController::class, 'viewOriginalFile'])->name('jobs.viewOriginalFile');
 Route::get('/jobs/{jobId}/view-thumbnail/{fileIndex}', [JobController::class, 'viewThumbnail'])->name('jobs.viewThumbnail');
+Route::get('/jobs/{jobId}/thumbnails', [JobController::class, 'getThumbnails'])->name('jobs.getThumbnails');
 Route::get('/jobs/{jobId}/view-legacy-file', [JobController::class, 'viewLegacyFile'])->name('jobs.viewLegacyFile');
     
     // Cutting Files Routes
@@ -566,6 +569,14 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
 Route::post('/jobs/questions-for-catalog-items', [\App\Http\Controllers\JobController::class, 'getQuestionsForCatalogItems']);
 Route::post('/jobs/recalculate-cost', [\App\Http\Controllers\JobController::class, 'recalculateJobCost'])->name('jobs.recalculateCost');
+
+// Multipart Upload Routes for Large Files
+Route::middleware(['auth', 'verified'])->group(function () {
+    Route::post('/uploads/multipart/start', [MultipartUploadController::class, 'start'])->name('uploads.multipart.start');
+    Route::post('/uploads/multipart/sign-part', [MultipartUploadController::class, 'signPart'])->name('uploads.multipart.signPart');
+    Route::post('/uploads/multipart/complete', [MultipartUploadController::class, 'complete'])->name('uploads.multipart.complete');
+    Route::post('/uploads/multipart/abort', [MultipartUploadController::class, 'abort'])->name('uploads.multipart.abort');
+});
 
 // Material dropdown API endpoints
 Route::get('/api/materials/large-dropdown', [LargeFormatMaterialController::class, 'largeDropdown']);

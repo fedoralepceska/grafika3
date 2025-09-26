@@ -274,114 +274,61 @@ class JobController extends Controller
                 $job = new Job();
 
                 if ($fileExtension === 'pdf') {
-                    // Store the original PDF file in R2
+                    // Store the original PDF file in R2 (no JPG/WEBP preview)
                     $originalPath = $this->templateStorageService->storeTemplate($file, 'job-originals');
 
-                    // Generate preview image and calculate dimensions for all pages
+                    // Read PDF and calculate per-page dimensions at 72 DPI (points)
                     $imagick = new Imagick();
                     $this->setGhostscriptPath($imagick);
+                    $imagick->setResolution(72, 72);
                     $imagick->readImage($file->getPathname());
                     $pageCount = $imagick->getNumberImages();
 
-                    \Log::info('Processing single PDF file with multiple pages', [
+                    \Log::info('Processing single PDF file (no preview)', [
                         'file' => $file->getClientOriginalName(),
                         'page_count' => $pageCount
                     ]);
 
-                    // Variables to store cumulative area and page dimensions for this file
                     $fileTotalAreaM2 = 0;
                     $pageDimensions = [];
 
-                    // Iterate through all pages of the PDF to calculate total area
                     for ($pageIndex = 0; $pageIndex < $pageCount; $pageIndex++) {
-                        $pageImagick = new Imagick();
-                        $this->setGhostscriptPath($pageImagick);
-                        $pageImagick->readImage($file->getPathname() . '[' . $pageIndex . ']');
-                        $pageImagick->setImageFormat('jpg');
-
-                        // Calculate original PDF dimensions using MediaBox/CropBox (no raster)
-                        $pdfDims = $this->calculatePdfDimensionsFallback($file);
-                        if ($pdfDims) {
-                            $widthInMm = (float)$pdfDims['width_mm'];
-                            $heightInMm = (float)$pdfDims['height_mm'];
-                        } else {
-                            // Fallback to conservative defaults if parsing fails
-                            $widthInMm = 0;
-                            $heightInMm = 0;
-                            \Log::warning('PDF dimension calculation failed, using zero dimensions', [
-                                'file' => $file->getClientOriginalName(),
-                                'page' => $pageIndex + 1
-                            ]);
-                        }
+                        $imagick->setIteratorIndex($pageIndex);
+                        $widthPx = $imagick->getImageWidth();
+                        $heightPx = $imagick->getImageHeight();
+                        // 72 DPI means px == points; convert points to mm
+                        $widthInMm = ($widthPx / 72) * 25.4;
+                        $heightInMm = ($heightPx / 72) * 25.4;
                         $areaM2 = ($widthInMm * $heightInMm) / 1000000;
 
-                        // Store individual page dimensions
                         $pageDimensions[] = [
                             'page' => $pageIndex + 1,
-                            'width_mm' => $widthInMm,
-                            'height_mm' => $heightInMm,
-                            'area_m2' => $areaM2
+                            'width_mm' => round($widthInMm, 6),
+                            'height_mm' => round($heightInMm, 6),
+                            'area_m2' => round($areaM2, 6)
                         ];
-
-                        // Add to file total area
                         $fileTotalAreaM2 += $areaM2;
-
-                        $pageImagick->clear();
-
-                        \Log::info('Calculated dimensions for page in single file upload', [
-                            'file' => $file->getClientOriginalName(),
-                            'page' => $pageIndex + 1,
-                            'width_mm' => $widthInMm,
-                            'height_mm' => $heightInMm,
-                            'area_m2' => $areaM2,
-                            'pdf_dims_result' => $pdfDims ? 'success' : 'failed',
-                            'pdf_dims_data' => $pdfDims
-                        ]);
                     }
 
-                    // Create preview image from first page only
-                    $previewImagick = new Imagick();
-                    $this->setGhostscriptPath($previewImagick);
-                    $previewImagick->readImage($file->getPathname() . '[0]'); // First page only for preview
-                    $previewImagick->setImageFormat('jpg');
-
-                    // Create unique filename for preview
-                    $imageFilename = pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME) . '.jpg';
-                    $imagePath = storage_path('app/public/uploads/' . $imageFilename);
-                    $previewImagick->writeImage($imagePath);
-
-                    $previewImagick->clear();
                     $imagick->clear();
 
-                    // Save job first to get ID
-                    $job->file = $imageFilename; // Preview image
-                    $job->addOriginalFile($originalPath); // Store in originalFile JSON array
-                    $job->total_area_m2 = $fileTotalAreaM2;
+                    // Save job with original PDF only
+                    $job->file = 'placeholder.jpeg'; // keep legacy compatibility
+                    $job->addOriginalFile($originalPath);
+                    $job->total_area_m2 = round($fileTotalAreaM2, 6);
                     $job->dimensions_breakdown = [
                         [
                             'filename' => $file->getClientOriginalName(),
                             'page_count' => $pageCount,
-                            'total_area_m2' => $fileTotalAreaM2,
+                            'total_area_m2' => round($fileTotalAreaM2, 6),
                             'page_dimensions' => $pageDimensions,
                             'index' => 0
                         ]
                     ];
-                    
-                    \Log::info('Final dimensions breakdown for single file upload', [
-                        'job_id' => $id,
-                        'file' => $file->getClientOriginalName(),
-                        'total_area_m2' => $fileTotalAreaM2,
-                        'page_dimensions' => $pageDimensions,
-                        'dimensions_breakdown' => $job->dimensions_breakdown
-                    ]);
-                    
-                    $job->save(); // Save to get ID
 
-                    // Generate thumbnail and store in R2 (keyed by original file key)
-                    $fileKey = pathinfo(basename($originalPath), PATHINFO_FILENAME);
-                    $this->generateThumbnail($imagePath, $job->id, $fileKey);
+                    $job->save();
 
-                    \Log::info('Completed single PDF file upload with all pages', [
+                    \Log::info('Completed single PDF upload (no thumbnails)', [
                         'file' => $file->getClientOriginalName(),
                         'total_pages' => $pageCount,
                         'total_area_m2' => $fileTotalAreaM2
@@ -431,9 +378,7 @@ class JobController extends Controller
                     ];
                     $job->save(); // Save to get ID
 
-                    // Generate thumbnail and store in R2 (keyed by original file key)
-                    $fileKey = pathinfo(basename($originalPath), PATHINFO_FILENAME);
-                    $this->generateThumbnail($imagePath, $job->id, $fileKey);
+                    // Thumbnails disabled
                 }
 
                 \Log::info('Job created via drag-and-drop - R2 storage', [
@@ -1265,77 +1210,38 @@ class JobController extends Controller
                 if ($fileExtension === 'pdf') {
                     $imagick = new Imagick();
                     $this->setGhostscriptPath($imagick);
+                    $imagick->setResolution(72, 72);
                     $imagick->readImage($file->getPathname());
                     $pageCount = $imagick->getNumberImages();
 
-                    \Log::info('Processing PDF file replacement with multiple pages', [
+                    \Log::info('Processing PDF file replacement (no preview)', [
                         'job_id' => $id,
                         'file' => $file->getClientOriginalName(),
                         'page_count' => $pageCount
                     ]);
 
-                    // Variables to store cumulative area and page dimensions for this file
                     $fileTotalAreaM2 = 0;
                     $pageDimensions = [];
-
-                    // Iterate through all pages of the PDF to calculate total area
                     for ($pageIndex = 0; $pageIndex < $pageCount; $pageIndex++) {
-                        $pageImagick = new Imagick();
-                        $this->setGhostscriptPath($pageImagick);
-                        $pageImagick->readImage($file->getPathname() . '[' . $pageIndex . ']');
-                        $pageImagick->setImageFormat('jpg');
-
-                        // Calculate original PDF dimensions using MediaBox/CropBox (no raster)
-                        $pdfDims = $this->calculatePdfDimensionsFallback($file);
-                        if ($pdfDims) {
-                            $widthInMm = (float)$pdfDims['width_mm'];
-                            $heightInMm = (float)$pdfDims['height_mm'];
-                        } else {
-                            // Fallback to conservative defaults if parsing fails
-                            $widthInMm = 0;
-                            $heightInMm = 0;
-                        }
+                        $imagick->setIteratorIndex($pageIndex);
+                        $widthPx = $imagick->getImageWidth();
+                        $heightPx = $imagick->getImageHeight();
+                        $widthInMm = ($widthPx / 72) * 25.4;
+                        $heightInMm = ($heightPx / 72) * 25.4;
                         $areaM2 = ($widthInMm * $heightInMm) / 1000000;
-
-                        // Store individual page dimensions
                         $pageDimensions[] = [
                             'page' => $pageIndex + 1,
-                            'width_mm' => $widthInMm,
-                            'height_mm' => $heightInMm,
-                            'area_m2' => $areaM2
+                            'width_mm' => round($widthInMm, 6),
+                            'height_mm' => round($heightInMm, 6),
+                            'area_m2' => round($areaM2, 6)
                         ];
-
-                        // Add to file total area
                         $fileTotalAreaM2 += $areaM2;
-
-                        $pageImagick->clear();
-
-                        \Log::info('Calculated dimensions for page in file replacement', [
-                            'job_id' => $id,
-                            'file' => $file->getClientOriginalName(),
-                            'page' => $pageIndex + 1,
-                            'width_mm' => $widthInMm,
-                            'height_mm' => $heightInMm,
-                            'area_m2' => $areaM2
-                        ]);
                     }
-
-                    // Create preview image from first page only
-                    $previewImagick = new Imagick();
-                    $this->setGhostscriptPath($previewImagick);
-                    $previewImagick->readImage($file->getPathname() . '[0]'); // First page only for preview
-                    $previewImagick->setImageFormat('jpg');
-
-                    $imageFilename = pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME) . '.jpg';
-                    $imagePath = storage_path('app/public/uploads/' . $imageFilename);
-                    $previewImagick->writeImage($imagePath);
-                    $previewImagick->clear();
                     $imagick->clear();
 
-                    // Update job with file info and dimensions
-                    $job->file = $imageFilename;
-                    
-                    // Set job width and height from first page dimensions for single file display
+                    // Update job with original PDF only
+                    $job->file = 'placeholder.jpeg';
+
                     if (!empty($pageDimensions)) {
                         $job->width = $pageDimensions[0]['width_mm'];
                         $job->height = $pageDimensions[0]['height_mm'];
@@ -1347,12 +1253,12 @@ class JobController extends Controller
                         $job->addOriginalFile($pdfPath);
                     }
 
-                    $job->total_area_m2 = $fileTotalAreaM2;
+                    $job->total_area_m2 = round($fileTotalAreaM2, 6);
                     $job->dimensions_breakdown = [
                         [
                             'filename' => $file->getClientOriginalName(),
                             'page_count' => $pageCount,
-                            'total_area_m2' => $fileTotalAreaM2,
+                            'total_area_m2' => round($fileTotalAreaM2, 6),
                             'page_dimensions' => $pageDimensions,
                             'index' => 0
                         ]
@@ -1376,7 +1282,7 @@ class JobController extends Controller
                         }
                     }
 
-                    \Log::info('Successfully replaced job file with PDF (all pages processed)', [
+                    \Log::info('Successfully replaced job file with PDF (no thumbnails)', [
                         'job_id' => $id,
                         'new_file' => $file->getClientOriginalName(),
                         'total_pages' => $pageCount,
@@ -1386,7 +1292,7 @@ class JobController extends Controller
                     return response()->json([
                         'message' => 'File updated successfully',
                         'job' => $job,
-                        'file_url' => '/storage/uploads/' . $imageFilename
+                    'file_url' => null
                     ]);
                 } else if ($fileExtension === 'tiff' || $fileExtension === 'tif') {
                     $imagick = new Imagick();
@@ -2550,30 +2456,14 @@ class JobController extends Controller
 
                 // Clean up original files from R2 storage after successful database deletion
                 if (!empty($originalFiles)) {
-                    foreach ($originalFiles as $filePath) {
-                        if ($filePath && str_starts_with($filePath, 'job-originals/')) {
-                            try {
-                                $this->templateStorageService->deleteTemplate($filePath);
-                                \Log::info('Successfully deleted original file from R2', [
-                                    'job_id' => $id,
-                                    'file_path' => $filePath
-                                ]);
-                            } catch (\Exception $e) {
-                                \Log::warning('Failed to delete original file from R2 storage: ' . $e->getMessage(), [
-                                    'job_id' => $id,
-                                    'file_path' => $filePath,
-                                    'error' => $e->getMessage()
-                                ]);
-                                // Don't fail the entire operation if file cleanup fails
-                            }
-                        } else if ($filePath) {
-                            // Handle legacy local files
-                            \Log::info('Skipping cleanup of legacy local file', [
-                                'job_id' => $id,
-                                'file_path' => $filePath
-                            ]);
-                        }
-                    }
+                    // Use async deletion for better performance
+                    $this->templateStorageService->deleteTemplatesAsync($originalFiles);
+                    
+                    \Log::info('Dispatched async deletion of original files from R2', [
+                        'job_id' => $id,
+                        'file_count' => count($originalFiles),
+                        'files' => $originalFiles
+                    ]);
                 }
 
                 // Clean up ALL thumbnails for this job from R2 storage
@@ -3065,71 +2955,45 @@ class JobController extends Controller
                 $pageImagick->setResourceLimit(\Imagick::RESOURCETYPE_MEMORY, 64 * 1024 * 1024);   // 64MB
                 $pageImagick->setResourceLimit(\Imagick::RESOURCETYPE_MAP, 128 * 1024 * 1024);     // 128MB
                 
-                // Use low resolution for dimension calculation only (we just need the aspect ratio)
-                $pageImagick->setResolution(36, 36);
+                // Use 72 DPI so width/height in px match points
+                $pageImagick->setResolution(72, 72);
                 $pageImagick->readImage($file->getPathname() . '[' . $pageIndex . ']');
-                $pageImagick->setImageFormat('jpg');
-
-                // Create temporary image for dimension calculation
-                $tempImagePath = storage_path('app/temp/dim_calc_' . $index . '_page_' . $pageIndex . '_' . time() . '.jpg');
-
-                // Ensure temp directory exists
-                if (!file_exists(dirname($tempImagePath))) {
-                    mkdir(dirname($tempImagePath), 0755, true);
-                }
-
-                $pageImagick->writeImage($tempImagePath);
-
-                // Calculate original PDF dimensions using MediaBox/CropBox (no raster)
-                $pdfDims = $this->calculatePdfDimensionsFallback($file);
-                if ($pdfDims) {
-                    $widthInMm = (float)$pdfDims['width_mm'];
-                    $heightInMm = (float)$pdfDims['height_mm'];
-                } else {
-                    // Fallback to conservative defaults if parsing fails
-                    $widthInMm = 0;
-                    $heightInMm = 0;
-                    \Log::warning('PDF dimension calculation failed in multi-file upload, using zero dimensions', [
-                        'file' => $file->getClientOriginalName(),
-                        'page' => $pageIndex + 1
-                    ]);
-                }
+                
+                // Get per-page dimensions using Imagick (points at 72 DPI)
+                $widthPx = $pageImagick->getImageWidth();
+                $heightPx = $pageImagick->getImageHeight();
+                $widthInMm = ($widthPx / 72) * 25.4;
+                $heightInMm = ($heightPx / 72) * 25.4;
                 $areaM2 = ($widthInMm * $heightInMm) / 1000000;
 
                 // Store individual page dimensions
                 $pageDimensions[] = [
                     'page' => $pageIndex + 1,
-                    'width_mm' => $widthInMm,
-                    'height_mm' => $heightInMm,
+                    'width_mm' => round($widthInMm, 6),
+                    'height_mm' => round($heightInMm, 6),
                     'area_m2' => round($areaM2, 6)
                 ];
 
                 // Add to file totals
                 $fileTotalAreaM2 += $areaM2;
 
-                // Clean up temp file
-                if (file_exists($tempImagePath)) {
-                    unlink($tempImagePath);
-                }
-
                 $pageImagick->clear();
                 
                 \Log::info('Multi-file upload page dimension calculation result', [
                     'file' => $file->getClientOriginalName(),
                     'page' => $pageIndex + 1,
-                    'width_mm' => $widthInMm,
-                    'height_mm' => $heightInMm,
+                    'width_mm' => round($widthInMm, 6),
+                    'height_mm' => round($heightInMm, 6),
                     'area_m2' => $areaM2,
-                    'pdf_dims_result' => $pdfDims ? 'success' : 'failed',
-                    'pdf_dims_data' => $pdfDims
+                    'method' => 'imagick_72dpi'
                 ]);
 
                 \Log::info('Calculated dimensions for page', [
                     'job_id' => $jobId,
                     'file' => $file->getClientOriginalName(),
                     'page' => $pageIndex + 1,
-                    'width_mm' => $widthInMm,
-                    'height_mm' => $heightInMm,
+                    'width_mm' => round($widthInMm, 6),
+                    'height_mm' => round($heightInMm, 6),
                     'area_m2' => $areaM2
                 ]);
             }
@@ -3156,71 +3020,7 @@ class JobController extends Controller
                 'index' => $index
             ];
 
-            // For the FIRST file, also create preview image for the job (still using first page only)
-            if ($index === 0) {
-                $imageFilename = pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME) . '.jpg';
-                $imagePath = storage_path('app/public/uploads/' . $imageFilename);
-
-                try {
-                    // Check PDF dimensions for preview generation too
-                    $pdfDimensions = $this->calculatePdfDimensionsFallback($file);
-                    $skipPreview = false;
-                    $useUltraLowPreview = false;
-                    
-                    if ($pdfDimensions) {
-                        $maxDimension = max($pdfDimensions['width_mm'], $pdfDimensions['height_mm']);
-                        if ($maxDimension > 4000) {
-                            $skipPreview = true;
-                            \Log::info('Skipping preview generation for extremely large PDF', [
-                                'file' => $file->getClientOriginalName(),
-                                'dimensions' => $pdfDimensions
-                            ]);
-                        } else if ($maxDimension > 2500) {
-                            $useUltraLowPreview = true;
-                        }
-                    }
-                    
-                    if (!$skipPreview) {
-                        // Create preview from first page only
-                        $previewImagick = new \Imagick();
-                        $this->setGhostscriptPath($previewImagick);
-                        
-                        // Set appropriate limits and resolution for preview
-                        if ($useUltraLowPreview) {
-                            $previewImagick->setResourceLimit(\Imagick::RESOURCETYPE_MEMORY, 32 * 1024 * 1024);
-                            $previewImagick->setResourceLimit(\Imagick::RESOURCETYPE_MAP, 64 * 1024 * 1024);
-                            $previewImagick->setResolution(18, 18); // Ultra-low DPI
-                        } else {
-                            $previewImagick->setResourceLimit(\Imagick::RESOURCETYPE_MEMORY, 64 * 1024 * 1024);
-                            $previewImagick->setResourceLimit(\Imagick::RESOURCETYPE_MAP, 128 * 1024 * 1024);
-                            $previewImagick->setResolution(72, 72); // Standard preview DPI
-                        }
-                        
-                        $previewImagick->readImage($file->getPathname() . '[0]'); // First page only for preview
-                        $previewImagick->setImageFormat('jpg');
-                        $previewImagick->setImageCompression(\Imagick::COMPRESSION_JPEG);
-                        $previewImagick->setImageCompressionQuality($useUltraLowPreview ? 50 : 70);
-                        $previewImagick->stripImage();
-                        // Limit preview to 800x800 while preserving aspect ratio
-                        $previewImagick->thumbnailImage(800, 800, true, true);
-                        $previewImagick->writeImage($imagePath);
-                        $previewImagick->clear();
-                        $firstFilePreview = $imageFilename;
-                    } else {
-                        // Create a placeholder preview for extremely large PDFs
-                        $firstFilePreview = 'placeholder.jpeg';
-                        \Log::info('Using placeholder preview for extremely large PDF', [
-                            'file' => $file->getClientOriginalName()
-                        ]);
-                    }
-                } catch (\Exception $e) {
-                    \Log::warning('Failed to generate preview image, using placeholder', [
-                        'file' => $file->getClientOriginalName(),
-                        'error' => $e->getMessage()
-                    ]);
-                    $firstFilePreview = 'placeholder.jpeg';
-                }
-            }
+            // Preview generation disabled
 
             $imagick->clear();
 
@@ -3284,216 +3084,14 @@ class JobController extends Controller
             }
         }
 
-        // Clean up any existing thumbnails at this index before generating new ones
-        $this->cleanupThumbnailsAtIndex($jobId, $index);
-
-        // Check PDF dimensions before processing to avoid memory and timeout issues
-        $pdfDimensions = $this->calculatePdfDimensionsFallback($file);
-        $useLowResolution = false;
-        $useUltraLowResolution = false;
-        $skipThumbnail = false;
-        
-        if ($pdfDimensions) {
-            $maxDimension = max($pdfDimensions['width_mm'], $pdfDimensions['height_mm']);
-            
-            // If any dimension is larger than 4000mm (~157 inches), skip thumbnail generation
-            if ($maxDimension > 4000) {
-                $skipThumbnail = true;
-                \Log::warning('Extremely large PDF detected, skipping thumbnail generation', [
-                    'file' => $file->getClientOriginalName(),
-                    'width_mm' => $pdfDimensions['width_mm'],
-                    'height_mm' => $pdfDimensions['height_mm'],
-                    'max_dimension' => $maxDimension
-                ]);
-            }
-            // If any dimension is larger than 2500mm (~98 inches), use ultra-low resolution
-            else if ($maxDimension > 2500) {
-                $useUltraLowResolution = true;
-                // Increase execution time for very large PDFs
-                ini_set('max_execution_time', 180); // 3 minutes
-                \Log::info('Very large PDF detected, using ultra-low resolution processing', [
-                    'file' => $file->getClientOriginalName(),
-                    'width_mm' => $pdfDimensions['width_mm'],
-                    'height_mm' => $pdfDimensions['height_mm'],
-                    'max_dimension' => $maxDimension
-                ]);
-            }
-            // If any dimension is larger than 1500mm (~59 inches), use low resolution
-            else if ($maxDimension > 1500) {
-                $useLowResolution = true;
-                \Log::info('Large PDF detected, using low resolution processing', [
-                    'file' => $file->getClientOriginalName(),
-                    'width_mm' => $pdfDimensions['width_mm'],
-                    'height_mm' => $pdfDimensions['height_mm'],
-                    'max_dimension' => $maxDimension
-                ]);
-            }
-        }
-        
-        // If we need to skip thumbnail generation, return early with file info only
-        if ($skipThumbnail) {
-            \Log::info('Skipping thumbnail generation for extremely large PDF', [
-                'job_id' => $jobId,
-                'file' => $file->getClientOriginalName(),
-                'file_path' => $filePath
-            ]);
-            
-            $thumbnails[] = [
-                'originalFile' => $filePath,
-                'thumbnailPath' => null, // No thumbnail
-                'filename' => $originalFilename,
-                'type' => 'pdf',
-                'index' => $index,
-                'skipped' => true,
-                'reason' => 'PDF too large for thumbnail generation'
-            ];
-            return;
-        }
-
-        // Generate thumbnail and store in R2
-        try {
-            $imagick = new \Imagick();
-
-            // Set Ghostscript path based on environment
-            $this->setGhostscriptPath($imagick);
-
-            // Set memory and resource limits based on PDF size
-            if ($useUltraLowResolution) {
-                // Ultra-conservative limits for very large PDFs
-                $imagick->setResourceLimit(\Imagick::RESOURCETYPE_MEMORY, 32 * 1024 * 1024);   // 32MB
-                $imagick->setResourceLimit(\Imagick::RESOURCETYPE_MAP, 64 * 1024 * 1024);      // 64MB
-                $imagick->setResourceLimit(\Imagick::RESOURCETYPE_DISK, 128 * 1024 * 1024);    // 128MB
-                $imagick->setResourceLimit(\Imagick::RESOURCETYPE_THREAD, 1);                  // Single thread
-                $dpi = 18; // Ultra-low DPI for very large PDFs
-            } else if ($useLowResolution) {
-                // Conservative limits for large PDFs
-                $imagick->setResourceLimit(\Imagick::RESOURCETYPE_MEMORY, 64 * 1024 * 1024);   // 64MB
-                $imagick->setResourceLimit(\Imagick::RESOURCETYPE_MAP, 128 * 1024 * 1024);     // 128MB
-                $imagick->setResourceLimit(\Imagick::RESOURCETYPE_DISK, 256 * 1024 * 1024);    // 256MB
-                $dpi = 36; // Very low DPI for large PDFs
-            } else {
-                // Standard limits for normal PDFs
-                $imagick->setResourceLimit(\Imagick::RESOURCETYPE_MEMORY, 128 * 1024 * 1024); // 128MB
-                $imagick->setResourceLimit(\Imagick::RESOURCETYPE_MAP, 256 * 1024 * 1024);    // 256MB
-                $dpi = 150; // Standard DPI
-            }
-
-            // Read PDF with appropriate resolution
-            $imagick->setResolution($dpi, $dpi);
-            $imagick->readImage($file->getPathname() . '[0]'); // Read the first page
-
-            // Use WebP for better compression and faster loading
-            $imagick->setImageFormat('webp');
-            if ($useUltraLowResolution) {
-                $imagick->setImageCompressionQuality(30); // Ultra-low quality for massive PDFs
-            } else if ($useLowResolution) {
-                $imagick->setImageCompressionQuality(50); // Low quality for large PDFs
-            } else {
-                $imagick->setImageCompressionQuality(75); // Standard quality
-            }
-            $imagick->stripImage();
-
-            // Create thumbnail - optimized size (max 600x600 for faster loading)
-            $imagick->resizeImage(600, 600, \Imagick::FILTER_LANCZOS, 1, true);
-
-            // Create thumbnail in memory
-            $thumbnailBlob = $imagick->getImageBlob();
-            $imagick->clear();
-
-            // Store thumbnail in R2 using consistent naming pattern
-            $thumbnailPath = 'job-thumbnails/job_' . $jobId . '_' . $index . '_' . $originalFilename . '.jpg';
-
-            // Always override existing thumbnail at this index (in case deletion failed)
-            $this->templateStorageService->getDisk()->put($thumbnailPath, $thumbnailBlob);
-
-            \Log::info('Generated and stored thumbnail in R2', [
-                'job_id' => $jobId,
-                'file' => $file->getClientOriginalName(),
-                'thumbnail_path' => $thumbnailPath,
-                'original_file' => $filePath
-            ]);
-
-            // Generate thumbnail URL
-            $thumbnailUrl = route('jobs.viewThumbnail', [
-                'jobId' => $jobId,
-                'fileIndex' => $index
-            ]) . '?t=' . time();
-
-            $thumbnails[] = [
-                'originalFile' => $filePath,
-                'thumbnailPath' => $thumbnailPath,
-                'thumbnailUrl' => $thumbnailUrl,
-                'filename' => $originalFilename,
-                'type' => 'pdf',
-                'index' => $index
-            ];
-            // Invalidate cached index map for this job
-            \Cache::forget("job_thumb_map_{$jobId}");
-        } catch (\Exception $e) {
-            \Log::warning('Failed to generate thumbnail for PDF: ' . $e->getMessage(), [
-                'file' => $file->getClientOriginalName(),
-                'job_id' => $jobId,
-                'index' => $index,
-                'error_message' => $e->getMessage(),
-                'error_trace' => $e->getTraceAsString(),
-                'os_family' => PHP_OS_FAMILY,
-                'imagick_version' => \Imagick::getVersion(),
-                'file_path' => $filePath,
-                'file_size_bytes' => filesize($file->getPathname()),
-                'memory_limit' => ini_get('memory_limit'),
-                'memory_usage' => memory_get_usage(true),
-                'memory_peak' => memory_get_peak_usage(true)
-            ]);
-            // Try alternative thumbnail generation with lower resolution
-            $fallbackThumbnailPath = null;
-            try {
-                $fallbackThumbnailPath = $this->generateThumbnailFallback($file, $jobId, $index, $originalFilename);
-
-                if ($fallbackThumbnailPath) {
-                    \Log::info('Successfully generated thumbnail using fallback method', [
-                        'job_id' => $jobId,
-                        'file' => $file->getClientOriginalName(),
-                        'thumbnail_path' => $fallbackThumbnailPath
-                    ]);
-
-                    // Generate thumbnail URL for fallback
-                    $fallbackThumbnailUrl = route('jobs.viewThumbnail', [
-                        'jobId' => $jobId,
-                        'fileIndex' => $index
-                    ]) . '?t=' . time();
-
-                    $thumbnails[] = [
-                        'originalFile' => $filePath,
-                        'thumbnailPath' => $fallbackThumbnailPath,
-                        'thumbnailUrl' => $fallbackThumbnailUrl,
-                        'filename' => $originalFilename,
-                        'type' => 'pdf',
-                        'index' => $index,
-                        'method' => 'fallback'
-                    ];
-                } else {
-                    throw new \Exception('Fallback thumbnail generation also failed');
-                }
-
-            } catch (\Exception $fallbackError) {
-                \Log::warning('Fallback thumbnail generation also failed: ' . $fallbackError->getMessage(), [
-                    'job_id' => $jobId,
-                    'file' => $file->getClientOriginalName(),
-                    'original_error' => $e->getMessage(),
-                    'fallback_error' => $fallbackError->getMessage()
-                ]);
-
-                // Final fallback - show PDF icon
-                $thumbnails[] = [
-                    'originalFile' => $filePath,
-                    'thumbnailPath' => null,
-                    'filename' => $originalFilename,
-                    'type' => 'pdf',
-                    'index' => $index,
-                    'error' => $e->getMessage()
-                ];
-            }
-        }
+        // Thumbnails are disabled
+        $thumbnails[] = [
+            'originalFile' => $filePath,
+            'thumbnailPath' => null,
+            'filename' => $originalFilename,
+            'type' => 'pdf',
+            'index' => $index
+        ];
     }
 
     /**
@@ -3578,81 +3176,86 @@ class JobController extends Controller
             $fileToRemove = $originalFiles[$fileIndex];
             $removedFileDimensions = null;
 
-            // Calculate dimensions of the file being removed before removing it
-            try {
-                $removedFileDimensions = $this->calculateFileDimensions($fileToRemove, $fileIndex);
-                \Log::info('Calculated dimensions for file being removed', [
+            // Try to get dimensions from existing breakdown instead of recalculating
+            $removedFileDimensions = null;
+            if ($job->dimensions_breakdown && isset($job->dimensions_breakdown[$fileIndex])) {
+                $removedFileDimensions = $job->dimensions_breakdown[$fileIndex];
+                \Log::info('Using existing dimensions for file being removed', [
                     'job_id' => $id,
                     'file_index' => $fileIndex,
                     'file_path' => $fileToRemove,
                     'dimensions' => $removedFileDimensions
                 ]);
-            } catch (\Exception $e) {
-                \Log::warning('Failed to calculate dimensions for removed file: ' . $e->getMessage(), [
+            } else {
+                \Log::info('No existing dimensions found for file being removed', [
                     'job_id' => $id,
                     'file_index' => $fileIndex,
-                    'file_path' => $fileToRemove,
-                    'error' => $e->getMessage()
+                    'file_path' => $fileToRemove
                 ]);
-                // Continue without dimensions - don't fail the operation
             }
 
             // Remove the file from the job
             if ($job->removeOriginalFile($fileToRemove)) {
                 // Recalculate job dimensions by subtracting the removed file's area
-                if ($removedFileDimensions && $removedFileDimensions['area_m2'] > 0) {
-                    $currentArea = $job->total_area_m2 ?? 0;
-
-                    // Subtract the removed file's area
-                    $newArea = round(max(0, $currentArea - $removedFileDimensions['area_m2']), 6);
-
-                    // Update job area - only set to null if no files remain
-                    $remainingFiles = $job->getOriginalFiles();
-                    if (empty($remainingFiles)) {
-                        $job->total_area_m2 = null;
-                        $job->dimensions_breakdown = [];
-                    } else {
-                        $job->total_area_m2 = $newArea;
-
-                        // Update dimensions breakdown by removing the file at the specified index
-                        if ($job->dimensions_breakdown) {
-                            $breakdown = $job->dimensions_breakdown;
-                            if (isset($breakdown[$fileIndex])) {
-                                unset($breakdown[$fileIndex]);
-                                // Reindex array to maintain sequential indices
-                                $breakdown = array_values($breakdown);
-                                $job->dimensions_breakdown = $breakdown;
-                            }
+                $remainingFiles = $job->getOriginalFiles();
+                
+                if (empty($remainingFiles)) {
+                    // No files remaining - reset everything
+                    $job->total_area_m2 = null;
+                    $job->dimensions_breakdown = [];
+                } else {
+                    // Update dimensions breakdown by removing the file at the specified index
+                    if ($job->dimensions_breakdown) {
+                        $breakdown = $job->dimensions_breakdown;
+                        if (isset($breakdown[$fileIndex])) {
+                            unset($breakdown[$fileIndex]);
+                            // Reindex array to maintain sequential indices
+                            $breakdown = array_values($breakdown);
+                            $job->dimensions_breakdown = $breakdown;
                         }
                     }
-
-                    \Log::info('Recalculated job area after file removal', [
-                        'job_id' => $id,
-                        'removed_file_dimensions' => $removedFileDimensions,
-                        'previous_area_m2' => $currentArea,
-                        'new_area_m2' => $newArea,
-                        'remaining_files_count' => count($remainingFiles),
-                        'dimensions_breakdown_count' => count($job->dimensions_breakdown ?? [])
-                    ]);
+                    
+                    // Recalculate total area from remaining breakdown
+                    if ($job->dimensions_breakdown && is_array($job->dimensions_breakdown)) {
+                        $totalArea = 0;
+                        foreach ($job->dimensions_breakdown as $dimension) {
+                            if (isset($dimension['total_area_m2'])) {
+                                $totalArea += $dimension['total_area_m2'];
+                            }
+                        }
+                        $job->total_area_m2 = round($totalArea, 6);
+                    } else {
+                        // If no breakdown available, keep current area or set to 0
+                        $job->total_area_m2 = $job->total_area_m2 ?? 0;
+                    }
                 }
+
+                \Log::info('Recalculated job area after file removal', [
+                    'job_id' => $id,
+                    'removed_file_dimensions' => $removedFileDimensions,
+                    'new_area_m2' => $job->total_area_m2,
+                    'remaining_files_count' => count($remainingFiles),
+                    'dimensions_breakdown_count' => count($job->dimensions_breakdown ?? [])
+                ]);
 
                 $job->save();
 
-                // Delete the file from R2 storage
+                // Delete the file from R2 storage asynchronously
                 if (str_starts_with($fileToRemove, 'job-originals/')) {
                     try {
-                        $this->templateStorageService->deleteTemplate($fileToRemove);
-                        \Log::info('Successfully deleted original file from R2', [
+                        // Use the efficient DeleteR2Files job for async deletion
+                        \App\Jobs\DeleteR2Files::dispatch([$fileToRemove]);
+                        \Log::info('Queued original file for async deletion from R2', [
                             'job_id' => $id,
                             'file_path' => $fileToRemove
                         ]);
                     } catch (\Exception $e) {
-                        \Log::warning('Failed to delete file from R2 storage: ' . $e->getMessage(), [
+                        \Log::warning('Failed to queue original file for deletion from R2', [
                             'job_id' => $id,
                             'file_path' => $fileToRemove,
                             'error' => $e->getMessage()
                         ]);
-                        // Don't fail the operation if file cleanup fails
+                        // Don't fail the operation if R2 deletion fails
                     }
                 }
 
@@ -3694,6 +3297,115 @@ class JobController extends Controller
 
             return response()->json([
                 'error' => 'Failed to remove file',
+                'details' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Remove multiple original files efficiently
+     */
+    public function removeMultipleOriginalFiles(Request $request, $id)
+    {
+        try {
+            $request->validate([
+                'file_indices' => 'required|array|min:1',
+                'file_indices.*' => 'integer|min:0'
+            ]);
+
+            $job = Job::findOrFail($id);
+            $fileIndices = $request->input('file_indices');
+            $originalFiles = $job->getOriginalFiles();
+            
+            $filesToRemove = [];
+            $removedFileDimensions = [];
+            $totalRemovedArea = 0;
+
+            // Collect files to remove and calculate dimensions
+            foreach ($fileIndices as $fileIndex) {
+                if (isset($originalFiles[$fileIndex])) {
+                    $fileToRemove = $originalFiles[$fileIndex];
+                    $filesToRemove[] = $fileToRemove;
+                    
+                    // Get dimensions from existing breakdown for area recalculation
+                    if ($job->dimensions_breakdown && isset($job->dimensions_breakdown[$fileIndex])) {
+                        $dimensions = $job->dimensions_breakdown[$fileIndex];
+                        if (isset($dimensions['total_area_m2'])) {
+                            $totalRemovedArea += $dimensions['total_area_m2'];
+                            $removedFileDimensions[] = $dimensions;
+                        }
+                    }
+                }
+            }
+
+            if (empty($filesToRemove)) {
+                return response()->json(['error' => 'No valid files to remove'], 400);
+            }
+
+            // Remove files from job's originalFile array
+            $remainingFiles = array_values(array_diff_key($originalFiles, array_flip($fileIndices)));
+            $job->originalFile = $remainingFiles;
+
+            // Recalculate dimensions breakdown and total area
+            if (empty($remainingFiles)) {
+                // No files remaining - reset everything
+                $job->total_area_m2 = null;
+                $job->dimensions_breakdown = [];
+            } else {
+                // Remove dimensions for deleted files by index (in reverse order to maintain indices)
+                $sortedIndices = array_reverse($fileIndices);
+                foreach ($sortedIndices as $fileIndex) {
+                    if (isset($job->dimensions_breakdown[$fileIndex])) {
+                        unset($job->dimensions_breakdown[$fileIndex]);
+                    }
+                }
+                // Reindex array to maintain sequential indices
+                $job->dimensions_breakdown = array_values($job->dimensions_breakdown);
+                
+                // Recalculate total area from remaining breakdown
+                if ($job->dimensions_breakdown && is_array($job->dimensions_breakdown)) {
+                    $totalArea = 0;
+                    foreach ($job->dimensions_breakdown as $dimension) {
+                        if (isset($dimension['total_area_m2'])) {
+                            $totalArea += $dimension['total_area_m2'];
+                        }
+                    }
+                    $job->total_area_m2 = round($totalArea, 6);
+                } else {
+                    $job->total_area_m2 = 0;
+                }
+            }
+
+            $job->save();
+
+            // Delete files from R2 asynchronously for better performance
+            \App\Jobs\DeleteR2Files::dispatch($filesToRemove);
+
+            \Log::info('Multiple files removed successfully', [
+                'job_id' => $id,
+                'removed_files' => $filesToRemove,
+                'remaining_files' => $remainingFiles,
+                'total_removed_area' => $totalRemovedArea
+            ]);
+
+            return response()->json([
+                'message' => 'Files removed successfully',
+                'originalFiles' => $remainingFiles,
+                'total_area_m2' => $job->total_area_m2 ?? 0,
+                'dimensions_breakdown' => $job->dimensions_breakdown ?? [],
+                'removed_files_count' => count($filesToRemove),
+                'removed_files' => $filesToRemove
+            ]);
+
+        } catch (\Exception $e) {
+            \Log::error('Error removing multiple original files:', [
+                'job_id' => $id,
+                'file_indices' => $request->input('file_indices'),
+                'error' => $e->getMessage()
+            ]);
+
+            return response()->json([
+                'error' => 'Failed to remove files',
                 'details' => $e->getMessage()
             ], 500);
         }
@@ -3803,125 +3515,7 @@ class JobController extends Controller
         }
     }
 
-    /**
-     * Get thumbnails for all files in a job
-     */
-    public function getJobThumbnails($id)
-    {
-        try {
-            $job = Job::findOrFail($id);
-            $thumbnails = [];
 
-            \Log::info('Getting thumbnails for job', [
-                'job_id' => $id,
-                'original_files' => $job->getOriginalFiles()
-            ]);
-
-            // Process all original files and find their thumbnails in R2
-            foreach ($job->getOriginalFiles() as $index => $originalFile) {
-                $originalFileBase = basename($originalFile);
-                $originalFileName = pathinfo($originalFileBase, PATHINFO_FILENAME);
-
-                // Prefer the client filename stored in dimensions_breakdown
-                $expectedClientName = null;
-                if (is_array($job->dimensions_breakdown) && isset($job->dimensions_breakdown[$index]['filename'])) {
-                    $expectedClientName = pathinfo($job->dimensions_breakdown[$index]['filename'], PATHINFO_FILENAME);
-                }
-                // Fallback: strip leading timestamp_ from stored originalFile name
-                if (!$expectedClientName) {
-                    $expectedClientName = preg_replace('/^\d+_/', '', $originalFileBase);
-                    $expectedClientName = pathinfo($expectedClientName, PATHINFO_FILENAME);
-                }
-
-                // Try to find thumbnail in R2 for this file
-                $thumbnailPath = null;
-
-                try {
-                    // List files in the job-thumbnails directory
-                    $thumbnailFiles = $this->templateStorageService->getDisk()->files('job-thumbnails');
-
-                    $latestMatch = null;
-                    $latestTs = 0;
-                    foreach ($thumbnailFiles as $thumbFile) {
-                        $thumbBasename = basename($thumbFile);
-                        // Must belong to this job
-                        if (strpos($thumbBasename, 'job_' . $id . '_') !== 0) {
-                            continue;
-                        }
-                        // Prefer index match first
-                        $indexMatch = (strpos($thumbBasename, '_' . $index . '_') !== false);
-                        // Then filename match based on expected client name
-                        $nameMatch = $expectedClientName ? (strpos($thumbBasename, $expectedClientName) !== false) : false;
-                        if (!$indexMatch && !$nameMatch) {
-                            continue;
-                        }
-                        // Track latest by timestamp segment job_{id}_{ts}_
-                        $ts = 0;
-                        if (preg_match('/job_' . $id . '_(\d+)_/',$thumbBasename,$m)) {
-                            $ts = (int)$m[1];
-                        }
-                        if ($latestMatch === null || $ts >= $latestTs) {
-                            $latestTs = $ts;
-                            $latestMatch = $thumbFile;
-                        }
-                    }
-                    if ($latestMatch) {
-                        $thumbnailPath = $latestMatch;
-                    }
-                } catch (\Exception $e) {
-                    \Log::warning('Failed to list R2 thumbnails: ' . $e->getMessage());
-                }
-
-                // Generate thumbnail URL if thumbnail exists
-                $thumbnailUrl = null;
-                if ($thumbnailPath) {
-                    // Generate URL for the thumbnail
-                    $thumbnailUrl = route('jobs.viewThumbnail', [
-                        'jobId' => $id,
-                        'fileIndex' => $index
-                    ]) . '?t=' . time();
-                }
-
-                $thumbnailData = [
-                    'type' => 'pdf',
-                    'thumbnailPath' => $thumbnailPath,
-                    'thumbnailUrl' => $thumbnailUrl,
-                    'originalFile' => $originalFile,
-                    'index' => $index,
-                    'filename' => $originalFileName
-                ];
-
-                $thumbnails[] = $thumbnailData;
-
-                \Log::info('Thumbnail search result', [
-                    'index' => $index,
-                    'original_file' => $originalFile,
-                    'thumbnail_path' => $thumbnailPath,
-                    'filename' => $originalFileName
-                ]);
-            }
-
-            return response()->json([
-                'thumbnails' => $thumbnails,
-                'debug' => [
-                    'job_id' => $id,
-                    'original_files_count' => count($job->getOriginalFiles())
-                ]
-            ]);
-
-        } catch (\Exception $e) {
-            \Log::error('Error getting job thumbnails:', [
-                'job_id' => $id,
-                'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
-            ]);
-
-            return response()->json([
-                'error' => 'Failed to get thumbnails',
-                'details' => $e->getMessage()
-            ], 500);
-        }
-    }
 
     /**
      * Get articles for a specific job
@@ -4169,6 +3763,50 @@ class JobController extends Controller
             ]);
 
             return response()->json(['error' => 'Failed to serve thumbnail'], 500);
+        }
+    }
+
+    /**
+     * Get list of available thumbnails for a job (direct public URLs)
+     */
+    public function getThumbnails(Request $request, $jobId)
+    {
+        try {
+            $job = Job::findOrFail($jobId);
+            
+            $thumbnailDir = public_path('jobfiles/thumbnails/' . $jobId);
+            
+            if (!is_dir($thumbnailDir)) {
+                return response()->json(['thumbnails' => []]);
+            }
+            
+            $thumbnailFiles = glob($thumbnailDir . '/*.png');
+            $thumbnails = [];
+            
+            foreach ($thumbnailFiles as $file) {
+                $fileName = basename($file);
+                $thumbnails[] = [
+                    'file_name' => $fileName,
+                    'url' => '/jobfiles/thumbnails/' . $jobId . '/' . $fileName,
+                    'size' => filesize($file),
+                    'modified' => filemtime($file)
+                ];
+            }
+            
+            // Sort by filename to maintain page order
+            usort($thumbnails, function($a, $b) {
+                return strcmp($a['file_name'], $b['file_name']);
+            });
+            
+            return response()->json(['thumbnails' => $thumbnails]);
+            
+        } catch (\Exception $e) {
+            \Log::error('Error getting thumbnails list', [
+                'job_id' => $jobId,
+                'error' => $e->getMessage()
+            ]);
+            
+            return response()->json(['error' => 'Failed to get thumbnails'], 500);
         }
     }
 

@@ -25,6 +25,8 @@
         "echarts": "^5.5.1",
         "font-awesome": "^4.7.0",
         "lodash.debounce": "^4.0.8",
+        "pdf-lib": "^1.17.1",
+        "pdf-poppler": "^0.2.1",
         "pdf.js": "^0.1.0",
         "pdfjs": "^2.5.2",
         "pdfjs-dist": "^3.11.174",
