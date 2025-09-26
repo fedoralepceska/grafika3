@@ -113,215 +113,29 @@
                 <!-- FILE INFO -->
                 <div class="flex text-white">
                     <td>
-                        <!-- Hidden file input -->
-                        <input
-                            type="file"
-                            accept=".pdf"
-                            multiple
-                            @change="(e) => handleMultipleFiles(e, job)"
-                            class="file-input"
-                            :id="'files-input-' + job.id"
-                            :disabled="isGeneralUploadDisabled(job.id)"
-                            style="display: none;"
+                        <FileUploadManager
+                            :job-id="job.id"
+                            :files="job.originalFile || []"
+                            upload-type="general"
+                            accepted-types=".pdf"
+                            @files-updated="handleFilesUpdated(job, $event)"
+                            @file-removed="handleFileRemoved(job, $event)"
+                            @upload-started="handleUploadStarted(job)"
+                            @upload-completed="handleUploadCompleted(job, $event)"
+                            @upload-failed="handleUploadFailed(job, $event)"
+                            @preview-requested="openPreviewModal({ index: $event }, job)"
                         />
-
-                        <!-- Simplified File Display -->
-                        <div class="file-display-container">
-                            <!-- Thumbnails Grid -->
-                            <div v-if="job.originalFile && job.originalFile.length > 0" class="thumbnails-grid">
-                                <div
-                                    v-for="(file, fileIndex) in job.originalFile"
-                                    :key="file"
-                                    class="thumbnail-item"
-                                >
-                                    <!-- Remove button -->
-                                    <button
-                                        @click="removeOriginalFile(job, fileIndex)"
-                                        class="thumbnail-remove-btn"
-                                        :class="{ 'removing': fileRemovalStates[job.id] === 'removing' }"
-                                        :disabled="fileRemovalStates[job.id] === 'removing' || isGeneralUploadDisabled(job.id)"
-                                        title="Remove file"
-                                    >
-                                        <i v-if="fileRemovalStates[job.id] === 'removing'" class="fa fa-spinner fa-spin"></i>
-                                        <i v-else class="fa fa-times"></i>
-                                    </button>
-
-                                    <!-- Thumbnail preview; click opens full preview modal -->
-                                    <div @click="openPreviewModal({ index: fileIndex }, job)" class="thumbnail-preview">
-                                        <!-- Show thumbnail image if available -->
-                                        <img
-                                            v-if="getJobThumbnails(job)[fileIndex] && getJobThumbnails(job)[fileIndex].thumbnailUrl && !getJobThumbnails(job)[fileIndex].imageLoadError"
-                                            :src="getJobThumbnails(job)[fileIndex].thumbnailUrl"
-                                            class="thumbnail-image"
-                                            :alt="getJobThumbnails(job)[fileIndex].filename"
-                                            @error="handleThumbnailError(getJobThumbnails(job)[fileIndex], $event)"
-                                            @load="handleThumbnailLoad(getJobThumbnails(job)[fileIndex])"
-                                        />
-                                        <!-- Fallback to PDF iframe if no thumbnail or thumbnail failed -->
-                                        <iframe
-                                            v-else
-                                            :src="getPdfUrl(job, fileIndex)"
-                                            class="thumbnail-image thumbnail-iframe"
-                                            title="PDF preview"
-                                            frameborder="0"
-                                        ></iframe>
-                                    </div>
-
-                                    <div class="thumbnail-label">{{ fileIndex + 1 }}</div>
-                                </div>
-                            </div>
-
-                            <!-- Placeholder when no files -->
-                            <div v-else class="placeholder-upload" :class="{ 'disabled': isGeneralUploadDisabled(job.id) }">
-                                <div 
-                                    class="placeholder-content" 
-                                    @click="!isGeneralUploadDisabled(job.id) && triggerFilesInput(job.id)"
-                                    :class="{ 'disabled': isGeneralUploadDisabled(job.id) }"
-                                >
-                                    <span class="placeholder-text">
-                                        {{ getGeneralUploadState(job.id).isUploading ? 'Uploading...' : 'Drop Files' }}
-                                    </span>
-                            </div>
-                        </div>
-
-                            <!-- Upload Progress Indicator -->
-                            <div v-if="getGeneralUploadState(job.id).isUploading" class="upload-progress-container">
-                                <div class="upload-progress-header">
-                                    <div class="upload-status">
-                                        <div class="status-indicator" :class="getGeneralUploadState(job.id).state"></div>
-                                        <span class="status-text">
-                                            {{ getGeneralUploadState(job.id).stage.message }}
-                                        </span>
-                                    </div>
-                                    <div class="upload-percentage">{{ getGeneralUploadState(job.id).progress }}%</div>
-                                </div>
-                                <div class="upload-progress-bar">
-                                    <div 
-                                        class="upload-progress-fill" 
-                                        :style="{ width: `${getGeneralUploadState(job.id).progress}%` }"
-                                    ></div>
-                                    <div class="upload-progress-glow"></div>
-                                </div>
-                            </div>
-
-                            <!-- Action buttons -->
-                            <div class="file-action-buttons">
-                                <button
-                                    @click="triggerFilesInput(job.id)"
-                                    class="file-action-btn primary"
-                                    :disabled="isGeneralUploadDisabled(job.id)"
-                                    title="Upload files"
-                                >
-                                    <i class="fa fa-upload"></i> 
-                                    {{ getGeneralUploadState(job.id).isUploading ? 'Uploading...' : 'Upload Files' }}
-                                </button>
-                                <button
-                                    v-if="job.originalFile && job.originalFile.length > 0"
-                                    @click="refreshThumbnails(job.id)"
-                                    class="file-action-btn secondary"
-                                    title="Refresh thumbnails"
-                                >
-                                    <i class="fa fa-refresh"></i>
-                                </button>
-                            </div>
-                        </div>
                     </td>
                     <td>
-                        <!-- Cutting Files Upload Area -->
-                        <div class="cutting-files-container">
-                            <!-- Hidden file input for cutting files -->
-                            <input
-                                type="file"
-                                accept=".pdf,.svg,.dxf,.cdr,.ai"
-                                multiple
-                                @change="(e) => handleCuttingFiles(e, job)"
-                                class="file-input"
-                                :id="'cutting-files-input-' + job.id"
-                                :disabled="isCuttingUploadDisabled(job.id)"
-                                style="display: none;"
-                            />
-                            <!-- Cutting Files Display -->
-                            <div class="cutting-files-display">
-                                <!-- Cutting Files Grid -->
-                                <div v-if="job.cuttingFiles && job.cuttingFiles.length > 0" class="cutting-files-grid">
-                                    <div 
-                                        v-for="(cuttingFile, cuttingIndex) in job.cuttingFiles" 
-                                        :key="cuttingIndex"
-                                        class="cutting-file-item"
-                                    >
-                                        <!-- Remove button -->
-                                        <button 
-                                            @click="removeCuttingFile(job, cuttingIndex)" 
-                                            class="cutting-file-remove-btn"
-                                            :disabled="(cuttingFileRemovalStates[job.id] && cuttingFileRemovalStates[job.id][cuttingIndex] === 'removing') || isCuttingUploadDisabled(job.id)"
-                                            title="Remove cutting file"
-                                        >
-                                            <i v-if="!(cuttingFileRemovalStates[job.id] && cuttingFileRemovalStates[job.id][cuttingIndex] === 'removing')" class="fa fa-times"></i>
-                                            <i v-else class="fa fa-spinner fa-spin"></i>
-                                        </button>
-                                        
-                                        <!-- File icon and click to view -->
-                                        <div @click="openCuttingFileInNewTab(job, cuttingIndex)" class="cutting-file-preview">
-                                            <div class="cutting-file-icon">
-                                                <i :class="getCuttingFileIcon(getFileExtension(cuttingFile))"></i>
-                                                <span class="file-type">{{ getFileExtension(cuttingFile).toUpperCase() }}</span>
-                                                <div class="preview-hint">Click to view</div>
-                                            </div>
-                                        </div>
-                                        <div class="cutting-file-label">{{ cuttingIndex + 1 }}</div>
-                                    </div>
-                                </div>
-
-                                <!-- Placeholder when no cutting files -->
-                                <div v-else class="cutting-placeholder-upload" :class="{ 'disabled': isCuttingUploadDisabled(job.id) }">
-                                    <div 
-                                        class="cutting-placeholder-content" 
-                                        @click="!isCuttingUploadDisabled(job.id) && triggerCuttingFilesInput(job.id)"
-                                        :class="{ 'disabled': isCuttingUploadDisabled(job.id) }"
-                                    >
-                                        <span class="cutting-placeholder-text">
-                                            {{ getCuttingUploadState(job.id).isUploading ? 'Uploading...' : 'Drop Cutting Files' }}
-                                        </span>
-                                        <div class="cutting-file-types-info">
-                                            <small>PDF, SVG, DXF, CDR, AI</small>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <!-- Cutting Files Upload Progress -->
-                                <div v-if="getCuttingUploadState(job.id).isUploading" class="cutting-upload-progress-container">
-                                    <div class="cutting-upload-progress-header">
-                                        <div class="cutting-upload-status">
-                                            <div class="cutting-status-indicator" :class="getCuttingUploadState(job.id).state"></div>
-                                            <span class="cutting-status-text">
-                                                {{ getCuttingUploadState(job.id).stage.message }}
-                                            </span>
-                                        </div>
-                                        <div class="cutting-upload-percentage">{{ getCuttingUploadState(job.id).progress }}%</div>
-                                    </div>
-                                    <div class="cutting-upload-progress-bar">
-                                        <div 
-                                            class="cutting-upload-progress-fill" 
-                                            :style="{ width: `${getCuttingUploadState(job.id).progress}%` }"
-                                        ></div>
-                                        <div class="cutting-upload-progress-glow"></div>
-                                    </div>
-                                </div>
-
-                                <!-- Action buttons -->
-                                <div class="cutting-file-action-buttons">
-                                    <button
-                                        @click="triggerCuttingFilesInput(job.id)"
-                                        class="cutting-file-action-btn primary"
-                                        :disabled="isCuttingUploadDisabled(job.id)"
-                                        title="Upload cutting files"
-                                    >
-                                        <i class="fa fa-scissors"></i> 
-                                        {{ getCuttingUploadState(job.id).isUploading ? 'Uploading...' : 'Upload Cutting Files' }}
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
+                        <CuttingFileUploadManager
+                            :job-id="job.id"
+                            :files="job.cuttingFiles || []"
+                            @files-updated="handleCuttingFilesUpdated(job, $event)"
+                            @file-removed="handleCuttingFileRemoved(job, $event)"
+                            @upload-started="handleCuttingUploadStarted(job)"
+                            @upload-completed="handleCuttingUploadCompleted(job, $event)"
+                            @upload-failed="handleCuttingUploadFailed(job, $event)"
+                        />
                     </td>
                     <td>
                         <div v-if="job.dimensions_breakdown && job.dimensions_breakdown.length > 0">
@@ -552,12 +366,17 @@ import { computed, ref } from 'vue';
 import OrderJobProgressCompact from './OrderJobProgressCompact.vue';
 import CostBreakdownModal from '@/Components/CostBreakdownModal.vue';
 import { uploadManager } from '@/utils/UploadManager.js';
+import { uploadFileInParts } from '@/utils/r2Multipart.js';
+import FileUploadManager from '@/Components/FileUploadManager.vue';
+import CuttingFileUploadManager from '@/Components/CuttingFileUploadManager.vue';
 
 export default {
     name: "OrderLines",
     components: {
         OrderJobProgressCompact,
         CostBreakdownModal,
+        FileUploadManager,
+        CuttingFileUploadManager,
     },
     setup() {
         const { isRabotnik } = useRoleCheck();
@@ -1044,7 +863,7 @@ export default {
 
 
 
-        // Professional file upload handler using UploadManager
+        // Professional file upload handler using UploadManager with multipart for large files
         async handleMultipleFiles(event, job) {
             const files = Array.from(event.target.files);
             if (!files.length) return;
@@ -1056,41 +875,55 @@ export default {
             this.$forceUpdate();
 
             try {
-                const uploadConfig = {
-                    uploadType: 'general',
-                    endpoint: `/jobs/${job.id}/upload-multiple-files`,
-                    progressEndpoint: `/jobs/${job.id}/upload-progress`
-                };
+                // Check if any file is larger than 15MB - use multipart upload
+                const largeFiles = files.filter(file => file.size > 1 * 1024 * 1024);
+                const smallFiles = files.filter(file => file.size <= 1 * 1024 * 1024);
 
-                const callbacks = {
-                    onStateChange: (uploadState) => {
-                        // Force UI update when state changes
-                        this.$forceUpdate();
-                    },
-                    onProgress: (progressData) => {
-                        console.log('Upload progress:', progressData);
-                    },
-                    onUploadProgress: (progress) => {
-                        console.log('File upload progress:', progress);
-                    },
-                    onError: (error) => {
-                        console.error('Upload error:', error);
-                    }
-                };
+                // Handle large files with multipart upload
+                if (largeFiles.length > 0) {
+                    await this.handleLargeFiles(largeFiles, job, toast);
+                }
 
-                const response = await this.uploadManager.startUpload(job.id, files, uploadConfig, callbacks);
+                // Handle small files with regular upload
+                if (smallFiles.length > 0) {
+                    const uploadConfig = {
+                        uploadType: 'general',
+                        endpoint: `/jobs/${job.id}/upload-multiple-files`,
+                        progressEndpoint: `/jobs/${job.id}/upload-progress`
+                    };
+
+                    const callbacks = {
+                        onStateChange: (uploadState) => {
+                            // Force UI update when state changes
+                            this.$forceUpdate();
+                        },
+                        onProgress: (progressData) => {
+                            console.log('Upload progress:', progressData);
+                        },
+                        onUploadProgress: (progress) => {
+                            console.log('File upload progress:', progress);
+                        },
+                        onError: (error) => {
+                            console.error('Upload error:', error);
+                        }
+                    };
+
+                    const response = await this.uploadManager.startUpload(job.id, smallFiles, uploadConfig, callbacks);
+
+                // Normalize payload to support Axios (response.data) and fetch/multipart (response|response.completion)
+                const res = response?.data ?? response?.completion ?? response ?? {};
 
                 // Update job with new original files and total area
                 const existingBreakdown = Array.isArray(job.dimensions_breakdown) ? job.dimensions_breakdown : [];
-                const newBreakdown = Array.isArray(response.data.dimensions_breakdown) ? response.data.dimensions_breakdown : [];
+                const newBreakdown = Array.isArray(res.dimensions_breakdown) ? res.dimensions_breakdown : [];
                 const mergedBreakdown = existingBreakdown.concat(newBreakdown);
 
                 const updatedJob = {
                     ...job,
-                    originalFile: response.data.originalFiles || [],
+                    originalFile: res.originalFiles || [],
                     // Update total area and dimensions breakdown if available
-                    ...(response.data.total_area_m2 !== undefined && {
-                        total_area_m2: parseFloat(response.data.total_area_m2) || 0
+                    ...(res.total_area_m2 !== undefined && {
+                        total_area_m2: parseFloat(res.total_area_m2) || 0
                     }),
                     // Merge existing + newly returned breakdown so we keep all files
                     ...(newBreakdown.length > 0 && {
@@ -1102,10 +935,10 @@ export default {
                 console.log('Job updated with new dimensions:', {
                     jobId: job.id,
                     existingDimensions: job.dimensions_breakdown?.length || 0,
-                    newDimensions: response.data.dimensions_breakdown?.length || 0,
-                    totalArea: response.data.total_area_m2,
-                    originalFiles: response.data.originalFiles?.length || 0,
-                    responseData: response.data
+                    newDimensions: newBreakdown.length || 0,
+                    totalArea: res.total_area_m2,
+                    originalFiles: (res.originalFiles && res.originalFiles.length) || 0,
+                    responseData: res
                 });
 
                 // Update in jobsWithPrices
@@ -1135,14 +968,14 @@ export default {
                 job.originalFile = updatedJob.originalFile;
 
                 // Recalculate cost if this is a catalog-based job and area was updated
-                if (updatedJob.catalog_item_id && response.data.total_area_m2 > 0) {
+                if (updatedJob.catalog_item_id && res.total_area_m2 > 0) {
                     await this.recalculateJobCost(updatedJob);
                 }
 
                 // Use thumbnails from upload response immediately if available
-                if (response.data.thumbnails && response.data.thumbnails.length > 0) {
+                if (res.thumbnails && res.thumbnails.length > 0) {
                     // Initialize imageLoadError and imageLoaded for each thumbnail
-                    this.jobThumbnails[job.id] = response.data.thumbnails.map(thumb => ({
+                    this.jobThumbnails[job.id] = res.thumbnails.map(thumb => ({
                         ...thumb,
                         imageLoadError: false,
                         imageLoaded: false // Mark as not loaded initially
@@ -1168,13 +1001,14 @@ export default {
                 });
                 
                 // Show success message with total area info
-                if (response.data.total_area_m2 > 0) {
-                    const totalM2 = response.data.total_area_m2;
-                    const fileCount = response.data.dimensions?.files_count || files.length;
+                if (res.total_area_m2 > 0) {
+                    const totalM2 = res.total_area_m2;
+                    const fileCount = res.dimensions?.files_count || smallFiles.length;
                     
-                    toast.success(`${files.length} files uploaded successfully. Job total area: ${totalM2.toFixed(4)}m² from ${fileCount} files`);
+                    toast.success(`${smallFiles.length} files uploaded successfully. Job total area: ${totalM2.toFixed(4)}m² from ${fileCount} files`);
                 } else {
-                    toast.success(`${files.length} files uploaded successfully`);
+                    toast.success(`${smallFiles.length} files uploaded successfully`);
+                }
                 }
 
             } catch (error) {
@@ -1185,11 +1019,122 @@ export default {
                     toast.error(`Failed to upload files: ${error.response.data.details || error.response.data.error}`);
                 } else {
                     toast.error('Failed to upload files: Network error');
-            }
+                }
             }
 
             // Reset the input
             event.target.value = '';
+        },
+
+        // Handle large files (>15MB) with multipart upload
+        async handleLargeFiles(files, job, toast) {
+            try {
+                for (const file of files) {
+                    console.log(`Starting multipart upload for large file: ${file.name} (${(file.size / 1024 / 1024).toFixed(2)}MB)`);
+                    
+                    const onProgress = ({ loaded, total, partNumber, totalParts }) => {
+                        const percentage = Math.round((loaded / total) * 100);
+                        console.log(`Upload progress for ${file.name}: ${percentage}% (part ${partNumber}/${totalParts})`);
+                        
+                        // Update UI with progress if needed
+                        this.$forceUpdate();
+                    };
+
+                    const mpResult = await uploadFileInParts({
+                        file,
+                        jobId: job.id,
+                        chunkSize: 10 * 1024 * 1024, // 10MB chunks
+                        onProgress
+                    });
+                    console.log(`Multipart upload completed for: ${file.name}`);
+                    console.log('Multipart completion payload:', mpResult?.completion);
+
+                    // Normalize completion payload and update job immediately (no waiting)
+                    const res = mpResult?.completion ?? {};
+                    const existingBreakdown = Array.isArray(job.dimensions_breakdown) ? job.dimensions_breakdown : [];
+                    const newBreakdown = Array.isArray(res.dimensions_breakdown) ? res.dimensions_breakdown : [];
+                    const mergedBreakdown = existingBreakdown.concat(newBreakdown);
+
+                    const updatedJob = {
+                        ...job,
+                        originalFile: res.originalFiles || job.originalFile || [],
+                        ...(res.total_area_m2 !== undefined && {
+                            total_area_m2: parseFloat(res.total_area_m2) || 0
+                        }),
+                        ...(newBreakdown.length > 0 && {
+                            dimensions_breakdown: mergedBreakdown
+                        })
+                    };
+
+                    // Update local state so breakdown appears instantly
+                    const idx = this.jobsWithPrices.findIndex(j => j.id === job.id);
+                    if (idx !== -1) {
+                        this.jobsWithPrices[idx] = updatedJob;
+                    } else {
+                        this.jobsWithPrices.push(updatedJob);
+                    }
+                    Object.assign(job, updatedJob);
+                    this.$emit('job-updated', updatedJob);
+                    this.forceUpdateDimensions();
+                }
+
+                toast.success(`${files.length} large file(s) uploaded successfully.`);
+                
+                // Final refresh as a safety to pull any updated totals from server
+                await this.refreshJobData(job.id);
+                
+            } catch (error) {
+                console.error('Error uploading large files:', error);
+                toast.error(`Failed to upload large files: ${error.message}`);
+            }
+        },
+
+        // Refresh job data after multipart upload
+        async refreshJobData(jobId) {
+            try {
+                const response = await axios.get(`/jobs/${jobId}`);
+                if (response.data) {
+                    const updatedJob = {
+                        ...response.data,
+                        total_area_m2: parseFloat(response.data.total_area_m2) || 0,
+                        dimensions_breakdown: response.data.dimensions_breakdown || []
+                    };
+
+                    // Update the job in our local data
+                    const jobIndex = this.jobsToDisplay.findIndex(j => j.id === jobId);
+                    if (jobIndex !== -1) {
+                        this.jobsToDisplay[jobIndex] = updatedJob;
+                    }
+
+                    // Update in jobsWithPrices
+                    const index = this.jobsWithPrices.findIndex(j => j.id === jobId);
+                    if (index !== -1) {
+                        this.jobsWithPrices[index] = updatedJob;
+                    } else {
+                        this.jobsWithPrices.push(updatedJob);
+                    }
+
+                    // Also update in updatedJobs if it exists
+                    if (this.updatedJobs) {
+                        const updatedIndex = this.updatedJobs.findIndex(j => j.id === jobId);
+                        if (updatedIndex !== -1) {
+                            this.updatedJobs[updatedIndex] = updatedJob;
+                        } else {
+                            this.updatedJobs.push(updatedJob);
+                        }
+                    }
+
+                    // Recalculate cost if this is a catalog-based job
+                    if (updatedJob.catalog_item_id && updatedJob.total_area_m2 > 0) {
+                        await this.recalculateJobCost(updatedJob);
+                    }
+
+                    this.$emit('job-updated', updatedJob);
+                    this.forceUpdateDimensions();
+                }
+            } catch (error) {
+                console.error('Error refreshing job data:', error);
+            }
         },
 
         startEditing(job, field) {
@@ -1910,6 +1855,200 @@ export default {
         // Force UI update when dimensions change
         forceUpdateDimensions() {
             this.$forceUpdate();
+        },
+
+        // New event handlers for FileUploadManager
+        handleFilesUpdated(job, data) {
+            // Update job with new files and dimensions
+            const updatedJob = {
+                ...job,
+                originalFile: data.originalFiles || [],
+                ...(data.total_area_m2 !== undefined && {
+                    total_area_m2: parseFloat(data.total_area_m2) || 0
+                }),
+                ...(data.dimensions_breakdown && {
+                    dimensions_breakdown: data.dimensions_breakdown
+                })
+            };
+
+            this.updateJobInState(updatedJob);
+            this.$emit('job-updated', updatedJob);
+        },
+
+        handleFileRemoved(job, { fileIndex, response }) {
+            const updatedJob = {
+                ...job,
+                originalFile: response.originalFiles || [],
+                ...(response.total_area_m2 !== undefined && {
+                    total_area_m2: parseFloat(response.total_area_m2) || 0
+                }),
+                ...(Object.prototype.hasOwnProperty.call(response, 'dimensions_breakdown') && {
+                    dimensions_breakdown: Array.isArray(response.dimensions_breakdown)
+                        ? response.dimensions_breakdown
+                        : []
+                })
+            };
+
+            // Update thumbnails if provided
+            if (Array.isArray(response.thumbnails)) {
+                this.jobThumbnails[job.id] = response.thumbnails.map(thumb => ({
+                    ...thumb,
+                    imageLoadError: false,
+                    imageLoaded: false
+                }));
+            } else {
+                this.jobThumbnails[job.id] = [];
+            }
+
+            this.updateJobInState(updatedJob);
+            this.$emit('job-updated', updatedJob);
+            this.forceUpdateDimensions();
+        },
+
+        handleUploadStarted(job) {
+            // Clear existing thumbnails
+            this.jobThumbnails[job.id] = [];
+            this.$forceUpdate();
+        },
+
+        async handleUploadCompleted(job, data) {
+            // Update job with upload response
+            if (data) {
+                // Normalize payload to support Axios (data.data) and fetch/multipart (data|data.completion)
+                const res = data?.data ?? data?.completion ?? data ?? {};
+                const updatedJob = {
+                    ...job,
+                    originalFile: res.originalFiles || [],
+                    ...(res.total_area_m2 !== undefined && {
+                        total_area_m2: parseFloat(res.total_area_m2) || 0
+                    }),
+                    ...(res.dimensions_breakdown && {
+                        dimensions_breakdown: res.dimensions_breakdown
+                    })
+                };
+
+                this.updateJobInState(updatedJob);
+
+                // Recalculate cost if needed
+                if (updatedJob.catalog_item_id && res.total_area_m2 > 0) {
+                    await this.recalculateJobCost(updatedJob);
+                }
+
+                this.$emit('job-updated', updatedJob);
+                this.forceUpdateDimensions();
+            } else {
+                // For multipart uploads, refresh job data to get updated dimensions
+                await this.refreshJobData(job.id);
+            }
+        },
+
+        handleUploadFailed(job, error) {
+            console.error('Upload failed for job', job.id, error);
+            // Reset upload manager state
+            this.uploadManager.forceResetJob(job.id);
+        },
+
+        // New event handlers for CuttingFileUploadManager
+        handleCuttingFilesUpdated(job, data) {
+            const updatedJob = {
+                ...job,
+                cuttingFiles: data.cuttingFiles || [],
+                ...(data.dimensions && data.dimensions.total_area_m2 > 0 && {
+                    total_area_m2: data.dimensions.total_area_m2,
+                    dimensions_breakdown: data.dimensions.individual_files || []
+                })
+            };
+
+            this.updateJobInState(updatedJob);
+            this.$emit('job-updated', updatedJob);
+        },
+
+        handleCuttingFileRemoved(job, { fileIndex, response }) {
+            const updatedJob = {
+                ...job,
+                cuttingFiles: response.remaining_files || [],
+                ...(response.dimensions && {
+                    total_area_m2: response.dimensions.area_m2
+                })
+            };
+
+            // Clear cutting file thumbnails
+            this.jobCuttingFiles[job.id] = [];
+
+            // Reload cutting files if any remain
+            if (response.remaining_files && response.remaining_files.length > 0) {
+                setTimeout(() => {
+                    this.loadJobCuttingFiles(job.id);
+                }, 500);
+            }
+
+            this.updateJobInState(updatedJob);
+            this.$emit('job-updated', updatedJob);
+            this.forceUpdateDimensions();
+        },
+
+        handleCuttingUploadStarted(job) {
+            // Clear existing cutting file thumbnails
+            this.jobCuttingFiles[job.id] = [];
+            this.$forceUpdate();
+        },
+
+        handleCuttingUploadCompleted(job, data) {
+            const updatedJob = {
+                ...job,
+                cuttingFiles: data.cuttingFiles || [],
+                ...(data.dimensions && data.dimensions.total_area_m2 > 0 && {
+                    total_area_m2: data.dimensions.total_area_m2,
+                    dimensions_breakdown: data.dimensions.individual_files || []
+                })
+            };
+
+            // Update cutting file thumbnails if provided
+            if (data.thumbnails && data.thumbnails.length > 0) {
+                this.jobCuttingFiles[job.id] = data.thumbnails.map(thumb => ({
+                    ...thumb,
+                    imageLoadError: false,
+                    imageLoaded: false
+                }));
+            } else {
+                setTimeout(() => {
+                    this.loadJobCuttingFiles(job.id);
+                }, 1000);
+            }
+
+            this.updateJobInState(updatedJob);
+            this.$emit('job-updated', updatedJob);
+            this.forceUpdateDimensions();
+        },
+
+        handleCuttingUploadFailed(job, error) {
+            console.error('Cutting upload failed for job', job.id, error);
+            // Reset upload manager state
+            this.uploadManager.forceResetJob(job.id);
+        },
+
+        // Helper method to update job in all states
+        updateJobInState(updatedJob) {
+            // Update in jobsWithPrices
+            const index = this.jobsWithPrices.findIndex(j => j.id === updatedJob.id);
+            if (index !== -1) {
+                this.jobsWithPrices[index] = updatedJob;
+            } else {
+                this.jobsWithPrices.push(updatedJob);
+            }
+
+            // Also update in updatedJobs if it exists
+            if (this.updatedJobs) {
+                const updatedIndex = this.updatedJobs.findIndex(j => j.id === updatedJob.id);
+                if (updatedIndex !== -1) {
+                    this.updatedJobs[updatedIndex] = updatedJob;
+                } else {
+                    this.updatedJobs.push(updatedJob);
+                }
+            }
+
+            // Force immediate update of the original job object
+            Object.assign(updatedJob, updatedJob);
         },
 
         async recalculateJobCost(job) {
