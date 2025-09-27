@@ -192,7 +192,7 @@ $container-horizontal-padding: 10px;
 
 .step {
     position: relative;
-    z-index: 1;
+    z-index: 0;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -213,6 +213,9 @@ $container-horizontal-padding: 10px;
     color: #fff;
     font-size: 10px;
     line-height: 1;
+    background-color: #374151; /* dark-gray background to cover the line */
+    position: relative;
+    z-index: 1; /* ensure dots are above the line */
 }
 
 .interactive {
@@ -242,9 +245,9 @@ $container-horizontal-padding: 10px;
     box-shadow: none;
 }
 
-.blue { background-color: #3B82F6; } /* blue-500 */
-.green { background-color: #10B981; } /* emerald-500 */
-.dark-gray { background-color: #374151; } /* gray-700 */
+.blue { background-color: #3B82F6 !important; } /* blue-500 */
+.green { background-color: #10B981 !important; } /* emerald-500 */
+.dark-gray { background-color: #374151 !important; } /* gray-700 */
 
 .label {
     position: absolute;

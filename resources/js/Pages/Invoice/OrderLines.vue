@@ -22,7 +22,8 @@
                         {{ $t('Quantity') }}:
                         <span
                             class="bold editable bg-white/20"
-                            @dblclick="startEditing(job, 'quantity')"
+                            :class="{ 'disabled': !hasOriginalFiles(job) }"
+                            @dblclick="hasOriginalFiles(job) && startEditing(job, 'quantity')"
                             v-if="!(editingJob?.id === job.id && editingField === 'quantity')"
                         >
                             {{ job.quantity }}
@@ -42,7 +43,8 @@
                         {{ $t('Copies') }}:
                         <span
                             class="bold editable bg-white/20"
-                            @dblclick="startEditing(job, 'copies')"
+                            :class="{ 'disabled': !hasOriginalFiles(job) }"
+                            @dblclick="hasOriginalFiles(job) && startEditing(job, 'copies')"
                             v-if="!(editingJob?.id === job.id && editingField === 'copies')"
                         >
                             {{ job.copies }}
@@ -63,7 +65,8 @@
                             {{ $t('machineP') }}: 
                             <span
                                 class="bold editable bg-white/20"
-                                @dblclick="startEditingMachine(job, 'machinePrint')"
+                                :class="{ 'disabled': !hasOriginalFiles(job) }"
+                                @dblclick="hasOriginalFiles(job) && startEditingMachine(job, 'machinePrint')"
                                 v-if="!(editingJob?.id === job.id && editingField === 'machinePrint')"
                             >
                                 {{ job.machinePrint }}
@@ -88,7 +91,8 @@
                             {{ $t('machineC') }}: 
                             <span
                                 class="bold editable bg-white/20"
-                                @dblclick="startEditingMachine(job, 'machineCut')"
+                                :class="{ 'disabled': !hasOriginalFiles(job) }"
+                                @dblclick="hasOriginalFiles(job) && startEditingMachine(job, 'machineCut')"
                                 v-if="!(editingJob?.id === job.id && editingField === 'machineCut')"
                             >
                                 {{ job.machineCut }}
@@ -486,6 +490,13 @@ export default {
 
         fileJobs() {
             return this.jobsToDisplay.filter(job => job.file && job.file !== 'placeholder.jpeg');
+        },
+
+        // Helper method to check if a job has original files
+        hasOriginalFiles() {
+            return (job) => {
+                return job.originalFile && job.originalFile.length > 0;
+            };
         },
     },
 
@@ -2240,10 +2251,18 @@ input, select {
     cursor: pointer;
     padding: 2px 4px;
     border-radius: 3px;
+    transition: all 0.2s ease;
 }
 
-.editable:hover {
+.editable:hover:not(.disabled) {
     background-color: rgba(255, 255, 255, 0.1);
+}
+
+.editable.disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
+    background-color: rgba(255, 255, 255, 0.05);
+    color: rgba(255, 255, 255, 0.7);
 }
 
 .edit-input {
@@ -2932,9 +2951,16 @@ input, select {
         border: 1px solid transparent;
         position: relative;
         
-        &:hover {
+        &:hover:not(.disabled) {
             background-color: rgba(255, 255, 255, 0.2);
             border-color: rgba(255, 255, 255, 0.3);
+        }
+        
+        &.disabled {
+            cursor: not-allowed;
+            opacity: 0.6;
+            background-color: rgba(255, 255, 255, 0.05);
+            color: rgba(255, 255, 255, 0.7);
         }
         
         &::after {
@@ -2947,7 +2973,7 @@ input, select {
             transition: opacity 0.2s ease;
         }
         
-        &:hover::after {
+        &:hover:not(.disabled)::after {
             opacity: 1;
         }
     }

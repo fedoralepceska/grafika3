@@ -752,6 +752,7 @@ input, select{
     position: sticky;
     top: 20px;
     align-self: flex-start;
+    z-index: 1;
 }
 .right2{
     min-width: 63%;
