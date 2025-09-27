@@ -20,7 +20,9 @@ class GeneratePdfThumbnails implements ShouldQueue
         public int $jobId,
         public string $r2Key,
         public ?string $tempLocalPath = null,
-        public int $dpi = 72 // effective low DPI; adjust if needed
+        public int $dpi = 72, // effective low DPI; adjust if needed
+        public ?int $fileIndex = null,
+        public bool $isCuttingFile = false
     ) {}
 
     public function handle(): void
@@ -1050,12 +1052,14 @@ class GeneratePdfThumbnails implements ShouldQueue
                 'job_id' => $job->id,
                 'work_dir' => $workDir,
                 'files_in_dir' => glob($workDir . DIRECTORY_SEPARATOR . '*'),
+                'is_cutting_file' => $this->isCuttingFile,
             ]);
             return;
         }
         
-        // Create public thumbnails directory
-        $publicThumbnailDir = public_path('jobfiles/thumbnails/' . $job->id);
+        // Create public thumbnails directory (different for cutting files)
+        $thumbnailSubDir = $this->isCuttingFile ? 'cutting-thumbnails' : 'thumbnails';
+        $publicThumbnailDir = public_path('jobfiles/' . $thumbnailSubDir . '/' . $job->id);
         if (!is_dir($publicThumbnailDir)) {
             mkdir($publicThumbnailDir, 0755, true);
         }
@@ -1066,7 +1070,14 @@ class GeneratePdfThumbnails implements ShouldQueue
         sort($thumbnailFiles, SORT_NATURAL);
         foreach ($thumbnailFiles as $index => $thumbnailFile) {
             $pageNumber = $index + 1;
-            $localFileName = $originalFileName . "_page_{$pageNumber}.png";
+            
+            // For cutting files, include file index in filename for proper identification
+            if ($this->isCuttingFile && $this->fileIndex !== null) {
+                $localFileName = "job_{$job->id}_{$this->fileIndex}_{$originalFileName}_page_{$pageNumber}.png";
+            } else {
+                $localFileName = $originalFileName . "_page_{$pageNumber}.png";
+            }
+            
             $localPath = $publicThumbnailDir . DIRECTORY_SEPARATOR . $localFileName;
             
             try {
@@ -1077,13 +1088,16 @@ class GeneratePdfThumbnails implements ShouldQueue
                     'job_id' => $job->id,
                     'local_path' => $localPath,
                     'page' => $pageNumber,
-                    'web_url' => '/jobfiles/thumbnails/' . $job->id . '/' . $localFileName,
+                    'is_cutting_file' => $this->isCuttingFile,
+                    'file_index' => $this->fileIndex,
+                    'web_url' => '/jobfiles/' . $thumbnailSubDir . '/' . $job->id . '/' . $localFileName,
                 ]);
             } catch (\Exception $e) {
                 \Log::channel('stderr')->error('GeneratePdfThumbnails: failed to save thumbnail to public', [
                     'job_id' => $job->id,
                     'source_file' => $thumbnailFile,
                     'target_path' => $localPath,
+                    'is_cutting_file' => $this->isCuttingFile,
                     'error' => $e->getMessage(),
                 ]);
             }
@@ -1094,6 +1108,7 @@ class GeneratePdfThumbnails implements ShouldQueue
             'source' => $this->r2Key,
             'saved_to_public' => $savedCount,
             'thumbnail_dir' => $publicThumbnailDir,
+            'is_cutting_file' => $this->isCuttingFile,
         ]);
 
         // Clean up temp files

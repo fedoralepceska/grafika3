@@ -1126,7 +1126,11 @@ export default {
 
     &:hover:not(.disabled) {
         border-color: #28a745;
-        background-color: rgba(40, 167, 69, 0.1);
+        background-color: rgba(44, 123, 90, 0.739);
+
+        .placeholder-text {
+            color: white;
+        }
     }
 
     &.uploading {
@@ -1168,7 +1172,7 @@ export default {
 
 .placeholder-text {
     font-size: 0.7rem;
-    color: #666;
+    color: #218838;
     text-align: center;
     font-weight: 500;
 }

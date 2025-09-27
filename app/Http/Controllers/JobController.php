@@ -3946,57 +3946,86 @@ class JobController extends Controller
     private function cleanupThumbnailForFile($jobId, $fileIndex, $originalFileName)
     {
         try {
-            // List all thumbnails in R2 for this job
-            $thumbnailFiles = $this->templateStorageService->getDisk()->files('job-thumbnails');
+            $thumbnailDir = public_path('jobfiles/thumbnails/' . $jobId);
+            
+            if (!is_dir($thumbnailDir)) {
+                \Log::info('No thumbnail directory found for cleanup', [
+                    'job_id' => $jobId,
+                    'directory' => $thumbnailDir
+                ]);
+                return;
+            }
 
+            // Get all PNG files in the thumbnail directory
+            $thumbnailFiles = glob($thumbnailDir . '/*.png');
+            
             // Normalize original filename (without extension)
             $originalBase = pathinfo($originalFileName, PATHINFO_FILENAME);
-
+            
             $deleted = 0;
-            foreach ($thumbnailFiles as $thumbFile) {
-                $thumbBasename = basename($thumbFile);
-                // Must belong to this job
-                if (strpos($thumbBasename, 'job_' . $jobId . '_') !== 0) {
-                    continue;
-                }
-                // Match either the index pattern or the client filename in the thumbnail
-                $matchesIndex = (strpos($thumbBasename, '_' . $fileIndex . '_') !== false);
-                $matchesName = (strpos($thumbBasename, $originalBase) !== false);
-                if (!$matchesIndex && !$matchesName) {
-                    continue;
-                }
-                try {
-                    $this->templateStorageService->getDisk()->delete($thumbFile);
-                    $deleted++;
-                    \Log::info('Deleted thumbnail for removed file', [
-                        'job_id' => $jobId,
-                        'file_index' => $fileIndex,
-                        'thumbnail_path' => $thumbFile,
-                        'matched_by' => $matchesIndex ? 'index' : 'name'
-                    ]);
-                } catch (\Exception $e) {
-                    \Log::warning('Failed to delete matched thumbnail: ' . $e->getMessage(), [
-                        'thumbnail' => $thumbFile
-                    ]);
+            foreach ($thumbnailFiles as $thumbnailFile) {
+                $fileName = basename($thumbnailFile);
+                
+                // Match thumbnails that belong to this specific file
+                // Thumbnails are typically named like: job_{jobId}_{fileIndex}_{originalBase}_page_{pageNum}.png
+                // or similar patterns that include the file index or original filename
+                $matchesIndex = (strpos($fileName, '_' . $fileIndex . '_') !== false);
+                $matchesName = (strpos($fileName, $originalBase) !== false);
+                
+                if ($matchesIndex || $matchesName) {
+                    try {
+                        if (unlink($thumbnailFile)) {
+                            $deleted++;
+                            \Log::info('Deleted local thumbnail for removed file', [
+                                'job_id' => $jobId,
+                                'file_index' => $fileIndex,
+                                'thumbnail_path' => $thumbnailFile,
+                                'matched_by' => $matchesIndex ? 'index' : 'name'
+                            ]);
+                        }
+                    } catch (\Exception $e) {
+                        \Log::warning('Failed to delete local thumbnail: ' . $e->getMessage(), [
+                            'thumbnail' => $thumbnailFile
+                        ]);
+                    }
                 }
             }
 
-            if ($deleted === 0) {
-                \Log::warning('No thumbnails matched for deletion', [
-                    'job_id' => $jobId,
-                    'file_index' => $fileIndex,
-                    'original_file_name' => $originalFileName
-                ]);
+            // If this was the last file and we deleted all thumbnails, clean up the directory
+            if ($deleted > 0) {
+                $remainingFiles = glob($thumbnailDir . '/*.png');
+                if (empty($remainingFiles)) {
+                    try {
+                        rmdir($thumbnailDir);
+                        \Log::info('Removed empty thumbnail directory', [
+                            'job_id' => $jobId,
+                            'directory' => $thumbnailDir
+                        ]);
+                    } catch (\Exception $e) {
+                        \Log::warning('Failed to remove empty thumbnail directory: ' . $e->getMessage(), [
+                            'directory' => $thumbnailDir
+                        ]);
+                    }
+                }
             }
+
+            \Log::info('Thumbnail cleanup completed', [
+                'job_id' => $jobId,
+                'file_index' => $fileIndex,
+                'original_file_name' => $originalFileName,
+                'deleted_count' => $deleted
+            ]);
 
         } catch (\Exception $e) {
-            \Log::error('Failed to cleanup specific thumbnail: ' . $e->getMessage(), [
+            \Log::error('Failed to cleanup thumbnails: ' . $e->getMessage(), [
                 'job_id' => $jobId,
                 'file_index' => $fileIndex,
                 'trace' => $e->getTraceAsString()
             ]);
         }
     }
+
+
 
     /**
      * Generate and store thumbnail for a single file
@@ -4299,11 +4328,27 @@ class JobController extends Controller
                 $filePath = $this->templateStorageService->storeTemplate($file, 'job-cutting');
                 $uploadedFiles[] = $filePath;
 
-                // Try to generate a thumbnail (only for previewable types)
+                // Generate thumbnails using the same method as original files
                 $ext = strtolower($file->getClientOriginalExtension());
                 $thumbPath = null;
                 if (in_array($ext, ['pdf', 'svg'])) {
-                    $thumbPath = $this->generateCuttingThumbnail($file, $id, $index);
+                    try {
+                        // Use the same GeneratePdfThumbnails job as original files
+                        \App\Jobs\GeneratePdfThumbnails::dispatchSync(
+                            jobId: $id,
+                            r2Key: $filePath,
+                            fileIndex: $index,
+                            isCuttingFile: true // Add flag to distinguish cutting files
+                        );
+                        $thumbPath = 'generated'; // Placeholder - actual thumbnails will be in public directory
+                    } catch (\Exception $e) {
+                        \Log::warning('Failed to generate cutting file thumbnail', [
+                            'job_id' => $id,
+                            'file_index' => $index,
+                            'file_path' => $filePath,
+                            'error' => $e->getMessage()
+                        ]);
+                    }
                 }
                 $thumbnails[] = [
                     'path' => $thumbPath,
@@ -4344,23 +4389,43 @@ class JobController extends Controller
 
     public function getCuttingFileThumbnails($id)
     {
-        $job = Job::findOrFail($id);
-        $cuttingFiles = $job->getCuttingFiles();
-        $thumbnails = [];
-        foreach ($cuttingFiles as $index => $filePath) {
-            $ext = strtolower(pathinfo($filePath, PATHINFO_EXTENSION));
-            $thumbPath = null;
-            if (in_array($ext, ['pdf', 'svg'])) {
-                $thumbPath = $this->getCuttingThumbnailPath($id, $index, $filePath);
+        try {
+            $job = Job::findOrFail($id);
+            
+            $thumbnailDir = public_path('jobfiles/cutting-thumbnails/' . $id);
+            
+            if (!is_dir($thumbnailDir)) {
+                return response()->json(['thumbnails' => []]);
             }
-            $thumbnails[] = [
-                'path' => $thumbPath,
-                'type' => $ext,
-                'filename' => basename($filePath),
-                'index' => $index
-            ];
+            
+            $thumbnailFiles = glob($thumbnailDir . '/*.png');
+            $thumbnails = [];
+            
+            foreach ($thumbnailFiles as $file) {
+                $fileName = basename($file);
+                $thumbnails[] = [
+                    'file_name' => $fileName,
+                    'url' => '/jobfiles/cutting-thumbnails/' . $id . '/' . $fileName,
+                    'size' => filesize($file),
+                    'modified' => filemtime($file)
+                ];
+            }
+            
+            // Sort by filename to maintain file order
+            usort($thumbnails, function($a, $b) {
+                return strcmp($a['file_name'], $b['file_name']);
+            });
+            
+            return response()->json(['thumbnails' => $thumbnails]);
+            
+        } catch (\Exception $e) {
+            \Log::error('Error getting cutting thumbnails list', [
+                'job_id' => $id,
+                'error' => $e->getMessage()
+            ]);
+            
+            return response()->json(['error' => 'Failed to get cutting thumbnails'], 500);
         }
-        return response()->json(['thumbnails' => $thumbnails]);
     }
 
     public function viewCuttingFile($jobId, $fileIndex)
@@ -4414,26 +4479,73 @@ class JobController extends Controller
 
     public function removeCuttingFile(Request $request, $id)
     {
-        $request->validate(['fileIndex' => 'required|integer']);
-        $job = Job::findOrFail($id);
-        $cuttingFiles = $job->getCuttingFiles();
-        $fileIndex = $request->input('fileIndex');
-        if (!isset($cuttingFiles[$fileIndex]) || !is_string($cuttingFiles[$fileIndex]) || empty($cuttingFiles[$fileIndex])) {
-            return response()->json(['error' => 'File not found or invalid file path'], 404);
+        try {
+            $request->validate(['fileIndex' => 'required|integer']);
+            
+            $job = Job::findOrFail($id);
+            $cuttingFiles = $job->getCuttingFiles();
+            $fileIndex = $request->input('fileIndex');
+            
+            if (!isset($cuttingFiles[$fileIndex]) || !is_string($cuttingFiles[$fileIndex]) || empty($cuttingFiles[$fileIndex])) {
+                return response()->json(['error' => 'File not found or invalid file path'], 404);
+            }
+            
+            $fileToRemove = $cuttingFiles[$fileIndex];
+            $originalFileName = basename($fileToRemove);
+            
+            // Delete the file from R2 storage
+            $disk = $this->templateStorageService->getDisk();
+            if ($fileToRemove && $disk->exists($fileToRemove)) {
+                try {
+                    // Use the efficient DeleteR2Files job for async deletion
+                    \App\Jobs\DeleteR2Files::dispatch([$fileToRemove]);
+                    \Log::info('Queued cutting file for async deletion from R2', [
+                        'job_id' => $id,
+                        'file_path' => $fileToRemove
+                    ]);
+                } catch (\Exception $e) {
+                    \Log::warning('Failed to queue cutting file for deletion from R2', [
+                        'job_id' => $id,
+                        'file_path' => $fileToRemove,
+                        'error' => $e->getMessage()
+                    ]);
+                    // Don't fail the operation if R2 deletion fails
+                }
+            }
+            
+            // Clean up thumbnails (both R2 legacy and local)
+            $this->cleanupCuttingThumbnailForFile($id, $fileIndex, $originalFileName);
+            
+            // Remove the file from the job
+            if ($job->removeCuttingFile($fileToRemove)) {
+                $job->save();
+                
+                \Log::info('Cutting file removed successfully', [
+                    'job_id' => $id,
+                    'removed_file' => $fileToRemove,
+                    'remaining_files' => $job->getCuttingFiles()
+                ]);
+                
+                return response()->json([
+                    'message' => 'Cutting file removed successfully',
+                    'remaining_files' => $job->getCuttingFiles()
+                ]);
+            } else {
+                return response()->json(['error' => 'Failed to remove cutting file'], 500);
+            }
+            
+        } catch (\Exception $e) {
+            \Log::error('Error removing cutting file:', [
+                'job_id' => $id,
+                'file_index' => $request->input('fileIndex'),
+                'error' => $e->getMessage()
+            ]);
+            
+            return response()->json([
+                'error' => 'Failed to remove cutting file',
+                'details' => $e->getMessage()
+            ], 500);
         }
-        $fileToRemove = $cuttingFiles[$fileIndex];
-        $disk = $this->templateStorageService->getDisk();
-        if ($fileToRemove && $disk->exists($fileToRemove)) {
-            $disk->delete($fileToRemove);
-        }
-        // Remove thumbnail if exists
-        $thumbPath = $this->getCuttingThumbnailPath($id, $fileIndex, $fileToRemove);
-        if ($thumbPath && $disk->exists($thumbPath)) {
-            $disk->delete($thumbPath);
-        }
-        $job->removeCuttingFile($fileToRemove);
-        $job->save();
-        return response()->json(['message' => 'Cutting file removed', 'remaining_files' => $job->getCuttingFiles()]);
     }
 
     public function getCuttingFileUploadProgress($id)
@@ -4470,68 +4582,158 @@ class JobController extends Controller
         \Cache::put($cacheKey, $progressData, 300); // Cache for 5 minutes
     }
 
-    private function generateCuttingThumbnail($file, $jobId, $fileIndex)
+    /**
+     * Clean up thumbnails for a removed cutting file (both R2 legacy and local storage)
+     */
+    private function cleanupCuttingThumbnailForFile($jobId, $fileIndex, $originalFileName)
     {
         try {
-            $ext = strtolower($file->getClientOriginalExtension());
-            $imagick = new \Imagick();
-            $this->setGhostscriptPath($imagick);
+            // Clean up legacy R2 thumbnails (for backward compatibility)
+            $this->cleanupR2CuttingThumbnailsForFile($jobId, $fileIndex, $originalFileName);
             
-            // Check if it's a large PDF and set appropriate settings
-            $useLowResolution = false;
-            if ($ext === 'pdf') {
-                $pdfDimensions = $this->calculatePdfDimensionsFallback($file);
-                if ($pdfDimensions) {
-                    $maxDimension = max($pdfDimensions['width_mm'], $pdfDimensions['height_mm']);
-                    if ($maxDimension > 1500) {
-                        $useLowResolution = true;
-                        \Log::info('Large cutting PDF detected, using low resolution processing', [
-                            'file' => $file->getClientOriginalName(),
-                            'width_mm' => $pdfDimensions['width_mm'],
-                            'height_mm' => $pdfDimensions['height_mm'],
-                            'max_dimension' => $maxDimension
+            // Clean up local thumbnails (current approach)
+            $this->cleanupLocalCuttingThumbnailsForFile($jobId, $fileIndex, $originalFileName);
+            
+            \Log::info('Cutting thumbnail cleanup completed', [
+                'job_id' => $jobId,
+                'file_index' => $fileIndex,
+                'original_file_name' => $originalFileName
+            ]);
+
+        } catch (\Exception $e) {
+            \Log::error('Failed to cleanup cutting thumbnails: ' . $e->getMessage(), [
+                'job_id' => $jobId,
+                'file_index' => $fileIndex,
+                'trace' => $e->getTraceAsString()
+            ]);
+        }
+    }
+
+    /**
+     * Clean up legacy R2 cutting thumbnails for a specific file
+     */
+    private function cleanupR2CuttingThumbnailsForFile($jobId, $fileIndex, $originalFileName)
+    {
+        try {
+            $disk = $this->templateStorageService->getDisk();
+            $thumbnailFiles = $disk->files('job-cutting-thumbnails');
+            
+            $originalBase = pathinfo($originalFileName, PATHINFO_FILENAME);
+            $deleted = 0;
+            
+            foreach ($thumbnailFiles as $thumbFile) {
+                $thumbBasename = basename($thumbFile);
+                
+                // Match thumbnails that belong to this job and file
+                if (strpos($thumbBasename, 'job_' . $jobId . '_') !== 0) {
+                    continue;
+                }
+                
+                $matchesIndex = (strpos($thumbBasename, '_' . $fileIndex . '_') !== false);
+                $matchesName = (strpos($thumbBasename, $originalBase) !== false);
+                
+                if ($matchesIndex || $matchesName) {
+                    try {
+                        $disk->delete($thumbFile);
+                        $deleted++;
+                        \Log::info('Deleted R2 cutting thumbnail', [
+                            'job_id' => $jobId,
+                            'file_index' => $fileIndex,
+                            'thumbnail_path' => $thumbFile
+                        ]);
+                    } catch (\Exception $e) {
+                        \Log::warning('Failed to delete R2 cutting thumbnail: ' . $e->getMessage(), [
+                            'thumbnail' => $thumbFile
                         ]);
                     }
                 }
-                
-                // Set memory limits based on PDF size
-                if ($useLowResolution) {
-                    $imagick->setResourceLimit(\Imagick::RESOURCETYPE_MEMORY, 64 * 1024 * 1024);   // 64MB
-                    $imagick->setResourceLimit(\Imagick::RESOURCETYPE_MAP, 128 * 1024 * 1024);     // 128MB
-                    $imagick->setResolution(36, 36); // Very low DPI
-                } else {
-                    $imagick->setResourceLimit(\Imagick::RESOURCETYPE_MEMORY, 128 * 1024 * 1024);  // 128MB
-                    $imagick->setResourceLimit(\Imagick::RESOURCETYPE_MAP, 256 * 1024 * 1024);     // 256MB
-                    $imagick->setResolution(72, 72); // Standard DPI for cutting files
-                }
-                
-                $imagick->readImage($file->getPathname() . '[0]');
-            } elseif ($ext === 'svg') {
-                $imagick->readImage($file->getPathname());
-            } else {
-                return null; // No thumbnail for other types
             }
             
-            $imagick->setImageFormat('webp');
-            $imagick->setImageCompressionQuality($useLowResolution ? 40 : 50);
-            $imagick->stripImage();
-            $imagick->resizeImage(800, 800, \Imagick::FILTER_LANCZOS, 1, true); // Standardized preview size
-            $thumbnailBlob = $imagick->getImageBlob();
-            $imagick->clear();
-            $originalFilename = pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME);
-            // Keep cutting thumbnails deterministic too
-            $thumbnailPath = 'job-cutting-thumbnails/job_' . $jobId . '_' . $fileIndex . '_' . $originalFilename . '.webp';
-            $this->templateStorageService->getDisk()->put($thumbnailPath, $thumbnailBlob);
-            return $thumbnailPath;
+            return $deleted;
+
         } catch (\Exception $e) {
-            \Log::warning('Failed to generate cutting file thumbnail: ' . $e->getMessage(), [
+            \Log::error('Failed to cleanup R2 cutting thumbnails: ' . $e->getMessage(), [
                 'job_id' => $jobId,
-                'file' => $file->getClientOriginalName(),
-                'error_trace' => $e->getTraceAsString()
+                'file_index' => $fileIndex
             ]);
-            return null;
+            return 0;
         }
     }
+
+    /**
+     * Clean up local cutting thumbnails for a specific file
+     */
+    private function cleanupLocalCuttingThumbnailsForFile($jobId, $fileIndex, $originalFileName)
+    {
+        try {
+            $thumbnailDir = public_path('jobfiles/cutting-thumbnails/' . $jobId);
+            
+            if (!is_dir($thumbnailDir)) {
+                return 0; // No local cutting thumbnails directory exists
+            }
+
+            // Get all PNG files in the cutting thumbnail directory
+            $thumbnailFiles = glob($thumbnailDir . '/*.png');
+            
+            $originalBase = pathinfo($originalFileName, PATHINFO_FILENAME);
+            $deleted = 0;
+            
+            foreach ($thumbnailFiles as $thumbnailFile) {
+                $fileName = basename($thumbnailFile);
+                
+                // Match thumbnails that belong to this specific cutting file
+                $matchesIndex = (strpos($fileName, '_' . $fileIndex . '_') !== false);
+                $matchesName = (strpos($fileName, $originalBase) !== false);
+                
+                if ($matchesIndex || $matchesName) {
+                    try {
+                        if (unlink($thumbnailFile)) {
+                            $deleted++;
+                            \Log::info('Deleted local cutting thumbnail', [
+                                'job_id' => $jobId,
+                                'file_index' => $fileIndex,
+                                'thumbnail_path' => $thumbnailFile,
+                                'matched_by' => $matchesIndex ? 'index' : 'name'
+                            ]);
+                        }
+                    } catch (\Exception $e) {
+                        \Log::warning('Failed to delete local cutting thumbnail: ' . $e->getMessage(), [
+                            'thumbnail' => $thumbnailFile
+                        ]);
+                    }
+                }
+            }
+
+            // If we deleted thumbnails and directory is now empty, clean it up
+            if ($deleted > 0) {
+                $remainingFiles = glob($thumbnailDir . '/*.png');
+                if (empty($remainingFiles)) {
+                    try {
+                        rmdir($thumbnailDir);
+                        \Log::info('Removed empty cutting thumbnail directory', [
+                            'job_id' => $jobId,
+                            'directory' => $thumbnailDir
+                        ]);
+                    } catch (\Exception $e) {
+                        \Log::warning('Failed to remove empty cutting thumbnail directory: ' . $e->getMessage(), [
+                            'directory' => $thumbnailDir
+                        ]);
+                    }
+                }
+            }
+
+            return $deleted;
+
+        } catch (\Exception $e) {
+            \Log::error('Failed to cleanup local cutting thumbnails: ' . $e->getMessage(), [
+                'job_id' => $jobId,
+                'file_index' => $fileIndex
+            ]);
+            return 0;
+        }
+    }
+
+
 
     /**
      * Fallback thumbnail generation for large PDFs

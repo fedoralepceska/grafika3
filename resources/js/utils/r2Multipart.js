@@ -99,8 +99,10 @@ export async function abortMultipart(key, uploadId) {
   });
 }
 
-export async function uploadFileInParts({ file, jobId, chunkSize = 10 * 1024 * 1024, onProgress }) {
-  const { key, uploadId } = await startMultipart(file.name, file.type || 'application/pdf', file.size);
+export async function uploadFileInParts({ file, jobId, chunkSize = 10 * 1024 * 1024, onProgress, uploadType = 'original' }) {
+  // Determine the correct prefix based on upload type
+  const prefix = uploadType === 'cutting' ? 'job-cutting' : 'job-originals';
+  const { key, uploadId } = await startMultipart(file.name, file.type || 'application/pdf', file.size, prefix);
 
   const totalParts = Math.ceil(file.size / chunkSize);
   const parts = [];

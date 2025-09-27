@@ -133,45 +133,55 @@ class MultipartUploadController extends Controller
                 'location' => $result['Location'] ?? null
             ]);
 
-            // Attach to job immediately (just add file path)
+            // Attach to job immediately (determine file type by key prefix)
             $job = Job::findOrFail($data['job_id']);
-            $job->addOriginalFile($data['key']);
+            $isCuttingFile = str_starts_with($data['key'], 'job-cutting');
+            
+            if ($isCuttingFile) {
+                $job->addCuttingFile($data['key']);
+            } else {
+                $job->addOriginalFile($data['key']);
+            }
             $job->save();
 
             \Log::info('Job updated with new file', [
                 'job_id' => $job->id,
                 'file_key' => $data['key'],
-                'original_files_count' => count($job->getOriginalFiles())
+                'is_cutting_file' => $isCuttingFile,
+                'original_files_count' => count($job->getOriginalFiles()),
+                'cutting_files_count' => count($job->getCuttingFiles())
             ]);
 
-            // Try to synchronously extract PDF dimensions so UI can update immediately
+            // Only process dimensions for original files, not cutting files
             $dimensionsResponse = null;
-            try {
-                $dimensionsResponse = $this->syncExtractPdfDimensions(
-                    r2Key: $data['key'],
-                    clientFilename: $data['original_filename'] ?? basename($data['key']),
-                    job: $job
-                );
-            } catch (\Throwable $e) {
-                \Log::warning('Synchronous PDF dimension extraction failed, will fallback to async job', [
-                    'job_id' => $job->id,
-                    'key' => $data['key'],
-                    'error' => $e->getMessage(),
-                ]);
-            }
+            if (!$isCuttingFile) {
+                try {
+                    $dimensionsResponse = $this->syncExtractPdfDimensions(
+                        r2Key: $data['key'],
+                        clientFilename: $data['original_filename'] ?? basename($data['key']),
+                        job: $job
+                    );
+                } catch (\Throwable $e) {
+                    \Log::warning('Synchronous PDF dimension extraction failed, will fallback to async job', [
+                        'job_id' => $job->id,
+                        'key' => $data['key'],
+                        'error' => $e->getMessage(),
+                    ]);
+                }
 
-            // Fallback to async job only if sync extraction failed
-            if ($dimensionsResponse === null) {
-                ProcessPdfDimensions::dispatch(
-                    jobId: $job->id,
-                    r2Key: $data['key'],
-                    clientFilename: $data['original_filename'] ?? basename($data['key'])
-                )->delay(now()->addSeconds(5));
-            } else {
-                \Log::info('Sync PDF dimensions extraction succeeded, skipping fallback ProcessPdfDimensions job', [
-                    'job_id' => $job->id,
-                    'key' => $data['key'],
-                ]);
+                // Fallback to async job only if sync extraction failed
+                if ($dimensionsResponse === null) {
+                    ProcessPdfDimensions::dispatch(
+                        jobId: $job->id,
+                        r2Key: $data['key'],
+                        clientFilename: $data['original_filename'] ?? basename($data['key'])
+                    )->delay(now()->addSeconds(5));
+                } else {
+                    \Log::info('Sync PDF dimensions extraction succeeded, skipping fallback ProcessPdfDimensions job', [
+                        'job_id' => $job->id,
+                        'key' => $data['key'],
+                    ]);
+                }
             }
 
             \Log::info('Multipart completion fully successful', [
@@ -179,25 +189,17 @@ class MultipartUploadController extends Controller
                 'job_id' => $job->id
             ]);
 
-            // NOW generate thumbnails AFTER successful upload completion
+            // Generate thumbnails AFTER successful upload completion
             try {
-                if (!empty($dimensionsResponse['__temp_pdf_path'])) {
-                    \Log::info('Starting synchronous thumbnail generation with temp file (after completion)', [
+                if ($isCuttingFile) {
+                    // For cutting files, determine the file index
+                    $cuttingFiles = $job->getCuttingFiles();
+                    $fileIndex = array_search($data['key'], $cuttingFiles);
+                    
+                    \Log::info('Starting synchronous cutting file thumbnail generation', [
                         'job_id' => $job->id,
                         'r2_key' => $data['key'],
-                        'temp_path' => $dimensionsResponse['__temp_pdf_path']
-                    ]);
-                    
-                    GeneratePdfThumbnails::dispatchSync(
-                        jobId: $job->id,
-                        r2Key: $data['key'],
-                        tempLocalPath: $dimensionsResponse['__temp_pdf_path'],
-                        dpi: 72
-                    );
-                } else {
-                    \Log::info('Starting synchronous thumbnail generation without temp file (after completion)', [
-                        'job_id' => $job->id,
-                        'r2_key' => $data['key']
+                        'file_index' => $fileIndex
                     ]);
                     
                     // Small delay to ensure R2 consistency after completion
@@ -207,26 +209,72 @@ class MultipartUploadController extends Controller
                         jobId: $job->id,
                         r2Key: $data['key'],
                         tempLocalPath: null,
-                        dpi: 72
+                        dpi: 72,
+                        fileIndex: $fileIndex,
+                        isCuttingFile: true
                     );
+                } else {
+                    // Original file thumbnail generation
+                    if (!empty($dimensionsResponse['__temp_pdf_path'])) {
+                        \Log::info('Starting synchronous thumbnail generation with temp file (after completion)', [
+                            'job_id' => $job->id,
+                            'r2_key' => $data['key'],
+                            'temp_path' => $dimensionsResponse['__temp_pdf_path']
+                        ]);
+                        
+                        GeneratePdfThumbnails::dispatchSync(
+                            jobId: $job->id,
+                            r2Key: $data['key'],
+                            tempLocalPath: $dimensionsResponse['__temp_pdf_path'],
+                            dpi: 72
+                        );
+                    } else {
+                        \Log::info('Starting synchronous thumbnail generation without temp file (after completion)', [
+                            'job_id' => $job->id,
+                            'r2_key' => $data['key']
+                        ]);
+                        
+                        // Small delay to ensure R2 consistency after completion
+                        sleep(1);
+                        
+                        GeneratePdfThumbnails::dispatchSync(
+                            jobId: $job->id,
+                            r2Key: $data['key'],
+                            tempLocalPath: null,
+                            dpi: 72
+                        );
+                    }
                 }
             } catch (\Throwable $thumbError) {
                 \Log::error('Thumbnail generation failed after successful upload', [
                     'job_id' => $job->id,
                     'r2_key' => $data['key'],
+                    'is_cutting_file' => $isCuttingFile,
                     'error' => $thumbError->getMessage()
                 ]);
             }
 
-            return response()->json([
-                'message' => 'Upload completed',
-                'location' => $result['Location'] ?? null,
-                'key' => $data['key'],
-                // Include updated job data so UI updates immediately
-                'originalFiles' => $job->getOriginalFiles(),
-                'dimensions_breakdown' => $dimensionsResponse['dimensions_breakdown'] ?? ($job->dimensions_breakdown ?? []),
-                'total_area_m2' => $dimensionsResponse['total_area_m2'] ?? ($job->total_area_m2 ?? 0),
-            ]);
+            // Return different response format based on file type
+            if ($isCuttingFile) {
+                return response()->json([
+                    'message' => 'Upload completed',
+                    'location' => $result['Location'] ?? null,
+                    'key' => $data['key'],
+                    'cuttingFiles' => $job->getCuttingFiles(),
+                    'uploadedCount' => 1,
+                    'thumbnails' => [] // Thumbnails will be loaded separately
+                ]);
+            } else {
+                return response()->json([
+                    'message' => 'Upload completed',
+                    'location' => $result['Location'] ?? null,
+                    'key' => $data['key'],
+                    // Include updated job data so UI updates immediately
+                    'originalFiles' => $job->getOriginalFiles(),
+                    'dimensions_breakdown' => $dimensionsResponse['dimensions_breakdown'] ?? ($job->dimensions_breakdown ?? []),
+                    'total_area_m2' => $dimensionsResponse['total_area_m2'] ?? ($job->total_area_m2 ?? 0),
+                ]);
+            }
         } catch (S3Exception $e) {
             \Log::error('S3 multipart completion failed', [
                 'key' => $data['key'],
