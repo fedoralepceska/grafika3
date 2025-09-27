@@ -84,7 +84,7 @@
                 </div>
 
                 <div class="left pl-5">
-                    <DragAndDrop ref="dragAndDrop" :invoiceComment="invoice.comment" @commentUpdated="handleCommentUpdate"/>
+                    <DragAndDrop ref="dragAndDrop" :invoiceComment="invoice.comment" :initialJobs="newJobs" @commentUpdated="handleCommentUpdate"/>
                 </div>
             </div>
             <div class="wrapper2 p-5 gap-4">
@@ -749,6 +749,9 @@ input, select{
 }
 .left2{
     width: auto;
+    position: sticky;
+    top: 20px;
+    align-self: flex-start;
 }
 .right2{
     min-width: 63%;

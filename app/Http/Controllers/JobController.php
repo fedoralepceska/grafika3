@@ -32,20 +32,20 @@ class JobController extends Controller
 
     public function index()
     {
-        $jobs = Job::with('actions')->get()->toArray(); // Eager load jobs related to invoices
+        $jobs = Job::with(['actions', 'catalogItem', 'articles'])->get(); // Don't convert to array yet
 
         if (request()->wantsJson()) {
-            return response()->json($jobs);
+            return response()->json($jobs->toArray());
         }
 
         return Inertia::render('Invoice/InvoiceForm', [
-            'jobs' => $jobs,
+            'jobs' => $jobs->toArray(),
         ]);
     }
     public function show($id): \Illuminate\Http\JsonResponse
     {
-        // Retrieve the job by its ID
-        $job = Job::with('actions')->find($id);
+        // Retrieve the job by its ID with catalog item and articles information
+        $job = Job::with(['actions', 'catalogItem', 'articles'])->find($id);
 
         if (!$job) {
             return response()->json(['message' => 'Job not found'], 404);
@@ -248,6 +248,7 @@ class JobController extends Controller
                 // Reload the job with its actions for response
                 $job->load('actions');
                 $job->load('catalogItem');
+                $job->load('articles');
 
                 return response()->json([
                     'message' => 'Job created successfully',
@@ -867,7 +868,7 @@ class JobController extends Controller
             $smallMaterial = SmallMaterial::with('article')->find($job['small_material_id']);
             $largeMaterial = LargeFormatMaterial::with('article')->find($job['large_material_id']);
             $price = 0;
-            $jobWithActions = Job::with('actions')->find($job['id'])->toArray();
+            $jobWithActions = Job::with(['actions', 'catalogItem', 'articles'])->find($job['id'])->toArray();
 
             foreach ($jobWithActions['actions'] as $action) {
                 if ($action['quantity']) {
@@ -1001,6 +1002,8 @@ class JobController extends Controller
             // Load only the matching jobs, exclude completed jobs
             $jobsWithActions = Job::with([
                 'actions',
+                'catalogItem',
+                'articles',
                 'articles.categories',
                 'articles.largeFormatMaterial',
                 'articles.smallMaterial'
@@ -1110,7 +1113,7 @@ class JobController extends Controller
                 ->get();
 
             // Now, get all jobs with actions in one go
-            $jobsWithActions = Job::with('actions')->whereIn('id', $actionIdsForJob)->get()->keyBy('id');
+            $jobsWithActions = Job::with(['actions', 'catalogItem', 'articles'])->whereIn('id', $actionIdsForJob)->get()->keyBy('id');
 
             // Replace each job in $jobsWithActions with the corresponding one from $jobs
             if (isset($jobsWithActions[$job->id])) {
@@ -1146,7 +1149,7 @@ class JobController extends Controller
                 ->get();
 
             // Now, get all jobs with actions in one go
-            $jobsWithActions = Job::with('actions')->whereIn('id', $jobIdsForInvoice)->get()->keyBy('id');
+            $jobsWithActions = Job::with(['actions', 'catalogItem', 'articles'])->whereIn('id', $jobIdsForInvoice)->get()->keyBy('id');
 
             // Replace each job in $jobsForInvoice with the corresponding one from $jobsWithActions
             foreach ($jobsForInvoice as $index => $job) {
@@ -1242,10 +1245,7 @@ class JobController extends Controller
                     // Update job with original PDF only
                     $job->file = 'placeholder.jpeg';
 
-                    if (!empty($pageDimensions)) {
-                        $job->width = $pageDimensions[0]['width_mm'];
-                        $job->height = $pageDimensions[0]['height_mm'];
-                    }
+                    // Note: width and height are legacy fields, dimensions are now stored in dimensions_breakdown
 
                     // Clear old original files and add the new one
                     $job->originalFile = [];
@@ -1367,7 +1367,7 @@ class JobController extends Controller
                 'salePrice' => 'sometimes|required',
             ]);
 
-            // Recalculate price if quantity or copies is being updated AND the job has catalog/client info
+            // Recalculate price and area if quantity or copies is being updated
             if ($request->has('quantity') || $request->has('copies')) {
                 // Get the catalog_item_id and client_id from request or existing job/invoice
                 $catalogItemId = $request->input('catalog_item_id') ?? $job->catalog_item_id ?? $job->invoice?->catalog_item_id;
@@ -1383,6 +1383,9 @@ class JobController extends Controller
                     'old_copies' => $job->copies,
                     'is_catalog_job' => !is_null($catalogItemId) && !is_null($clientId)
                 ]);
+
+                // Recalculate total area based on new quantity/copies
+                $this->recalculateJobArea($job, $request);
 
                 // Only recalculate price for catalog-based jobs (those with catalog_item_id and client_id)
                 if (!is_null($catalogItemId) && !is_null($clientId)) {
@@ -2752,13 +2755,7 @@ class JobController extends Controller
                 $existingBreakdown = $job->dimensions_breakdown ?? [];
                 $job->dimensions_breakdown = array_merge($existingBreakdown, $allFileDimensions);
 
-                // Set job width and height from first file's first page for fallback display
-                $allBreakdown = $job->dimensions_breakdown;
-                if (!empty($allBreakdown) && !empty($allBreakdown[0]['page_dimensions'])) {
-                    $firstPage = $allBreakdown[0]['page_dimensions'][0];
-                    $job->width = $firstPage['width_mm'];
-                    $job->height = $firstPage['height_mm'];
-                }
+                // Note: width and height are legacy fields, dimensions are now stored in dimensions_breakdown
                 
                 \Log::info('Final dimensions breakdown for multi-file upload', [
                     'job_id' => $id,
@@ -3354,13 +3351,14 @@ class JobController extends Controller
             } else {
                 // Remove dimensions for deleted files by index (in reverse order to maintain indices)
                 $sortedIndices = array_reverse($fileIndices);
+                $updatedBreakdown = $job->dimensions_breakdown;
                 foreach ($sortedIndices as $fileIndex) {
-                    if (isset($job->dimensions_breakdown[$fileIndex])) {
-                        unset($job->dimensions_breakdown[$fileIndex]);
+                    if (isset($updatedBreakdown[$fileIndex])) {
+                        unset($updatedBreakdown[$fileIndex]);
                     }
                 }
                 // Reindex array to maintain sequential indices
-                $job->dimensions_breakdown = array_values($job->dimensions_breakdown);
+                $job->dimensions_breakdown = array_values($updatedBreakdown);
                 
                 // Recalculate total area from remaining breakdown
                 if ($job->dimensions_breakdown && is_array($job->dimensions_breakdown)) {
@@ -4969,5 +4967,113 @@ class JobController extends Controller
 
         // For manually created jobs (no catalog item), default to quantity-based pricing
         return $quantity;
+    }
+
+    /**
+     * Recalculate job total area based on quantity/copies changes
+     * Respects catalog item pricing method (by quantity vs by copies)
+     */
+    private function recalculateJobArea(Job $job, Request $request)
+    {
+        $newQuantity = $request->input('quantity', $job->quantity);
+        $newCopies = $request->input('copies', $job->copies);
+        
+        // Get catalog item to determine pricing method
+        $catalogItemId = $request->input('catalog_item_id') ?? $job->catalog_item_id ?? $job->invoice?->catalog_item_id;
+        $catalogItem = null;
+        if ($catalogItemId) {
+            $catalogItem = \App\Models\CatalogItem::find($catalogItemId);
+        }
+        
+        // Calculate area multiplier based on catalog item pricing method
+        $oldQuantity = $job->quantity;
+        $oldCopies = $job->copies;
+        
+        if ($catalogItem) {
+            // Use catalog item's pricing method to determine area multiplier
+            $oldMultiplier = $catalogItem->getPricingMultiplier($oldQuantity, $oldCopies);
+            $newMultiplier = $catalogItem->getPricingMultiplier($newQuantity, $newCopies);
+            $areaMultiplier = $oldMultiplier > 0 ? $newMultiplier / $oldMultiplier : 1;
+            
+            \Log::info('Area calculation using catalog pricing method', [
+                'job_id' => $job->id,
+                'catalog_item_id' => $catalogItemId,
+                'pricing_method' => $catalogItem->getPricingMethod(),
+                'by_copies' => $catalogItem->by_copies,
+                'by_quantity' => $catalogItem->by_quantity,
+                'old_quantity' => $oldQuantity,
+                'new_quantity' => $newQuantity,
+                'old_copies' => $oldCopies,
+                'new_copies' => $newCopies,
+                'old_multiplier' => $oldMultiplier,
+                'new_multiplier' => $newMultiplier,
+                'area_multiplier' => $areaMultiplier
+            ]);
+        } else {
+            // Fallback: use both quantity and copies for manual jobs
+            $quantityMultiplier = $oldQuantity > 0 ? $newQuantity / $oldQuantity : 1;
+            $copiesMultiplier = $oldCopies > 0 ? $newCopies / $oldCopies : 1;
+            $areaMultiplier = $quantityMultiplier * $copiesMultiplier;
+            
+            \Log::info('Area calculation using fallback method (manual job)', [
+                'job_id' => $job->id,
+                'old_quantity' => $oldQuantity,
+                'new_quantity' => $newQuantity,
+                'old_copies' => $oldCopies,
+                'new_copies' => $newCopies,
+                'quantity_multiplier' => $quantityMultiplier,
+                'copies_multiplier' => $copiesMultiplier,
+                'area_multiplier' => $areaMultiplier
+            ]);
+        }
+        
+        // Update total area if it exists
+        if ($job->total_area_m2 !== null) {
+            $newTotalArea = $job->total_area_m2 * $areaMultiplier;
+            $job->total_area_m2 = round($newTotalArea, 6);
+            
+            \Log::info('Updated job total area', [
+                'job_id' => $job->id,
+                'old_area_m2' => $job->total_area_m2 / $areaMultiplier,
+                'new_area_m2' => $job->total_area_m2,
+                'area_multiplier' => $areaMultiplier
+            ]);
+        }
+        
+        // Update dimensions breakdown if it exists
+        if ($job->dimensions_breakdown && is_array($job->dimensions_breakdown)) {
+            $updatedBreakdown = [];
+            foreach ($job->dimensions_breakdown as $fileDimension) {
+                $updatedFileDimension = $fileDimension;
+                
+                if (isset($fileDimension['total_area_m2'])) {
+                    $updatedFileDimension['total_area_m2'] = round($fileDimension['total_area_m2'] * $areaMultiplier, 6);
+                }
+                
+                // Also update individual page areas if they exist
+                if (isset($fileDimension['page_dimensions']) && is_array($fileDimension['page_dimensions'])) {
+                    $updatedPageDimensions = [];
+                    foreach ($fileDimension['page_dimensions'] as $pageDimension) {
+                        $updatedPageDimension = $pageDimension;
+                        if (isset($pageDimension['area_m2'])) {
+                            $updatedPageDimension['area_m2'] = round($pageDimension['area_m2'] * $areaMultiplier, 6);
+                        }
+                        $updatedPageDimensions[] = $updatedPageDimension;
+                    }
+                    $updatedFileDimension['page_dimensions'] = $updatedPageDimensions;
+                }
+                
+                $updatedBreakdown[] = $updatedFileDimension;
+            }
+            
+            // Assign the new array to the job
+            $job->dimensions_breakdown = $updatedBreakdown;
+            
+            \Log::info('Updated dimensions breakdown with new area calculations', [
+                'job_id' => $job->id,
+                'files_count' => count($job->dimensions_breakdown),
+                'area_multiplier' => $areaMultiplier
+            ]);
+        }
     }
 }

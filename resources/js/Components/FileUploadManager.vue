@@ -1137,6 +1137,10 @@ export default {
         border-color: #17a2b8;
         background-color: rgba(23, 162, 184, 0.1);
         animation: pulse 1.5s infinite;
+
+        .placeholder-text {
+            color: white;
+        }
     }
 
     &.disabled {

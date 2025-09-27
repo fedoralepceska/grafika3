@@ -138,7 +138,7 @@
                         />
                     </td>
                     <td>
-                        <div v-if="job.dimensions_breakdown && job.dimensions_breakdown.length > 0">
+                        <div v-if="job.dimensions_breakdown && job.dimensions_breakdown.length > 0 && job.total_area_m2 > 0">
                             <div class="files-container" style="max-width: 30rem;">
                                 <div class="files-scroll">
                                     <div v-for="(file, fileIndex) in job.dimensions_breakdown" :key="fileIndex" class="file-dimensions">
@@ -159,20 +159,27 @@
                             </div>
                         </div>
                         <div v-else>
-                            <div class="file-dimensions">
-                                <div class="file-name">{{ $t('Dimensions') }}</div>
-                                <div class="page-dimensions">
-                                    <span class="page-label">{{ $t('width') }}:</span>
-                                    <span class="dimensions">{{ job.width ? job.width.toFixed(2) : '0.00' }}mm</span>
+                            <div class="files-container" style="max-width: 30rem;">
+                                <div class="files-scroll">
+                                    <div class="file-dimensions">
+                                        <div class="file-name">{{ $t('Dimensions') }}</div>
+                                        <div class="page-dimensions">
+                                            <span class="page-label">{{ $t('width') }}:</span>
+                                            <span class="dimensions">0.00mm</span>
+                                        </div>
+                                        <div class="page-dimensions">
+                                            <span class="page-label">{{ $t('height') }}:</span>
+                                            <span class="dimensions">0.00mm</span>
+                                        </div>
+                                        <div class="file-total">
+                                            <span class="file-total-label">Area:</span>
+                                            <span class="file-total-area">0.0000m²</span>
+                                        </div>
+                                    </div>
                                 </div>
-                                <div class="page-dimensions">
-                                    <span class="page-label">{{ $t('height') }}:</span>
-                                    <span class="dimensions">{{ job.height ? job.height.toFixed(2) : '0.00' }}mm</span>
-                                </div>
-                                <div class="file-total">
-                                    <span class="file-total-label">Area:</span>
-                                    <span class="file-total-area">{{ (job.total_area_m2 && typeof job.total_area_m2 === 'number') ? job.total_area_m2.toFixed(4) : '0.0000' }}m²</span>
-                                </div>
+                            </div>
+                            <div class="total-area">
+                                <strong>Job Total: 0.0000m²</strong>
                             </div>
                         </div>
                     </td>
@@ -219,13 +226,15 @@
                         </transition>
                     </td>
                 </div>
-                <div v-else-if="job.catalog_item_id">
+
+                <!-- CALCULATION SETTINGS SECTION -->
+                <div v-if="job.catalog_item_id">
                     <td>
-                        <div class="materials-header blue p-1 pl-1 w-[40rem] text-white bg-gray-700" style="cursor: pointer" @click="loadJobArticles(job.id)">
-                            <span>{{$t('MATERIALS')}} (Click to load)</span>
-                            <button class="materials-toggle-btn" @click.stop="loadJobArticles(job.id)">
-                                <i class="fa fa-download"></i>
-                            </button>
+                        <div class="calculation-settings-header orange p-1 pl-1 w-[40rem] text-white bg-gray-700">
+                            <span>Calculation Settings</span>
+                        </div>
+                        <div class="calculation-settings-content bg-gray-600 pl-1 w-full text-left py-1">
+                            <span class="text-sm text-white">{{ getCalculationMethod(job) }}</span>
                         </div>
                     </td>
                 </div>
@@ -489,11 +498,6 @@ export default {
             // Initialize upload states for all jobs
             this.initializeJobStates(job.id);
             
-            // Load articles for jobs that don't have them loaded yet
-            if (job.id && (!job.articles || job.articles.length === 0)) {
-                this.loadJobArticles(job.id);
-            }
-            
             // Initialize sections to be open by default
             if (job.actions && job.actions.length > 0) {
                 this.showActions[job.id] = true;
@@ -576,11 +580,6 @@ export default {
                 this.jobCuttingFiles[job.id] = [];
                 this.$forceUpdate();
             }
-            
-            // Check if articles need to be loaded
-            if (job.catalog_item_id && (!job.articles || job.articles.length === 0)) {
-                this.loadJobArticles(job.id);
-            }
                 });
                 
                 // Force UI update to ensure dimensions are displayed correctly
@@ -593,6 +592,14 @@ export default {
     },
 
     methods: {
+        // Get calculation method for display
+        getCalculationMethod(job) {
+            if (job.catalog_item) {
+                return job.catalog_item.by_copies ? 'By Copies' : 'By Quantity';
+            }
+            return 'By Quantity'; // Default fallback
+        },
+
         // Cost breakdown methods
         async showCostBreakdown(job) {
             try {
@@ -839,23 +846,6 @@ export default {
                 this.machinesCut = response.data.machinesCut || [];
             } catch (error) {
                 console.error('Failed to load machines:', error);
-            }
-        },
-
-        // Load articles for a specific job
-        async loadJobArticles(jobId) {
-            try {
-                const response = await axios.get(`/jobs/${jobId}/articles`);
-                if (response.data.articles) {
-                    // Find the job and update its articles
-                    const job = this.jobsToDisplay.find(j => j.id === jobId);
-                    if (job) {
-                        job.articles = response.data.articles;
-                        this.$forceUpdate();
-                    }
-                }
-            } catch (error) {
-                console.error('Failed to load articles for job', jobId, error);
             }
         },
 
@@ -1209,15 +1199,16 @@ export default {
                 console.log('Response from server:', response.data);
 
                 if (response.status === 200) {
-                    // Update the local job with the response data, preserving width and height
+                    // Update the local job with the response data
                     const updatedJob = {
                         ...response.data.job,
-                        width: job.width || response.data.job.width,
-                        height: job.height || response.data.job.height,
                         quantity: parseInt(response.data.job.quantity),
                         copies: parseInt(response.data.job.copies),
                         price: parseFloat(response.data.job.price),
                         salePrice: parseFloat(response.data.job.salePrice) || null,
+                        // Focus on dimensions breakdown and total area
+                        total_area_m2: parseFloat(response.data.job.total_area_m2) || 0,
+                        dimensions_breakdown: response.data.job.dimensions_breakdown || [],
                         effective_catalog_item_id: catalog_item_id,
                         effective_client_id: client_id
                     };
@@ -2137,7 +2128,9 @@ input[data-v-81b90cf3], select[data-v-81b90cf3]{
 }
 
 .slide-fade-enter-active, .slide-fade-leave-active {
-    transition: max-height 0.5s ease-in-out;
+    transition-property: max-height;
+    transition-duration: 0.5s;
+    transition-timing-function: ease-in-out;
 }
 
 .slide-fade-enter-to, .slide-fade-leave-from {
@@ -3816,6 +3809,25 @@ input, select {
 .materials-item:hover {
     background-color: rgba(59, 130, 246, 0.1);
     border-left-color: #1D4ED8;
+}
+
+.calculation-settings-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 4px 8px;
+    background-color: #374151;
+    border-radius: 4px 4px 0 0;
+    border-left: 3px solid #F59E0B;
+}
+
+.calculation-settings-content {
+    border-left: 3px solid #F59E0B;
+    padding-left: 8px;
+    border-radius: 0 0 4px 4px;
+    background-color: rgba(245, 158, 11, 0.1);
+    border: 1px solid rgba(245, 158, 11, 0.2);
+    border-top: none;
 }
 
 .materials-header {
