@@ -22,6 +22,13 @@ export class UploadManager {
         
         // Track active uploads to prevent conflicts
         this.activeUploads = new Set();
+        
+        // Simple upload coordination - track upload promises per job
+        this.uploadPromises = new Map(); // jobId -> Promise
+        
+        // Global upload queue to ensure jobs upload sequentially
+        this.globalUploadQueue = [];
+        this.isProcessingGlobalQueue = false;
     }
     
     /**
@@ -238,6 +245,83 @@ export class UploadManager {
     }
     
     /**
+     * Start an upload and track it with global job coordination
+     */
+    async startUpload(jobId, uploadType, uploadFunction) {
+        const key = `${jobId}_${uploadType}`;
+        
+        // If there's already an upload for this job, wait for it
+        if (this.uploadPromises.has(jobId)) {
+            await this.uploadPromises.get(jobId);
+        }
+        
+        // Add to global queue to ensure jobs upload sequentially
+        return new Promise((resolve, reject) => {
+            const uploadTask = {
+                jobId,
+                uploadType,
+                uploadFunction,
+                key,
+                resolve,
+                reject
+            };
+            
+            this.globalUploadQueue.push(uploadTask);
+            
+            // Start processing global queue if not already processing
+            if (!this.isProcessingGlobalQueue) {
+                this.processGlobalQueue();
+            }
+        });
+    }
+    
+    /**
+     * Process the global upload queue
+     */
+    async processGlobalQueue() {
+        if (this.isProcessingGlobalQueue || this.globalUploadQueue.length === 0) {
+            return;
+        }
+        
+        this.isProcessingGlobalQueue = true;
+        
+        while (this.globalUploadQueue.length > 0) {
+            const uploadTask = this.globalUploadQueue.shift();
+            
+            try {
+                // Mark as active
+                this.activeUploads.add(uploadTask.key);
+                
+                // Create and store the upload promise
+                const uploadPromise = uploadTask.uploadFunction()
+                    .finally(() => {
+                        // Clean up when done
+                        this.activeUploads.delete(uploadTask.key);
+                        this.uploadPromises.delete(uploadTask.jobId);
+                    });
+                
+                this.uploadPromises.set(uploadTask.jobId, uploadPromise);
+                
+                // Wait for this upload to complete
+                const result = await uploadPromise;
+                uploadTask.resolve(result);
+                
+            } catch (error) {
+                uploadTask.reject(error);
+            }
+        }
+        
+        this.isProcessingGlobalQueue = false;
+    }
+    
+    /**
+     * Check if any upload is active for a job
+     */
+    isAnyUploadActive(jobId) {
+        return this.activeUploads.has(`${jobId}_general`) || this.activeUploads.has(`${jobId}_cutting`);
+    }
+    
+    /**
      * Clean up resources
      */
     destroy() {
@@ -247,6 +331,16 @@ export class UploadManager {
         this.activeUploads.clear();
         this.uploadStates = {};
         this.uploadProgress = {};
+        this.uploadPromises.clear();
+        
+        // Clear global queue and reject any pending promises
+        this.globalUploadQueue.forEach(task => {
+            if (task.reject) {
+                task.reject(new Error('Upload manager destroyed'));
+            }
+        });
+        this.globalUploadQueue = [];
+        this.isProcessingGlobalQueue = false;
     }
 }
 

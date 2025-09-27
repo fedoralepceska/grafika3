@@ -364,37 +364,40 @@ export default {
         async handleAllFiles(files, toast) {
             this.updateUploadState('uploading', 'Processing files...', 10);
 
-            for (let i = 0; i < files.length; i++) {
-                const file = files[i];
+            // Use the coordinated upload system
+            return await uploadManager.startUpload(this.jobId, 'general', async () => {
+                for (let i = 0; i < files.length; i++) {
+                    const file = files[i];
 
-                try {
-                    const baseProgress = 10 + (i / files.length) * 80;
-                    this.updateUploadState('uploading', `Uploading ${file.name}...`, baseProgress);
+                    try {
+                        const baseProgress = 10 + (i / files.length) * 80;
+                        this.updateUploadState('uploading', `Uploading ${file.name}...`, baseProgress);
 
-                    const onProgress = ({ loaded, total, partNumber, totalParts }) => {
-                        const percentage = Math.round((loaded / total) * 100);
-                        const fileProgress = (percentage / 100) * (80 / files.length);
-                        this.updateUploadState('uploading', 
-                            `Uploading ${file.name} (part ${partNumber}/${totalParts})`, 
-                            baseProgress + fileProgress
-                        );
-                    };
+                        const onProgress = ({ loaded, total, partNumber, totalParts }) => {
+                            const percentage = Math.round((loaded / total) * 100);
+                            const fileProgress = (percentage / 100) * (80 / files.length);
+                            this.updateUploadState('uploading', 
+                                `Uploading ${file.name} (part ${partNumber}/${totalParts})`, 
+                                baseProgress + fileProgress
+                            );
+                        };
 
-                    // Use multipart upload for all files with appropriate chunk size
-                    const chunkSize = file.size > 50 * 1024 * 1024 ? 10 * 1024 * 1024 : 5 * 1024 * 1024; // 10MB for large, 5MB for smaller
-                    
-                    await uploadFileInParts({
-                        file,
-                        jobId: this.jobId,
-                        chunkSize,
-                        onProgress
-                    });
+                        // Use multipart upload for all files with appropriate chunk size
+                        const chunkSize = file.size > 50 * 1024 * 1024 ? 10 * 1024 * 1024 : 5 * 1024 * 1024; // 10MB for large, 5MB for smaller
+                        
+                        await uploadFileInParts({
+                            file,
+                            jobId: this.jobId,
+                            chunkSize,
+                            onProgress
+                        });
 
-                } catch (error) {
-                    console.error(`Failed to upload ${file.name}:`, error);
-                    throw new Error(`Failed to upload ${file.name}: ${error.message}`);
+                    } catch (error) {
+                        console.error(`Failed to upload ${file.name}:`, error);
+                        throw new Error(`Failed to upload ${file.name}: ${error.message}`);
+                    }
                 }
-            }
+            });
         },
 
         async removeFile(fileIndex) {
