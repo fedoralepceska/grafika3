@@ -18,7 +18,7 @@
                     <div class="flex pt-4">
                         <div class="buttons pt-3">
                             <button class="btn go-back" @click="goBack">Go Back <span class="mdi mdi-arrow-left"></span></button>
-                            <button class="btn download-order" @click="downloadAllProofs">Download All Proofs <span class="mdi mdi-cloud-download"></span></button>
+                            <button class="btn download-order" @click="showDownloadModal = true">Download All Proofs <span class="mdi mdi-cloud-download"></span></button>
                             <button v-if="!invoice.LockedNote" class="btn"><AddLockNoteDialog :invoice="invoice"/></button>
                             <button v-if="invoice.LockedNote" class="btn lock-order" @click="unlockOrder(invoice.id)">Unlock Order <span class="mdi mdi-lock-open"></span></button>
                             <button class="btn re-order"  @click="reorder()">Re-Order <span class="mdi mdi-content-copy"></span></button>
@@ -116,7 +116,7 @@
                                                     v-for="(cuttingFile, cuttingIndex) in job.cuttingFiles"
                                                     :key="cuttingIndex"
                                                     class="cutting-file-btn"
-                                                    @click="previewCuttingFile(job.id, cuttingIndex)"
+                                                    @click="previewCuttingFileModal(job, cuttingIndex)"
                                                 >
                                                     <i class="fa fa-scissors"></i>
                                                     {{ getCuttingFileExtension(cuttingFile).toUpperCase() }} {{ cuttingIndex + 1 }}
@@ -133,29 +133,32 @@
                                                     <span class="file-name">{{ fileData.filename || `File ${fileIndex + 1}` }}</span>
                                                 </div>
                                                 <div class="dimensions-content">
-                                                    <!-- Thumbnail for this specific file -->
-                                                    <div class="file-thumbnail">
-                                                        <button 
-                                                            @click="toggleImagePopover(job, fileIndex)"
-                                                            class="thumbnail-btn"
-                                                        >
-                                                            <img 
-                                                                v-if="shouldAttemptImageLoad(job, fileIndex)"
-                                                                :src="getThumbnailUrl(job.id, fileIndex)" 
-                                                                :alt="'Thumbnail ' + (fileIndex + 1)"
-                                                                class="jobImg thumbnail"
-                                                                :data-job-id="job.id"
-                                                                :data-file-index="fileIndex"
-                                                                loading="eager"
-                                                                decoding="async"
-                                                                @error="handleThumbnailError($event, fileIndex)"
-                                                            />
-                                                            <div v-else class="image-error-placeholder">
-                                                                <i class="fa fa-file-o"></i>
-                                                                <span>File not found</span>
-                                                            </div>
-                                                            <span class="thumbnail-number">{{ fileIndex + 1 }}</span>
-                                                        </button>
+                                                    <!-- Thumbnails for each page -->
+                                                    <div class="file-thumbnails">
+                                                        <div v-for="(pageDimension, pageIndex) in fileData.page_dimensions" :key="pageIndex" class="page-thumbnail">
+                                                            <button 
+                                                                @click="toggleImagePopover(job, fileIndex, pageIndex + 1)"
+                                                                class="thumbnail-btn"
+                                                            >
+                                                                <img 
+                                                                    v-if="shouldAttemptImageLoad(job, fileIndex)"
+                                                                    :src="getThumbnailUrl(job.id, fileIndex, pageIndex + 1)" 
+                                                                    :alt="'Page ' + (pageIndex + 1)"
+                                                                    class="jobImg thumbnail"
+                                                                    :data-job-id="job.id"
+                                                                    :data-file-index="fileIndex"
+                                                                    :data-page="pageIndex + 1"
+                                                                    loading="eager"
+                                                                    decoding="async"
+                                                                    @error="handleThumbnailError($event, fileIndex)"
+                                                                />
+                                                                <div v-else class="image-error-placeholder">
+                                                                    <i class="fa fa-file-o"></i>
+                                                                    <span>File not found</span>
+                                                                </div>
+                                                                <span class="thumbnail-number">{{ pageIndex + 1 }}</span>
+                                                            </button>
+                                                        </div>
                                                     </div>
                                                     
                                                     <!-- Dimensions info -->
@@ -177,7 +180,7 @@
                                                 <div class="dimensions-content">
                                                     <!-- Thumbnail for legacy system -->
                                                     <div class="file-thumbnail">
-                                                        <button v-if="job.file && job.file !== 'placeholder.jpeg'" @click="toggleImagePopover(job, 0)" class="thumbnail-btn">
+                                                        <button v-if="getLegacyImageUrl(job)" @click="toggleImagePopover(job, 0)" class="thumbnail-btn">
                                                             <img 
                                                                 v-if="shouldAttemptImageLoad(job, 'legacy')"
                                                                 :src="getLegacyImageUrl(job)" 
@@ -324,24 +327,23 @@
          </div>
 
          <!-- Image Popover Modal -->
-         <div v-if="showImagePopover" class="popover">
-             <div class="popover-content bg-gray-700">
-                 <iframe 
-                     v-if="selectedJob && selectedFileIndex !== null && hasMultipleFiles(selectedJob)"
-                     :src="getOriginalFileUrl(selectedJob.id, selectedFileIndex)" 
-                     class="pdf-preview"
-                     frameborder="0"
-                 >
-                     <p>Your browser does not support PDFs. <a :href="getOriginalFileUrl(selectedJob.id, selectedFileIndex)" target="_blank">Download the PDF</a>.</p>
-                 </iframe>
+         <div v-if="showImagePopover" class="popover" @click="closeImagePopover" @keydown.esc="closeImagePopover">
+             <div class="popover-content bg-gray-700" @click.stop>
                  <img 
-                     v-else-if="selectedJob" 
+                     v-if="selectedJob && selectedFileIndex !== null" 
+                     :src="getThumbnailUrl(selectedJob.id, selectedFileIndex, selectedPage)" 
+                     :alt="'Page ' + selectedPage"
+                     loading="eager"
+                     decoding="async"
+                 />
+                 <img 
+                     v-else-if="selectedJob && getLegacyImageUrl(selectedJob)" 
                      :src="getLegacyImageUrl(selectedJob)" 
                      alt="Job Image"
                      loading="eager"
                      decoding="async"
                  />
-                 <button @click="toggleImagePopover(null)" class="popover-close">
+                 <button @click="closeImagePopover" class="popover-close">
                      <i class="fa fa-close"></i>
                  </button>
              </div>
@@ -353,6 +355,29 @@
             :job="selectedJob" 
             @close="closeCostBreakdownModal" 
         />
+
+         <!-- Download Files Modal -->
+         <DownloadFilesModal 
+            :visible="showDownloadModal" 
+            :invoice="invoice" 
+            @close="showDownloadModal = false" 
+        />
+
+         <!-- Cutting File Preview Modal -->
+         <div v-if="showCuttingFileModal" class="popover" @click="closeCuttingFileModal" @keydown.esc="closeCuttingFileModal">
+             <div class="popover-content bg-gray-700" @click.stop>
+                 <img 
+                     v-if="selectedCuttingJob && selectedCuttingFileIndex !== null" 
+                     :src="getCuttingFileThumbnailUrl(selectedCuttingJob.id, selectedCuttingFileIndex)" 
+                     :alt="'Cutting File ' + (selectedCuttingFileIndex + 1)"
+                     loading="eager"
+                     decoding="async"
+                 />
+                 <button @click="closeCuttingFileModal" class="popover-close">
+                     <i class="fa fa-close"></i>
+                 </button>
+             </div>
+         </div>
      </MainLayout>
 </template>
 
@@ -367,6 +392,7 @@ import OrderHistory from "@/Pages/Invoice/OrderHistory.vue";
 import AddNoteDialog from "@/Components/AddNoteDialog.vue";
 import AddLockNoteDialog from "@/Components/AddLockNoteDialog.vue";
 import CostBreakdownModal from "@/Components/CostBreakdownModal.vue";
+import DownloadFilesModal from "@/Components/DownloadFilesModal.vue";
 import useRoleCheck from '@/Composables/useRoleCheck';
 import { computed } from 'vue';
 
@@ -389,7 +415,8 @@ export default {
         OrderJobDetails,
         MainLayout,
         Header,
-        CostBreakdownModal },
+        CostBreakdownModal,
+        DownloadFilesModal },
     props: {
         invoice: Object,
         canViewPrice: Boolean
@@ -399,6 +426,7 @@ export default {
             showImagePopover: false,
             selectedJob: null,
             selectedFileIndex: null,
+            selectedPage: 1,
             isSidebarVisible: false,
             spreadsheetMode:true,
             jobProcessMode:false,
@@ -406,7 +434,12 @@ export default {
             openDialog: false,
             showCostBreakdownModal: false,
             costBreakdown: {},
-            imageErrors: {} // Track failed image loads
+            imageErrors: {}, // Track failed image loads
+            currentThumbnailIndexes: {}, // Track current thumbnail index for each file
+            showDownloadModal: false,
+            showCuttingFileModal: false,
+            selectedCuttingJob: null,
+            selectedCuttingFileIndex: null
         }
     },
     computed: {
@@ -552,15 +585,77 @@ export default {
             };
         }
     },
+    mounted() {
+        // Add escape key listener
+        document.addEventListener('keydown', this.handleEscapeKey);
+    },
+    beforeUnmount() {
+        // Clean up event listeners
+        document.removeEventListener('keydown', this.handleEscapeKey);
+    },
     methods: {
         // Legacy method for old single-file system
         getLegacyImageUrl(job) {
-            // Proxy legacy files through backend so they are served from R2 (or local fallback)
-            return route ? route('jobs.viewLegacyFile', { jobId: job.id }) : `/jobs/${job.id}/view-legacy-file`;
+            // Use direct public URL for legacy files stored in /public/uploads/
+            if (job.file && job.file !== 'placeholder.jpeg') {
+                return `/uploads/${job.file}`;
+            }
+            return null;
         },
         
-        getThumbnailUrl(jobId, fileIndex) {
-            return route('jobs.viewThumbnail', { jobId: jobId, fileIndex: fileIndex });
+        getThumbnailUrl(jobId, fileIndex, page = 1) {
+            // Use direct public URL for thumbnails stored in /public/jobfiles/thumbnails/
+            // The actual naming pattern is: {timestamp}_{filename}_page_{pageNumber}.png
+            // For now, we'll need to use the backend API to get the correct filename
+            return route('jobs.viewThumbnail', { jobId: jobId, fileIndex: fileIndex, page: page });
+        },
+        
+        // Get all thumbnails for a specific file
+        getThumbnailsForFile(job, fileIndex) {
+            // For now, return array with single thumbnail URL
+            // This will be enhanced to support multiple pages
+            const thumbnails = [];
+            const originalFile = job.originalFile && job.originalFile[fileIndex];
+            if (originalFile) {
+                // Add page 1 thumbnail
+                thumbnails.push({
+                    url: route('jobs.viewThumbnail', { jobId: job.id, fileIndex: fileIndex }),
+                    page: 1
+                });
+                
+                // Check if there are more pages by looking at dimensions breakdown
+                if (job.dimensions_breakdown && job.dimensions_breakdown[fileIndex] && 
+                    job.dimensions_breakdown[fileIndex].page_dimensions) {
+                    const pageCount = job.dimensions_breakdown[fileIndex].page_dimensions.length;
+                    for (let page = 2; page <= pageCount; page++) {
+                        thumbnails.push({
+                            url: route('jobs.viewThumbnail', { jobId: job.id, fileIndex: fileIndex, page: page }),
+                            page: page
+                        });
+                    }
+                }
+            }
+            return thumbnails;
+        },
+        
+        // Get current thumbnail URL for carousel
+        getCurrentThumbnailUrl(job, fileIndex) {
+            const thumbnails = this.getThumbnailsForFile(job, fileIndex);
+            const currentIndex = this.getCurrentThumbnailIndex(job, fileIndex);
+            return thumbnails[currentIndex] ? thumbnails[currentIndex].url : '';
+        },
+        
+        // Get current page number
+        getCurrentPageNumber(job, fileIndex) {
+            const thumbnails = this.getThumbnailsForFile(job, fileIndex);
+            const currentIndex = this.getCurrentThumbnailIndex(job, fileIndex);
+            return thumbnails[currentIndex] ? thumbnails[currentIndex].page : 1;
+        },
+        
+        // Get current thumbnail index for carousel
+        getCurrentThumbnailIndex(job, fileIndex) {
+            const key = `${job.id}_${fileIndex}`;
+            return this.currentThumbnailIndexes[key] || 0;
         },
         
         // Get original file URL for PDF preview
@@ -626,10 +721,28 @@ export default {
             }
         },
         
-        toggleImagePopover(job, fileIndex = null) {
+        toggleImagePopover(job, fileIndex = null, page = 1) {
             this.selectedJob = job;
             this.selectedFileIndex = fileIndex;
+            this.selectedPage = page;
             this.showImagePopover = !this.showImagePopover;
+        },
+        
+        closeImagePopover() {
+            this.showImagePopover = false;
+            this.selectedJob = null;
+            this.selectedFileIndex = null;
+            this.selectedPage = 1;
+        },
+        
+        handleEscapeKey(event) {
+            if (event.key === 'Escape') {
+                if (this.showImagePopover) {
+                    this.closeImagePopover();
+                } else if (this.showCuttingFileModal) {
+                    this.closeCuttingFileModal();
+                }
+            }
         },
         toggleSidebar() {
             this.isSidebarVisible = !this.isSidebarVisible;
@@ -639,128 +752,6 @@ export default {
         },
         toggleJobProcessMode(){
             this.jobProcessMode = !this.jobProcessMode;
-        },
-        async downloadAllProofs() {
-            const toast = useToast();
-            
-            try {
-                toast.info('Preparing download...');
-                
-                // Collect all files from all jobs
-                const allFiles = [];
-                
-                for (const job of this.invoice.jobs) {
-                    // New system: Multiple files
-                    if (this.hasMultipleFiles(job)) {
-                        for (let fileIndex = 0; fileIndex < job.originalFile.length; fileIndex++) {
-                            allFiles.push({
-                                jobId: job.id,
-                                jobName: job.name,
-                                fileIndex: fileIndex,
-                                isMultiple: true
-                            });
-                        }
-                    }
-                    // Legacy system: Single file
-                    else if (job.file && job.file !== 'placeholder.jpeg') {
-                        allFiles.push({
-                            jobId: job.id,
-                            jobName: job.name,
-                            filePath: job.file,
-                            isMultiple: false
-                        });
-                    }
-                }
-                
-                if (allFiles.length === 0) {
-                    toast.warning('No files found to download');
-                    return;
-                }
-                
-                // Try bulk download endpoint first
-                try {
-                    const response = await axios.post('/orders/download-all-files', {
-                        invoiceId: this.invoice.id,
-                        clientName: this.invoice.client.name,
-                        files: allFiles
-                    }, {
-                        responseType: 'blob'
-                });
-
-                    // Create and download the zip file
-                const fileURL = window.URL.createObjectURL(new Blob([response.data]));
-                const fileLink = document.createElement('a');
-                    fileLink.href = fileURL;
-                    fileLink.setAttribute('download', `Invoice_${this.invoice.client.name}_${this.invoice.id}_AllFiles.zip`);
-                    document.body.appendChild(fileLink);
-                    fileLink.click();
-                    fileLink.remove();
-                    
-                    toast.success(`Downloaded ${allFiles.length} files successfully`);
-                    
-                } catch (bulkError) {
-                    console.warn('Bulk download failed, trying individual downloads:', bulkError);
-                    
-                    // Fallback: Download files individually
-                    toast.info('Downloading files individually...');
-                    let downloadCount = 0;
-                    
-                    for (const file of allFiles) {
-                        try {
-                            let downloadUrl;
-                            let filename;
-                            
-                            if (file.isMultiple) {
-                                // New system: Download from R2 via backend
-                                downloadUrl = `/jobs/${file.jobId}/download-original-file`;
-                                filename = `${file.jobName}_${file.fileIndex + 1}.pdf`;
-                                
-                                const response = await axios.post(downloadUrl, {
-                                    file_index: file.fileIndex
-                                }, {
-                                    responseType: 'blob'
-                                });
-                                
-                                const fileURL = window.URL.createObjectURL(new Blob([response.data]));
-                                const fileLink = document.createElement('a');
-                fileLink.href = fileURL;
-                                fileLink.setAttribute('download', filename);
-                document.body.appendChild(fileLink);
-                                fileLink.click();
-                                fileLink.remove();
-                                
-                            } else {
-                                // Legacy system: Download from local storage
-                                downloadUrl = `/storage/uploads/${file.filePath}`;
-                                filename = `${file.jobName}_${file.filePath}`;
-                                
-                                const fileLink = document.createElement('a');
-                                fileLink.href = downloadUrl;
-                                fileLink.setAttribute('download', filename);
-                                fileLink.target = '_blank';
-                                document.body.appendChild(fileLink);
-                fileLink.click();
-                                fileLink.remove();
-                            }
-                            
-                            downloadCount++;
-                            
-                        } catch (fileError) {
-                            console.error(`Failed to download file for job ${file.jobName}:`, fileError);
-                        }
-                    }
-                    
-                    if (downloadCount > 0) {
-                        toast.success(`Downloaded ${downloadCount} of ${allFiles.length} files`);
-                    } else {
-                        toast.error('Failed to download any files');
-                    }
-                }
-                
-            } catch (error) {
-                console.error('Download error:', error);
-                toast.error('There was an error downloading the files');
-            }
         },
         generatePdf(invoiceId) {
             window.open(`/orders/${invoiceId}/pdf`, '_blank');
@@ -802,10 +793,26 @@ export default {
             }
         },
         previewCuttingFile(jobId, fileIndex) {
+            // Use thumbnail instead of original file for preview
             const url = route
-                ? route('jobs.viewCuttingFile', { jobId, fileIndex })
-                : `/jobs/${jobId}/view-cutting-file/${fileIndex}`;
+                ? route('jobs.viewCuttingFileThumbnail', { jobId, fileIndex })
+                : `/jobs/${jobId}/view-cutting-file-thumbnail/${fileIndex}`;
             window.open(url, '_blank');
+        },
+        previewCuttingFileModal(job, fileIndex) {
+            this.selectedCuttingJob = job;
+            this.selectedCuttingFileIndex = fileIndex;
+            this.showCuttingFileModal = true;
+        },
+        closeCuttingFileModal() {
+            this.showCuttingFileModal = false;
+            this.selectedCuttingJob = null;
+            this.selectedCuttingFileIndex = null;
+        },
+        getCuttingFileThumbnailUrl(jobId, fileIndex) {
+            return route
+                ? route('jobs.viewCuttingFileThumbnail', { jobId, fileIndex })
+                : `/jobs/${jobId}/view-cutting-file-thumbnail/${fileIndex}`;
         },
         getCuttingFileExtension(filePath) {
             return filePath.split('.').pop() || '';
@@ -1125,11 +1132,26 @@ export default {
 }
 
 .popover-content {
-    width: 30%;
+    
+    max-width: 1200px;
+    height: 80vh;
+    max-height: 800px;
     background: white;
     padding: 20px;
     border-radius: 8px;
     position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.popover-content img {
+    max-width: 100%;
+    max-height: 100%;
+    width: auto;
+    height: auto;
+    object-fit: contain;
+    border-radius: 4px;
 }
 
 .popover-close {
@@ -1350,6 +1372,17 @@ table th {
     display: flex;
     align-items: flex-start;
     gap: 12px;
+}
+
+.file-thumbnails {
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.page-thumbnail {
+    position: relative;
 }
 
 .file-thumbnail {

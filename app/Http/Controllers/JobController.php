@@ -1059,6 +1059,9 @@ class JobController extends Controller
                     $firstOriginalFile = $job->originalFile[0];
                     $job->file = pathinfo(basename($firstOriginalFile), PATHINFO_FILENAME) . '.jpg';
                 }
+                
+                // Load thumbnails for this job
+                $job->thumbnails = $this->getJobThumbnails($job->id);
             }
                 
                 $invoice->jobs = $filteredJobs;
@@ -1077,6 +1080,69 @@ class JobController extends Controller
                 'total' => $invoicesPaginator->total(),
             ],
         ]);
+    }
+
+    /**
+     * Get thumbnails for a specific job
+     */
+    private function getJobThumbnails($jobId)
+    {
+        try {
+            $job = Job::find($jobId);
+            if (!$job) {
+                return [];
+            }
+
+            $originalFiles = $job->getOriginalFiles();
+            $thumbnailDir = public_path('jobfiles/thumbnails/' . $jobId);
+            $thumbnails = [];
+            
+            if (!is_dir($thumbnailDir)) {
+                return [];
+            }
+            
+            $thumbnailFiles = glob($thumbnailDir . '/*.png');
+            
+            // Group thumbnails by file index
+            foreach ($originalFiles as $fileIndex => $originalFile) {
+                $originalFileName = pathinfo(basename($originalFile), PATHINFO_FILENAME);
+                $fileThumbnails = [];
+                
+                // Find all thumbnails for this file
+                foreach ($thumbnailFiles as $thumbnailFile) {
+                    $thumbnailFileName = basename($thumbnailFile);
+                    
+                    // Match thumbnails that belong to this file
+                    if (strpos($thumbnailFileName, $originalFileName) !== false) {
+                        $pageNumber = 1;
+                        if (preg_match('/_page_(\d+)\.png$/', $thumbnailFileName, $matches)) {
+                            $pageNumber = (int)$matches[1];
+                        }
+                        
+                        $fileThumbnails[] = [
+                            'file_name' => $thumbnailFileName,
+                            'url' => '/jobfiles/thumbnails/' . $jobId . '/' . $thumbnailFileName,
+                            'page_number' => $pageNumber,
+                            'file_index' => $fileIndex,
+                            'size' => filesize($thumbnailFile),
+                            'modified' => filemtime($thumbnailFile)
+                        ];
+                    }
+                }
+                
+                // Sort by page number
+                usort($fileThumbnails, function($a, $b) {
+                    return $a['page_number'] - $b['page_number'];
+                });
+                
+                $thumbnails = array_merge($thumbnails, $fileThumbnails);
+            }
+            
+            return $thumbnails;
+        } catch (\Exception $e) {
+            \Log::error('Error loading thumbnails for job ' . $jobId . ': ' . $e->getMessage());
+            return [];
+        }
     }
 
     public function getActionsByMachineName(Request $request, $machineName)
@@ -3569,6 +3635,7 @@ class JobController extends Controller
             return response($fileContent)
                 ->header('Content-Type', 'application/pdf')
                 ->header('Content-Disposition', 'inline; filename="' . $originalName . '"')
+                ->header('X-Original-Filename', $originalName)
                 ->header('Cache-Control', 'no-cache, no-store, must-revalidate')
                 ->header('Pragma', 'no-cache')
                 ->header('Expires', '0');
@@ -3587,7 +3654,7 @@ class JobController extends Controller
     /**
      * Serve job thumbnail with authentication
      */
-    public function viewThumbnail($jobId, $fileIndex)
+    public function viewThumbnail($jobId, $fileIndex, $page = 1)
     {
         try {
             $job = Job::findOrFail($jobId);
@@ -3603,7 +3670,30 @@ class JobController extends Controller
                 return response()->json(['error' => 'File not found'], 404);
             }
 
-            // Resolve thumbnail path using cached index map: [original_index => latest_path]
+            // First, try to find thumbnail in local public directory
+            $thumbnailDir = public_path('jobfiles/thumbnails/' . $jobId);
+            if (is_dir($thumbnailDir)) {
+                $originalFilePath = $originalFiles[$fileIndex];
+                $originalFileName = pathinfo(basename($originalFilePath), PATHINFO_FILENAME);
+                
+                // Look for thumbnails matching this file
+                $thumbnailFiles = glob($thumbnailDir . '/*.png');
+                foreach ($thumbnailFiles as $thumbnailFile) {
+                    $thumbnailFileName = basename($thumbnailFile);
+                    
+                    // Match thumbnails that belong to this file and specific page
+                    if (strpos($thumbnailFileName, $originalFileName) !== false && 
+                        strpos($thumbnailFileName, "_page_{$page}.png") !== false) {
+                        
+                        return response()->file($thumbnailFile, [
+                            'Content-Type' => 'image/png',
+                            'Cache-Control' => 'public, max-age=86400, immutable'
+                        ]);
+                    }
+                }
+            }
+
+            // Fallback to R2 storage
             $thumbnailPath = null;
             // Deterministic lookup: prefer stable filename scheme first, then fall back to old timestamped scheme
             $disk = $this->templateStorageService->getDisk();
@@ -3805,6 +3895,178 @@ class JobController extends Controller
             ]);
             
             return response()->json(['error' => 'Failed to get thumbnails'], 500);
+        }
+    }
+
+    /**
+     * Get list of available thumbnails for a job from local public files (new primary method)
+     */
+    public function getLocalThumbnails(Request $request, $jobId)
+    {
+        try {
+            $job = Job::findOrFail($jobId);
+            $originalFiles = $job->getOriginalFiles();
+            
+            $thumbnailDir = public_path('jobfiles/thumbnails/' . $jobId);
+            $thumbnails = [];
+            
+            if (!is_dir($thumbnailDir)) {
+                // Fallback to existing API
+                return $this->getThumbnails($request, $jobId);
+            }
+            
+            $thumbnailFiles = glob($thumbnailDir . '/*.png');
+            
+            // Group thumbnails by file index
+            foreach ($originalFiles as $fileIndex => $originalFile) {
+                $originalFileName = pathinfo(basename($originalFile), PATHINFO_FILENAME);
+                $fileThumbnails = [];
+                
+                // Find all thumbnails for this file
+                foreach ($thumbnailFiles as $thumbnailFile) {
+                    $thumbnailFileName = basename($thumbnailFile);
+                    
+                    // Match thumbnails that belong to this file
+                    // Pattern: {timestamp}_{filename}_page_{pageNumber}.png
+                    if (strpos($thumbnailFileName, $originalFileName) !== false) {
+                        $pageNumber = 1;
+                        if (preg_match('/_page_(\d+)\.png$/', $thumbnailFileName, $matches)) {
+                            $pageNumber = (int)$matches[1];
+                        }
+                        
+                        $fileThumbnails[] = [
+                            'file_name' => $thumbnailFileName,
+                            'url' => '/jobfiles/thumbnails/' . $jobId . '/' . $thumbnailFileName,
+                            'page_number' => $pageNumber,
+                            'file_index' => $fileIndex,
+                            'size' => filesize($thumbnailFile),
+                            'modified' => filemtime($thumbnailFile)
+                        ];
+                    }
+                }
+                
+                // Sort by page number
+                usort($fileThumbnails, function($a, $b) {
+                    return $a['page_number'] - $b['page_number'];
+                });
+                
+                $thumbnails = array_merge($thumbnails, $fileThumbnails);
+            }
+            
+            return response()->json(['thumbnails' => $thumbnails]);
+            
+        } catch (\Exception $e) {
+            \Log::error('Error getting local thumbnails', [
+                'job_id' => $jobId,
+                'error' => $e->getMessage()
+            ]);
+            
+            // Fallback to existing API
+            return $this->getThumbnails($request, $jobId);
+        }
+    }
+
+    /**
+     * Get list of available thumbnail files for a job from public folder
+     */
+    public function getThumbnailFiles(Request $request, $jobId)
+    {
+        try {
+            $job = Job::findOrFail($jobId);
+            
+            $thumbnailDir = public_path('jobfiles/thumbnails/' . $jobId);
+            
+            if (!is_dir($thumbnailDir)) {
+                return response()->json(['files' => []]);
+            }
+            
+            $thumbnailFiles = glob($thumbnailDir . '/*.png');
+            $files = [];
+            
+            foreach ($thumbnailFiles as $file) {
+                $files[] = basename($file);
+            }
+            
+            // Sort by filename to maintain page order
+            sort($files, SORT_NATURAL);
+            
+            return response()->json(['files' => $files]);
+            
+        } catch (\Exception $e) {
+            \Log::error('Error getting thumbnail files list', [
+                'job_id' => $jobId,
+                'error' => $e->getMessage()
+            ]);
+            
+            return response()->json(['error' => 'Failed to get thumbnail files'], 500);
+        }
+    }
+
+    /**
+     * Get list of available cutting file thumbnails from local public files
+     */
+    public function getLocalCuttingThumbnails(Request $request, $jobId)
+    {
+        try {
+            $job = Job::findOrFail($jobId);
+            $cuttingFiles = $job->getCuttingFiles();
+            
+            $thumbnailDir = public_path('jobfiles/cutting-thumbnails/' . $jobId);
+            $thumbnails = [];
+            
+            if (!is_dir($thumbnailDir)) {
+                return response()->json(['thumbnails' => []]);
+            }
+            
+            $thumbnailFiles = glob($thumbnailDir . '/*.png');
+            
+            // Group thumbnails by file index
+            foreach ($cuttingFiles as $fileIndex => $cuttingFile) {
+                $originalFileName = pathinfo(basename($cuttingFile), PATHINFO_FILENAME);
+                $fileThumbnails = [];
+                
+                // Find all thumbnails for this file
+                foreach ($thumbnailFiles as $thumbnailFile) {
+                    $thumbnailFileName = basename($thumbnailFile);
+                    
+                    // Match thumbnails that belong to this file
+                    // Pattern: job_{jobId}_{fileIndex}_{filename}_page_{pageNumber}.png
+                    if (strpos($thumbnailFileName, "job_{$jobId}_{$fileIndex}_") === 0 && 
+                        strpos($thumbnailFileName, $originalFileName) !== false) {
+                        
+                        $pageNumber = 1;
+                        if (preg_match('/_page_(\d+)\.png$/', $thumbnailFileName, $matches)) {
+                            $pageNumber = (int)$matches[1];
+                        }
+                        
+                        $fileThumbnails[] = [
+                            'file_name' => $thumbnailFileName,
+                            'url' => '/jobfiles/cutting-thumbnails/' . $jobId . '/' . $thumbnailFileName,
+                            'page_number' => $pageNumber,
+                            'file_index' => $fileIndex,
+                            'size' => filesize($thumbnailFile),
+                            'modified' => filemtime($thumbnailFile)
+                        ];
+                    }
+                }
+                
+                // Sort by page number
+                usort($fileThumbnails, function($a, $b) {
+                    return $a['page_number'] - $b['page_number'];
+                });
+                
+                $thumbnails = array_merge($thumbnails, $fileThumbnails);
+            }
+            
+            return response()->json(['thumbnails' => $thumbnails]);
+            
+        } catch (\Exception $e) {
+            \Log::error('Error getting local cutting thumbnails', [
+                'job_id' => $jobId,
+                'error' => $e->getMessage()
+            ]);
+            
+            return response()->json(['error' => 'Failed to get cutting thumbnails'], 500);
         }
     }
 
@@ -4440,11 +4702,13 @@ class JobController extends Controller
         }
         $mime = $disk->mimeType($filePath);
         $stream = $disk->readStream($filePath);
+        $originalName = $this->templateStorageService->getOriginalFilename($filePath);
         return response()->stream(function () use ($stream) {
             fpassthru($stream);
         }, 200, [
             'Content-Type' => $mime,
-            'Content-Disposition' => 'inline; filename="' . basename($filePath) . '"',
+            'Content-Disposition' => 'inline; filename="' . $originalName . '"',
+            'X-Original-Filename' => $originalName,
         ]);
     }
 
@@ -4457,10 +4721,18 @@ class JobController extends Controller
         }
         $filePath = $cuttingFiles[$fileIndex];
         $ext = strtolower(pathinfo($filePath, PATHINFO_EXTENSION));
-        $disk = $this->templateStorageService->getDisk();
+        
         if (in_array($ext, ['pdf', 'svg'])) {
+            // Look for thumbnail in public directory first
+            $publicThumbPath = $this->getPublicCuttingThumbnailPath($jobId, $fileIndex, $filePath);
+            if ($publicThumbPath && file_exists($publicThumbPath)) {
+                return response()->file($publicThumbPath);
+            }
+            
+            // Fallback to R2 storage
+            $disk = $this->templateStorageService->getDisk();
             $thumbPath = $this->getCuttingThumbnailPath($jobId, $fileIndex, $filePath);
-            if ($disk->exists($thumbPath)) {
+            if ($thumbPath && $disk->exists($thumbPath)) {
                 $mime = $disk->mimeType($thumbPath);
                 $stream = $disk->readStream($thumbPath);
                 return response()->stream(function () use ($stream) {
@@ -4474,6 +4746,7 @@ class JobController extends Controller
         // Fallback: return a generic icon or 404
         return response()->json(['error' => 'No thumbnail available'], 404);
     }
+
 
     public function removeCuttingFile(Request $request, $id)
     {
@@ -4947,6 +5220,27 @@ class JobController extends Controller
                 return $thumb;
             }
         }
+        return null;
+    }
+
+    private function getPublicCuttingThumbnailPath($jobId, $fileIndex, $filePath)
+    {
+        $originalFilename = pathinfo(basename($filePath), PATHINFO_FILENAME);
+        $thumbnailDir = public_path("jobfiles/cutting-thumbnails/{$jobId}");
+        
+        if (!is_dir($thumbnailDir)) {
+            return null;
+        }
+        
+        // Look for files matching the pattern: job_{jobId}_{fileIndex}_{originalFilename}_page_{pageNumber}.png
+        $pattern = "job_{$jobId}_{$fileIndex}_{$originalFilename}_page_*.png";
+        $files = glob($thumbnailDir . '/' . $pattern);
+        
+        if (!empty($files)) {
+            // Return the first page thumbnail
+            return $files[0];
+        }
+        
         return null;
     }
     // --- END CUTTING FILES BACKEND ---

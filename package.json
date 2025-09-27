@@ -24,6 +24,7 @@
         "@vueform/multiselect": "^2.6.6",
         "echarts": "^5.5.1",
         "font-awesome": "^4.7.0",
+        "jszip": "^3.10.1",
         "lodash.debounce": "^4.0.8",
         "pdf-lib": "^1.17.1",
         "pdf-poppler": "^0.2.1",

@@ -37,7 +37,7 @@ class InvoiceController extends Controller
                 'jobs' => function ($query) {
                     $query->select([
                         'jobs.id', 'jobs.invoice_id', 'jobs.name', 'jobs.status', 'jobs.quantity', 'jobs.copies',
-                        'jobs.file', 'jobs.originalFile', 'jobs.total_area_m2', 'jobs.dimensions_breakdown'
+                        'jobs.file', 'jobs.originalFile', 'jobs.cuttingFiles', 'jobs.total_area_m2', 'jobs.dimensions_breakdown'
                     ]);
                 },
                 'user:id,name',
@@ -71,6 +71,9 @@ class InvoiceController extends Controller
             $query->orderBy('created_at', $request->input('sortOrder', 'desc'));
 
             $invoices = $query->latest()->paginate(10);
+
+            // Load thumbnails for all jobs
+            $this->loadThumbnailsForInvoices($invoices->items());
 
             if ($request->wantsJson()) {
                 return response()->json($invoices);
@@ -425,7 +428,7 @@ class InvoiceController extends Controller
             'jobs' => function ($query) {
                 $query->select([
                     'jobs.id', 'jobs.invoice_id', 'jobs.name', 'jobs.status', 'jobs.quantity', 'jobs.copies',
-                    'jobs.file', 'jobs.originalFile', 'jobs.total_area_m2', 'jobs.dimensions_breakdown',
+                    'jobs.file', 'jobs.originalFile', 'jobs.cuttingFiles', 'jobs.total_area_m2', 'jobs.dimensions_breakdown',
                     'jobs.small_material_id', 'jobs.large_material_id'
                 ]);
             },
@@ -664,7 +667,7 @@ class InvoiceController extends Controller
             'jobs' => function ($query) {
                 $query->select([
                     'jobs.id', 'jobs.invoice_id', 'jobs.name', 'jobs.status', 'jobs.quantity', 'jobs.copies',
-                    'jobs.file', 'jobs.originalFile', 'jobs.total_area_m2', 'jobs.dimensions_breakdown'
+                    'jobs.file', 'jobs.originalFile', 'jobs.cuttingFiles', 'jobs.total_area_m2', 'jobs.dimensions_breakdown'
                 ]);
             },
             'historyLogs',
@@ -688,7 +691,7 @@ class InvoiceController extends Controller
             'jobs' => function ($query) {
                 $query->select([
                     'jobs.id', 'jobs.invoice_id', 'jobs.name', 'jobs.status', 'jobs.quantity', 'jobs.copies',
-                    'jobs.file', 'jobs.originalFile', 'jobs.total_area_m2', 'jobs.dimensions_breakdown'
+                    'jobs.file', 'jobs.originalFile', 'jobs.cuttingFiles', 'jobs.total_area_m2', 'jobs.dimensions_breakdown'
                 ]);
             },
             'jobs.articles.categories',
@@ -708,6 +711,9 @@ class InvoiceController extends Controller
 
         $perPage = (int)($request->input('per_page', 10));
         $invoices = $query->paginate($perPage);
+
+        // Load thumbnails for all jobs
+        $this->loadThumbnailsForInvoices($invoices->items());
 
         // Ensure originalFile is properly cast for each job
         foreach ($invoices->items() as $invoice) {
@@ -732,6 +738,83 @@ class InvoiceController extends Controller
     }
 
     /**
+     * Load thumbnails for all jobs in the given invoices
+     */
+    private function loadThumbnailsForInvoices($invoices)
+    {
+        foreach ($invoices as $invoice) {
+            if ($invoice->jobs) {
+                foreach ($invoice->jobs as $job) {
+                    $job->thumbnails = $this->getJobThumbnails($job->id);
+                }
+            }
+        }
+    }
+
+    /**
+     * Get thumbnails for a specific job
+     */
+    private function getJobThumbnails($jobId)
+    {
+        try {
+            $job = \App\Models\Job::find($jobId);
+            if (!$job) {
+                return [];
+            }
+
+            $originalFiles = $job->getOriginalFiles();
+            $thumbnailDir = public_path('jobfiles/thumbnails/' . $jobId);
+            $thumbnails = [];
+            
+            if (!is_dir($thumbnailDir)) {
+                return [];
+            }
+            
+            $thumbnailFiles = glob($thumbnailDir . '/*.png');
+            
+            // Group thumbnails by file index
+            foreach ($originalFiles as $fileIndex => $originalFile) {
+                $originalFileName = pathinfo(basename($originalFile), PATHINFO_FILENAME);
+                $fileThumbnails = [];
+                
+                // Find all thumbnails for this file
+                foreach ($thumbnailFiles as $thumbnailFile) {
+                    $thumbnailFileName = basename($thumbnailFile);
+                    
+                    // Match thumbnails that belong to this file
+                    if (strpos($thumbnailFileName, $originalFileName) !== false) {
+                        $pageNumber = 1;
+                        if (preg_match('/_page_(\d+)\.png$/', $thumbnailFileName, $matches)) {
+                            $pageNumber = (int)$matches[1];
+                        }
+                        
+                        $fileThumbnails[] = [
+                            'file_name' => $thumbnailFileName,
+                            'url' => '/jobfiles/thumbnails/' . $jobId . '/' . $thumbnailFileName,
+                            'page_number' => $pageNumber,
+                            'file_index' => $fileIndex,
+                            'size' => filesize($thumbnailFile),
+                            'modified' => filemtime($thumbnailFile)
+                        ];
+                    }
+                }
+                
+                // Sort by page number
+                usort($fileThumbnails, function($a, $b) {
+                    return $a['page_number'] - $b['page_number'];
+                });
+                
+                $thumbnails = array_merge($thumbnails, $fileThumbnails);
+            }
+            
+            return $thumbnails;
+        } catch (\Exception $e) {
+            \Log::error('Error loading thumbnails for job ' . $jobId . ': ' . $e->getMessage());
+            return [];
+        }
+    }
+
+    /**
      * Return completed orders only, paginated (separate from latest list).
      */
     public function completedOrders(Request $request)
@@ -740,7 +823,7 @@ class InvoiceController extends Controller
             'jobs' => function ($query) {
                 $query->select([
                     'jobs.id', 'jobs.invoice_id', 'jobs.name', 'jobs.status', 'jobs.quantity', 'jobs.copies',
-                    'jobs.file', 'jobs.originalFile', 'jobs.total_area_m2', 'jobs.dimensions_breakdown'
+                    'jobs.file', 'jobs.originalFile', 'jobs.cuttingFiles', 'jobs.total_area_m2', 'jobs.dimensions_breakdown'
                 ]);
             },
             'jobs.articles.categories',
@@ -767,7 +850,7 @@ class InvoiceController extends Controller
             'jobs' => function ($query) {
                 $query->select([
                     'jobs.id', 'jobs.invoice_id', 'jobs.name', 'jobs.status', 'jobs.quantity', 'jobs.copies',
-                    'jobs.file', 'jobs.originalFile', 'jobs.total_area_m2', 'jobs.dimensions_breakdown',
+                    'jobs.file', 'jobs.originalFile', 'jobs.cuttingFiles', 'jobs.total_area_m2', 'jobs.dimensions_breakdown',
                     'jobs.small_material_id', 'jobs.large_material_id'
                 ]);
             },
@@ -1198,7 +1281,7 @@ class InvoiceController extends Controller
                 'jobs' => function ($query) {
                     $query->select([
                         'jobs.id', 'jobs.invoice_id', 'jobs.name', 'jobs.status', 'jobs.quantity', 'jobs.copies',
-                        'jobs.file', 'jobs.originalFile', 'jobs.total_area_m2', 'jobs.dimensions_breakdown',
+                        'jobs.file', 'jobs.originalFile', 'jobs.cuttingFiles', 'jobs.total_area_m2', 'jobs.dimensions_breakdown',
                         'jobs.small_material_id', 'jobs.large_material_id'
                     ]);
                 },
@@ -1434,7 +1517,7 @@ class InvoiceController extends Controller
             'jobs' => function ($query) {
                 $query->select([
                     'jobs.id', 'jobs.invoice_id', 'jobs.name', 'jobs.status', 'jobs.quantity', 'jobs.copies',
-                    'jobs.file', 'jobs.originalFile', 'jobs.total_area_m2', 'jobs.dimensions_breakdown',
+                    'jobs.file', 'jobs.originalFile', 'jobs.cuttingFiles', 'jobs.total_area_m2', 'jobs.dimensions_breakdown',
                     'jobs.small_material_id', 'jobs.large_material_id'
                 ]);
             },
@@ -1730,6 +1813,196 @@ class InvoiceController extends Controller
 
         } catch (\Exception $e) {
             \Log::error('Error creating ZIP download:', [
+                'invoice_id' => $request->input('invoiceId'),
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            return response()->json([
+                'error' => 'Failed to create download',
+                'details' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Download selected files from an invoice as a ZIP
+     */
+    public function downloadSelectedFiles(Request $request)
+    {
+        try {
+            $request->validate([
+                'invoiceId' => 'required|integer',
+                'clientName' => 'required|string',
+                'downloadOptions' => 'required|array',
+                'jobs' => 'required|array'
+            ]);
+
+            $invoiceId = $request->input('invoiceId');
+            $clientName = $request->input('clientName');
+            $downloadOptions = $request->input('downloadOptions');
+            $jobs = $request->input('jobs');
+
+            \Log::info('Download selected files request', [
+                'invoice_id' => $invoiceId,
+                'client_name' => $clientName,
+                'download_options' => $downloadOptions,
+                'jobs_count' => count($jobs)
+            ]);
+
+            // Find the invoice
+            $invoice = Invoice::with('jobs')->findOrFail($invoiceId);
+
+            // Create a temporary file for the ZIP
+            $timestamp = now()->format('Y-m-d_H-i-s');
+            $clientNameClean = preg_replace('/[^a-zA-Z0-9]/', '_', $clientName);
+            $zipFileName = "Invoice_{$clientNameClean}_{$invoiceId}_{$timestamp}.zip";
+            $tempZipPath = storage_path('app/temp/' . $zipFileName);
+            
+            // Ensure temp directory exists
+            if (!file_exists(dirname($tempZipPath))) {
+                mkdir(dirname($tempZipPath), 0755, true);
+            }
+
+            $zip = new \ZipArchive();
+            if ($zip->open($tempZipPath, \ZipArchive::CREATE | \ZipArchive::OVERWRITE) !== TRUE) {
+                return response()->json(['error' => 'Cannot create ZIP file'], 500);
+            }
+
+            $addedFiles = 0;
+            $templateStorageService = app(\App\Services\TemplateStorageService::class);
+            $disk = $templateStorageService->getDisk();
+
+            foreach ($jobs as $jobData) {
+                $jobId = $jobData['id'];
+                $jobName = $jobData['name'];
+                
+                \Log::info('Processing job for download', [
+                    'job_id' => $jobId,
+                    'job_name' => $jobName,
+                    'has_dimensions_breakdown' => isset($jobData['dimensions_breakdown']),
+                    'has_cutting_files' => isset($jobData['cuttingFiles']),
+                    'has_original_files' => isset($jobData['originalFile'])
+                ]);
+                
+                // Job Original Thumbnails
+                if ($downloadOptions['jobOriginalThumbnails'] && isset($jobData['dimensions_breakdown'])) {
+                    $thumbnailDir = public_path("jobfiles/thumbnails/{$jobId}");
+                    if (is_dir($thumbnailDir)) {
+                        $thumbnailFiles = glob($thumbnailDir . '/*.png');
+                        \Log::info('Found thumbnail files', [
+                            'job_id' => $jobId,
+                            'thumbnail_dir' => $thumbnailDir,
+                            'file_count' => count($thumbnailFiles)
+                        ]);
+                        foreach ($thumbnailFiles as $thumbnailFile) {
+                            $fileName = basename($thumbnailFile);
+                            $zip->addFile($thumbnailFile, "Job_{$jobId}_Thumbnails/{$fileName}");
+                            $addedFiles++;
+                        }
+                    } else {
+                        \Log::info('Thumbnail directory not found', [
+                            'job_id' => $jobId,
+                            'thumbnail_dir' => $thumbnailDir
+                        ]);
+                    }
+                }
+                
+                // Cutting Thumbnails
+                if ($downloadOptions['cuttingThumbnails'] && isset($jobData['cuttingFiles'])) {
+                    $cuttingThumbnailDir = public_path("jobfiles/cutting-thumbnails/{$jobId}");
+                    if (is_dir($cuttingThumbnailDir)) {
+                        $cuttingThumbnailFiles = glob($cuttingThumbnailDir . '/*.png');
+                        \Log::info('Found cutting thumbnail files', [
+                            'job_id' => $jobId,
+                            'cutting_thumbnail_dir' => $cuttingThumbnailDir,
+                            'file_count' => count($cuttingThumbnailFiles)
+                        ]);
+                        foreach ($cuttingThumbnailFiles as $cuttingThumbnailFile) {
+                            $fileName = basename($cuttingThumbnailFile);
+                            $zip->addFile($cuttingThumbnailFile, "Job_{$jobId}_CuttingThumbnails/{$fileName}");
+                            $addedFiles++;
+                        }
+                    } else {
+                        \Log::info('Cutting thumbnail directory not found', [
+                            'job_id' => $jobId,
+                            'cutting_thumbnail_dir' => $cuttingThumbnailDir
+                        ]);
+                    }
+                }
+                
+                // Job Original Files (from R2)
+                if ($downloadOptions['jobOriginalFiles'] && isset($jobData['originalFile'])) {
+                    foreach ($jobData['originalFile'] as $fileIndex => $originalFilePath) {
+                        if ($disk->exists($originalFilePath)) {
+                            $fileContent = $disk->get($originalFilePath);
+                            $fileName = basename($originalFilePath);
+                            $zip->addFromString("Job_{$jobId}_Originals/{$fileName}", $fileContent);
+                            $addedFiles++;
+                            \Log::info('Added original file to ZIP', [
+                                'job_id' => $jobId,
+                                'file_path' => $originalFilePath,
+                                'file_name' => $fileName
+                            ]);
+                        } else {
+                            \Log::warning('Original file not found in R2', [
+                                'job_id' => $jobId,
+                                'file_path' => $originalFilePath
+                            ]);
+                        }
+                    }
+                }
+                
+                // Cutting Files (from R2)
+                if ($downloadOptions['cuttingFiles'] && isset($jobData['cuttingFiles'])) {
+                    foreach ($jobData['cuttingFiles'] as $fileIndex => $cuttingFilePath) {
+                        if ($disk->exists($cuttingFilePath)) {
+                            $fileContent = $disk->get($cuttingFilePath);
+                            $fileName = basename($cuttingFilePath);
+                            $zip->addFromString("Job_{$jobId}_CuttingFiles/{$fileName}", $fileContent);
+                            $addedFiles++;
+                            \Log::info('Added cutting file to ZIP', [
+                                'job_id' => $jobId,
+                                'file_path' => $cuttingFilePath,
+                                'file_name' => $fileName
+                            ]);
+                        } else {
+                            \Log::warning('Cutting file not found in R2', [
+                                'job_id' => $jobId,
+                                'file_path' => $cuttingFilePath
+                            ]);
+                        }
+                    }
+                }
+            }
+
+            $zip->close();
+
+            if ($addedFiles === 0) {
+                // Clean up empty ZIP file
+                if (file_exists($tempZipPath)) {
+                    unlink($tempZipPath);
+                }
+                return response()->json(['error' => 'No files could be added to download'], 404);
+            }
+
+            \Log::info('Selected files ZIP created successfully', [
+                'invoice_id' => $invoiceId,
+                'files_added' => $addedFiles,
+                'zip_path' => $tempZipPath
+            ]);
+
+            // Return the ZIP file for download
+            return response()->download($tempZipPath, $zipFileName, [
+                'Content-Type' => 'application/zip',
+                'Content-Disposition' => 'attachment; filename="' . $zipFileName . '"',
+                'Cache-Control' => 'no-cache, no-store, must-revalidate',
+                'Pragma' => 'no-cache',
+                'Expires' => '0'
+            ])->deleteFileAfterSend(true);
+
+        } catch (\Exception $e) {
+            \Log::error('Error creating selected files ZIP download:', [
                 'invoice_id' => $request->input('invoiceId'),
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString()

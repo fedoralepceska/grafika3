@@ -209,17 +209,21 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::delete('/jobs/{id}/remove-original-file', [JobController::class, 'removeOriginalFile'])->name('jobs.removeOriginalFile');
     Route::delete('/jobs/{id}/remove-multiple-original-files', [JobController::class, 'removeMultipleOriginalFiles'])->name('jobs.removeMultipleOriginalFiles');
     Route::post('/orders/download-all-files', [InvoiceController::class, 'downloadAllFiles'])->name('orders.downloadAllFiles');
+    Route::post('/orders/download-selected-files', [InvoiceController::class, 'downloadSelectedFiles'])->name('orders.downloadSelectedFiles');
 
 Route::get('/jobs/{id}/articles', [JobController::class, 'getJobArticles'])->name('jobs.getArticles');
 Route::get('/jobs/{jobId}/view-original-file/{fileIndex}', [JobController::class, 'viewOriginalFile'])->name('jobs.viewOriginalFile');
-Route::get('/jobs/{jobId}/view-thumbnail/{fileIndex}', [JobController::class, 'viewThumbnail'])->name('jobs.viewThumbnail');
+Route::get('/jobs/{jobId}/view-thumbnail/{fileIndex}/{page?}', [JobController::class, 'viewThumbnail'])->name('jobs.viewThumbnail');
 Route::get('/jobs/{jobId}/thumbnails', [JobController::class, 'getThumbnails'])->name('jobs.getThumbnails');
+Route::get('/jobs/{jobId}/local-thumbnails', [JobController::class, 'getLocalThumbnails'])->name('jobs.getLocalThumbnails');
 Route::get('/jobs/{jobId}/view-legacy-file', [JobController::class, 'viewLegacyFile'])->name('jobs.viewLegacyFile');
+Route::get('/api/jobs/{jobId}/thumbnail-files', [JobController::class, 'getThumbnailFiles'])->name('jobs.getThumbnailFiles');
     
     // Cutting Files Routes
     Route::post('/jobs/{id}/upload-cutting-files', [JobController::class, 'uploadCuttingFiles'])->name('jobs.uploadCuttingFiles');
     Route::get('/jobs/{id}/cutting-upload-progress', [JobController::class, 'getCuttingUploadProgress'])->name('jobs.cuttingUploadProgress');
     Route::get('/jobs/{id}/cutting-file-thumbnails', [JobController::class, 'getCuttingFileThumbnails'])->name('jobs.getCuttingFileThumbnails');
+    Route::get('/jobs/{id}/local-cutting-thumbnails', [JobController::class, 'getLocalCuttingThumbnails'])->name('jobs.getLocalCuttingThumbnails');
     Route::get('/jobs/{jobId}/view-cutting-file/{fileIndex}', [JobController::class, 'viewCuttingFile'])->name('jobs.viewCuttingFile');
     Route::get('/jobs/{jobId}/view-cutting-file-thumbnail/{fileIndex}', [JobController::class, 'viewCuttingFileThumbnail'])->name('jobs.viewCuttingFileThumbnail');
     Route::delete('/jobs/{id}/remove-cutting-file', [JobController::class, 'removeCuttingFile'])->name('jobs.removeCuttingFile');

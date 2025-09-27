@@ -155,6 +155,27 @@
                                                     <span>File not found</span>
                                                 </div>
                                                 <div class="thumbnail-number">{{ fileIndex + 1 }}</div>
+                                                
+                                                <!-- Page navigation for multi-page files -->
+                                                <div v-if="getAvailableThumbnails(job.id, fileIndex).length > 1" class="page-navigation">
+                                                    <button 
+                                                        @click="previousPageImage(job, fileIndex, $event)" 
+                                                        class="page-nav-btn page-prev"
+                                                        title="Previous page"
+                                                    >
+                                                        <i class="fa fa-chevron-left"></i>
+                                                    </button>
+                                                    <div class="page-counter">
+                                                        {{ getCurrentPageIndex(job, fileIndex) + 1 }}/{{ getAvailableThumbnails(job.id, fileIndex).length }}
+                                                    </div>
+                                                    <button 
+                                                        @click="nextPageImage(job, fileIndex, $event)" 
+                                                        class="page-nav-btn page-next"
+                                                        title="Next page"
+                                                    >
+                                                        <i class="fa fa-chevron-right"></i>
+                                                    </button>
+                                                </div>
                                             </div>
                                         </div>
                                         <div class="file-count">{{ getJobFiles(job).length }} files</div>
@@ -162,21 +183,43 @@
                                     
                                     <!-- Legacy single file support -->
                                     <template v-else>
-                                        <button @click="toggleImagePopover(job)">
-                                                                                                <img 
-                                                        v-if="shouldAttemptImageLoad(job, 'legacy')"
-                                                        :src="getLegacyImageUrl(job)" 
-                                                        alt="Job Image" 
-                                                        class="jobImg thumbnail"
-                                                        loading="eager"
-                                                        decoding="async"
-                                                        @error="handleLegacyImageError($event, job)"
-                                                    />
+                                        <div class="single-file-container">
+                                            <img 
+                                                v-if="shouldAttemptImageLoad(job, 'legacy')"
+                                                :src="getThumbnailUrl(job.id, 0)" 
+                                                alt="Job Image" 
+                                                class="single-file-preview"
+                                                loading="eager"
+                                                decoding="async"
+                                                @error="handleLegacyImageError($event, job)"
+                                                @click="toggleImagePopover(job)"
+                                            />
                                             <div v-else class="image-error-placeholder">
                                                 <i class="fa fa-file-o"></i>
                                                 <span>File not found</span>
                                             </div>
-                                        </button>
+                                            
+                                            <!-- Page navigation for single file with multiple pages -->
+                                            <div v-if="getAvailableThumbnails(job.id, 0).length > 1" class="single-file-page-navigation">
+                                                <button 
+                                                    @click="previousPageImage(job, 0, $event)" 
+                                                    class="page-nav-btn page-prev"
+                                                    title="Previous page"
+                                                >
+                                                    <i class="fa fa-chevron-left"></i>
+                                                </button>
+                                                <div class="page-counter">
+                                                    {{ getCurrentPageIndex(job, 0) + 1 }}/{{ getAvailableThumbnails(job.id, 0).length }}
+                                                </div>
+                                                <button 
+                                                    @click="nextPageImage(job, 0, $event)" 
+                                                    class="page-nav-btn page-next"
+                                                    title="Next page"
+                                                >
+                                                    <i class="fa fa-chevron-right"></i>
+                                                </button>
+                                            </div>
+                                        </div>
                                         <div class="file-name">{{job.file}}</div>
                                     </template>
                                 </td>
@@ -339,7 +382,7 @@
                 </div>
             </div>
 
-            <!-- PDF Preview Modal for multiple files -->
+            <!-- Thumbnail Preview Modal for multiple files -->
             <div v-if="showPreviewModal" class="preview-modal" @click="closePreviewModal">
                 <div class="preview-modal-content" @click.stop>
                     <div class="preview-modal-header">
@@ -349,11 +392,59 @@
                         </button>
                     </div>
                     <div class="preview-modal-body">
-                        <iframe 
-                            v-if="currentJob && currentFileIndex !== null"
-                            :src="getOriginalFileUrl(currentJob.id, currentFileIndex)" 
-                            class="pdf-iframe"
-                        ></iframe>
+                        <div class="modal-carousel">
+                            <div class="modal-image-container">
+                                <img 
+                                    v-if="getModalCurrentThumbnail()"
+                                    :src="getModalCurrentThumbnail().url" 
+                                    :alt="`Page ${modalCurrentPage}`"
+                                    class="modal-image"
+                                    @error="onThumbnailError"
+                                />
+                                <div v-else class="modal-fallback">
+                                    <i class="fa fa-file-o"></i>
+                                    <span>No preview available</span>
+                                </div>
+                            </div>
+                            
+                            <!-- Carousel navigation buttons -->
+                            <div class="modal-carousel-controls">
+                                <button 
+                                    v-if="getPreviewThumbnails().length > 1"
+                                    @click="previousModalPage"
+                                    class="modal-carousel-btn modal-carousel-prev"
+                                    :disabled="modalCurrentPage === 1"
+                                >
+                                    <i class="fa fa-chevron-left"></i>
+                                </button>
+                                <button 
+                                    v-if="getPreviewThumbnails().length > 1"
+                                    @click="nextModalPage"
+                                    class="modal-carousel-btn modal-carousel-next"
+                                    :disabled="modalCurrentPage === getPreviewThumbnails().length"
+                                >
+                                    <i class="fa fa-chevron-right"></i>
+                                </button>
+                            </div>
+                            
+                            <!-- Page navigation -->
+                            <div v-if="getPreviewThumbnails().length > 1" class="modal-page-navigation">
+                                <div class="page-info">
+                                    Page {{ modalCurrentPage }} of {{ getPreviewThumbnails().length }}
+                                </div>
+                                <div class="page-dots">
+                                    <button
+                                        v-for="(thumbnail, index) in getPreviewThumbnails()"
+                                        :key="thumbnail.file_name"
+                                        @click="goToModalPage(index + 1)"
+                                        class="page-dot"
+                                        :class="{ active: modalCurrentPage === index + 1 }"
+                                    >
+                                        {{ index + 1 }}
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                     <div class="preview-modal-footer" v-if="getJobFiles(currentJob).length > 1">
                         <button 
@@ -396,7 +487,7 @@ export default {
     props: {
         actionId: String
     },
-    data() {
+        data() {
         return {
             selectedJob: null,
             invoices: [],
@@ -427,6 +518,9 @@ export default {
             isAdmin: false,
             _roleCheck: null,
             imageErrors: {}, // Track failed image loads
+            // Thumbnail system
+            carouselIndices: {}, // Track current page for each job/file combination
+            modalCurrentPage: 1, // For preview modal page navigation
         };
     },
     async created() {
@@ -640,6 +734,11 @@ export default {
                     this.currentUserId = response.data?.currentUserId;
                     
                     console.log('Processed invoices:', this.invoices);
+                    
+                    // Initialize carousel indices for all invoices
+                    this.invoices.forEach(invoice => {
+                        this.initializeCarouselIndices(invoice);
+                    });
                     
                     // After loading jobs, restore timer state for actions that are in progress
                     this.restoreTimerState();
@@ -1584,9 +1683,36 @@ export default {
             }
             return job.file ? [job.file] : [];
         },
-        getThumbnailUrl(jobId, fileIndex) {
-
-            return route('jobs.viewThumbnail', { jobId: jobId, fileIndex: fileIndex });
+        getThumbnailUrl(jobId, fileIndex, page = null) {
+            const thumbnails = this.getThumbnailsForFile(jobId, fileIndex);
+            
+            if (thumbnails.length === 0) {
+                return null;
+            }
+            
+            // If page is specified, find that specific page
+            if (page && page > 0) {
+                const pageThumbnail = thumbnails.find(t => 
+                    t.page_number === page
+                );
+                
+                if (pageThumbnail) {
+                    return pageThumbnail.url;
+                }
+            }
+            
+            // Use current page index from carousel state
+            const currentPageIndex = this.getCurrentPageIndex(this.findJobById(jobId), fileIndex);
+            if (thumbnails[currentPageIndex]) {
+                return thumbnails[currentPageIndex].url;
+            }
+            
+            // Fallback to first available thumbnail
+            if (thumbnails.length > 0) {
+                return thumbnails[0].url;
+            }
+            
+            return null;
         },
         handleThumbnailError(event, fileIndex) {
             const jobId = event?.target?.closest('tbody')?.dataset?.jobId;
@@ -1614,25 +1740,174 @@ export default {
         openPreviewModal(job, fileIndex) {
             this.currentFileIndex = fileIndex;
             this.currentJob = job;
+            this.modalCurrentPage = 1; // Reset to first page
             this.showPreviewModal = true;
         },
         closePreviewModal() {
             this.showPreviewModal = false;
             this.currentFileIndex = null;
             this.currentJob = null;
+            this.modalCurrentPage = 1;
         },
         previousFile() {
             if (this.currentFileIndex > 0) {
                 this.currentFileIndex--;
+                this.modalCurrentPage = 1; // Reset to first page when switching files
             }
         },
         nextFile() {
             if (this.currentFileIndex < this.getJobFiles(this.currentJob).length - 1) {
                 this.currentFileIndex++;
+                this.modalCurrentPage = 1; // Reset to first page when switching files
             }
         },
         getOriginalFileUrl(jobId, fileIndex) {
             return `/jobs/${jobId}/view-original-file/${fileIndex}`;
+        },
+        
+        // Thumbnail management methods
+        getJobThumbnails(jobId) {
+            // Find the job in the current invoices data
+            for (const invoice of this.invoices) {
+                if (invoice.jobs) {
+                    const job = invoice.jobs.find(j => j.id === jobId);
+                    if (job && job.thumbnails) {
+                        return job.thumbnails;
+                    }
+                }
+            }
+            return [];
+        },
+        
+        getThumbnailsForFile(jobId, fileIndex) {
+            const thumbnails = this.getJobThumbnails(jobId);
+            const job = this.findJobById(jobId);
+            if (!job) return [];
+            
+            // Get filename from dimensions_breakdown or originalFile
+            let originalFileName = '';
+            if (job.dimensions_breakdown && job.dimensions_breakdown[fileIndex]) {
+                originalFileName = job.dimensions_breakdown[fileIndex].filename || `File ${fileIndex + 1}`;
+            } else if (job.originalFile && job.originalFile[fileIndex]) {
+                originalFileName = this.getFileName(job.originalFile[fileIndex]);
+            } else {
+                return [];
+            }
+            
+            const fileNameWithoutExt = originalFileName.replace(/\.[^/.]+$/, "");
+            
+            // Filter thumbnails that match this file
+            const matchingThumbnails = thumbnails.filter(t => 
+                t && t.file_name && t.file_name.includes(fileNameWithoutExt) && t.file_name.endsWith('.png')
+            );
+            
+            // Sort by page number to ensure proper order
+            return matchingThumbnails.sort((a, b) => {
+                const pageA = parseInt(a.file_name.match(/_page_(\d+)\.png$/)?.[1] || '0');
+                const pageB = parseInt(b.file_name.match(/_page_(\d+)\.png$/)?.[1] || '0');
+                return pageA - pageB;
+            });
+        },
+        
+        getAvailableThumbnails(jobId, fileIndex) {
+            // Get all available thumbnail pages for a specific file
+            const thumbnails = this.getThumbnailsForFile(jobId, fileIndex);
+            return thumbnails;
+        },
+        
+        getCurrentPageIndex(job, fileIndex) {
+            const key = `${job.id}_${fileIndex}`;
+            return this.carouselIndices[key] || 0;
+        },
+        
+        findJobById(jobId) {
+            for (const invoice of this.invoices) {
+                if (invoice.jobs) {
+                    const job = invoice.jobs.find(j => j.id === jobId);
+                    if (job) return job;
+                }
+            }
+            return null;
+        },
+        
+        getFileName(filePath) {
+            return filePath.split('/').pop() || filePath;
+        },
+        
+        nextPageImage(job, fileIndex, event) {
+            event.stopPropagation();
+            const thumbnails = this.getThumbnailsForFile(job.id, fileIndex);
+            const currentPageIndex = this.getCurrentPageIndex(job, fileIndex);
+            const nextPageIndex = (currentPageIndex + 1) % thumbnails.length;
+            this.carouselIndices[`${job.id}_${fileIndex}`] = nextPageIndex;
+            // Force reactivity update
+            this.$forceUpdate();
+        },
+        
+        previousPageImage(job, fileIndex, event) {
+            event.stopPropagation();
+            const thumbnails = this.getThumbnailsForFile(job.id, fileIndex);
+            const currentPageIndex = this.getCurrentPageIndex(job, fileIndex);
+            const prevPageIndex = currentPageIndex === 0 ? thumbnails.length - 1 : currentPageIndex - 1;
+            this.carouselIndices[`${job.id}_${fileIndex}`] = prevPageIndex;
+            // Force reactivity update
+            this.$forceUpdate();
+        },
+        
+        initializeCarouselIndices(invoice) {
+            // Initialize carousel indices for all jobs with multiple files and pages
+            invoice.jobs.forEach(job => {
+                if (this.hasMultipleFiles(job)) {
+                    const files = this.getJobFiles(job);
+                    files.forEach((file, fileIndex) => {
+                        const key = `${job.id}_${fileIndex}`;
+                        if (!(key in this.carouselIndices)) {
+                            this.carouselIndices[key] = 0;
+                        }
+                    });
+                } else {
+                    // Single file with multiple pages
+                    const key = `${job.id}_0`;
+                    if (!(key in this.carouselIndices)) {
+                        this.carouselIndices[key] = 0;
+                    }
+                }
+            });
+        },
+        
+        // Modal carousel methods
+        getPreviewThumbnails() {
+            if (!this.currentJob || this.currentFileIndex === null) return [];
+            return this.getThumbnailsForFile(this.currentJob.id, this.currentFileIndex);
+        },
+
+        getModalCurrentThumbnail() {
+            const thumbnails = this.getPreviewThumbnails();
+            return thumbnails[this.modalCurrentPage - 1] || thumbnails[0];
+        },
+
+        nextModalPage() {
+            const thumbnails = this.getPreviewThumbnails();
+            if (this.modalCurrentPage < thumbnails.length) {
+                this.modalCurrentPage++;
+            }
+        },
+
+        previousModalPage() {
+            if (this.modalCurrentPage > 1) {
+                this.modalCurrentPage--;
+            }
+        },
+
+        goToModalPage(pageNumber) {
+            const thumbnails = this.getPreviewThumbnails();
+            if (pageNumber >= 1 && pageNumber <= thumbnails.length) {
+                this.modalCurrentPage = pageNumber;
+            }
+        },
+
+        onThumbnailError(jobId, fileIndex) {
+            console.warn(`Thumbnail failed to load for job ${jobId}, file ${fileIndex}`);
         },
         
         debugCurrentState() {
@@ -2996,6 +3271,219 @@ td {
 .order-details-row,
 .order-actions {
     box-sizing: border-box;
+}
+
+/* Page navigation styles */
+.page-navigation {
+    position: absolute;
+    bottom: 2px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    flex-direction: row;
+    gap: 2px;
+    z-index: 15;
+}
+
+.page-nav-btn {
+    background-color: rgba(59, 130, 246, 0.9);
+    border: none;
+    color: white;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 8px;
+    transition: all 0.2s ease;
+    z-index: 10;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+    
+    &:hover {
+        background-color: rgba(59, 130, 246, 1);
+        transform: scale(1.1);
+        box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+    }
+    
+    &:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+        background-color: #6b7280;
+    }
+}
+
+.page-counter {
+    background-color: rgba(0, 0, 0, 0.8);
+    color: white;
+    font-size: 8px;
+    padding: 1px 4px;
+    border-radius: 3px;
+    font-weight: bold;
+    min-width: 20px;
+    text-align: center;
+    line-height: 1;
+}
+
+.single-file-page-navigation {
+    position: absolute;
+    bottom: 2px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 2px;
+    z-index: 15;
+}
+
+/* Modal carousel styles */
+.modal-carousel {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+
+.modal-image-container {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: #f8f9fa;
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.modal-image {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+    border-radius: 8px;
+}
+
+.modal-fallback {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    color: #6b7280;
+    font-size: 16px;
+    
+    i {
+        font-size: 48px;
+        margin-bottom: 12px;
+        color: #9ca3af;
+    }
+    
+    span {
+        font-size: 14px;
+    }
+}
+
+.modal-carousel-controls {
+    position: absolute;
+    top: 50%;
+    left: 0;
+    right: 0;
+    display: flex;
+    justify-content: space-between;
+    pointer-events: none;
+    z-index: 10;
+}
+
+.modal-carousel-btn {
+    background-color: rgba(59, 130, 246, 0.9);
+    border: none;
+    color: white;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    transition: all 0.2s ease;
+    pointer-events: auto;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    
+    &:hover:not(:disabled) {
+        background-color: rgba(59, 130, 246, 1);
+        transform: scale(1.1);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    }
+    
+    &:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+        background-color: #6b7280;
+    }
+}
+
+.modal-carousel-prev {
+    margin-left: 16px;
+}
+
+.modal-carousel-next {
+    margin-right: 16px;
+}
+
+.modal-page-navigation {
+    position: absolute;
+    bottom: 16px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    z-index: 10;
+}
+
+.page-info {
+    background-color: rgba(0, 0, 0, 0.8);
+    color: white;
+    padding: 4px 12px;
+    border-radius: 16px;
+    font-size: 14px;
+    font-weight: 500;
+}
+
+.page-dots {
+    display: flex;
+    gap: 4px;
+}
+
+.page-dot {
+    background-color: rgba(255, 255, 255, 0.5);
+    border: none;
+    color: white;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: 500;
+    transition: all 0.2s ease;
+    
+    &:hover {
+        background-color: rgba(255, 255, 255, 0.7);
+    }
+    
+    &.active {
+        background-color: #3b82f6;
+        color: white;
+    }
 }
 </style>
 
