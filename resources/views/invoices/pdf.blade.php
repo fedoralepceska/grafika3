@@ -432,11 +432,11 @@
                                 }
                             }
                         @endphp
-                        <div  class="bolder tahoma" style="margin-top: 20px; font-size: 9.5pt; color: #3f3f3f">
+                        <div  class="bolder tahoma" style="margin-top: 20px; font-size: 9.5pt; color: #3f3f3f;">
                             ART BOARD {{ $artboardCounter }}@if($pageDimensions) - {{ $pageDimensions }}@endif<span class="opensans bolder" style="color: #333333; font-size: 10pt" >:</span>
                         </div>
-                        <div class="image-box" style="text-align: center; max-height: 415px; overflow: hidden; display: flex; align-items: center; justify-content: center;">
-                            <img src="data:image/png;base64,{{ $thumbnailBase64 }}" alt="Job Image {{ $artboardCounter }}" style="max-width: 100%; max-height: 390px; object-fit: contain; vertical-align: middle;">
+                        <div class="image-box" style="text-align: center; height: 390px; overflow: hidden; display: flex; align-items: center; justify-content: center;">
+                            <img src="data:image/png;base64,{{ $thumbnailBase64 }}" alt="Job Image {{ $artboardCounter }}" style="max-width: 100%; max-height: 380px; object-fit: contain; vertical-align: middle;">
                         </div>
                         
                         {{-- Add control table after each art board --}}
