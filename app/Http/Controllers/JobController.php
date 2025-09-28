@@ -13,6 +13,7 @@ use App\Models\SmallMaterial;
 use App\Models\WorkerAnalytics;
 use App\Models\CatalogItem;
 use App\Services\TemplateStorageService;
+use App\Jobs\GeneratePdfThumbnails;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -2535,41 +2536,39 @@ class JobController extends Controller
                     ]);
                 }
 
-                // Clean up ALL thumbnails for this job from R2 storage
+
+                // Clean up ALL local thumbnails for this job
                 try {
-                    $thumbnailFiles = $this->templateStorageService->getDisk()->files('job-thumbnails');
-                    $deletedThumbnails = 0;
-
-                    foreach ($thumbnailFiles as $thumbFile) {
-                        $thumbBasename = basename($thumbFile);
-                        // Delete all thumbnails that belong to this job
-                        if (strpos($thumbBasename, 'job_' . $id . '_') === 0) {
-                            try {
-                                $this->templateStorageService->getDisk()->delete($thumbFile);
-                                $deletedThumbnails++;
-                                \Log::info('Successfully deleted thumbnail from R2', [
-                                    'job_id' => $id,
-                                    'thumbnail_path' => $thumbFile
-                                ]);
-                            } catch (\Exception $e) {
-                                \Log::warning('Failed to delete thumbnail from R2: ' . $e->getMessage(), [
-                                    'job_id' => $id,
-                                    'thumbnail_path' => $thumbFile
-                                ]);
-                            }
-                        }
-                    }
-
-                    \Log::info('Job deletion cleanup completed', [
+                    $localThumbnailsDeleted = $this->cleanupAllLocalThumbnailsForJob($id);
+                    \Log::info('Local thumbnail cleanup completed', [
                         'job_id' => $id,
-                        'original_files_deleted' => count($originalFiles),
-                        'thumbnails_deleted' => $deletedThumbnails
+                        'local_thumbnails_deleted' => $localThumbnailsDeleted
                     ]);
                 } catch (\Exception $e) {
-                    \Log::warning('Failed to cleanup thumbnails during job deletion: ' . $e->getMessage(), [
+                    \Log::warning('Failed to cleanup local thumbnails during job deletion: ' . $e->getMessage(), [
                         'job_id' => $id
                     ]);
                 }
+
+                // Clean up ALL local cutting thumbnails for this job
+                try {
+                    $localCuttingThumbnailsDeleted = $this->cleanupAllLocalCuttingThumbnailsForJob($id);
+                    \Log::info('Local cutting thumbnail cleanup completed', [
+                        'job_id' => $id,
+                        'local_cutting_thumbnails_deleted' => $localCuttingThumbnailsDeleted
+                    ]);
+                } catch (\Exception $e) {
+                    \Log::warning('Failed to cleanup local cutting thumbnails during job deletion: ' . $e->getMessage(), [
+                        'job_id' => $id
+                    ]);
+                }
+
+                \Log::info('Job deletion cleanup completed', [
+                    'job_id' => $id,
+                    'original_files_deleted' => count($originalFiles),
+                    'local_thumbnails_deleted' => $localThumbnailsDeleted ?? 0,
+                    'local_cutting_thumbnails_deleted' => $localCuttingThumbnailsDeleted ?? 0
+                ]);
 
                 return response()->json([
                     'message' => 'Job and related actions deleted successfully'
@@ -3147,14 +3146,56 @@ class JobController extends Controller
             }
         }
 
-        // Thumbnails are disabled
-        $thumbnails[] = [
-            'originalFile' => $filePath,
-            'thumbnailPath' => null,
-            'filename' => $originalFilename,
-            'type' => 'pdf',
-            'index' => $index
-        ];
+        // Generate thumbnails for all files (including small ones)
+        try {
+            \Log::info('Starting thumbnail generation for small file', [
+                'job_id' => $jobId,
+                'file' => $file->getClientOriginalName(),
+                'index' => $index,
+                'file_size' => $file->getSize()
+            ]);
+            
+            // Generate thumbnails using the same job as multipart uploads
+            GeneratePdfThumbnails::dispatchSync(
+                jobId: $jobId,
+                r2Key: $filePath,
+                tempLocalPath: $file->getPathname(), // Use the temporary file path
+                dpi: 72,
+                fileIndex: $index,
+                isCuttingFile: false
+            );
+            
+            $thumbnails[] = [
+                'originalFile' => $filePath,
+                'thumbnailPath' => 'generated', // Placeholder - actual thumbnails will be in public directory
+                'filename' => $originalFilename,
+                'type' => 'pdf',
+                'index' => $index
+            ];
+            
+            \Log::info('Successfully generated thumbnails for small file', [
+                'job_id' => $jobId,
+                'file' => $file->getClientOriginalName(),
+                'index' => $index
+            ]);
+            
+        } catch (\Exception $e) {
+            \Log::warning('Failed to generate thumbnails for small file', [
+                'job_id' => $jobId,
+                'file' => $file->getClientOriginalName(),
+                'index' => $index,
+                'error' => $e->getMessage()
+            ]);
+            
+            // Still add to thumbnails array even if generation failed
+            $thumbnails[] = [
+                'originalFile' => $filePath,
+                'thumbnailPath' => null,
+                'filename' => $originalFilename,
+                'type' => 'pdf',
+                'index' => $index
+            ];
+        }
     }
 
     /**
@@ -4197,6 +4238,144 @@ class JobController extends Controller
                 'file_index' => $fileIndex,
                 'trace' => $e->getTraceAsString()
             ]);
+        }
+    }
+
+    /**
+     * Clean up ALL local thumbnails for a job (used during job deletion)
+     */
+    private function cleanupAllLocalThumbnailsForJob($jobId)
+    {
+        try {
+            $thumbnailDir = public_path('jobfiles/thumbnails/' . $jobId);
+            
+            if (!is_dir($thumbnailDir)) {
+                \Log::info('No local thumbnail directory found for job deletion cleanup', [
+                    'job_id' => $jobId,
+                    'directory' => $thumbnailDir
+                ]);
+                return 0;
+            }
+
+            // Get all PNG files in the thumbnail directory
+            $thumbnailFiles = glob($thumbnailDir . '/*.png');
+            $deleted = 0;
+            
+            foreach ($thumbnailFiles as $thumbnailFile) {
+                try {
+                    if (unlink($thumbnailFile)) {
+                        $deleted++;
+                        \Log::info('Deleted local thumbnail during job deletion', [
+                            'job_id' => $jobId,
+                            'thumbnail_path' => $thumbnailFile
+                        ]);
+                    }
+                } catch (\Exception $e) {
+                    \Log::warning('Failed to delete local thumbnail during job deletion: ' . $e->getMessage(), [
+                        'job_id' => $jobId,
+                        'thumbnail' => $thumbnailFile
+                    ]);
+                }
+            }
+
+            // Remove the directory if it's now empty
+            if ($deleted > 0) {
+                try {
+                    rmdir($thumbnailDir);
+                    \Log::info('Removed empty thumbnail directory during job deletion', [
+                        'job_id' => $jobId,
+                        'directory' => $thumbnailDir
+                    ]);
+                } catch (\Exception $e) {
+                    \Log::warning('Failed to remove empty thumbnail directory during job deletion: ' . $e->getMessage(), [
+                        'job_id' => $jobId,
+                        'directory' => $thumbnailDir
+                    ]);
+                }
+            }
+
+            \Log::info('Local thumbnail cleanup for job deletion completed', [
+                'job_id' => $jobId,
+                'deleted_count' => $deleted
+            ]);
+
+            return $deleted;
+
+        } catch (\Exception $e) {
+            \Log::error('Failed to cleanup all local thumbnails for job: ' . $e->getMessage(), [
+                'job_id' => $jobId,
+                'trace' => $e->getTraceAsString()
+            ]);
+            return 0;
+        }
+    }
+
+    /**
+     * Clean up ALL local cutting thumbnails for a job (used during job deletion)
+     */
+    private function cleanupAllLocalCuttingThumbnailsForJob($jobId)
+    {
+        try {
+            $thumbnailDir = public_path('jobfiles/cutting-thumbnails/' . $jobId);
+            
+            if (!is_dir($thumbnailDir)) {
+                \Log::info('No local cutting thumbnail directory found for job deletion cleanup', [
+                    'job_id' => $jobId,
+                    'directory' => $thumbnailDir
+                ]);
+                return 0;
+            }
+
+            // Get all PNG files in the cutting thumbnail directory
+            $thumbnailFiles = glob($thumbnailDir . '/*.png');
+            $deleted = 0;
+            
+            foreach ($thumbnailFiles as $thumbnailFile) {
+                try {
+                    if (unlink($thumbnailFile)) {
+                        $deleted++;
+                        \Log::info('Deleted local cutting thumbnail during job deletion', [
+                            'job_id' => $jobId,
+                            'thumbnail_path' => $thumbnailFile
+                        ]);
+                    }
+                } catch (\Exception $e) {
+                    \Log::warning('Failed to delete local cutting thumbnail during job deletion: ' . $e->getMessage(), [
+                        'job_id' => $jobId,
+                        'thumbnail' => $thumbnailFile
+                    ]);
+                }
+            }
+
+            // Remove the directory if it's now empty
+            if ($deleted > 0) {
+                try {
+                    rmdir($thumbnailDir);
+                    \Log::info('Removed empty cutting thumbnail directory during job deletion', [
+                        'job_id' => $jobId,
+                        'directory' => $thumbnailDir
+                    ]);
+                } catch (\Exception $e) {
+                    \Log::warning('Failed to remove empty cutting thumbnail directory during job deletion: ' . $e->getMessage(), [
+                        'job_id' => $jobId,
+                        'directory' => $thumbnailDir
+                    ]);
+                }
+            }
+
+            \Log::info('Local cutting thumbnail cleanup for job deletion completed', [
+                'job_id' => $jobId,
+                'deleted_count' => $deleted
+            ]);
+
+            return $deleted;
+
+        } catch (\Exception $e) {
+            \Log::error('Failed to cleanup all local cutting thumbnails for job: ' . $e->getMessage(), [
+                'job_id' => $jobId,
+                'trace' => $e->getTraceAsString()
+            ]);
+            return 0;
         }
     }
 

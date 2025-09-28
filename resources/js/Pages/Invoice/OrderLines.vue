@@ -7,14 +7,25 @@
                 <div class="text-white">
                     <td class="text-black bg-gray-200 font-weight-black flex justify-between items-center" style="padding: 0 0 0 5px">
                         <span class="bold">#{{ index + 1 }} {{ job.name }}</span>
-                        <button
-                            @click="confirmDelete(job)"
-                            class="delete-btn text-red-600 hover:text-red-800"
-                            :disabled="jobDeletionStates[job.id] === 'deleting'"
-                        >
-                            <i v-if="jobDeletionStates[job.id] !== 'deleting'" class="fa fa-times"></i>
-                            <i v-else class="fa fa-spinner fa-spin"></i>
-                        </button>
+                        <div class="flex gap-2">
+                            <button
+                                @click="refreshJobState(job)"
+                                class="refresh-btn text-blue-600 hover:text-blue-800"
+                                :disabled="jobRefreshStates[job.id] === 'refreshing'"
+                                title="Refresh job state"
+                            >
+                                <i v-if="jobRefreshStates[job.id] !== 'refreshing'" class="fa fa-refresh"></i>
+                                <i v-else class="fa fa-spinner fa-spin"></i>
+                            </button>
+                            <button
+                                @click="confirmDelete(job)"
+                                class="delete-btn text-red-600 hover:text-red-800"
+                                :disabled="jobDeletionStates[job.id] === 'deleting'"
+                            >
+                                <i v-if="jobDeletionStates[job.id] !== 'deleting'" class="fa fa-times"></i>
+                                <i v-else class="fa fa-spinner fa-spin"></i>
+                            </button>
+                        </div>
                     </td>
                     <td> File: <span class="bold">{{ job.file }}</span></td>
                     <td>ID: <span class="bold">{{ job.id }}</span></td>
@@ -456,6 +467,8 @@ export default {
             cuttingFileRemovalStates: {}, // Track cutting file removal states: 'idle', 'removing', 'complete', 'error'
             // Job deletion states
             jobDeletionStates: {}, // Track job deletion states: 'idle', 'deleting', 'complete', 'error'
+            // Job refresh states
+            jobRefreshStates: {}, // Track job refresh states: 'idle', 'refreshing', 'complete', 'error'
             // Cost breakdown modal
             showCostBreakdownModal: false,
             selectedJob: null,
@@ -658,6 +671,10 @@ export default {
             // Initialize file removal state
             if (!this.fileRemovalStates[jobId]) {
                 this.fileRemovalStates[jobId] = 'idle';
+            }
+            // Initialize job refresh state
+            if (!this.jobRefreshStates[jobId]) {
+                this.jobRefreshStates[jobId] = 'idle';
             }
         },
         triggerFilesInput(jobId) {
@@ -1350,6 +1367,69 @@ export default {
             if (this.jobDeletionStates[jobId]) {
                 delete this.jobDeletionStates[jobId];
                 this.$forceUpdate();
+            }
+        },
+
+        // Refresh job state method
+        async refreshJobState(job) {
+            const toast = useToast();
+            
+            // Set refresh state
+            this.jobRefreshStates[job.id] = 'refreshing';
+            this.$forceUpdate();
+            
+            try {
+                // Reset upload manager state for this job
+                this.uploadManager.forceResetJob(job.id);
+                
+                // Clear all local state for this job
+                this.jobThumbnails[job.id] = [];
+                this.jobCuttingFiles[job.id] = [];
+                this.fileRemovalStates[job.id] = 'idle';
+                this.cuttingFileRemovalStates[job.id] = {};
+                
+                // Reinitialize job states
+                this.initializeJobStates(job.id);
+                this.initializeCuttingJobStates(job.id);
+                
+                // Reload job data from backend
+                await this.refreshJobData(job.id);
+                
+                // Reload thumbnails if job has files
+                if (job.originalFile && job.originalFile.length > 0) {
+                    await this.loadJobThumbnails(job.id);
+                }
+                
+                // Reload cutting files if job has cutting files
+                if (job.cuttingFiles && job.cuttingFiles.length > 0) {
+                    await this.loadJobCuttingFiles(job.id);
+                }
+                
+                // Set refresh state to complete
+                this.jobRefreshStates[job.id] = 'complete';
+                this.$forceUpdate();
+                
+                toast.success('Job state refreshed successfully');
+                
+                // Reset to idle after a delay
+                setTimeout(() => {
+                    this.jobRefreshStates[job.id] = 'idle';
+                    this.$forceUpdate();
+                }, 2000);
+                
+            } catch (error) {
+                console.error('Error refreshing job state:', error);
+                toast.error('Failed to refresh job state');
+                
+                // Set refresh state to error
+                this.jobRefreshStates[job.id] = 'error';
+                this.$forceUpdate();
+                
+                // Reset to idle after a delay
+                setTimeout(() => {
+                    this.jobRefreshStates[job.id] = 'idle';
+                    this.$forceUpdate();
+                }, 3000);
             }
         },
 
@@ -2290,10 +2370,26 @@ input, select {
     }
 }
 
-.delete-btn {
+.delete-btn, .refresh-btn {
     padding: 4px 8px;
     border-radius: 4px;
     transition: all 0.2s;
+}
+
+.refresh-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+}
+
+.refresh-btn:hover:not(:disabled) {
+    transform: scale(1.1);
+}
+
+.refresh-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none;
 }
 
 .confirmation-dialog {
