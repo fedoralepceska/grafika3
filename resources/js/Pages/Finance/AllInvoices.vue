@@ -79,7 +79,7 @@
                         <p>No invoices found matching your criteria.</p>
                     </div>
                 </div>
-                <Pagination :pagination="displayFakturas"/>
+                <Pagination :pagination="displayFakturas" @pagination-change-page="goToPage"/>
             </div>
         </div>
     </MainLayout>
@@ -109,6 +109,7 @@ export default {
             localInvoices: [],
             localFakturas: null,
             loading: false,
+            perPage: 10,
         };
     },
     computed: {
@@ -126,9 +127,11 @@ export default {
         if (this.fakturas) {
             this.localFakturas = this.fakturas;
         }
+        // Force initial load with testing per-page value
+        this.applyFilter(1)
     },
     methods: {
-        async applyFilter() {
+        async applyFilter(page = 1) {
             try {
                 this.loading = true;
                 
@@ -137,6 +140,7 @@ export default {
                         searchQuery: this.searchQuery,
                         sortOrder: this.sortOrder,
                         client: this.filterClient,
+                        page: page,
                     },
                 });
                 
@@ -156,6 +160,9 @@ export default {
                 if (this.filterClient && this.filterClient !== 'All') {
                     params.push(`client=${encodeURIComponent(this.filterClient)}`);
                 }
+                if (page) {
+                    params.push(`page=${page}`);
+                }
                 
                 if (params.length > 0) {
                     redirectUrl += '?' + params.join('&');
@@ -169,9 +176,12 @@ export default {
                 this.loading = false;
             }
         },
+        goToPage(page) {
+            this.applyFilter(page);
+        },
         async searchInvoices() {
             // Use the same applyFilter method for consistency
-            await this.applyFilter();
+            await this.applyFilter(1);
         },
         async fetchUniqueClients() {
             try {

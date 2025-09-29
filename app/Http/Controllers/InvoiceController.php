@@ -1096,7 +1096,9 @@ class InvoiceController extends Controller
             $query->orderBy('created_at', $request->input('sortOrder', 'desc'));
 
             // Get paginated results
-            $invoices = $query->latest()->paginate(10);
+            $perPage = (int) $request->input('per_page', 10);
+            $perPage = max(1, min($perPage, 200));
+            $invoices = $query->latest()->paginate($perPage);
 
             // Return JSON response for AJAX calls
             return response()->json($invoices);
@@ -1137,8 +1139,10 @@ class InvoiceController extends Controller
             $sortOrder = $request->input('sortOrder', 'desc');
             $query->orderBy('created_at', $sortOrder);
 
-            // Apply pagination with 10 results per page
-            $fakturas = $query->paginate(10);
+            // Apply pagination with configurable results per page
+            $perPage = (int) $request->input('per_page', 10);
+            $perPage = max(1, min($perPage, 200));
+            $fakturas = $query->paginate($perPage);
 
             // Return JSON response for AJAX calls
             return response()->json($fakturas);
@@ -1567,8 +1571,10 @@ class InvoiceController extends Controller
             $sortOrder = $request->input('sortOrder', 'desc');
             $query->orderBy('created_at', $sortOrder);
 
-            // Apply pagination with 10 results per page
-            $fakturas = $query->paginate(10);
+            // Apply pagination with configurable results per page on initial page
+            $perPage = (int) $request->input('per_page', 10);
+            $perPage = max(1, min($perPage, 200));
+            $fakturas = $query->paginate($perPage);
 
             // Handle AJAX requests for JSON responses
             if ($request->wantsJson()) {

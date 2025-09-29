@@ -84,7 +84,7 @@
                         </div>
                     </div>
                 </div>
-                <Pagination :pagination="invoices"/>
+                <Pagination :pagination="{ data: [], links: invoices?.links || [] }" @pagination-change-page="goToPage"/>
             </div>
         </div>
     </MainLayout>
@@ -116,12 +116,15 @@ export default {
             filteredInvoices: [],
             selectedInvoices:{},
             loading: false,
+            perPage: 10,
         };
     },
     mounted() {
         this.localInvoices = this.invoices.data.slice();
         this.fetchUniqueClients()
         this.filteredInvoices = this.invoices.data; // Backend now handles the faktura_id filtering
+        // Force initial load with testing per-page value
+        this.applyFilter(1)
     },
     computed:{
         hasSelectedInvoices() {
@@ -191,7 +194,7 @@ export default {
                 return "green-text";
             }
         },
-        async applyFilter() {
+        async applyFilter(page = 1) {
             try {
                 this.loading = true;
                 
@@ -200,11 +203,16 @@ export default {
                         searchQuery: this.searchQuery,
                         sortOrder: this.sortOrder,
                         client: this.filterClient,
+                        page: page,
                     },
                 });
                 
                 // Update the filtered invoices directly without showing all orders
                 this.filteredInvoices = response.data.data || response.data;
+                // Keep pagination links from backend if sent
+                if (response.data && response.data.links) {
+                    this.invoices.links = response.data.links;
+                }
                 
                 // Build URL with current filters for browser history
                 let redirectUrl = '/notInvoiced';
@@ -218,6 +226,9 @@ export default {
                 }
                 if (this.filterClient && this.filterClient !== 'All') {
                     params.push(`client=${encodeURIComponent(this.filterClient)}`);
+                }
+                if (page) {
+                    params.push(`page=${page}`);
                 }
                 
                 if (params.length > 0) {
@@ -234,7 +245,10 @@ export default {
         },
         async searchInvoices() {
             // Use the same applyFilter method for consistency
-            await this.applyFilter();
+            await this.applyFilter(1);
+        },
+        goToPage(page){
+            this.applyFilter(page);
         },
         async fetchUniqueClients() {
             try {
