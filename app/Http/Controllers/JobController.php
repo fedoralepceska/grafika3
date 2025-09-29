@@ -894,6 +894,9 @@ class JobController extends Controller
         $perPage = (int) $request->query('per_page', 10);
         $perPage = $perPage > 0 ? min($perPage, 100) : 10;
         $search = trim((string) $request->query('search', ''));
+        // Optional filters
+        $rushOnly = filter_var($request->query('rush_only', null), FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
+        $onHoldOnly = filter_var($request->query('on_hold_only', null), FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
 
         // Ensure action exists
         $actions = DB::table('job_actions')->where('name', $actionId)->get();
@@ -914,6 +917,12 @@ class JobController extends Controller
             ->where(function ($q) {
                 $q->whereNull('job_actions.status')
                   ->orWhere('job_actions.status', '!=', 'Completed');
+            })
+            ->when($rushOnly === true, function ($q) {
+                $q->where('invoices.rush', true);
+            })
+            ->when($onHoldOnly === true, function ($q) {
+                $q->where('invoices.onHold', true);
             });
 
         if ($search !== '') {
@@ -940,6 +949,12 @@ class JobController extends Controller
                         $q2->orWhere('invoices.id', (int) $search);
                     }
                 });
+            })
+            ->when($rushOnly === true, function ($q) {
+                $q->where('invoices.rush', true);
+            })
+            ->when($onHoldOnly === true, function ($q) {
+                $q->where('invoices.onHold', true);
             })
             ->whereExists(function ($q) use ($actionId) {
                 $q->select(DB::raw(1))
@@ -3155,12 +3170,15 @@ class JobController extends Controller
                 'file_size' => $file->getSize()
             ]);
             
+            // Determine DPI dynamically from physical page size to avoid blurry thumbnails
+            $dpi = $this->computeDpiForSmallUpload($pageDimensions[0]['width_mm'] ?? null, $pageDimensions[0]['height_mm'] ?? null, 1200, 150, 400);
+            
             // Generate thumbnails using the same job as multipart uploads
             GeneratePdfThumbnails::dispatchSync(
                 jobId: $jobId,
                 r2Key: $filePath,
                 tempLocalPath: $file->getPathname(), // Use the temporary file path
-                dpi: 72,
+                dpi: $dpi,
                 fileIndex: $index,
                 isCuttingFile: false
             );
@@ -3196,6 +3214,32 @@ class JobController extends Controller
                 'index' => $index
             ];
         }
+    }
+
+    /**
+     * Compute DPI for small uploads (regular upload path), based on first page mm size.
+     */
+    private function computeDpiForSmallUpload($widthMm, $heightMm, int $targetLongEdgePx = 1200, int $minDpi = 150, int $maxDpi = 400): int
+    {
+        try {
+            $wMm = (float)($widthMm ?? 0);
+            $hMm = (float)($heightMm ?? 0);
+            $longMm = max($wMm, $hMm);
+            $longIn = $longMm / 25.4;
+            if ($longIn > 0) {
+                // Safety caps for very large pages
+                if ($longMm >= 2000) {
+                    $targetLongEdgePx = 2400; // cap raster size
+                    $minDpi = 30;
+                    $maxDpi = 200;
+                }
+                $dpi = (int)ceil($targetLongEdgePx / $longIn);
+                return max($minDpi, min($maxDpi, $dpi));
+            }
+        } catch (\Throwable $e) {
+            // ignore, fallback
+        }
+        return $minDpi;
     }
 
     /**

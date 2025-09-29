@@ -20,6 +20,26 @@
                         class="bg-white text-black px-3 py-2 rounded"
                         style="min-width: 280px"
                     />
+                    <button
+                        type="button"
+                        class="filter-badge"
+                        :class="rushOnly ? 'badge-rush' : 'badge-plain'"
+                        @click="toggleRushBadge"
+                        aria-pressed="rushOnly ? 'true' : 'false'"
+                    >
+                        <i class="fa-solid fa-fire"></i>
+                        <span>Rush</span>
+                    </button>
+                    <button
+                        type="button"
+                        class="filter-badge"
+                        :class="onHoldOnly ? 'badge-hold' : 'badge-plain'"
+                        @click="toggleOnHoldBadge"
+                        aria-pressed="onHoldOnly ? 'true' : 'false'"
+                    >
+                        <i class="fa-solid fa-pause"></i>
+                        <span>On Hold</span>
+                    </button>
                 </div>
                 <div class="text-white">
                     <span>Page {{ pagination.current_page }} / {{ pagination.last_page }}</span>
@@ -49,9 +69,11 @@
                 <div class="header-actions-space"></div>
             </div>
 
-            <div v-for="(invoice,index) in invoices" class="order-card" :class="{ 'on-hold': invoice.onHold }">
+            <div v-for="(invoice,index) in invoices" class="order-card" :class="{ 'on-hold': invoice.onHold, 'rush': invoice.rush }">
                 <!-- Single Row Layout -->
-                <div class="order-row">
+                <div class="order-row" :class="{ rush: invoice.rush }">
+                    <!-- Red shimmer sweep for rush rows (behind content) -->
+                    <div v-if="invoice.rush" class="rush-shimmer" aria-hidden="true"></div>
                     <!-- Order Title Box - Only title inside -->
                     <div class="order-title-box" @click="navigateToOrder(invoice.id)">
                         <h3 class="truncated-title" :title="invoice.invoice_title">{{ invoice.invoice_title }}</h3>
@@ -79,6 +101,22 @@
                         <div class="detail-column step-column">
                             <span class="value">{{ actionId.startsWith('Machine') ? $t(`machinePrint.${actionId}`) : actionId }}</span>
                         </div>
+                    </div>
+                    
+                    <!-- Order Status Badges -->
+                    <div class="order-status-badges p-2">
+                        <span v-if="invoice.rush" class="badge badge-rush">
+                            <i class="fa-solid fa-fire"></i>
+                            <span>Rush</span>
+                        </span>
+                        <span v-if="invoice.onHold" class="badge badge-hold">
+                            <i class="fa-solid fa-pause"></i>
+                            <span>On Hold</span>
+                        </span>
+                        <span v-if="invoiceHasNotes(invoice)" class="badge badge-note" :title="$t('readNotes')">
+                            <i class="fa-regular fa-note-sticky"></i>
+                            <span>Note</span>
+                        </span>
                     </div>
                     
                     <!-- Actions -->
@@ -120,11 +158,17 @@
                         <tbody v-for="(job, jobIndex) in invoice.jobs" :key="jobIndex" :data-job-id="job.id">
                             <tr v-if="invoice.comment && !acknowledged && hasNoteForCurrentAction(job)" :data-job-id="job.id">
                                 <td :colspan="8 + (hasWaitingJobs ? 1 : 0) + (hasNextSteps ? 1 : 0)" class="orange">
-                                    <button @click="openModal">
-                                    <i class="fa-solid fa-arrow-down"></i>
-                                        {{ $t('readNotes') }}
-                                    <i class="fa-solid fa-arrow-down"></i>
-                                    </button>
+                                    <div class="flex items-center justify-center gap-3">
+                                        <button @click="openModal">
+                                            <i class="fa-solid fa-arrow-down"></i>
+                                            {{ $t('readNotes') }}
+                                            <i class="fa-solid fa-arrow-down"></i>
+                                        </button>
+                                        <button class="see-notes-btn" @click="openModal">
+                                            <i class="fa-solid fa-note-sticky"></i>
+                                            See notes
+                                        </button>
+                                    </div>
                                 </td>
                             </tr>
                             <tr :class="{
@@ -283,13 +327,15 @@
                                                 {
                                                     'disabled': invoice.onHold ||
                                                                jobDisabledStatus[getActionId(job).id] ||
-                                                               !isPreviousActionCompleted(job)
+                                                               !isPreviousActionCompleted(job) ||
+                                                               (hasNoteForCurrentAction(job) && !isNoteAcknowledged(job))
                                                 }
                                             ]"
                                             @click="startJob(job)"
                                             :disabled="invoice.onHold ||
                                                                jobDisabledStatus[getActionId(job).id] ||
-                                                               !isPreviousActionCompleted(job)"
+                                                               !isPreviousActionCompleted(job) ||
+                                                               (hasNoteForCurrentAction(job) && !isNoteAcknowledged(job))"
                                         >
                                             <strong>
                                                 {{ $t('startJob') }}
@@ -506,6 +552,8 @@ export default {
             currentUserId: null,
             search: '',
             searchDebounce: null,
+            rushOnly: false,
+            onHoldOnly: false,
             pagination: {
                 current_page: 1,
                 last_page: 1,
@@ -617,6 +665,31 @@ export default {
         }
     },
     methods: {
+        isNoteAcknowledged(job) {
+            try {
+                const key = `${job.id}_${this.actionId}`;
+                return !!this.acknowledgedNotes[key];
+            } catch (e) {
+                return false;
+            }
+        },
+        acknowledgeNote(job) {
+            try {
+                const key = `${job.id}_${this.actionId}`;
+                this.acknowledgedNotes[key] = true;
+                localStorage.setItem('acknowledgedNotes', JSON.stringify(this.acknowledgedNotes));
+                const toast = useToast();
+                toast.success('Note acknowledged');
+            } catch (e) {}
+        },
+        invoiceHasNotes(invoice) {
+            try {
+                if (!invoice || !Array.isArray(invoice.jobs)) return false;
+                return invoice.jobs.some(j => Array.isArray(j.actions) && j.actions.some(a => a?.name === this.actionId && (a?.hasNote === 1 || a?.hasNote === true)));
+            } catch (e) {
+                return false;
+            }
+        },
         resetImageErrors() {
             // Reset image errors when changing pages or searching
             this.imageErrors = {};
@@ -718,6 +791,8 @@ export default {
             params.set('page', this.pagination.current_page?.toString() || '1');
             params.set('per_page', this.pagination.per_page?.toString() || '10');
             if (this.search) params.set('search', this.search);
+            if (this.rushOnly) params.set('rush_only', 'true');
+            if (this.onHoldOnly) params.set('on_hold_only', 'true');
             const url = `/actions/${this.actionId}/jobs?${params.toString()}`;
             console.log('Fetching jobs from:', url);
             
@@ -763,6 +838,18 @@ export default {
                 this.resetImageErrors(); // Reset image errors for new search
                 this.fetchJobs();
             }, 300);
+        },
+        onToggleRush() {
+            this.pagination.current_page = 1;
+            this.fetchJobs();
+        },
+        toggleRushBadge() {
+            this.rushOnly = !this.rushOnly;
+            this.onToggleRush();
+        },
+        toggleOnHoldBadge() {
+            this.onHoldOnly = !this.onHoldOnly;
+            this.onToggleRush();
         },
         nextPage() {
             if (this.pagination.current_page < this.pagination.last_page) {
@@ -2752,6 +2839,21 @@ td {
     background: rgba(239, 68, 68, 0.05);
 }
 
+.order-card.rush {
+    border-color: rgba(220, 38, 38, 0.65);
+    box-shadow: 0 0 0 1px rgba(220, 38, 38, 0.2) inset;
+    position: relative;
+}
+
+/* Animated rush border ring */
+/* moved animated ring to .order-row.rush instead of .order-card */
+
+@keyframes rushSteam {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+}
+
 /* Single Row Layout */
 .order-row {
     display: flex;
@@ -2762,6 +2864,88 @@ td {
     height: 70px;
     min-height: 70px;
     max-height: 70px;
+    position: relative;
+    z-index: 1; /* ensure content is above ::before/::after ring */
+}
+
+/* Ensure rush shimmer stays behind all row content */
+.order-row > *:not(.rush-shimmer) {
+    position: relative;
+    z-index: 1;
+}
+
+/* Animated rush border behind the order-row only when invoice is rush */
+.order-row.rush::before,
+.order-row.rush::after {
+    content: '';
+    position: absolute;
+    left: -2px;
+    top: -2px;
+    width: calc(100% + 4px);
+    height: calc(100% + 4px);
+    border-radius: 8px;
+    background: linear-gradient(45deg,
+        rgba(220, 38, 38, 1),
+        rgba(220, 38, 38, 0.4),
+        rgba(220, 38, 38, 1),
+        rgba(220, 38, 38, 0.4),
+        rgba(220, 38, 38, 1)
+    );
+    background-size: 300% 300%;
+    z-index: 0;
+    pointer-events: none;
+    animation: rushSteam 6s linear infinite;
+}
+
+.order-row.rush::before {
+    padding: 2px;
+    box-sizing: border-box;
+    -webkit-mask:
+        linear-gradient(#000 0 0) content-box,
+        linear-gradient(#000 0 0);
+    mask:
+        linear-gradient(#000 0 0) content-box,
+        linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+            mask-composite: exclude;
+}
+
+.order-row.rush::after {
+    padding: 3px;
+    box-sizing: border-box;
+    filter: blur(18px);
+    opacity: 0.45;
+    -webkit-mask:
+        linear-gradient(#000 0 0) content-box,
+        linear-gradient(#000 0 0);
+    mask:
+        linear-gradient(#000 0 0) content-box,
+        linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+            mask-composite: exclude;
+}
+
+/* Red shimmer sweep for the row background when rush */
+.rush-shimmer {
+    position: absolute;
+    inset: 0;
+    border-radius: 8px;
+    background: linear-gradient(100deg,
+        rgba(220,38,38,0.00) 0%,
+        rgba(220,38,38,0.12) 20%,
+        rgba(220,38,38,0.28) 35%,
+        rgba(220,38,38,0.12) 50%,
+        rgba(220,38,38,0.00) 70%
+    );
+    transform: translateX(-120%);
+    animation: rushShimmer 4s ease-in-out infinite;
+    z-index: 0;
+    pointer-events: none;
+}
+
+@keyframes rushShimmer {
+    0% { transform: translateX(-120%); }
+    100% { transform: translateX(120%); }
 }
 
 /* Order Title Box - Only title inside */
@@ -2903,6 +3087,101 @@ td {
     margin-left: auto; /* Push to the right */
 }
 
+/* Badges next to details */
+.order-status-badges {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-left: 12px;
+}
+
+.rush-filter {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: white;
+}
+.rush-filter input { cursor: pointer; }
+.rush-filter .label { cursor: pointer; font-size: 12px; user-select: none; }
+
+/* Filter badge styled like our badges */
+.filter-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 10px;
+    border-radius: 9999px;
+    font-size: 12px;
+    font-weight: 700;
+    border: 1px solid rgba(255,255,255,0.2);
+    color: white;
+    background: transparent;
+    cursor: pointer;
+}
+
+.filter-badge.badge-plain {
+    background: transparent;
+}
+
+.filter-badge.badge-rush {
+    background-color: #9e2c30;
+    border-color: rgba(220,38,38,0.6);
+    box-shadow: 0 0 0 1px rgba(220,38,38,0.2) inset;
+}
+
+.filter-badge.badge-hold {
+    background-color: #b45309;
+    border-color: rgba(180,83,9,0.6);
+    box-shadow: 0 0 0 1px rgba(180,83,9,0.2) inset;
+}
+
+.badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 8px;
+    border-radius: 9999px;
+    font-size: 12px;
+    font-weight: 600;
+    color: white;
+    white-space: nowrap;
+}
+
+.badge i {
+    font-size: 12px;
+}
+
+.badge-rush {
+    background-color: #9e2c30;
+    position: relative;
+    animation: rushBadgePulse 1.2s ease-in-out infinite;
+    box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.5);
+}
+
+.badge-hold {
+    background-color: #b45309;
+}
+
+.badge-note {
+    background-color: #2563eb;
+}
+
+@keyframes rushBadgePulse {
+    0% {
+        transform: translateZ(0);
+        box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.55);
+        opacity: 1;
+    }
+    50% {
+        box-shadow: 0 0 0 6px rgba(220, 38, 38, 0.0);
+        opacity: 0.9;
+    }
+    100% {
+        box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.0);
+        opacity: 1;
+    }
+}
+
 .action-btn {
     display: flex;
     align-items: center;
@@ -2918,6 +3197,39 @@ td {
     transition: all 0.2s ease;
     height: 36px;
     white-space: nowrap;
+}
+
+/* Note acknowledgement */
+.ack-btn {
+    background: #10B981;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    padding: 6px 10px;
+    cursor: pointer;
+}
+
+.ack-btn:disabled {
+    opacity: 0.6;
+    cursor: default;
+}
+
+.note-warning {
+    margin-top: 6px;
+    color: #fbbf24;
+    font-size: 12px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.see-notes-btn {
+    background: #4a5568;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    padding: 6px 10px;
+    cursor: pointer;
 }
 
 .action-btn:hover {

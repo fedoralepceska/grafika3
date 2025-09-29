@@ -205,17 +205,21 @@ class MultipartUploadController extends Controller
                     // Small delay to ensure R2 consistency after completion
                     sleep(1);
                     
+                    // For cutting files use a higher default DPI to avoid blur on small artboards
+                    $cuttingDpi = 200;
                     GeneratePdfThumbnails::dispatchSync(
                         jobId: $job->id,
                         r2Key: $data['key'],
                         tempLocalPath: null,
-                        dpi: 72,
+                        dpi: $cuttingDpi,
                         fileIndex: $fileIndex,
                         isCuttingFile: true
                     );
                 } else {
                     // Original file thumbnail generation
                     if (!empty($dimensionsResponse['__temp_pdf_path'])) {
+                        // Compute an appropriate DPI from physical page size to reach a minimum pixel size
+                        $computedDpi = $this->computeDpiForPages($dimensionsResponse['dimensions_breakdown'] ?? [], 1200, 150, 400);
                         \Log::info('Starting synchronous thumbnail generation with temp file (after completion)', [
                             'job_id' => $job->id,
                             'r2_key' => $data['key'],
@@ -226,7 +230,7 @@ class MultipartUploadController extends Controller
                             jobId: $job->id,
                             r2Key: $data['key'],
                             tempLocalPath: $dimensionsResponse['__temp_pdf_path'],
-                            dpi: 72
+                            dpi: $computedDpi
                         );
                     } else {
                         \Log::info('Starting synchronous thumbnail generation without temp file (after completion)', [
@@ -236,12 +240,13 @@ class MultipartUploadController extends Controller
                         
                         // Small delay to ensure R2 consistency after completion
                         sleep(1);
-                        
+                        // Fallback DPI if we couldn't read dimensions
+                        $fallbackDpi = 200;
                         GeneratePdfThumbnails::dispatchSync(
                             jobId: $job->id,
                             r2Key: $data['key'],
                             tempLocalPath: null,
-                            dpi: 72
+                            dpi: $fallbackDpi
                         );
                     }
                 }
@@ -292,6 +297,39 @@ class MultipartUploadController extends Controller
             ]);
             return response()->json(['error' => 'Internal server error during completion'], 500);
         }
+    }
+
+    /**
+     * Compute a reasonable DPI for thumbnails based on page dimensions in millimeters.
+     * Expects an array shaped like dimensions_breakdown (with page_dimensions entries containing width_mm/height_mm).
+     */
+    private function computeDpiForPages(array $dimensionsBreakdown, int $targetLongEdgePx = 1200, int $minDpi = 150, int $maxDpi = 400): int
+    {
+        // Try to read the first page physical size
+        try {
+            if (!empty($dimensionsBreakdown)) {
+                $first = $dimensionsBreakdown[count($dimensionsBreakdown) - 1]; // latest added file first
+                if (isset($first['page_dimensions'][0]['width_mm']) && isset($first['page_dimensions'][0]['height_mm'])) {
+                    $wMm = (float)($first['page_dimensions'][0]['width_mm']);
+                    $hMm = (float)($first['page_dimensions'][0]['height_mm']);
+                    $longMm = max($wMm, $hMm);
+                    $longIn = $longMm / 25.4;
+                    if ($longIn > 0) {
+                        // Safety caps: for extremely large pages, reduce DPI target and bounds
+                        if ($longMm >= 2000 /* 2 meters */) {
+                            $targetLongEdgePx = 2400; // cap raster size to keep memory bounded
+                            $minDpi = 30;              // allow low DPI for huge physical pages
+                            $maxDpi = 200;             // avoid excessive DPI on large pages
+                        }
+                        $dpi = (int)ceil($targetLongEdgePx / $longIn);
+                        return max($minDpi, min($maxDpi, $dpi));
+                    }
+                }
+            }
+        } catch (\Throwable $e) {
+            // fall through to default
+        }
+        return $minDpi; // conservative default
     }
 
     /**

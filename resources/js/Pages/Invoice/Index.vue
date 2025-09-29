@@ -1,18 +1,3 @@
-<!-- 
-    Index.vue - Optimized for Instant Image Display
-    
-    PERFORMANCE IMPROVEMENTS:
-    ✅ Images are now pre-fetched with orders (no separate API calls needed)
-    ✅ Thumbnails are pre-loaded for smooth carousel navigation
-    ✅ File information is included in the initial order fetch
-    ✅ Extended invoice view shows images instantly when expanded
-    ✅ No waiting for additional API calls - instant display
-    
-    DATA FLOW:
-    1. Orders are fetched with jobs and file information in one API call
-    2. When viewJobs is clicked, images start preloading immediately
-    3. Extended view displays images instantly without additional loading
--->
 <template>
     <MainLayout>
         <div class="pl-7 pr-7">
@@ -25,12 +10,11 @@
                     <div class="filter-container flex gap-4 pb-10">
                         <div class="search flex gap-2">
                             <input v-model="searchQuery" placeholder="Enter order number or order name" class="text-black search-input" @keyup.enter="searchInvoices" />
-                            <button class="btn create-order1" @click="searchInvoices">Search</button>
                         </div>
                         <div class="flex gap-2 filters-group">
                         <div class="status">
                             <label class="pr-3">Filter orders</label>
-                            <select v-model="filterStatus" class="text-black filter-select" >
+                            <select v-model="filterStatus" class="text-black filter-select" @change="applyFilter">
                                 <option value="All" hidden>Status</option>
                                 <option value="All">All</option>
                                 <option value="Not started yet">Not started yet</option>
@@ -39,20 +23,20 @@
                             </select>
                         </div>
                         <div class="client">
-                            <select v-model="filterClient" class="text-black filter-select">
+                            <select v-model="filterClient" class="text-black filter-select" @change="applyFilter">
                                 <option value="All" hidden>Clients</option>
                                 <option value="All">All Clients</option>
                                 <option v-for="client in uniqueClients" :key="client">{{ client.name }}</option>
                             </select>
                         </div>
                         <div class="date">
-                            <select v-model="sortOrder" class="text-black filter-select">
+                            <select v-model="sortOrder" class="text-black filter-select" @change="applyFilter">
                                 <option value="desc" hidden>Date</option>
                                 <option value="desc">Newest to Oldest</option>
                                 <option value="asc">Oldest to Newest</option>
                             </select>
                         </div>
-                            <button @click="applyFilter" class="btn create-order1">Filter</button>
+                            
 
                         </div>
                         <div class="button flex gap-3">
@@ -287,9 +271,9 @@
                 </div>
                 <!-- Custom Pagination Controls -->
                 <div v-if="!loading && totalPages > 1" class="pagination-container">
-                    <div class="pagination-info">
+                    <!-- <div class="pagination-info">
                         Showing {{ (currentPage - 1) * perPage + 1 }} to {{ Math.min(currentPage * perPage, totalInvoices) }} of {{ totalInvoices }} orders
-                    </div>
+                    </div> -->
                     <div class="pagination-controls">
                         <button 
                             @click="changePage(currentPage - 1)" 
@@ -1288,23 +1272,29 @@ export default {
 }
 .filter-container{
     justify-content: space-between;
-    flex-wrap: wrap;
+    align-items: center;
+    flex-wrap: nowrap;
+    overflow-x: hidden;
+    white-space: normal;
 }
 .filter-container .search {
     flex: 1 1 320px;
+    min-width: 140px;
 }
 .filter-container .filters-group {
-    flex: 2 1 500px;
-    flex-wrap: wrap;
+    flex: 0 1 auto;
+    display: flex;
+    flex-wrap: nowrap;
 }
 .search-input{
-    width: 50vh;
-    max-width: 100%;
+    width: 100%;
+    min-width: 0; /* allow shrinking in flex */
     border-radius: 3px;
 }
 .filter-select{
-    width: 25vh;
-    max-width: 100%;
+    width: auto;
+    min-width: 120px;
+    max-width: 240px;
 }
 .jobInfo{
 
@@ -1338,7 +1328,9 @@ export default {
     }
 }
 select{
-    width: 25vh;
+    width: auto;
+    min-width: 120px;
+    max-width: 240px;
     border-radius: 3px;
 }
 .orange{
@@ -1740,9 +1732,7 @@ select{
 }
 
 .pagination-container {
-    margin-top: 20px;
-    padding: 20px;
-    background-color: rgba(255, 255, 255, 0.1);
+    padding: 10px;
     border-radius: 8px;
     color: white;
 }
@@ -2342,10 +2332,8 @@ select{
 }
 
 @media (max-width: 1024px) {
-    .filter-container { gap: 12px; }
-    .search-input { width: 100%; }
-    .filter-select { width: 100%; }
-    .filters-group { flex: 1 1 100%; }
+    .filter-container { gap: 12px; flex-wrap: nowrap; overflow-x: hidden; }
+    .filters-group { flex-wrap: nowrap; }
     .row-columns { gap: 1rem; }
     .col-client { width: 220px; }
     .col-user { width: 150px; }
@@ -2356,6 +2344,10 @@ select{
     .col-client { width: 180px; }
     .col-user { width: 120px; }
     .col-status { width: 120px; }
+}
+@media (max-width: 640px) {
+    .filter-container { gap: 8px; flex-wrap: nowrap; overflow-x: hidden; }
+    .filters-group { flex-wrap: nowrap; }
 }
 </style>
 
