@@ -221,6 +221,15 @@
         }
 
         .page-break { page-break-after: always; }
+        /* Truncate long article names within their cell */
+        .truncate-cell {
+            display: block;
+            width: 100%;
+            max-width: 100%;
+            overflow: hidden;
+            white-space: nowrap;
+            text-overflow: ellipsis;
+        }
     </style>
 </head>
 <body>
@@ -385,7 +394,12 @@
                 @if($item['type'] === 'job')
                     <tr style="border-bottom: 2px solid #cccccc; font-weight: 700 ; font-family: 'Calibri'">
                         <td style="font-size: 10pt; padding: 6px; text-align: center; white-space: nowrap;">{{ $item['row_number'] }}.</td>
-                        <td style="font-size: 10pt; padding: 6px; text-align: left;">{{ $item['invoice_title'] }}</td>
+                        @php
+                            $jobName = $item['job']['name'] ?? '';
+                            $orderName = $item['invoice_title'] ?? '';
+                            $displayName = $jobName && $orderName ? ($jobName . ' - ' . $orderName) : ($jobName ?: $orderName);
+                        @endphp
+                        <td style="font-size: 10pt; padding: 6px; text-align: left;"><span class="truncate-cell">{{ $displayName }}</span></td>
                         <td style="font-size: 10pt; padding: 6px; text-align: center; background-color: #E7F1F2;">{{ $item['taxRate'] }}%</td>
                         <td style="font-size: 10pt; padding: 6px; text-align: center; background-color: #E7F1F2;">{{getUnit($item['job'])}}</td>
                         <td style="font-size: 10pt; padding: 6px; text-align: center; background-color: #E7F1F2;">{{ $item['job']['quantity'] }}</td>
@@ -395,7 +409,7 @@
                 @elseif($item['type'] === 'trade_item')
                     <tr style="border-bottom: 2px solid #cccccc; font-weight: 700 ; font-family: 'Calibri'">
                         <td style="font-size: 10pt; padding: 6px; text-align: center; white-space: nowrap;">{{ $item['row_number'] }}.</td>
-                        <td style="font-size: 10pt; padding: 6px; text-align: left;">{{ $item['tradeItem']['article_name'] }}</td>
+                        <td style="font-size: 10pt; padding: 6px; text-align: left;"><span class="truncate-cell">{{ $item['tradeItem']['article_name'] }}</span></td>
                         <td style="font-size: 10pt; padding: 6px; text-align: center; background-color: #E7F1F2;">{{ $item['tradeItem']['vat_rate'] }}%</td>
                         <td style="font-size: 10pt; padding: 8px; text-align: center; background-color: #E7F1F2;">ед.</td>
                         <td style="font-size: 10pt; padding: 6px; text-align: center; background-color: #E7F1F2;">{{ $item['tradeItem']['quantity'] }}</td>
