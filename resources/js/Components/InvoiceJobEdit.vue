@@ -141,7 +141,8 @@ export default {
         },
         fakturaId: {
             type: Number,
-            required: true
+            required: false,
+            default: null
         }
     },
     emits: ['job-updated'],

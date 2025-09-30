@@ -96,6 +96,8 @@ Route::middleware(['auth', 'verified'])->group(function() {
     Route::get('/orders/{id}', [InvoiceController::class, 'show'])->name('invoices.show');
     Route::get('/orders/{id}/details', [InvoiceController::class, 'getOrderDetails'])->name('invoices.getOrderDetails');
     Route::put('/orders/update-note-flag', [InvoiceController::class, 'updateNoteProperty'])->name('invoices.updateNoteProperty');
+    // Pre-generation order edits
+    Route::put('/orders/{id}/title', [InvoiceController::class, 'updateOrderTitle'])->name('orders.updateTitle');
     Route::put('/orders/update-locked-note', [InvoiceController::class, 'updateLockedNote'])->name('invoices.updateLockedNote');
     Route::put('/orders/{id}', [InvoiceController::class, 'update'])->name('invoices.update');
     Route::get('/orders/today/count', [InvoiceController::class, 'countToday'])->name('invoices.countToday');
@@ -121,6 +123,8 @@ Route::middleware(['auth', 'verified'])->group(function() {
     Route::delete('/invoice/{fakturaId}/trade-items/{tradeItemId}', [InvoiceController::class, 'deleteTradeItem'])->name('invoices.deleteTradeItem');
     Route::put('/invoice/{fakturaId}/invoice/{invoiceId}/title', [InvoiceController::class, 'updateInvoiceTitle'])->name('invoices.updateTitle');
     Route::put('/invoice/{fakturaId}/date', [InvoiceController::class, 'updateInvoiceDate'])->name('invoices.updateDate');
+    // Utility: next faktura id for pre-generation display
+    Route::get('/invoices/next-id', [InvoiceController::class, 'getNextFakturaId'])->name('invoices.nextId');
 
     // Individual Orders (Физичко лице)
     Route::get('/individual', [\App\Http\Controllers\IndividualOrderController::class, 'index'])->name('individual.index');

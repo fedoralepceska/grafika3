@@ -1401,7 +1401,7 @@ class InvoiceController extends Controller
                         'vat_rate' => $item['vat_rate'],
                         'vat_amount' => $item['vat_amount']
                     ];
-                });
+                })->toArray();
 
                 // Return a new array for this invoice with the required fields
                 return array_merge(
@@ -1422,6 +1422,11 @@ class InvoiceController extends Controller
                 );
             })->toArray();
 
+            // Debug: return JSON payload when requested
+            if ($request->boolean('debug')) {
+                return response()->json(['invoices' => $transformedInvoices], 200);
+            }
+
             // Generate PDF using v2 template for preview
             $pdf = PDF::loadView('invoices.outgoing_invoice_v2', [
                 'invoices' => $transformedInvoices,
@@ -1432,7 +1437,15 @@ class InvoiceController extends Controller
                 'dpi' => 150,
             ]);
 
-            // Return success response with PDF
+            // Return both: PDF in a new tab and a small JSON for client redirect
+            if ($request->wantsJson() || $request->boolean('return_meta')) {
+                return response()->json([
+                    'success' => true,
+                    'faktura_id' => $faktura->id,
+                    'pdf' => base64_encode($pdf->output()),
+                ]);
+            }
+
             return response($pdf->output(), 200, [
                 'Content-Type' => 'application/pdf',
                 'Content-Disposition' => 'inline; filename="invoice_' . $faktura->id . '.pdf"'
@@ -1625,10 +1638,13 @@ class InvoiceController extends Controller
                 // Compose barcode safely (GD may be missing in some environments)
                 $period = $invoice->end_date ? date('m-Y', strtotime($invoice->end_date)) : date('m-Y');
                 $barcodeString = $invoice->id . '-' . $period;
+                $barcodeImage = null;
                 try {
-                    $barcodePng = $dns1d->getBarcodePNG($barcodeString, 'C128');
-                    $barcodeImage = base64_encode($barcodePng);
-                } catch (\Exception $e) {
+                    $png = $dns1d->getBarcodePNG($barcodeString, 'C128');
+                    if (!empty($png)) {
+                        $barcodeImage = base64_encode($png);
+                    }
+                } catch (\Throwable $e) {
                     $barcodeImage = null;
                 }
 
@@ -1690,6 +1706,13 @@ class InvoiceController extends Controller
             Log::error('Preview Invoice Error: ' . $e->getMessage());
             return response()->json(['error' => 'Failed to generate preview'], 500);
         }
+    }
+
+    // Returns the next faktura id that would be assigned (for pre-generation display)
+    public function getNextFakturaId()
+    {
+        $next = (int) (\App\Models\Faktura::max('id') ?? 0) + 1;
+        return response()->json(['next_id' => $next]);
     }
 
 
@@ -2404,6 +2427,46 @@ class InvoiceController extends Controller
             return response()->json([
                 'error' => 'Failed to update invoice date',
                 'message' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Update order title before invoice generation
+     */
+    public function updateOrderTitle(Request $request, $id)
+    {
+        try {
+            DB::beginTransaction();
+
+            $validated = $request->validate([
+                'invoice_title' => 'required|string|max:255',
+            ]);
+
+            /** @var Invoice $invoice */
+            $invoice = Invoice::findOrFail($id);
+
+            // Only allow updating if it's not yet invoiced
+            if (!is_null($invoice->faktura_id)) {
+                return response()->json([
+                    'error' => 'Order already belongs to a generated invoice',
+                ], 422);
+            }
+
+            $invoice->invoice_title = $validated['invoice_title'];
+            $invoice->save();
+
+            DB::commit();
+
+            return response()->json([
+                'message' => 'Order title updated successfully',
+                'invoice' => $invoice,
+            ]);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json([
+                'error' => 'Failed to update order title',
+                'message' => $e->getMessage(),
             ], 500);
         }
     }

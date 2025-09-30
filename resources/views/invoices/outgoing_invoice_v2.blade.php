@@ -340,14 +340,20 @@
                 }
             }
             
-            // Add trade items from this invoice after jobs
-            if (isset($invoice['trade_items']) && is_array($invoice['trade_items'])) {
-                foreach ($invoice['trade_items'] as $tradeItem) {
+            // Add trade items from this invoice after jobs (accept array or object with toArray)
+            if (isset($invoice['trade_items'])) {
+                $tradeItemsSource = $invoice['trade_items'];
+                if (is_object($tradeItemsSource) && method_exists($tradeItemsSource, 'toArray')) {
+                    $tradeItemsSource = $tradeItemsSource->toArray();
+                }
+                if (is_array($tradeItemsSource)) {
+                    foreach ($tradeItemsSource as $tradeItem) {
                     $allItems[] = [
                         'type' => 'trade_item',
                         'tradeItem' => $tradeItem,
                         'row_number' => $jobCounter++
                     ];
+                    }
                 }
             }
         }
@@ -409,12 +415,12 @@
                 @elseif($item['type'] === 'trade_item')
                     <tr style="border-bottom: 2px solid #cccccc; font-weight: 700 ; font-family: 'Calibri'">
                         <td style="font-size: 10pt; padding: 6px; text-align: center; white-space: nowrap;">{{ $item['row_number'] }}.</td>
-                        <td style="font-size: 10pt; padding: 6px; text-align: left;"><span class="truncate-cell">{{ $item['tradeItem']['article_name'] }}</span></td>
-                        <td style="font-size: 10pt; padding: 6px; text-align: center; background-color: #E7F1F2;">{{ $item['tradeItem']['vat_rate'] }}%</td>
+                        <td style="font-size: 10pt; padding: 6px; text-align: left;"><span class="truncate-cell">{{ data_get($item, 'tradeItem.article_name') }}</span></td>
+                        <td style="font-size: 10pt; padding: 6px; text-align: center; background-color: #E7F1F2;">{{ number_format((float) data_get($item, 'tradeItem.vat_rate', 0), 0) }}%</td>
                         <td style="font-size: 10pt; padding: 8px; text-align: center; background-color: #E7F1F2;">ед.</td>
-                        <td style="font-size: 10pt; padding: 6px; text-align: center; background-color: #E7F1F2;">{{ $item['tradeItem']['quantity'] }}</td>
-                        <td style="font-size: 10pt; padding: 6px; text-align: right; background-color: #E7F1F2;">{{ number_format($item['tradeItem']['unit_price'], 2) }}</td>
-                        <td style="font-size: 10pt; padding: 6px; text-align: right; background-color: #E7F1F2;">{{ number_format($item['tradeItem']['total_price'], 2) }}</td>
+                        <td style="font-size: 10pt; padding: 6px; text-align: center; background-color: #E7F1F2;">{{ number_format((float) data_get($item, 'tradeItem.quantity', 0), 2) }}</td>
+                        <td style="font-size: 10pt; padding: 6px; text-align: right; background-color: #E7F1F2;">{{ number_format((float) data_get($item, 'tradeItem.unit_price', 0), 2) }}</td>
+                        <td style="font-size: 10pt; padding: 6px; text-align: right; background-color: #E7F1F2;">{{ number_format((float) data_get($item, 'tradeItem.total_price', 0), 2) }}</td>
                     </tr>
                 @endif
             @endforeach

@@ -10,12 +10,12 @@
                 <div class="flex justify-between">
                     <Header title="invoice2" subtitle="invoiceGeneration" icon="invoice.png" link="notInvoiced"/>
                     <div class="flex pt-4">
-                        <div class="buttons pt-3 flex pr-2">
-                            <input type="text" id="comment" class="rounded" v-model="comment" placeholder="Add Invoice Comment" style="width: 500px; height: 45px"/>
-                        </div>
                         <div class="buttons pt-3">
-                            <button class="btn comment-order" @click="toggleSpreadsheetMode">
-                                {{ spreadsheetMode ?  'Edit' : 'Exit Edit Mode' }}
+                            <button class="btn blue" @click="openCommentModal">
+                                Add Comment <i class="fa-solid fa-comment"></i>
+                            </button>
+                            <button class="btn comment-order" @click="toggleEditMode">
+                                {{ isEditMode ? 'Exit Edit Mode' : 'Enter Edit Mode' }}
                                 <i class="fa-regular fa-edit"></i>
                             </button>
                             <button class="btn blue" @click="showTradeItemsModal = true">
@@ -28,133 +28,238 @@
                         </div>
                     </div>
                 </div>
-                <div class="dark-gray p-5 text-white" v-for="(invoiceData, invoiceId) in invoiceData" :key="invoiceId">
-                    <div class="form-container p-2 light-gray">
-                        <div class="InvoiceDetails">
-                            <div class="invoice-details flex gap-20 relative" >
-                                <div class="invoice-title bg-white text-black bold p-3 ">{{ invoiceData?.invoice_title }}</div>
-                                <div class="info">
-                                    <div>Order</div>
-                                    <div class="bold">#{{ invoiceData?.id }}</div>
+                <!-- Client Information Row -->
+                <div class="client-info-section" v-if="clientName">
+                    <div class="client-info">
+                        <div class="client-label">Client</div>
+                        <div class="client-name">{{ clientName }}</div>
+                    </div>
+                </div>
+
+                <!-- Pre-invoice meta (ID and Date) -->
+                <div class="invoice-info-minimal">
+                    <div class="info-item">
+                        <span class="info-label">Invoice ID</span>
+                        <span class="info-value">{{ previewInvoiceId }}{{ previewInvoiceId ? '' : '...' }}</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Date Created</span>
+                        <span class="info-value">
+                            <div v-if="isEditMode && editingDate" class="date-edit-container">
+                                <input 
+                                    v-model="dateEdit"
+                                    @keyup.enter="commitPreviewDate"
+                                    class="date-input"
+                                    type="date"
+                                />
+                                <button @click="commitPreviewDate" class="save-btn" title="Save">
+                                    <i class="fas fa-check"></i>
+                                </button>
+                                <button @click="cancelEditPreviewDate" class="cancel-btn" title="Cancel">
+                                    <i class="fas fa-times"></i>
+                                </button>
+                            </div>
+                            <div v-else class="date-display" @click="startEditPreviewDate">
+                                {{ formattedPreviewDate }}
+                                <i v-if="isEditMode" class="fas fa-edit edit-icon"></i>
+                            </div>
+                        </span>
+                    </div>
+                    <div class="info-item comment" v-if="comment">
+                        <span class="info-label">Comment</span>
+                        <span class="info-value">{{ comment }}</span>
+                    </div>
+                </div>
+                <div class="orders-container" v-for="(inv, index) in invoiceData" :key="index">
+                    <div class="order-separator">
+                        <div class="separator-line"></div>
+                        <span class="separator-text">Order {{ index }}</span>
+                        <div class="separator-line"></div>
+                    </div>
+
+                    <div class="order-header">
+                        <div class="order-details">
+                            <div class="detail-item title-item">
+                                <span class="label">Title:</span>
+                                <div class="title-content">
+                                    <div v-if="isEditMode && editingTitle[inv.id]" class="title-edit-container">
+                                        <input 
+                                            v-model="titleEdits[inv.id]"
+                                            @keyup.enter="saveTitle(inv)"
+                                            class="title-input"
+                                            type="text"
+                                        />
+                                        <button @click="saveTitle(inv)" class="save-btn" title="Save">
+                                            <i class="fas fa-check"></i>
+                                        </button>
+                                        <button @click="cancelEditTitle(inv)" class="cancel-btn" title="Cancel">
+                                            <i class="fas fa-times"></i>
+                                        </button>
+                                    </div>
+                                    <div v-else class="invoice-title" @click="startEditTitle(inv)">
+                                      {{ inv.invoice_title }}
+                                      <i v-if="isEditMode" class="fas fa-edit edit-icon"></i>
+                                    </div>
                                 </div>
-                                <div class="info">
-                                    <div>Customer</div>
-                                    <div class="bold">{{ invoiceData.client }}</div>
-                                </div>
-                                <div class="info">
-                                    <div>{{ $t('startDate') }}</div>
-                                    <div class="bold">{{ invoiceData?.start_date }}</div>
-                                </div>
-                                <div class="info">
-                                    <div>{{ $t('endDate') }}</div>
-                                    <div class="bold">{{ invoiceData?.end_date }}</div>
-                                </div>
-                                <div class="info">
-                                    <div>Created By</div>
-                                    <div class="bold">{{ invoiceData.user }}</div>
-                                </div>
-                                <div class="info">
-                                    <div>Status</div>
-                                    <span class="bold green-text">{{ invoiceData.status }}</span>
-                                </div>
+                            </div>
+                            <div class="detail-item">
+                                <span class="label">Order:</span>
+                                <span>#{{ inv?.id }}</span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="label">{{ $t('startDate') }}:</span>
+                                <span>{{ inv?.start_date }}</span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="label">{{ $t('endDate') }}:</span>
+                                <span>{{ inv?.end_date }}</span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="label">Created By:</span>
+                                <span>{{ inv.user }}</span>
                             </div>
                         </div>
                     </div>
-                    <div class="form-container  light-gray mt-2">
-                        <div class="sub-title pl-2 ">{{$t('orderLines')}}</div>
-                        <div v-for="(job, index) in invoiceData.jobs" v-if="spreadsheetMode">
-                            <div class="jobDetails p-2">
-                                <div class="border">
-                                    <div class="flex gap-10 pb-3">
-                                        <div class="invoice-title bg-white text-black bold p-3">
-                                            #{{index+1}} {{job.name}}
-                                        </div>
-                                            <img :src="`/storage/uploads/${job.file}`" alt="Job Image" class="jobImg thumbnail"/>
-                                        <div>{{job.file}}</div>
-                                                                    <div>{{$t('height')}}: <span class="bold">{{(job.height && typeof job.height === 'number') ? job.height.toFixed(2) : '0.00'}} mm</span> </div>
-                            <div>{{$t('width')}}: <span class="bold">{{(job.width && typeof job.width === 'number') ? job.width.toFixed(2) : '0.00'}} mm</span> </div>
-                                        <div>{{$t('quantity')}}: <span class="bold">{{job.quantity}}</span> </div>
-                                        <div>{{$t('copies')}}: <span class="bold">{{job.copies}}</span> </div>
-                                        <div>
-                                            {{$t('material')}}:
-                                            <span class="bold">
-                                            <span v-if="job.articles && job.articles.length > 0">
-                                                <span v-for="(article, index) in job.articles" :key="article.id">
-                                                    {{ article.name }} ({{ article.pivot.quantity }} {{ getUnitText(article) }})
-                                                    <span v-if="index < job.articles.length - 1">, </span>
-                                                </span>
-                                            </span>
-                                            <span v-else-if="job.large_material_id">{{ job.large_material?.name }}</span>
-                                            <span v-else>{{ job?.small_material?.name }}</span>
-                                         </span>
-                                        </div>
-                                        <div>{{$t('totalm')}}<sup>2</sup>: <span class="bold">{{(job.computed_total_area_m2 && typeof job.computed_total_area_m2 === 'number') ? job.computed_total_area_m2.toFixed(4) : '0.0000'}}</span></div>
-                                    </div>
-                                        <OrderJobDetails :job="job" :invoice-id="invoiceData.id"/>
-                                    <div class="jobInfo relative pt-3">
-                                        <div class="jobShippingInfo">
-                                            <div class=" bg-white text-black bold ">
-                                                <div class="flex" style="align-items: center;">
-                                                    <img src="/images/shipping.png" class="w-10 h-10 pr-1" alt="Shipping">
-                                                    {{$t('Shipping')}}
-                                                </div>
-                                                <div class="ultra-light-gray p-2 text-white">
-                                                    {{$t('shippingTo')}}: <span class="bold">{{job.shippingInfo}}</span>
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <div class="jobPriceInfo absolute right-0 bottom-10 bg-white text-black bold">
-                                            <div class="p-2">
-                                                {{$t('salePrice')}}: <span class="bold">{{(job.salePrice && typeof job.salePrice === 'number') ? job.salePrice.toFixed(2) : '0.00'}} ден.</span>
-                                            </div>
-                                        </div>
-                                        <div class="jobPriceInfo absolute right-0 bottom-0 bg-white text-black bold">
-                                            <div class="p-2">
-                                                {{$t('jobPrice')}}: <span class="bold">{{(job.totalPrice && typeof job.totalPrice === 'number') ? job.totalPrice.toFixed(2) : '0.00'}} ден.</span>
-                                            </div>
-                                        </div>
 
+                    <div class="jobs-section">
+                        <div v-if="isEditMode" class="jobs-edit-mode">
+                            <InvoiceJobEdit 
+                                v-for="job in inv.jobs" 
+                                :key="job.id"
+                                :job="job"
+                                @job-updated="onJobUpdated"
+                            />
+                        </div>
+                        <div v-else class="jobs-detail-mode">
+                            <div v-for="(job, jobIndex) in inv.jobs" :key="job.id" class="job-card">
+                                <div class="job-header">
+                                    <div class="job-title">
+                                        #{{ jobIndex + 1 }} {{ job.name }}
                                     </div>
                                 </div>
+                                <div class="job-details-grid">
+                                    <div class="detail-item">
+                                        <span class="label">{{ $t('height') }}:</span>
+                                        <span class="value">{{ formatDimension(job.height) }} mm</span>
+                                    </div>
+                                    <div class="detail-item">
+                                        <span class="label">{{ $t('width') }}:</span>
+                                        <span class="value">{{ formatDimension(job.width) }} mm</span>
+                                    </div>
+                                    <div class="detail-item">
+                                        <span class="label">{{ $t('quantity') }}:</span>
+                                        <span class="value">{{ job.quantity }}</span>
+                                    </div>
+                                    <div class="detail-item">
+                                        <span class="label">{{ $t('copies') }}:</span>
+                                        <span class="value">{{ job.copies }}</span>
+                                    </div>
+                                    <div class="detail-item">
+                                        <span class="label">{{ $t('totalm') }}<sup>2</sup>:</span>
+                                        <span class="value">{{ formatArea(job.computed_total_area_m2) }}</span>
+                                    </div>
+                                    <div class="detail-item">
+                                        <span class="label">{{ $t('salePrice') }}:</span>
+                                        <span class="value price">{{ formatPrice(job.salePrice) }} ден.</span>
+                                    </div>
+                                    <div class="detail-item">
+                                        <span class="label">{{ $t('jobPrice') }}:</span>
+                                        <span class="value total-price">{{ formatPrice(job.totalPrice) }} ден.</span>
+                                    </div>
+                                </div>
+                                <div class="material-info" v-if="getMaterialInfo(job)">
+                                    <span class="label">{{ $t('material') }}:</span>
+                                    <span class="value">{{ getMaterialInfo(job) }}</span>
+                                </div>
+                                <div class="shipping-info" v-if="job.shippingInfo">
+                                    <span class="label">{{ $t('shippingTo') }}:</span>
+                                    <span class="value">{{ job.shippingInfo }}</span>
+                                </div>
                             </div>
-                        </div>
-                        <div class="flex justify-center" v-else>
-                            <OrderSpreadsheet :invoice="invoiceData"/>
                         </div>
                     </div>
                 </div>
 
-                <!-- Trade Items Section -->
-                <div class="dark-gray p-5 text-white mt-4" v-if="tradeItems.length > 0">
-                    <div class="form-container p-2 light-gray">
-                        <div class="sub-title pl-2">Trade Items</div>
-                        <table class="trade-items-table">
-                            <thead>
-                                <tr>
-                                    <th>Article</th>
-                                    <th>Quantity</th>
-                                    <th>Unit Price</th>
-                                    <th>Total</th>
-                                    <th>VAT</th>
-                                    <th>Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr v-for="(item, index) in tradeItems" :key="index">
-                                    <td>{{ item.article_name }}</td>
-                                    <td>{{ item.quantity }}</td>
-                                    <td>{{ formatNumber(item.unit_price) }} ден</td>
-                                    <td>{{ formatNumber(item.total_price) }} ден</td>
-                                    <td>{{ formatNumber(item.vat_amount) }} ден</td>
-                                    <td>
-                                        <button @click="removeTradeItem(index)" class="btn delete">
+                <!-- Trade Items Section - redesigned like Invoice.vue and editable pre-generation -->
+                <div class="trade-items-section" v-if="isEditMode || (tradeItems && tradeItems.length > 0)">
+                    <div class="trade-items-container">
+                        <div class="trade-items-header">
+                            <h4 class="section-title">Trade Items</h4>
+                            <button class="btn btn-add" @click="showTradeItemsModal = true">
+                                <i class="fas fa-plus"></i> Add Item
+                            </button>
+                        </div>
+
+                        <div v-if="tradeItems.length === 0" class="no-items">
+                            No trade items added yet.
+                        </div>
+
+                        <div class="trade-items-list" v-else>
+                            <div class="trade-item-card" v-for="(item, idx) in tradeItems" :key="idx">
+                                <div class="item-header">
+                                    <div class="item-title">
+                                        <span class="article-code" v-if="item.article_code">Article Code: {{ item.article_code }}</span>
+                                        <span class="article-name">{{ item.article_name }}</span>
+                                    </div>
+                                    <div class="item-actions">
+                                        <button v-if="!isEditingTrade[idx]" @click="startEditTrade(idx, item)" class="btn btn-edit-small" title="Edit Item">
+                                            <i class="fas fa-edit"></i>
+                                        </button>
+                                        <button v-else @click="saveEditTrade(idx)" class="btn btn-save-small" title="Save Changes">
+                                            <i class="fas fa-save"></i>
+                                        </button>
+                                        <button v-if="isEditingTrade[idx]" @click="cancelEditTrade(idx)" class="btn btn-cancel-small" title="Cancel">
+                                            <i class="fas fa-times"></i>
+                                        </button>
+                                        <button @click="removeTradeItem(idx)" class="btn btn-delete" title="Delete Item">
                                             <i class="fa-solid fa-trash"></i>
                                         </button>
-                                    </td>
-                                </tr>
-                            </tbody>
-                        </table>
-                        <div class="trade-items-total">
+                                    </div>
+                                </div>
+
+                                <div class="item-details">
+                                    <div class="detail-item">
+                                        <label>Quantity:</label>
+                                        <input v-if="isEditingTrade[idx]" v-model.number="editTradeForms[idx].quantity" type="number" min="1" class="form-input-small" />
+                                        <span v-else class="detail-value">{{ item.quantity }}</span>
+                                    </div>
+
+                                    <div class="detail-item">
+                                        <label>Unit Price:</label>
+                                        <input v-if="isEditingTrade[idx]" v-model.number="editTradeForms[idx].unit_price" type="number" step="0.01" min="0" class="form-input-small" />
+                                        <span v-else class="detail-value">{{ formatNumber(item.unit_price) }} ден.</span>
+                                    </div>
+
+                                    <div class="detail-item">
+                                        <label>VAT Rate:</label>
+                                        <select v-if="isEditingTrade[idx]" v-model.number="editTradeForms[idx].vat_rate" class="form-select-small">
+                                            <option :value="0">0%</option>
+                                            <option :value="5">5%</option>
+                                            <option :value="10">10%</option>
+                                            <option :value="18">18%</option>
+                                        </select>
+                                        <span v-else class="detail-value">{{ item.vat_rate }}%</span>
+                                    </div>
+
+                                    <div class="detail-item">
+                                        <label>Total Price:</label>
+                                        <span class="detail-value total-price">{{ formatNumber(getPreGenItemTotal(item, idx)) }} ден.</span>
+                                    </div>
+
+                                    <div class="detail-item">
+                                        <label>VAT Amount:</label>
+                                        <span class="detail-value">{{ formatNumber(getPreGenItemVat(item, idx)) }} ден.</span>
+                                    </div>
+
+                                    <div class="detail-item">
+                                        <label>Total with VAT:</label>
+                                        <span class="detail-value total-final">{{ formatNumber(getPreGenItemTotalWithVat(item, idx)) }} ден.</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="trade-items-total" v-if="tradeItems.length > 0">
                             <strong>Trade Items Total: {{ formatNumber(tradeItemsTotal) }} ден (incl. VAT)</strong>
                         </div>
                     </div>
@@ -203,6 +308,26 @@
             </div>
         </div>
 
+        <!-- Comment Modal -->
+        <div v-if="showCommentModal" class="modal-overlay" @click="closeCommentModal">
+            <div class="modal-content" @click.stop>
+                <div class="modal-header">
+                    <h3>Add Invoice Comment</h3>
+                    <button @click="closeCommentModal" class="close-btn">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label>Comment:</label>
+                        <textarea v-model="tempComment" class="form-control" rows="5" placeholder="Enter a comment for the invoice..."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button @click="saveComment" class="btn green">Save</button>
+                    <button @click="closeCommentModal" class="btn delete">Cancel</button>
+                </div>
+            </div>
+        </div>
+
         <!-- Preview Modal -->
         <div v-if="showPreviewModalFlag" class="modal-overlay" @click="closePreviewModal">
             <div class="preview-modal-content" @click.stop>
@@ -234,13 +359,14 @@ import Toast, {useToast} from "vue-toastification";
 import OrderJobDetails from "@/Pages/Invoice/OrderJobDetails.vue";
 import OrderSpreadsheet from "@/Components/OrderSpreadsheet.vue";
 import Header from "@/Components/Header.vue";
+import InvoiceJobEdit from "@/Components/InvoiceJobEdit.vue";
 
 export default {
     components: {
-        OrderSpreadsheet,
         OrderJobDetails,
         MainLayout,
-        Header },
+        Header,
+        InvoiceJobEdit },
     props: {
         invoiceData: Object,
     },
@@ -263,6 +389,19 @@ export default {
                    this.tradeItemQuantity > 0 && 
                    this.tradeItemQuantity <= this.selectedArticle.quantity &&
                    this.tradeItemPrice > 0;
+        },
+        clientName() {
+            const values = Object.values(this.invoiceData || {});
+            return values.length ? values[0].client : '';
+        },
+        formattedPreviewDate() {
+            try {
+                const d = new Date(this.previewDate);
+                if (isNaN(d.getTime())) return this.previewDate || '';
+                return d.toLocaleDateString('en-US', { year: 'numeric', month: '2-digit', day: '2-digit' });
+            } catch (_) {
+                return this.previewDate || '';
+            }
         }
     },
     data() {
@@ -270,26 +409,152 @@ export default {
             showImagePopover: false,
             selectedJob: null,
             isSidebarVisible: false,
-            spreadsheetMode: true,
+            spreadsheetMode: false,
+            isEditMode: false,
+            editingTitle: {},
+            titleEdits: {},
             backgroundColor: null,
             openDialog: false,
             comment: '',
+            previewInvoiceId: null,
+            previewDate: new Date().toISOString().split('T')[0],
+            editingDate: false,
+            dateEdit: '',
             showTradeItemsModal: false,
+            showCommentModal: false,
+            tempComment: '',
             availableTradeArticles: [],
             selectedArticle: null,
             tradeItemQuantity: 1,
             tradeItemPrice: 0,
             tradeItems: [],
+            isEditingTrade: {},
+            editTradeForms: {},
             showPreviewModalFlag: false,
             previewPdfUrl: null
         }
     },
     methods: {
+        async fetchNextInvoiceId() {
+            try {
+                const res = await axios.get('/invoices/next-id');
+                this.previewInvoiceId = res?.data?.next_id ?? null;
+            } catch (_) {
+                this.previewInvoiceId = null;
+            }
+        },
+        openCommentModal() {
+            this.tempComment = this.comment || '';
+            this.showCommentModal = true;
+        },
+        saveComment() {
+            this.comment = (this.tempComment || '').trim();
+            this.showCommentModal = false;
+        },
+        closeCommentModal() {
+            this.showCommentModal = false;
+        },
+        startEditPreviewDate() {
+            if (!this.isEditMode) return;
+            this.editingDate = true;
+            this.dateEdit = this.previewDate;
+            this.$nextTick(() => {
+                const input = document.querySelector('.date-input');
+                if (input) input.focus();
+            });
+        },
+        commitPreviewDate() {
+            if (!this.dateEdit) {
+                this.cancelEditPreviewDate();
+                return;
+            }
+            this.previewDate = this.dateEdit;
+            this.cancelEditPreviewDate();
+        },
+        cancelEditPreviewDate() {
+            this.editingDate = false;
+            this.dateEdit = '';
+        },
+        toggleEditMode() {
+            this.isEditMode = !this.isEditMode;
+            if (!this.isEditMode) {
+                this.editingTitle = {};
+                this.titleEdits = {};
+            }
+        },
+        startEditTitle(invoiceData) {
+            if (!this.isEditMode) return;
+            this.editingTitle[invoiceData.id] = true;
+            this.titleEdits[invoiceData.id] = invoiceData.invoice_title;
+            this.$nextTick(() => {
+                const input = document.querySelector('.title-input');
+                if (input) {
+                    input.focus();
+                    input.select();
+                }
+            });
+        },
+        async saveTitle(invoiceData) {
+            if (!this.titleEdits[invoiceData.id] || this.titleEdits[invoiceData.id] === invoiceData.invoice_title) {
+                this.cancelEditTitle(invoiceData);
+                return;
+            }
+            try {
+                const response = await axios.put(`/orders/${invoiceData.id}/title`, { invoice_title: this.titleEdits[invoiceData.id] });
+                if (response.data.invoice) {
+                    invoiceData.invoice_title = this.titleEdits[invoiceData.id];
+                    this.$toast?.success?.('Title updated');
+                }
+                this.cancelEditTitle(invoiceData);
+            } catch (e) {
+                console.error(e);
+                this.$toast?.error?.('Failed to update title');
+                this.cancelEditTitle(invoiceData);
+            }
+        },
+        cancelEditTitle(invoiceData) {
+            this.editingTitle[invoiceData.id] = false;
+            delete this.titleEdits[invoiceData.id];
+        },
         toggleSidebar() {
             this.isSidebarVisible = !this.isSidebarVisible;
         },
         toggleSpreadsheetMode(){
-            this.spreadsheetMode = !this.spreadsheetMode;
+            // removed spreadsheet view; keep no-op for compatibility
+        },
+        onJobUpdated(updatedJob) {
+            Object.values(this.invoiceData).forEach(inv => {
+                const idx = inv.jobs.findIndex(j => j.id === updatedJob.id);
+                if (idx !== -1) inv.jobs[idx] = updatedJob;
+            });
+        },
+        formatPrice(price) {
+            if (!price && price !== 0) return '0.00';
+            return typeof price === 'number' ? price.toFixed(2) : '0.00';
+        },
+        formatDimension(dimension) {
+            if (!dimension && dimension !== 0) return '0.00';
+            return typeof dimension === 'number' ? dimension.toFixed(2) : '0.00';
+        },
+        formatArea(area) {
+            if (!area && area !== 0) return '0.0000';
+            return typeof area === 'number' ? area.toFixed(4) : '0.0000';
+        },
+        getMaterialInfo(job) {
+            if (job.articles && job.articles.length > 0) {
+                return job.articles.map(article => {
+                    const unit = article.in_square_meters ? 'm²' : 
+                               article.in_pieces ? 'ком.' : 
+                               article.in_kilograms ? 'кг' : 
+                               article.in_meters ? 'м' : 'ед.';
+                    return `${article.name} (${article.pivot.quantity} ${unit})`;
+                }).join(', ');
+            } else if (job.large_material) {
+                return job.large_material.name;
+            } else if (job.small_material) {
+                return job.small_material.name;
+            }
+            return null;
         },
         generatePdf(invoiceId) {
             window.open(`/orders/${invoiceId}/pdf`, '_blank');
@@ -327,6 +592,53 @@ export default {
             
             this.closeModal();
         },
+        startEditTrade(index, item) {
+            this.$set ? this.$set(this.isEditingTrade, index, true) : (this.isEditingTrade[index] = true);
+            this.$set ? this.$set(this.editTradeForms, index, {
+                quantity: Number(item.quantity || 0),
+                unit_price: Number(item.unit_price || 0),
+                vat_rate: Number(item.vat_rate || 0)
+            }) : (this.editTradeForms[index] = {
+                quantity: Number(item.quantity || 0),
+                unit_price: Number(item.unit_price || 0),
+                vat_rate: Number(item.vat_rate || 0)
+            });
+        },
+        cancelEditTrade(index) {
+            this.isEditingTrade[index] = false;
+            delete this.editTradeForms[index];
+        },
+        saveEditTrade(index) {
+            const form = this.editTradeForms[index];
+            if (!form) return;
+            const item = this.tradeItems[index];
+            item.quantity = form.quantity;
+            item.unit_price = form.unit_price;
+            item.vat_rate = form.vat_rate;
+            const subtotal = Number(item.quantity || 0) * Number(item.unit_price || 0);
+            const vatAmount = subtotal * (Number(item.vat_rate || 0) / 100);
+            item.total_price = subtotal;
+            item.vat_amount = vatAmount;
+            this.isEditingTrade[index] = false;
+            delete this.editTradeForms[index];
+        },
+        getPreGenItemTotal(item, index) {
+            const form = this.editTradeForms[index];
+            const quantity = form ? Number(form.quantity || 0) : Number(item.quantity || 0);
+            const unit = form ? Number(form.unit_price || 0) : Number(item.unit_price || 0);
+            return quantity * unit;
+        },
+        getPreGenItemVat(item, index) {
+            const form = this.editTradeForms[index];
+            const vat = form ? Number(form.vat_rate || 0) : Number(item.vat_rate || 0);
+            const total = this.getPreGenItemTotal(item, index);
+            return total * (vat / 100);
+        },
+        getPreGenItemTotalWithVat(item, index) {
+            const total = this.getPreGenItemTotal(item, index);
+            const vat = this.getPreGenItemVat(item, index);
+            return total + vat;
+        },
         removeTradeItem(index) {
             this.tradeItems.splice(index, 1);
         },
@@ -340,15 +652,35 @@ export default {
             if (article.in_meters) return 'м';
             return 'ед.';
         },
+        buildTradeItemsPayload() {
+            return (this.tradeItems || []).map((item, idx) => {
+                const form = this.editTradeForms[idx];
+                const quantity = form ? Number(form.quantity || item.quantity || 0) : Number(item.quantity || 0);
+                const unitPrice = form ? Number(form.unit_price || item.unit_price || 0) : Number(item.unit_price || 0);
+                const vatRate = form ? Number(form.vat_rate || item.vat_rate || 0) : Number(item.vat_rate || 0);
+                const totalPrice = quantity * unitPrice;
+                const vatAmount = totalPrice * (vatRate / 100);
+                return {
+                    article_id: item.article_id ?? null,
+                    article_name: item.article_name ?? '',
+                    article_code: item.article_code ?? '',
+                    quantity: quantity,
+                    unit_price: unitPrice,
+                    total_price: totalPrice,
+                    vat_rate: vatRate,
+                    vat_amount: vatAmount,
+                };
+            });
+        },
         async previewInvoice() {
             const toast = useToast();
             try {
                 const orderIds = Object.values(this.invoiceData).map(order => order.id);
-                
+                const tradePayload = this.buildTradeItemsPayload();
                 const response = await axios.post('/preview-invoice', {
                     orders: orderIds,
                     comment: this.comment,
-                    trade_items: this.tradeItems
+                    trade_items: tradePayload
                 }, {
                     responseType: 'blob' // Important for PDF response
                 });
@@ -395,21 +727,40 @@ export default {
             const toast = useToast();
             try {
                 const orderIds = Object.values(this.invoiceData).map(order => order.id);
-                
+                const tradePayload = this.buildTradeItemsPayload();
+                // Request metadata so we can redirect; then separately open the PDF in new tab
                 const response = await axios.post('/generate-invoice', {
                     orders: orderIds,
                     comment: this.comment,
-                    trade_items: this.tradeItems
-                }, {
-                    responseType: 'blob' // Important for PDF response
-                });
+                    trade_items: tradePayload,
+                    return_meta: true
+                }, { responseType: 'json' });
 
-                // Open PDF in new tab
-                const blob = new Blob([response.data], { type: 'application/pdf' });
-                const url = window.URL.createObjectURL(blob);
-                window.open(url, '_blank');
+                if (response?.data?.success && response?.data?.faktura_id) {
+                    // Open PDF if provided
+                    if (response.data.pdf) {
+                        const binary = atob(response.data.pdf);
+                        const array = new Uint8Array(binary.length);
+                        for (let i = 0; i < binary.length; i++) array[i] = binary.charCodeAt(i);
+                        const blob = new Blob([array], { type: 'application/pdf' });
+                        const url = window.URL.createObjectURL(blob);
+                        window.open(url, '_blank');
+                    }
+                    // Redirect to the new invoice view page
+                    this.$inertia.visit(`/invoice/${response.data.faktura_id}`);
+                    toast.success('Invoice generated successfully');
+                    return;
+                }
 
-                toast.success('Invoice generated successfully');
+                // Fallback: if server returns a blob (older path), open and keep current page
+                if (response && response.data) {
+                    try {
+                        const blob = new Blob([response.data], { type: 'application/pdf' });
+                        const url = window.URL.createObjectURL(blob);
+                        window.open(url, '_blank');
+                        toast.success('Invoice generated successfully');
+                    } catch (_) {}
+                }
             } catch (error) {
                 console.error('Error generating invoice:', error);
                 toast.error('Error generating invoice!');
@@ -418,6 +769,7 @@ export default {
     },
     mounted() {
         this.loadTradeArticles();
+        this.fetchNextInvoiceId();
         
         // Watch for changes in selected article to auto-fill price
         this.$watch('selectedArticle', (newArticle) => {
@@ -443,6 +795,34 @@ $light-green: #81c950;
 $blue: #0073a9;
 $red: #9e2c30;
 $orange: #a36a03;
+
+/* Client info styles */
+.client-info-section {
+    background: linear-gradient(135deg, #51A8B1 0%, darken(#51A8B1, 20%) 100%);
+    border-radius: 8px 8px 0 0;
+    padding: 20px 24px;
+    margin: 10px 0 0 0;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+.client-info {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+}
+.client-label {
+    font-size: 14px;
+    color: rgba($white, 0.8);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+.client-name {
+    font-size: 24px;
+    color: $white;
+    font-weight: 700;
+    text-align: center;
+}
 
 .circle {
     width: 40px;
@@ -889,6 +1269,255 @@ table th {
     background-color: darken($orange, 10%);
 }
 
+/* Modern Invoice Styles ported from Finance/Invoice.vue */
+.orders-container {
+    background: rgba($white, 0.2);
+    border-radius: 0 0 3px 3px;
+    padding: 24px;
+    margin-bottom: 20px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    border: 1px solid $light-gray;
+}
+
+.order-separator {
+    display: flex;
+    align-items: center;
+    margin: 10px 0;
+    .separator-line {
+        flex: 1;
+        height: 1px;
+        background: $white;
+    }
+    .separator-text {
+        padding: 0 20px;
+        color: $white;
+        font-weight: bold;
+        font-size: 14px;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+    }
+}
+
+.order-header {
+    background: $white; 
+    border-radius: 3px;
+    padding: 5px;
+    border: 1px solid rgba($light-gray, 0.3);
+}
+
+.order-details {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 16px;
+}
+
+.detail-item {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    .label {
+        font-size: 12px;
+        color: $ultra-light-gray;
+        font-weight: 500;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    .value {
+        font-size: 14px;
+        color: $white;
+        font-weight: bold;
+        &.price {
+            color: $blue;
+            font-weight: bold;
+        }
+        &.total-price {
+            color: greenyellow;
+            font-weight: bold;
+            font-size: 16px;
+        }
+    }
+}
+
+.title-item {
+    .title-content {
+        .invoice-title {
+            font-size: 16px;
+            font-weight: bold;
+            color: $black;
+            cursor: pointer;
+            padding: 0;
+            border-radius: 3px;
+            transition: all 0.2s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            .edit-icon {
+                font-size: 14px;
+                opacity: 0.6;
+            }
+        }
+        .title-edit-container {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            max-width: 350px;
+        }
+        .title-input {
+            font-size: 16px;
+            font-weight: bold;
+            color: $black;
+            border: 2px solid $blue;
+            border-radius: 3px;
+            padding: 4px 8px;
+            background: $white;
+            flex: 1;
+            &:focus {
+                outline: none;
+                border-color: $light-green;
+                box-shadow: 0 0 0 2px rgba($light-green, 0.3);
+            }
+        }
+        .save-btn, .cancel-btn {
+            padding: 6px 8px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 28px;
+            height: 28px;
+            &:hover { transform: scale(1.05); }
+        }
+        .save-btn { background-color: $green; color: $white; }
+        .cancel-btn { background-color: $red; color: $white; }
+    }
+}
+
+.jobs-section {
+    background: rgba($light-gray, 0.02);
+    border-radius: 3px;
+    margin-top: 10px;
+    border: 1px solid rgba($light-gray, 0.2);
+}
+
+.job-card {
+    background: $dark-gray;
+    border: 1px solid $light-gray;
+    border-radius: 3px;
+    padding: 20px;
+    transition: all 0.2s ease;
+    &:hover {
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        border-color: $ultra-light-gray;
+    }
+}
+
+.job-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+    padding: 10px;
+    background-color: #7DC068;
+}
+
+.job-title {
+    font-size: 16px;
+    font-weight: 600;
+    color: $black;
+}
+
+.job-details-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 12px;
+}
+
+.material-info, .shipping-info {
+    grid-column: 1 / -1;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 12px;
+    background: rgba(white, 0.15);
+    border-radius: 6px;
+    margin-top: 12px;
+    span { color: white; }
+}
+
+/* Trade items cards (pre-generation) */
+.trade-items-section {
+    background: $light-gray;
+    border-radius: 3px;
+    padding: 24px;
+    margin: 20px 0;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    border: 1px solid $light-gray;
+}
+.trade-items-container { color: $white; }
+.trade-items-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+    padding-bottom: 10px;
+    border-bottom: 2px solid rgba($white, 0.15);
+}
+.trade-items-header .section-title { font-size: 18px; font-weight: 600; margin: 0; }
+.btn-add { background-color: $green; color: $white; }
+.btn-add:hover { background-color: darken($green, 10%); }
+.trade-items-list { display: flex; flex-direction: column; gap: 12px; }
+.trade-item-card {
+    background: rgba(white, 0.12);
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 16px;
+}
+.item-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+.item-title { display: flex; flex-direction: column; gap: 4px; }
+.item-title .article-code { font-size: 12px; color: $white; opacity: 0.9; }
+.item-title .article-name { font-size: 16px; font-weight: 600; color: $white; }
+.item-actions { display: flex; gap: 6px; }
+.btn-edit-small, .btn-save-small, .btn-cancel-small, .btn-delete { padding: 4px 8px; font-size: 12px; min-width: 32px; }
+.btn-edit-small { background-color: #3182ce; color: white; }
+.btn-save-small { background-color: #38a169; color: white; }
+.btn-cancel-small, .btn-delete { background-color: #e53e3e; color: white; }
+.item-details { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
+.detail-item { display: flex; flex-direction: column; gap: 5px; }
+.detail-item label { font-weight: 600; color: $white; font-size: 13px; }
+.detail-item .detail-value { color: $white; font-size: 14px; }
+.detail-item .total-price { color: $blue; font-weight: 600; }
+.detail-item .total-final { color: greenyellow; font-weight: 600; }
+.form-input-small, .form-select-small { padding: 6px 8px; border: 1px solid $light-gray; border-radius: 3px; background: $white; color: $black; }
+.no-items { text-align: center; color: rgba($white, 0.8); padding: 8px 0; }
+
+/* Minimal Invoice Information Section (reused design) */
+.invoice-info-minimal {
+    background: rgba($white, 0.25);
+    padding: 16px 24px;
+    margin-bottom: 0;
+    border: 1px solid rgba($white, 0.1);
+    border-top: none;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 20px;
+}
+.info-item { display: flex; align-items: center; gap: 8px; }
+.info-label { font-size: 12px; color: rgba($white, 0.6); font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px; white-space: nowrap; }
+.info-value { font-size: 14px; color: $white; font-weight: 600; }
+.date-display { cursor: pointer; display: inline-flex; align-items: center; gap: 8px; padding: 4px 8px; border-radius: 4px; }
+.date-display:hover { background: rgba($white, 0.1); }
+.date-input { font-size: 14px; color: $white; background: rgba($white, 0.1); border: 2px solid $blue; border-radius: 4px; padding: 6px 8px; font-weight: 600; }
+.save-btn, .cancel-btn { padding: 6px 8px; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; display: inline-flex; align-items: center; justify-content: center; min-width: 28px; height: 28px; }
+.save-btn { background-color: $green; color: $white; }
+.cancel-btn { background-color: $red; color: $white; }
+
 /* Preview Modal Styles */
 .preview-modal-content {
     background-color: $dark-gray;
@@ -916,3 +1545,4 @@ table th {
     background-color: white;
 }
 </style>
+
