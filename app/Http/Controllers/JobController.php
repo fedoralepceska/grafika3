@@ -131,35 +131,8 @@ class JobController extends Controller
 
 
 
-                // Step 1.5: Process catalog item articles and check stock availability using new material calculation
-                if ($catalogItem->articles()->exists()) {
-                    $materialRequirements = $catalogItem->calculateMaterialRequirements($tempJob);
-
-                    foreach ($materialRequirements as $requirement) {
-                        $article = $requirement['article'];
-                        $requiredQuantity = $requirement['actual_required'];
-                        $unitType = $requirement['unit_type'];
-
-                        // If this article was selected from a category, we need to get the actual article to use
-                        $actualArticle = $article;
-                        if ($article->pivot->category_id) {
-                            // Re-resolve the category to get the current first available article
-                            $actualArticle = $catalogItem->getFirstArticleFromCategory(
-                                $article->pivot->category_id,
-                                null,
-                                $requiredQuantity
-                            );
-                            if (!$actualArticle) {
-                                throw new \Exception("No available articles with sufficient stock in the selected category (ID: {$article->pivot->category_id}).");
-                            }
-                        }
-
-                        // Check if the actual article has sufficient stock (validation only, no consumption)
-                        if (!$actualArticle->hasStock($requiredQuantity)) {
-                            throw new \Exception("Insufficient stock for article: {$actualArticle->name} ({$unitType}). Required: {$requiredQuantity}, Available: {$actualArticle->getCurrentStock()}");
-                        }
-                    }
-                }
+                // Step 1.5: Skip stock availability validation at job creation time.
+                // Stock deduction/validation is now handled during Stock Realization flow.
 
                 $job->save();
 
