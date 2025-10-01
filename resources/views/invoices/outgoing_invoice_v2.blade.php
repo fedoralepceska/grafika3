@@ -221,14 +221,15 @@
         }
 
         .page-break { page-break-after: always; }
-        /* Truncate long article names within their cell */
+        /* Allow long article/job names to wrap within cell without expanding column */
         .truncate-cell {
             display: block;
             width: 100%;
             max-width: 100%;
             overflow: hidden;
-            white-space: nowrap;
-            text-overflow: ellipsis;
+            white-space: normal; /* enable wrapping */
+            word-wrap: break-word; /* legacy support */
+            overflow-wrap: anywhere; /* modern wrapping for long words */
         }
     </style>
 </head>
@@ -374,10 +375,10 @@
         $verticalSums['totalOverallSum'] += $tradeItemsTotal + $tradeItemsVatTotal;
     @endphp
     <div class="main-content">
-        <table style="width: 100%; border-collapse: collapse; margin: 0; padding: 0;">
+        <table style="width: 100%; border-collapse: collapse; margin: 0; padding: 0; table-layout: fixed;">
             <colgroup>
-                <col style="width: 1%;">
-                <col style="width: 49%;">
+                <col style="width: 3%;">
+                <col style="width: 46%;">
                 <col style="width: 7%;">
                 <col style="width: 7%;">
                 <col style="width: 10%;">
@@ -386,8 +387,8 @@
             </colgroup>
             <thead>
                 <tr style="background-color: black; color: white;">
-                    <td style="font-size: 8pt; text-align: center; padding: 6px 4px; border-right: 1px solid white; width: 1%; white-space: nowrap;">Рб.</td>
-                    <td style="font-size: 8pt; text-align: center; padding: 6px 4px; border-right: 1px solid white; width: 49%;">Име на артикал</td>
+                    <td style="font-size: 8pt; text-align: center; padding: 6px 4px; border-right: 1px solid white; width: 3%; white-space: nowrap;">Рб.</td>
+                    <td style="font-size: 8pt; text-align: center; padding: 6px 4px; border-right: 1px solid white; width: 46%;">Име на артикал</td>
                     <td style="font-size: 8pt; text-align: center; padding: 6px 4px; border-right: 1px solid white; width: 7%;">данок%</td>
                     <td style="font-size: 8pt; text-align: center; padding: 6px 4px; border-right: 1px solid white; width: 7%;">е.м.</td>
                     <td style="font-size: 8pt; text-align: center; padding: 6px 4px; border-right: 1px solid white; width: 10%;">Количина</td>
@@ -403,9 +404,15 @@
                         @php
                             $jobName = $item['job']['name'] ?? '';
                             $orderName = $item['invoice_title'] ?? '';
-                            $displayName = $jobName && $orderName ? ($jobName . ' - ' . $orderName) : ($jobName ?: $orderName);
                         @endphp
-                        <td style="font-size: 10pt; padding: 6px; text-align: left;"><span class="truncate-cell">{{ $displayName }}</span></td>
+                        <td style="font-size: 10pt; padding: 6px; text-align: left;">
+                            @if($jobName)
+                                <div class="truncate-cell">{{ $jobName }}</div>
+                            @endif
+                            @if($orderName)
+                                <div class="truncate-cell" style="color:rgb(109, 128, 129); font-size: 8pt; line-height: 0.8;">{{ $orderName }}</div>
+                            @endif
+                        </td>
                         <td style="font-size: 10pt; padding: 6px; text-align: center; background-color: #E7F1F2;">{{ $item['taxRate'] }}%</td>
                         <td style="font-size: 10pt; padding: 6px; text-align: center; background-color: #E7F1F2;">{{getUnit($item['job'])}}</td>
                         <td style="font-size: 10pt; padding: 6px; text-align: center; background-color: #E7F1F2;">{{ $item['job']['quantity'] }}</td>

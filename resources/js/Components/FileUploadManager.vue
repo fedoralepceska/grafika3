@@ -733,7 +733,7 @@ export default {
     object-fit: contain;
     border-radius: 4px;
     transition: all 0.2s ease;
-    background-color: #f8f9fa;
+    background-color: $dark-gray;
 }
 
 .thumbnail-container {
@@ -820,7 +820,7 @@ export default {
     width: 100%;
     height: 100%;
     object-fit: contain;
-    background-color: #f8f9fa;
+    background-color: $dark-gray;
     transition: opacity 0.3s ease;
 }
 
@@ -962,6 +962,7 @@ export default {
     border-radius: 12px;
     max-width: 90vw;
     max-height: 90vh;
+    height: 90vh;
     width: 800px;
     display: flex;
     flex-direction: column;
@@ -974,13 +975,13 @@ export default {
     justify-content: space-between;
     align-items: center;
     padding: 16px 20px;
-    border-bottom: 1px solid #e9ecef;
-    background-color: #f8f9fa;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    background-color: $dark-gray;
 
     h3 {
         margin: 0;
         font-size: 1.2rem;
-        color: #333;
+        color: white;
     }
 }
 
@@ -989,14 +990,14 @@ export default {
     border: none;
     font-size: 1.2rem;
     cursor: pointer;
-    color: #666;
+    color: white;
     padding: 4px;
     border-radius: 4px;
     transition: all 0.2s ease;
 
     &:hover {
-        background-color: #e9ecef;
-        color: #333;
+        
+        color: $red;
     }
 }
 
@@ -1016,19 +1017,22 @@ export default {
 
 .modal-image-container {
     flex: 1;
+    padding: 1rem;
     position: relative;
     display: flex;
     align-items: center;
     justify-content: center;
-    background-color: #f8f9fa;
+    background-color: $dark-gray;
     min-height: 400px;
+    overflow: hidden;
 }
 
 .modal-image {
-    max-width: 100%;
-    max-height: 100%;
+    width: 100%;
+    height: 100%;
     object-fit: contain;
     border-radius: 4px;
+    display: block;
 }
 
 .modal-carousel-btn {
@@ -1071,7 +1075,7 @@ export default {
 .modal-page-navigation {
     padding: 16px 20px;
     border-top: 1px solid #e9ecef;
-    background-color: #f8f9fa;
+    background-color: $dark-gray;
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -1081,7 +1085,7 @@ export default {
 
 .page-info {
     font-size: 0.9rem;
-    color: #666;
+    color: white;
     font-weight: 500;
 }
 

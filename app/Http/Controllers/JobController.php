@@ -3207,6 +3207,15 @@ class JobController extends Controller
                     $maxDpi = 200;
                 }
                 $dpi = (int)ceil($targetLongEdgePx / $longIn);
+
+                // If the physical long edge is below 2000mm, scale DPI so the rendered long edge ~ 2000mm
+                // This preserves aspect ratio but produces a larger thumbnail for small originals
+                $targetLongEdgeMm = 2000.0;
+                if ($longMm > 0 && $longMm < $targetLongEdgeMm) {
+                    $scaleUp = $targetLongEdgeMm / $longMm; // e.g., 100mm -> x2
+                    $dpi = (int)ceil($dpi * $scaleUp);
+                }
+
                 return max($minDpi, min($maxDpi, $dpi));
             }
         } catch (\Throwable $e) {
