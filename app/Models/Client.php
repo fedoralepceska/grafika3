@@ -31,4 +31,9 @@ class Client extends Model
             ->withPivot('is_accepted', 'description')
             ->withTimestamps();
     }
+
+    public function invoices()
+    {
+        return $this->hasMany(Invoice::class);
+    }
 }

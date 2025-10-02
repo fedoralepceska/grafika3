@@ -155,8 +155,9 @@ class ClientController extends Controller
     public function getUniqueClients()
     {
         $uniqueClients = Client::query()
-            ->distinct()
+            ->where('name', '!=', 'Физичко лице') // Exclude individual client
             ->select('name', 'id')
+            ->orderBy('name')
             ->get();
 
         return response()->json($uniqueClients);

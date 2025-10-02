@@ -36,7 +36,7 @@ import axios from "axios";
 
 export default {
     props: {
-        showModal:Boolean,
+        showModal: Boolean,
         comment: String,
         closeModal: Function,
         acknowledge: Function,

@@ -11,7 +11,7 @@ class IndividualOrderController extends Controller
     public function index(Request $request)
     {
         // Get completed orders for 'Физичко лице' client
-        $completedQuery = IndividualOrder::with(['invoice.jobs', 'invoice.user', 'client']);
+        $completedQuery = IndividualOrder::with(['invoice.jobs', 'invoice.user', 'invoice.contact', 'client']);
 
         if ($request->has('searchQuery')) {
             $search = '%' . preg_replace('/[^A-Za-z0-9\-]/', '', $request->input('searchQuery')) . '%';
@@ -23,7 +23,7 @@ class IndividualOrderController extends Controller
         $completedOrders = $completedQuery->get();
 
         // Get uncompleted orders for 'Физичко лице' client
-        $uncompletedQuery = \App\Models\Invoice::with(['jobs', 'user', 'client'])
+        $uncompletedQuery = \App\Models\Invoice::with(['jobs', 'user', 'contact', 'client'])
             ->where('status', '!=', 'Completed')
             ->whereHas('client', function($q) {
                 $q->where('name', 'Физичко лице');

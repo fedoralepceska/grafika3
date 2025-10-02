@@ -15,12 +15,12 @@
                         </div>
                         <div class="flex gap-2 filters-group">
                         <div class="status">
-                            <label class="pr-3">Filter orders</label>
-                            <select v-model="filterClient" class="text-black filter-select" @change="applyFilter">
-                                <option value="All" hidden>Clients</option>
-                                <option value="All">All Clients</option>
-                                <option v-for="client in uniqueClients" :key="client">{{ client.name }}</option>
-                            </select>
+                            
+                            <ClientSelectDropdown 
+                                v-model="filterClient"
+                                :clients="uniqueClients"
+                                @change="applyFilter"
+                            />
                         </div>
                         <div class="date">
                             <select v-model="sortOrder" class="text-black filter-select" @change="applyFilter">
@@ -31,6 +31,9 @@
                         </div>
                         </div>
                         <div class="button flex gap-3">
+                            <button @click="clearAllSelections" v-if="hasSelectedInvoices || filterClient !== 'All'" class="btn create-order1" >
+                                Clear Selection <i class="fa-solid fa-times"></i>
+                            </button>
                             <button @click="generateInvoices" class="btn create-order" >
                                 Generate Invoice <i class="fa-solid fa-file-invoice-dollar"></i>
                             </button>
@@ -99,10 +102,11 @@ import {reactive} from "vue";
 import OrderJobDetails from "@/Pages/Invoice/OrderJobDetails.vue";
 import ViewLockDialog from "@/Components/ViewLockDialog.vue";
 import RedirectTabs from "@/Components/RedirectTabs.vue";
+import ClientSelectDropdown from "@/Components/ClientSelectDropdown.vue";
 import {useToast} from "vue-toastification";
 
 export default {
-    components: {Header, MainLayout,Pagination,OrderJobDetails, ViewLockDialog, RedirectTabs },
+    components: {Header, MainLayout,Pagination,OrderJobDetails, ViewLockDialog, RedirectTabs, ClientSelectDropdown },
     props:{
         invoices:Object,
     },
@@ -130,6 +134,7 @@ export default {
         hasSelectedInvoices() {
             return Object.values(this.selectedInvoices).some(value => value);
         },
+        
     },
     methods: {
         formatDate(dateStr) {
@@ -148,7 +153,8 @@ export default {
             return '';
         },
         toggleInvoiceSelection(invoice, event) {
-            const toast = useToast(); // Initialize toast here to use directly
+            const toast = useToast();
+            const isCurrentlySelected = this.selectedInvoices[invoice.id];
 
             // Check if invoice.client exists
             if (!invoice.client) {
@@ -157,32 +163,41 @@ export default {
                 return;
             }
 
+            // If unselecting an invoice, remove it and check if we should clear filter
+            if (isCurrentlySelected) {
+                this.selectedInvoices[invoice.id] = false;
+                
+                // If no invoices are selected anymore, clear the filter
+                const remainingSelected = Object.keys(this.selectedInvoices).filter(id => this.selectedInvoices[id]);
+                if (remainingSelected.length === 0 && this.filterClient !== 'All') {
+                    this.clearAllSelections();
+                }
+                return;
+            }
+
             // Get IDs of currently selected invoices
             const selectedInvoiceIds = Object.keys(this.selectedInvoices).filter(id => this.selectedInvoices[id]);
 
-            if (selectedInvoiceIds.length > 0) {
-                // Get the client ID of the first selected invoice
-                const firstSelectedInvoice = this.invoices.data.find(inv => inv.id == selectedInvoiceIds[0]);
-
-                // Check if first selected invoice has a client
-                if (!firstSelectedInvoice || !firstSelectedInvoice.client) {
-                    toast.error('Selected invoice(s) do not have associated clients.');
-                    event.target.checked = false; // Revert checkbox state
-                    return;
+            // If this is the first selection OR same client, auto-filter and select
+            if (selectedInvoiceIds.length === 0 || 
+                (selectedInvoiceIds.length > 0 && invoice.client && selectedInvoiceIds.some(id => {
+                    const existingInvoice = this.filteredInvoices.find(inv => inv.id == id);
+                    return existingInvoice && existingInvoice.client && existingInvoice.client.name === invoice.client.name;
+                }))) {
+                
+                // Auto-filter to same client if this is the first selection
+                if (selectedInvoiceIds.length === 0) {
+                    this.autoFilterByClient(invoice.client.name);
                 }
-
-                const firstSelectedClientId = firstSelectedInvoice.client.name;
-
-                // Check if the new invoice's client ID matches the first selected invoice's client ID
-                if (invoice.client.name !== firstSelectedClientId) {
-                    toast.error('You can only select invoices from the same client.');
-                    event.target.checked = false; // Revert checkbox state
-                    return;
-                }
+                
+                // Select the invoice
+                this.selectedInvoices[invoice.id] = true;
+                return;
             }
 
-            // Toggle the selected status of the invoice if validation passes
-            this.selectedInvoices[invoice.id] = !this.selectedInvoices[invoice.id];
+            // Different client - show error
+            toast.error('You can only select invoices from the same client.');
+            event.target.checked = false; // Revert checkbox state
         },
 
         getStatusColorClass(status) {
@@ -258,9 +273,21 @@ export default {
                 console.error(error);
             }
         },
+        
+        async autoFilterByClient(clientName) {
+            // Set the client filter and apply it
+            this.filterClient = clientName;
+            await this.applyFilter(1);
+        },
         viewInvoice(id) {
             this.$inertia.visit(`/orders/${id}`);
         },
+        clearAllSelections() {
+            this.selectedInvoices = {};
+            this.filterClient = 'All';
+            this.applyFilter(1);
+        },
+        
         async generateInvoices() {
             const toast = useToast();
             const selectedIds = Object.entries(this.selectedInvoices)
@@ -306,7 +333,7 @@ export default {
 }
 
 .filter-container .filters-group {
-    flex: 2 1 500px;
+    flex: 2 1 600px;
     flex-wrap: wrap;
 }
 
@@ -317,7 +344,8 @@ export default {
 }
 
 .filter-select{
-    width: 25vh;
+    width: 30vh;
+    min-width: 200px;
     max-width: 100%;
 }
 

@@ -159,12 +159,12 @@
                             <tr v-if="invoice.comment && !acknowledged && hasNoteForCurrentAction(job)" :data-job-id="job.id">
                                 <td :colspan="8 + (hasWaitingJobs ? 1 : 0) + (hasNextSteps ? 1 : 0)" class="orange">
                                     <div class="flex items-center justify-center gap-3">
-                                        <button @click="openModal">
+                                        <button @click="openModal(index)">
                                             <i class="fa-solid fa-arrow-down"></i>
                                             {{ $t('readNotes') }}
                                             <i class="fa-solid fa-arrow-down"></i>
                                         </button>
-                                        <button class="see-notes-btn" @click="openModal">
+                                        <button class="see-notes-btn" @click="openModal(index)">
                                             <i class="fa-solid fa-note-sticky"></i>
                                             See notes
                                         </button>
@@ -379,10 +379,10 @@
                         </tbody>
                     </table>
                     <CommentModal
-                        v-if="showModal"
-                        :comment="invoices[index].comment"
+                        v-if="showModal && selectedInvoiceIndex !== null"
+                        :comment="invoices[selectedInvoiceIndex].comment"
                         :closeModal="closeModal"
-                        :invoice="invoices[index]"
+                        :invoice="invoices[selectedInvoiceIndex]"
                         :showModal="showModal"
                         @modal="updateModal"
                     />
@@ -569,6 +569,8 @@ export default {
             // Thumbnail system
             carouselIndices: {}, // Track current page for each job/file combination
             modalCurrentPage: 1, // For preview modal page navigation
+            acknowledgedNotes: {}, // Track acknowledged notes per job
+            selectedInvoiceIndex: null, // Track which invoice's modal is open
         };
     },
     async created() {
@@ -592,6 +594,9 @@ export default {
     beforeMount() {
         // Load job disabled status from localStorage
         this.jobDisabledStatus = JSON.parse(localStorage.getItem('jobDisabledStatus')) || {};
+        
+        // Load acknowledged notes from localStorage
+        this.acknowledgedNotes = JSON.parse(localStorage.getItem('acknowledgedNotes')) || {};
         
         // Note: Timer restoration is now handled in restoreTimerState() after fetching jobs
         // This ensures we sync with the actual server state rather than just localStorage
@@ -1524,10 +1529,13 @@ export default {
         openModal(index) {
             this.showModal = true;
             this.selectedInvoiceIndex = index;
+            this.acknowledged = false; // Reset acknowledgment state when opening modal
         },
 
         closeModal() {
             this.showModal = false;
+            this.selectedInvoiceIndex = null;
+            this.acknowledged = false;
         },
 
         acknowledge() {
@@ -1540,8 +1548,19 @@ export default {
         },
         updateModal(values) {
             this.showModal = values[0];
-            window.location.reload()
             this.acknowledged = values[1];
+            
+            // If acknowledged, update the acknowledgedNotes for all jobs in the current invoice
+            if (values[1]) {
+                const invoice = this.invoices[this.selectedInvoiceIndex];
+                if (invoice && invoice.jobs) {
+                    invoice.jobs.forEach(job => {
+                        if (this.hasNoteForCurrentAction(job)) {
+                            this.acknowledgeNote(job);
+                        }
+                    });
+                }
+            }
         },
         async startJob(job) {
             if (!this.isPreviousActionCompleted(job)) {
