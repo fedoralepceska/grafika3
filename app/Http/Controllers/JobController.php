@@ -5469,8 +5469,8 @@ class JobController extends Controller
     }
 
     /**
-     * Recalculate job total area based on quantity/copies changes
-     * Respects catalog item pricing method (by quantity vs by copies)
+     * Recalculate job total area based on copies changes
+     * Always uses copies (ignores catalog item pricing method for area calculation)
      */
     private function recalculateJobArea(Job $job, Request $request)
     {
@@ -5488,43 +5488,22 @@ class JobController extends Controller
         $oldQuantity = $job->quantity;
         $oldCopies = $job->copies;
         
-        if ($catalogItem) {
-            // Use catalog item's pricing method to determine area multiplier
-            $oldMultiplier = $catalogItem->getPricingMultiplier($oldQuantity, $oldCopies);
-            $newMultiplier = $catalogItem->getPricingMultiplier($newQuantity, $newCopies);
-            $areaMultiplier = $oldMultiplier > 0 ? $newMultiplier / $oldMultiplier : 1;
-            
-            \Log::info('Area calculation using catalog pricing method', [
-                'job_id' => $job->id,
-                'catalog_item_id' => $catalogItemId,
-                'pricing_method' => $catalogItem->getPricingMethod(),
-                'by_copies' => $catalogItem->by_copies,
-                'by_quantity' => $catalogItem->by_quantity,
-                'old_quantity' => $oldQuantity,
-                'new_quantity' => $newQuantity,
-                'old_copies' => $oldCopies,
-                'new_copies' => $newCopies,
-                'old_multiplier' => $oldMultiplier,
-                'new_multiplier' => $newMultiplier,
-                'area_multiplier' => $areaMultiplier
-            ]);
-        } else {
-            // Fallback: use both quantity and copies for manual jobs
-            $quantityMultiplier = $oldQuantity > 0 ? $newQuantity / $oldQuantity : 1;
-            $copiesMultiplier = $oldCopies > 0 ? $newCopies / $oldCopies : 1;
-            $areaMultiplier = $quantityMultiplier * $copiesMultiplier;
-            
-            \Log::info('Area calculation using fallback method (manual job)', [
-                'job_id' => $job->id,
-                'old_quantity' => $oldQuantity,
-                'new_quantity' => $newQuantity,
-                'old_copies' => $oldCopies,
-                'new_copies' => $newCopies,
-                'quantity_multiplier' => $quantityMultiplier,
-                'copies_multiplier' => $copiesMultiplier,
-                'area_multiplier' => $areaMultiplier
-            ]);
-        }
+        // Always use copies for area calculation (regardless of catalog item pricing method)
+        $copiesMultiplier = $oldCopies > 0 ? $newCopies / $oldCopies : 1;
+        $areaMultiplier = $copiesMultiplier;
+        
+        \Log::info('Area calculation always using copies method', [
+            'job_id' => $job->id,
+            'catalog_item_id' => $catalogItemId,
+            'catalog_pricing_method' => $catalogItem ? $catalogItem->getPricingMethod() : 'manual',
+            'by_copies' => $catalogItem ? $catalogItem->by_copies : null,
+            'by_quantity' => $catalogItem ? $catalogItem->by_quantity : null,
+            'old_copies' => $oldCopies,
+            'new_copies' => $newCopies,
+            'copies_multiplier' => $copiesMultiplier,
+            'area_multiplier' => $areaMultiplier,
+            'note' => 'Area calculation overridden to always use copies only'
+        ]);
         
         // Update total area if it exists
         if ($job->total_area_m2 !== null) {
