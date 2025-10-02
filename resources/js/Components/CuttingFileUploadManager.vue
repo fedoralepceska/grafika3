@@ -228,6 +228,13 @@
                 </div>
             </div>
         </div>
+
+        <!-- Filename Validation Modal -->
+        <FileNameValidationModal
+            :show="showValidationModal"
+            :invalid-file="invalidFileData"
+            @close="closeValidationModal"
+        />
     </div>
 </template>
 
@@ -235,9 +242,14 @@
 import { useToast } from "vue-toastification";
 import { uploadFileInParts } from '@/utils/r2Multipart.js';
 import { uploadManager } from '@/utils/UploadManager.js';
+import { FileValidator } from '@/utils/FileValidation.js';
+import FileNameValidationModal from '@/Components/FileNameValidationModal.vue';
 
 export default {
     name: 'CuttingFileUploadManager',
+    components: {
+        FileNameValidationModal
+    },
     emits: ['files-updated', 'file-removed', 'upload-started', 'upload-completed', 'upload-failed'],
     props: {
         jobId: {
@@ -268,7 +280,13 @@ export default {
             showPreviewModal: false,
             previewFileIndex: null,
             modalCurrentPage: 1,
-            currentThumbnailIndexes: {} // Track current thumbnail index for each file
+            currentThumbnailIndexes: {}, // Track current thumbnail index for each file
+            showValidationModal: false,
+            invalidFileData: {
+                filename: '',
+                errorMessage: '',
+                suggestedFilename: ''
+            }
         };
     },
     computed: {
@@ -312,10 +330,39 @@ export default {
 
             const toast = useToast();
 
-            // Validate files
+            // Validate file sizes first
             const invalidFiles = files.filter(file => file.size > this.maxFileSize);
             if (invalidFiles.length > 0) {
                 toast.error(`Some files are too large. Maximum size is ${(this.maxFileSize / 1024 / 1024).toFixed(0)}MB`);
+                return;
+            }
+
+            // Validate filenames
+            const invalidFilenames = [];
+            for (const file of files) {
+                const validation = FileValidator.validateFilename(file.name);
+                if (!validation.isValid) {
+                    invalidFilenames.push({
+                        filename: file.name,
+                        errorMessage: FileValidator.getErrorMessage(validation.errors),
+                        suggestedFilename: FileValidator.getSanitizedFilename(file.name),
+                        validation
+                    });
+                }
+            }
+
+            // If there are invalid filenames, show validation modal
+            if (invalidFilenames.length > 0) {
+                const firstInvalid = invalidFilenames[0];
+                this.invalidFileData = {
+                    filename: firstInvalid.filename,
+                    errorMessage: firstInvalid.errorMessage,
+                    suggestedFilename: firstInvalid.suggestedFilename
+                };
+                this.showValidationModal = true;
+                
+                // Reset file input
+                event.target.value = '';
                 return;
             }
 
@@ -552,6 +599,15 @@ export default {
             if (this.deletingFiles.has(fileIndex)) return 'Removing file...';
             if (this.isLocked) return 'Remove disabled while processing';
             return 'Remove cutting file';
+        },
+
+        closeValidationModal() {
+            this.showValidationModal = false;
+            this.invalidFileData = {
+                filename: '',
+                errorMessage: '',
+                suggestedFilename: ''
+            };
         },
 
         // Thumbnail methods

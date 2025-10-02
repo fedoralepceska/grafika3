@@ -317,8 +317,8 @@
                     <div class="modal-carousel">
                         <!-- Large thumbnail display -->
                         <img 
-                            v-if="getCurrentFileThumbnail()?.url"
-                            :src="getCurrentFileThumbnail()?.url"
+                            v-if="getCurrentFileThumbnail() && !fileModal.hasError"
+                            :src="getModalThumbnailUrl()"
                             :alt="`Page ${fileModal.currentIndex + 1}`"
                             class="modal-thumbnail"
                             @error="onThumbnailError"
@@ -474,7 +474,8 @@ export default {
                 fileName: '',
                 fileIndex: 0,
                 thumbnails: [],
-                currentIndex: 0
+                currentIndex: 0,
+                hasError: false // Track if current thumbnail has error
             },
         };
     },
@@ -778,10 +779,18 @@ export default {
         // New simplified thumbnail methods
         hasDisplayableFiles(job) {
             // Check if job has any files to display (new or legacy system)
-            if (this.hasMultipleFiles(job) || this.hasSingleNewFile(job)) {
-                return job.dimensions_breakdown && Array.isArray(job.dimensions_breakdown) && job.dimensions_breakdown.length > 0;
+            // More robust check that covers all scenarios
+            if (this.hasMultipleFiles(job)) {
+                // New multi-file system
+                return true; // Always try to display - let API handle missing thumbnails
+            } else if (this.hasSingleNewFile(job)) {
+                // New single file system
+                return true; // Always try to display
+            } else if (this.isLegacyJob(job)) {
+                // Legacy system - check if file exists and is not placeholder
+                return job.file && job.file !== 'placeholder.jpeg';
             }
-            return job.file && job.file !== 'placeholder.jpeg';
+            return false;
         },
         
         getJobFileCount(job) {
@@ -803,17 +812,21 @@ export default {
             const fileName = this.getFileName(job, fileIndex);
             const thumbnails = this.getAvailableThumbnails(job.id, fileIndex);
             
-            if (thumbnails.length === 0) return;
+            // Don't return early anymore - getAvailableThumbnails now provides placeholders
+            if (thumbnails.length === 0) {
+                console.warn(`No thumbnails found for job ${job.id}, file ${fileIndex}`);  
+                return;
+            }
             
             this.fileModal = {
                 show: true,
                 jobId: job.id,
                 jobName: jobName,
                 fileName: fileName,
-
                 fileIndex: fileIndex,
                 thumbnails,
-                currentIndex: 0
+                currentIndex: 0,
+                hasError: false
             };
         },
         
@@ -826,7 +839,8 @@ export default {
                 fileName: '',
                 fileIndex: 0,
                 thumbnails: [],
-                currentIndex: 0
+                currentIndex: 0,
+                hasError: false
             };
         },
         
@@ -834,15 +848,25 @@ export default {
             return this.fileModal.thumbnails[this.fileModal.currentIndex];
         },
         
+        getModalThumbnailUrl() {
+            // Use dynamic API route for modal thumbnails
+            const thumbnail = this.getCurrentFileThumbnail();
+            if (!thumbnail) return null;
+            
+            return this.getThumbnailUrl(this.fileModal.jobId, this.fileModal.fileIndex, thumbnail.page_number || 1);
+        },
+        
         previousFileThumbnail() {
             if (this.fileModal.currentIndex > 0) {
                 this.fileModal.currentIndex--;
+                this.fileModal.hasError = false; // Reset error state
             }
         },
         
         nextFileThumbnail() {
             if (this.fileModal.currentIndex < this.fileModal.thumbnails.length - 1) {
                 this.fileModal.currentIndex++;
+                this.fileModal.hasError = false; // Reset error state
             }
         },
         
@@ -879,8 +903,10 @@ export default {
             return !job.dimensions_breakdown && job.file;
         },
         
-        onThumbnailError() {
-            console.warn('Thumbnail failed to load');
+        onThumbnailError(event) {
+            console.warn('Modal thumbnail failed to load');
+            // Set error flag to show placeholder
+            this.fileModal.hasError = true;
         },
         hasMultipleFiles(job) {
             // Check if job has dimensions_breakdown (new system) and has 2 or more files
@@ -929,35 +955,14 @@ export default {
             this.showPdfModal = true;
         },
         getThumbnailUrl(jobId, fileIndex, page = null) {
-            const thumbnails = this.getThumbnailsForFile(jobId, fileIndex);
-            
-            if (thumbnails.length === 0) {
-                return null;
+            // Use dynamic API route like InvoiceDetails.vue for consistency
+            try {
+                const pageNumber = page || 1;
+                return route('jobs.viewThumbnail', { jobId: jobId, fileIndex: fileIndex, page: pageNumber });
+            } catch (error) {
+                // Fallback to direct URL if route helper fails
+                return `/jobs/${jobId}/view-thumbnail/${fileIndex}/${pageNumber || 1}`;
             }
-            
-            // If page is specified, find that specific page
-            if (page && page > 0) {
-                const pageThumbnail = thumbnails.find(t => 
-                    t.page_number === page
-                );
-                
-                if (pageThumbnail) {
-                    return pageThumbnail.url;
-                }
-            }
-            
-            // Use current page index from carousel state
-            const currentPageIndex = this.getCurrentPageIndex(this.findJobById(jobId), fileIndex);
-            if (thumbnails[currentPageIndex]) {
-                return thumbnails[currentPageIndex].url;
-            }
-            
-            // Fallback to first available thumbnail
-            if (thumbnails.length > 0) {
-                return thumbnails[0].url;
-            }
-            
-            return null;
         },
         getOriginalFileUrl(jobId, fileIndex) {
             return route('jobs.viewOriginalFile', { jobId: jobId, fileIndex: fileIndex });
@@ -1008,42 +1013,30 @@ export default {
         },
         
         getThumbnailsForFile(jobId, fileIndex) {
+            // For new API-based approach, we'll rely on SSR thumbnails when available
+            // but fall back to dynamic API calls when needed
             const thumbnails = this.getJobThumbnails(jobId);
             const job = this.findJobById(jobId);
             if (!job) return [];
             
-            // Get filename from dimensions_breakdown or originalFile
-            let originalFileName = '';
-            if (job.dimensions_breakdown && job.dimensions_breakdown[fileIndex]) {
-                originalFileName = job.dimensions_breakdown[fileIndex].filename || `File ${fileIndex + 1}`;
-            } else if (job.originalFile && job.originalFile[fileIndex]) {
-                originalFileName = this.getFileName(job.originalFile[fileIndex]);
-            } else {
-                return [];
+            // If we have SSR thumbnails, filter them by file index
+            if (thumbnails && thumbnails.length > 0) {
+                const matchingThumbnails = thumbnails.filter(t => 
+                    t && t.file_index === fileIndex
+                );
+                
+                // Sort by page number to ensure proper order
+                return matchingThumbnails.sort((a, b) => {
+                    const pageA = parseInt(a.page_number || '0');
+                    const pageB = parseInt(b.page_number || '0');
+                    return pageA - pageB;
+                });
             }
             
-            const fileNameWithoutExt = originalFileName.replace(/\.[^/.]+$/, "");
-            
-            // Filter thumbnails that match this file
-            const matchingThumbnails = thumbnails.filter(t => 
-                t && t.file_name && t.file_name.includes(fileNameWithoutExt) && t.file_name.endsWith('.png')
-            );
-            
-            // Sort by page number to ensure proper order
-            return matchingThumbnails.sort((a, b) => {
-                const pageA = parseInt(a.file_name.match(/_page_(\d+)\.png$/)?.[1] || '0');
-                const pageB = parseInt(b.file_name.match(/_page_(\d+)\.png$/)?.[1] || '0');
-                return pageA - pageB;
-            });
+            // Return empty array - getAvailableThumbnails will handle fallback
+            return [];
         },
         
-        hasDisplayableFiles(job) {
-            // Check if job has any files to display (new or legacy system)
-            if (this.hasMultipleFiles(job) || this.hasSingleNewFile(job)) {
-                return job.dimensions_breakdown && Array.isArray(job.dimensions_breakdown) && job.dimensions_breakdown.length > 0;
-            }
-            return job.file && job.file !== 'placeholder.jpeg';
-        },
         
         getCurrentFileIndex(job) {
             // Get current carousel index for this job, default to 0
@@ -1215,6 +1208,45 @@ export default {
         getAvailableThumbnails(jobId, fileIndex) {
             // Get all available thumbnail pages for a specific file
             const thumbnails = this.getThumbnailsForFile(jobId, fileIndex);
+            
+            // If no thumbnails found via SSR data, create placeholder thumbnail objects for API calls
+            if (thumbnails.length === 0) {
+                const job = this.findJobById(jobId);
+                if (job && ((this.hasMultipleFiles(job) && fileIndex < job.dimensions_breakdown.length) || 
+                           (this.hasSingleNewFile(job) && fileIndex === 0) || 
+                           (this.isLegacyJob(job) && fileIndex === 0))) {
+                    
+                    const fileThumbnails = [];
+                    
+                    // Check if job has page dimensions breakdown for multiple pages
+                    if (job.dimensions_breakdown && job.dimensions_breakdown[fileIndex] && 
+                        job.dimensions_breakdown[fileIndex].page_dimensions) {
+                        
+                        const pageCount = job.dimensions_breakdown[fileIndex].page_dimensions.length;
+                        
+                        // Create thumbnail entry for each page
+                        for (let page = 1; page <= pageCount; page++) {
+                            fileThumbnails.push({
+                                url: null, // Will be handled by API call in getThumbnailUrl
+                                page_number: page,
+                                file_index: fileIndex,
+                                file_name: `placeholder_${jobId}_${fileIndex}_page_${page}.png`
+                            });
+                        }
+                    } else {
+                        // Single page fallback
+                        fileThumbnails.push({
+                            url: null, // Will be handled by API call in getThumbnailUrl
+                            page_number: 1,
+                            file_index: fileIndex,
+                            file_name: `placeholder_${jobId}_${fileIndex}.png`
+                        });
+                    }
+                    
+                    return fileThumbnails;
+                }
+            }
+            
             return thumbnails;
         },
         previousFile() {
