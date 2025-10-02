@@ -10,23 +10,76 @@
                     </h2>
                     <div class="filter-container flex gap-4 pb-10">
                         <div class="search flex gap-2">
-                            <input v-model="searchQuery" placeholder="Enter Order Number or Order Name" class="text-black" style="width: 50vh; border-radius: 3px" @keyup.enter="searchOrders" />
-                            <button class="btn create-order1" @click="searchOrders">Search</button>
+                            <input v-model="searchQuery" placeholder="Search by Order Number, Name, or Contact" class="text-black" style="width: 50vh; border-radius: 3px" @keyup.enter="searchOrders" />
                         </div>
                         <div class="flex gap-3">
+                            <div class="contact-filter">
+                            <div class="relative">
+                                <div class="relative">
+                                    <input 
+                                        :value="displayValue"
+                                        placeholder="Select contact..."
+                                        class="text-black" 
+                                        style="width: 200px; border-radius: 3px; padding-right: 25px;"
+                                        @focus="showContactDropdown = true; contactSearchTerm = ''"
+                                        @click="showContactDropdown = true; contactSearchTerm = ''"
+                                        @input="contactSearchTerm = $event.target.value; setContactSearchDebounced()"
+                                    />
+                                    <div class="absolute inset-y-0 right-0 flex items-center pr-2 pointer-events-none">
+                                        <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                                        </svg>
+                                    </div>
+                                </div>
+                                <div 
+                                    v-if="showContactDropdown"
+                                    class="absolute z-20 bg-white text-black border border-gray-300 rounded mt-1 max-h-60 overflow-y-auto"
+                                    style="width: 200px;"
+                                >
+                                    <div 
+                                        class="p-2 cursor-pointer border-b"
+                                        :class="contactFilter === '' ? 'bg-blue-100' : 'hover:bg-gray-100'"
+                                        @click="selectContact('')"
+                                    >
+                                        All Contacts
+                                    </div>
+                                    <div 
+                                        v-if="filteredContacts.length === 0 && contactSearchTerm"
+                                        class="p-2 text-gray-500"
+                                    >
+                                        No contacts found for "{{ contactSearchTerm }}"
+                                    </div>
+                                    <div 
+                                        v-for="contact in filteredContacts" 
+                                        :key="contact.id"
+                                        class="p-2 cursor-pointer border-b"
+                                        :class="contactFilter == contact.id ? 'bg-blue-100' : 'hover:bg-gray-100'"
+                                        @click="selectContact(contact.id)"
+                                    >
+                                        {{ contact.name }}
+                                    </div>
+                                </div>
+                            </div>
+                            <button 
+                                v-if="contactFilter !== ''"
+                                @click="clearContactFilter"
+                                class="ml-2 text-red-500 hover:text-red-700"
+                                title="Clear contact filter"
+                            >
+                                ✕
+                            </button>
+                        </div>
                         <div class="status">
-                            <label class="pr-3">Filter Status</label>
                             <select v-model="status" class="text-black" @change="applyFilter">
-                                <option value="" hidden>Status</option>
+                                <option value="" hidden>Payment</option>
                                 <option value="">All Status</option>
                                 <option value="paid">Paid</option>
                                 <option value="unpaid">Unpaid</option>
                             </select>
                         </div>
                         <div class="completion-status">
-                            <label class="pr-3">Status</label>
                             <select v-model="completionStatus" class="text-black" @change="applyFilter">
-                                <option value="" hidden>Status</option>
+                                <option value="" hidden>Progress</option>
                                 <option value="">All</option>
                                 <option value="Completed">Completed</option>
                                 <option value="In progress">In Progress</option>
@@ -35,7 +88,7 @@
                         </div>
                         <div class="date">
                             <select v-model="sortOrder" class="text-black" @change="applyFilter">
-                                <option value="desc" hidden>Date</option>
+                                <option value="desc" hidden>Sort Order</option>
                                 <option value="desc">Newest to Oldest</option>
                                 <option value="asc">Oldest to Newest</option>
                             </select>
@@ -245,6 +298,7 @@ export default {
     components: {Header, MainLayout, Pagination, RedirectTabs},
     props:{
         orders:Object,
+        availableContacts:Array,
     },
     data() {
         return {
@@ -252,6 +306,10 @@ export default {
             sortOrder: 'desc',
             status: '',
             completionStatus: '',
+            contactFilter: '',
+            contactSearchTerm: '',
+            showContactDropdown: false,
+            contactSearchDebounceTimer: null,
             localStatus: {},
             localOrders: [],
             showNoteModal: false,
@@ -273,6 +331,54 @@ export default {
             },
             expandedOrders: {}  // Track which orders have expanded job sections
         };
+    },
+    computed: {
+        filteredContacts() {
+            if (!this.contactSearchTerm) {
+                return this.availableContacts || [];
+            }
+            return (this.availableContacts || []).filter(contact =>
+                contact.name.toLowerCase().includes(this.contactSearchTerm.toLowerCase())
+            );
+        },
+        selectedContactName() {
+            if (!this.contactFilter || !this.availableContacts) {
+                return '';
+            }
+            const contact = this.availableContacts.find(c => c.id == this.contactFilter);
+            return contact ? contact.name : '';
+        },
+        displayValue() {
+            // Show search term when searching, selected contact when not searching
+            if (this.contactSearchTerm) {
+                return this.contactSearchTerm;
+            }
+            if (this.contactFilter && this.selectedContactName) {
+                return this.selectedContactName;
+            }
+            return '';
+        }
+    },
+    mounted() {
+        // Close dropdown when clicking outside
+        this.closeDropdownOnOutsideClick = (e) => {
+            if (!e.target.closest('.contact-filter')) {
+                this.showContactDropdown = false;
+            }
+        };
+        document.addEventListener('click', this.closeDropdownOnOutsideClick);
+        
+        // Set initial contact search term based on selected contact
+        this.updateContactSearchFromFilter();
+    },
+    beforeUnmount() {
+        // Clean up event listener
+        if (this.closeDropdownOnOutsideClick) {
+            document.removeEventListener('click', this.closeDropdownOnOutsideClick);
+        }
+        if (this.contactSearchDebounceTimer) {
+            clearTimeout(this.contactSearchDebounceTimer);
+        }
     },
     methods: {
         // Thumbnail methods
@@ -329,6 +435,7 @@ export default {
                 if (this.sortOrder) params.append('sortOrder', this.sortOrder);
                 if (this.status) params.append('status', this.status);
                 if (this.completionStatus) params.append('completionStatus', this.completionStatus);
+                if (this.contactFilter) params.append('contactFilter', this.contactFilter);
                 
                 const queryString = params.toString();
                 const url = queryString ? `/individual?${queryString}` : '/individual';
@@ -345,6 +452,7 @@ export default {
                 if (this.sortOrder) params.append('sortOrder', this.sortOrder);
                 if (this.status) params.append('status', this.status);
                 if (this.completionStatus) params.append('completionStatus', this.completionStatus);
+                if (this.contactFilter) params.append('contactFilter', this.contactFilter);
                 
                 const queryString = params.toString();
                 const url = queryString ? `/individual?${queryString}` : '/individual';
@@ -354,6 +462,42 @@ export default {
                 console.error(error);
             }
         },
+        
+        // Contact search methods
+        setContactSearchDebounced() {
+            if (this.contactSearchDebounceTimer) {
+                clearTimeout(this.contactSearchDebounceTimer);
+            }
+            
+            this.contactSearchDebounceTimer = setTimeout(() => {
+                if (!this.showContactDropdown) {
+                    this.showContactDropdown = true;
+                }
+            }, 100);
+        },
+        
+        selectContact(contactId) {
+            this.contactFilter = contactId;
+            this.showContactDropdown = false;
+            
+            // Clear search term when selecting a contact
+            this.contactSearchTerm = '';
+            
+            // Apply the filter
+            this.applyFilter();
+        },
+        
+        clearContactFilter() {
+            this.contactFilter = '';
+            this.contactSearchTerm = '';
+            this.applyFilter();
+        },
+        
+        updateContactSearchFromFilter() {
+            // Initialize contact search term - no need to set from filter anymore
+            // since we show selected contact differently now
+        },
+        
         async updateStatus(id, paid_status) {
             const toast = useToast();
             try {

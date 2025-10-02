@@ -16,7 +16,11 @@ class IndividualOrderController extends Controller
         if ($request->has('searchQuery')) {
             $search = '%' . preg_replace('/[^A-Za-z0-9\-]/', '', $request->input('searchQuery')) . '%';
             $completedQuery->whereHas('invoice', function ($q) use ($search) {
-                $q->where('invoice_title', 'LIKE', $search)->orWhere('id', 'LIKE', $search);
+                $q->where('invoice_title', 'LIKE', $search)
+                  ->orWhere('id', 'LIKE', $search)
+                  ->orWhereHas('contact', function ($contactQuery) use ($search) {
+                      $contactQuery->where('name', 'LIKE', $search);
+                  });
             });
         }
 
@@ -32,7 +36,11 @@ class IndividualOrderController extends Controller
         if ($request->has('searchQuery')) {
             $search = '%' . preg_replace('/[^A-Za-z0-9\-]/', '', $request->input('searchQuery')) . '%';
             $uncompletedQuery->where(function ($q) use ($search) {
-                $q->where('invoice_title', 'LIKE', $search)->orWhere('id', 'LIKE', $search);
+                $q->where('invoice_title', 'LIKE', $search)
+                  ->orWhere('id', 'LIKE', $search)
+                  ->orWhereHas('contact', function ($contactQuery) use ($search) {
+                      $contactQuery->where('name', 'LIKE', $search);
+                  });
             });
         }
 
@@ -91,6 +99,15 @@ class IndividualOrderController extends Controller
             $completionFilter = $request->input('completionStatus');
             $allOrders = $allOrders->filter(function($order) use ($completionFilter) {
                 return $order['completion_status'] === $completionFilter;
+            });
+        }
+
+        // Apply contact filter if provided
+        if ($request->has('contactFilter') && $request->input('contactFilter') !== '') {
+            $contactFilter = $request->input('contactFilter');
+            $allOrders = $allOrders->filter(function($order) use ($contactFilter) {
+                return isset($order['invoice']['contact']['id']) && 
+                       $order['invoice']['contact']['id'] == $contactFilter;
             });
         }
 
@@ -159,12 +176,24 @@ class IndividualOrderController extends Controller
             'links' => $links
         ];
 
+        // Get available contacts for dropdown
+        $availableContacts = \App\Models\Contact::with('client')
+            ->whereHas('client', function($q) {
+                $q->where('name', 'Физичко лице');
+            })
+            ->orderBy('name')
+            ->get(['id', 'name', 'client_id']);
+
         if ($request->wantsJson()) {
-            return response()->json($paginationData);
+            return response()->json([
+                'orders' => $paginationData,
+                'availableContacts' => $availableContacts
+            ]);
         }
 
         return Inertia::render('Finance/IndividualOrders', [
             'orders' => $paginationData,
+            'availableContacts' => $availableContacts,
         ]);
     }
 
