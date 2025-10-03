@@ -154,7 +154,7 @@ class JobController extends Controller
                                 $requiredQuantity
                             );
                             if (!$actualArticle) {
-                                throw new \Exception("No available articles with sufficient stock in the selected category (ID: {$article->pivot->category_id}).");
+                                \Log::notice("Stock validation disabled: no available articles in category {$article->pivot->category_id} during job creation/update.");
                             }
                         }
 

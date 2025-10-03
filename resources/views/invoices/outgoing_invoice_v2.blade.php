@@ -332,6 +332,7 @@
                     $allItems[] = [
                         'type' => 'job',
                         'job' => $job,
+                        'invoice_id' => $invoice['id'] ?? null,
                         'invoice_title' => $invoice['invoice_title'],
                         'taxRate' => $invoice['taxRate'],
                         'copies' => $invoice['copies'],
@@ -410,7 +411,7 @@
                                 <div class="truncate-cell">{{ $jobName }}</div>
                             @endif
                             @if($orderName)
-                                <div class="truncate-cell" style="color:rgb(109, 128, 129); font-size: 8pt; line-height: 0.8;">{{ $orderName }}</div>
+                                <div class="truncate-cell" style="color:rgb(109, 128, 129); font-size: 8pt; line-height: 0.8;">@if(!empty($item['invoice_id']))({{ $item['invoice_id'] }}) @endif{{ $orderName }}</div>
                             @endif
                         </td>
                         <td style="font-size: 10pt; padding: 6px; text-align: center; background-color: #E7F1F2;">{{ $item['taxRate'] }}%</td>

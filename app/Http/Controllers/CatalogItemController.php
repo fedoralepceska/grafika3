@@ -495,7 +495,7 @@ class CatalogItemController extends Controller
                                 'category_id' => $categoryId // Store the original category selection
                             ]);
                         } else {
-                            throw new \Exception("No available articles with sufficient stock in the selected category.");
+                            \Log::notice('Stock validation disabled: no available articles with sufficient stock in selected category during catalog item store.');
                         }
                     } else {
                         // This is a regular article
@@ -910,7 +910,7 @@ class CatalogItemController extends Controller
                                     'category_id' => $categoryId // Store the original category selection
                                 ]);
                             } else {
-                                throw new \Exception("No available articles with sufficient stock in the selected category.");
+                                \Log::notice('Stock validation disabled: no available articles with sufficient stock in selected category during catalog item update.');
                             }
                         } else {
                             // This is a regular article

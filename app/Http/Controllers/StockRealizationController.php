@@ -10,6 +10,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
+use Illuminate\Support\Facades\Hash;
 use PDF;
 
 class StockRealizationController extends Controller
@@ -73,14 +74,19 @@ class StockRealizationController extends Controller
             }
 
             $query->orderBy('created_at', $request->input('sortOrder', 'desc'));
-            $stockRealizations = $query->paginate(10);
+            $perPage = (int) $request->input('per_page', 10);
+            $stockRealizations = $query->paginate($perPage);
 
             if ($request->wantsJson()) {
                 return response()->json($stockRealizations);
             }
 
+            $user = auth()->user();
+            $canRevert = $user && $user->role && strcasecmp($user->role->name, 'admin') === 0;
+
             return Inertia::render('Finance/StockRealization', [
                 'stockRealizations' => $stockRealizations,
+                'canRevert' => $canRevert,
             ]);
         } catch (\Exception $e) {
             Log::error('Stock realization index error: ' . $e->getMessage());
@@ -109,8 +115,12 @@ class StockRealizationController extends Controller
                 ]);
             }
 
+            $user = auth()->user();
+            $canRevert = $user && $user->role && strcasecmp($user->role->name, 'admin') === 0;
+
             return Inertia::render('Finance/StockRealizationDetails', [
                 'stockRealization' => $stockRealization,
+                'canRevert' => $canRevert,
             ]);
         } catch (\Exception $e) {
             Log::error('Stock realization show error: ' . $e->getMessage());
@@ -235,6 +245,51 @@ class StockRealizationController extends Controller
         } catch (\Exception $e) {
             Log::error('Stock realization realize error: ' . $e->getMessage());
             return response()->json(['error' => 'Failed to complete stock realization'], 500);
+        }
+    }
+
+    /**
+     * Revert stock deduction (admin only, requires passcode confirmation)
+     */
+    public function revert(Request $request, $id)
+    {
+        try {
+            // Authorization: only admins can revert (case-insensitive role check)
+            $user = auth()->user();
+            $isAdmin = $user && $user->role && strcasecmp($user->role->name, 'admin') === 0;
+            if (!$isAdmin) {
+                return response()->json(['error' => 'Unauthorized'], 403);
+            }
+
+            // Validate passcode format and compare against env-configured value
+            $validated = $request->validate([
+                'passcode' => 'required|string|size:4'
+            ]);
+            $providedPasscode = $validated['passcode'];
+            $expectedPasscode = env('STOCK_REVERT_PASSCODE', '9632');
+            if (!hash_equals((string) $expectedPasscode, (string) $providedPasscode)) {
+                return response()->json(['error' => 'Invalid passcode'], 422);
+            }
+
+            $stockRealization = StockRealization::findOrFail($id);
+
+            if (!$stockRealization->is_realized) {
+                return response()->json(['error' => 'Stock realization is not realized'], 400);
+            }
+
+            $success = $stockRealization->revert();
+
+            if ($success) {
+                return response()->json([
+                    'message' => 'Stock realization reverted successfully',
+                    'stockRealization' => $stockRealization->fresh(['realizedBy:id,name'])
+                ]);
+            }
+
+            return response()->json(['error' => 'Failed to revert stock realization'], 500);
+        } catch (\Exception $e) {
+            Log::error('Stock realization revert error: ' . $e->getMessage());
+            return response()->json(['error' => 'Failed to revert stock realization'], 500);
         }
     }
 

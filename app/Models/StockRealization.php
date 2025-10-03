@@ -249,11 +249,125 @@ class StockRealization extends Model
             $consumptionPriemnica = \App\Models\Priemnica::create([
                 'warehouse' => 1, // Default warehouse
                 'client_id' => null,
-                'comment' => "Stock realization consumption - Article ID: {$article->id}"
+                'comment' => "Stock realization consumption - SR #{$this->id} - Article ID: {$article->id}"
             ]);
-            
+
             // Attach the article with negative quantity to track consumption
             $consumptionPriemnica->articles()->attach($article->id, ['quantity' => -$quantity]);
+        }
+    }
+
+    /**
+     * Revert the stock deduction by restoring quantities back
+     */
+    public function revert(): bool
+    {
+        if (!$this->is_realized) {
+            return false; // Nothing to revert
+        }
+
+        try {
+            \DB::beginTransaction();
+
+            $this->loadMissing(['jobs.articles.article']);
+
+            foreach ($this->jobs as $job) {
+                // Restore articles first (new system)
+                foreach ($job->articles as $articleData) {
+                    $article = $articleData->article;
+                    $quantity = $articleData->quantity;
+
+                    $this->restoreArticleStock($article, $quantity);
+                }
+
+                // Restore legacy materials if no articles
+                if ($job->articles->isEmpty()) {
+                    // Legacy large material
+                    if ($job->large_material_id) {
+                        $largeMaterial = LargeFormatMaterial::with('article')->find($job->large_material_id);
+                        if ($largeMaterial) {
+                            $units = ($job->catalog_item_id && optional($job->catalogItem)->by_copies) ? $job->copies : $job->quantity;
+
+                            if ($largeMaterial->article && $largeMaterial->article->in_square_meters === 1) {
+                                $largeMaterial->quantity = $largeMaterial->quantity + ($units * ($job->total_area_m2 ?? 0));
+                            } else {
+                                $largeMaterial->quantity = $largeMaterial->quantity + $units;
+                            }
+                            $largeMaterial->save();
+                        }
+                    }
+
+                    // Legacy small material
+                    if ($job->small_material_id) {
+                        $smallMaterial = SmallMaterial::with('article')->find($job->small_material_id);
+                        if ($smallMaterial) {
+                            $units = ($job->catalog_item_id && optional($job->catalogItem)->by_copies) ? $job->copies : $job->quantity;
+
+                            if ($smallMaterial->article && $smallMaterial->article->in_square_meters === 1) {
+                                $smallMaterial->quantity = $smallMaterial->quantity + ($units * ($job->total_area_m2 ?? 0));
+                            } else {
+                                $smallMaterial->quantity = $smallMaterial->quantity + $units;
+                            }
+                            $smallMaterial->save();
+                        }
+                    }
+                }
+            }
+
+            // Mark as not realized
+            $this->update([
+                'is_realized' => false,
+                'realized_at' => null,
+                'realized_by' => null,
+            ]);
+
+            \DB::commit();
+            return true;
+        } catch (\Exception $e) {
+            \DB::rollback();
+            \Log::error('Stock realization revert failed', [
+                'stock_realization_id' => $this->id,
+                'error' => $e->getMessage()
+            ]);
+            return false;
+        }
+    }
+
+    /**
+     * Restore article stock by increasing quantities or creating intake record
+     */
+    private function restoreArticleStock($article, $quantity): void
+    {
+        // For material-type articles, increase the corresponding material quantity
+        if ($article->format_type == 1 && $article->smallMaterial) {
+            $material = $article->smallMaterial;
+            $material->quantity = $material->quantity + $quantity;
+            $material->save();
+        } elseif ($article->format_type == 2 && $article->largeFormatMaterial) {
+            $material = $article->largeFormatMaterial;
+            $material->quantity = $material->quantity + $quantity;
+            $material->save();
+        } elseif ($article->format_type == 3) {
+            $material = \App\Models\OtherMaterial::where('article_id', $article->id)->first();
+            if ($material) {
+                $material->quantity = $material->quantity + $quantity;
+                $material->save();
+            }
+        } else {
+            // For regular product/service articles, remove the consumption record created during realize
+            $comment = "Stock realization consumption - SR #{$this->id} - Article ID: {$article->id}";
+            $priemnica = \App\Models\Priemnica::where('comment', $comment)
+                ->whereHas('articles', function ($q) use ($article, $quantity) {
+                    $q->where('article_id', $article->id)
+                      ->where('quantity', -$quantity);
+                })
+                ->latest('id')
+                ->first();
+            if ($priemnica) {
+                // Detach pivot and delete priemnica
+                $priemnica->articles()->detach($article->id);
+                $priemnica->delete();
+            }
         }
     }
 }

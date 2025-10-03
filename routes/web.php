@@ -164,6 +164,7 @@ Route::middleware(['auth', 'verified'])->group(function() {
     Route::put('/stock-realizations/{id}/jobs/{jobId}', [StockRealizationController::class, 'updateJob'])->name('stock-realizations.updateJob');
     Route::put('/stock-realizations/{id}/jobs/{jobId}/articles/{articleId}', [StockRealizationController::class, 'updateArticle'])->name('stock-realizations.updateArticle');
     Route::post('/stock-realizations/{id}/realize', [StockRealizationController::class, 'realize'])->name('stock-realizations.realize');
+    Route::post('/stock-realizations/{id}/revert', [StockRealizationController::class, 'revert'])->name('stock-realizations.revert');
     Route::get('/stock-realizations/articles/available', [StockRealizationController::class, 'getAvailableArticles'])->name('stock-realizations.availableArticles');
 });
 

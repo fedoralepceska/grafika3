@@ -113,6 +113,21 @@
                                                 aria-hidden="true"
                                             ></i>
                                         </button>
+                                        <button
+                                            v-if="stockRealization.is_realized && canRevert"
+                                            class="flex items-center p-1"
+                                            @click="openRevertModal(stockRealization)"
+                                            :disabled="revertingStocks[stockRealization.id]"
+                                            :title="revertingStocks[stockRealization.id] ? 'Reverting...' : 'Revert Realization'"
+                                        >
+                                            <i 
+                                                :class="[
+                                                    revertingStocks[stockRealization.id] ? 'fa fa-spinner fa-spin' : 'fa fa-undo',
+                                                    'bg-yellow-500 text-white p-2 rounded'
+                                                ]"
+                                                aria-hidden="true"
+                                            ></i>
+                                        </button>
                                     </div>
                                 </div>
                             </div>
@@ -276,7 +291,7 @@
                                     <button 
                                         class="stock-realization-button" 
                                         @click="realizeStock(stockRealization)"
-                                        :disabled="realizingStocks[stockRealization.id]"
+                                        :disabled="realizingStocks[stockRealization.id] || generatingPDF[stockRealization.id] || revertingStocks[stockRealization.id]"
                                         title="Complete Stock Realization"
                                     >
                                         <i 
@@ -297,7 +312,66 @@
                         <p class="text-gray-400">No stock realizations found.</p>
                     </div>
                 </div>
-                <Pagination :pagination="stockRealizations"/>
+                <Pagination :pagination="stockRealizations" @pagination-change-page="changePage"/>
+
+                <!-- Revert Confirmation Modal -->
+                <div v-if="showRevertModal" class="files-modal" @click="closeRevertModal">
+                    <div class="files-modal-content centered" @click.stop>
+                        <div class="files-modal-header">
+                            <h3>Revert Stock Realization #{{ targetStock?.id }}</h3>
+                            <button @click="closeRevertModal" class="close-btn">
+                                <i class="fa fa-times"></i>
+                            </button>
+                        </div>
+                        <div class="files-modal-body center">
+                            <p>Type admin passcode to confirm revert.</p>
+                            <div class="code-inputs">
+                                <input
+                                    ref="codeInput0"
+                                    class="code-box text-black"
+                                    type="password"
+                                    maxlength="1"
+                                    :value="codeDigits[0]"
+                                    @input="onCodeInput(0, $event)"
+                                    @keydown="onCodeKeydown(0, $event)"
+                                    @paste.prevent="onCodePaste($event)"
+                                />
+                                <input
+                                    ref="codeInput1"
+                                    class="code-box text-black"
+                                    type="password"
+                                    maxlength="1"
+                                    :value="codeDigits[1]"
+                                    @input="onCodeInput(1, $event)"
+                                    @keydown="onCodeKeydown(1, $event)"
+                                />
+                                <input
+                                    ref="codeInput2"
+                                    class="code-box text-black"
+                                    type="password"
+                                    maxlength="1"
+                                    :value="codeDigits[2]"
+                                    @input="onCodeInput(2, $event)"
+                                    @keydown="onCodeKeydown(2, $event)"
+                                />
+                                <input
+                                    ref="codeInput3"
+                                    class="code-box text-black"
+                                    type="password"
+                                    maxlength="1"
+                                    :value="codeDigits[3]"
+                                    @input="onCodeInput(3, $event)"
+                                    @keydown="onCodeKeydown(3, $event)"
+                                    @keyup.enter="confirmRevert"
+                                />
+                            </div>
+                        </div>
+                        <div class="pdf-modal-footer flex items-center mt-4 justify-end gap-2">
+                            <button class="nav-btn" @click="closeRevertModal">Cancel</button>
+                            <button class="nav-btn danger" :disabled="deleting" @click="confirmRevert">{{ deleting ? 'Processing…' : 'Confirm' }}</button>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     </MainLayout>
@@ -310,6 +384,7 @@ import Pagination from "@/Components/Pagination.vue";
 import RedirectTabs from "@/Components/RedirectTabs.vue";
 import axios from 'axios';
 import { reactive, ref } from "vue";
+import { useToast } from 'vue-toastification';
 
 export default {
     components: {
@@ -320,6 +395,10 @@ export default {
     },
     props: {
         stockRealizations: Object,
+        canRevert: {
+            type: Boolean,
+            default: false,
+        },
     },
     setup(props) {
         const searchQuery = ref('');
@@ -333,6 +412,11 @@ export default {
         const expandedRows = reactive({});
         const updatingJobs = reactive({});
         const generatingPDF = reactive({});
+        const revertingStocks = reactive({});
+        const showRevertModal = ref(false);
+        const targetStock = ref(null);
+        const codeDigits = ref(['', '', '', '']);
+        const deleting = ref(false);
 
         return {
             searchQuery,
@@ -346,19 +430,55 @@ export default {
             expandedRows,
             updatingJobs,
             generatingPDF,
+            revertingStocks,
+            showRevertModal,
+            targetStock,
+            codeDigits,
+            deleting,
         };
     },
     mounted() {
         this.filteredStockRealizations = this.stockRealizations.data || [];
         this.loadUniqueClients();
     },
+    watch: {
+        stockRealizations: {
+            handler(newVal) {
+                this.filteredStockRealizations = newVal?.data || [];
+            },
+            deep: true
+        }
+    },
+    computed: {},
     methods: {
+        toastSuccess(message) {
+            const toast = useToast();
+            toast && typeof toast.success === 'function' ? toast.success(message) : console.log('SUCCESS:', message);
+        },
+        toastError(message) {
+            const toast = useToast();
+            toast && typeof toast.error === 'function' ? toast.error(message) : console.error('ERROR:', message);
+        },
+        getAxiosErrorMessage(err, fallback = 'An error occurred') {
+            try {
+                const resp = err && typeof err === 'object' ? err.response : null;
+                if (!resp) return fallback;
+                const data = resp.data || {};
+                if (typeof data === 'string') return data;
+                if (data && typeof data.error === 'string') return data.error;
+                if (data && data.message) return String(data.message);
+                return fallback;
+            } catch (_) {
+                return fallback;
+            }
+        },
         async loadUniqueClients() {
             try {
                 const response = await axios.get('/unique-clients');
                 this.uniqueClients = response.data;
             } catch (error) {
                 console.error('Error loading unique clients:', error);
+                this.toastError(this.getAxiosErrorMessage(error, 'Failed to load clients'));
             }
         },
         async searchStockRealizations() {
@@ -366,22 +486,34 @@ export default {
         },
         async applyFilter() {
             this.loading = true;
-            try {
-                const params = {
-                    searchQuery: this.searchQuery,
-                    status: this.filterStatus,
-                    client: this.filterClient,
-                    sortOrder: this.sortOrder,
-                };
-                
-                const response = await axios.get('/stock-realizations', { params });
-                this.filteredStockRealizations = response.data.data || [];
-                this.$inertia.replace('/stock-realizations', { data: response.data });
-            } catch (error) {
-                console.error('Error filtering stock realizations:', error);
-            } finally {
-                this.loading = false;
-            }
+            const params = {
+                searchQuery: this.searchQuery,
+                status: this.filterStatus,
+                client: this.filterClient,
+                sortOrder: this.sortOrder,
+            };
+            this.$inertia.get('/stock-realizations', params, {
+                preserveState: true,
+                preserveScroll: true,
+                replace: true,
+                onFinish: () => {
+                    this.loading = false;
+                }
+            });
+        },
+        changePage(page) {
+            const params = {
+                searchQuery: this.searchQuery,
+                status: this.filterStatus,
+                client: this.filterClient,
+                sortOrder: this.sortOrder,
+                page: page,
+            };
+            this.$inertia.get('/stock-realizations', params, {
+                preserveState: true,
+                preserveScroll: true,
+                replace: true,
+            });
         },
         viewStockRealization(id) {
             this.$inertia.visit(`/stock-realizations/${id}`);
@@ -397,7 +529,7 @@ export default {
             try {
                 const response = await axios.post(`/stock-realizations/${stockRealization.id}/realize`);
                 
-                if (response.data.message) {
+                if (response && response.data && response.data.message) {
                     // Update the local data
                     const index = this.filteredStockRealizations.findIndex(sr => sr.id === stockRealization.id);
                     if (index !== -1) {
@@ -406,13 +538,13 @@ export default {
                         this.filteredStockRealizations[index].realized_by = response.data.stockRealization.realized_by;
                     }
                     
-                    this.$toast.success('Stock realization completed successfully!');
+                    this.toastSuccess('Stock realization completed successfully!');
                 } else {
-                    this.$toast.error('Failed to complete stock realization');
+                    this.toastError('Failed to complete stock realization');
                 }
             } catch (error) {
                 console.error('Error realizing stock:', error);
-                this.$toast.error(error.response?.data?.error || 'Failed to complete stock realization');
+                this.toastError(error.response?.data?.error || 'Failed to complete stock realization');
             } finally {
                 this.realizingStocks[stockRealization.id] = false;
             }
@@ -452,6 +584,7 @@ export default {
                 }
             } catch (error) {
                 console.error('Error loading job details:', error);
+                this.toastError(this.getAxiosErrorMessage(error, 'Failed to load job details'));
             }
         },
         async updateJob(stockRealizationId, job) {
@@ -472,13 +605,13 @@ export default {
                 );
                 
                 if (response.data.message) {
-                    this.$toast.success('Job updated successfully!');
+                    this.toastSuccess('Job updated successfully!');
                 } else {
-                    this.$toast.error('Failed to update job');
+                    this.toastError('Failed to update job');
                 }
             } catch (error) {
                 console.error('Error updating job:', error);
-                this.$toast.error(error.response?.data?.error || 'Failed to update job');
+                this.toastError(error.response?.data?.error || 'Failed to update job');
             } finally {
                 this.updatingJobs[job.id] = false;
             }
@@ -493,13 +626,13 @@ export default {
                 );
                 
                 if (response.data.message) {
-                    this.$toast.success('Article quantity updated successfully!');
+                    this.toastSuccess('Article quantity updated successfully!');
                 } else {
-                    this.$toast.error('Failed to update article');
+                    this.toastError('Failed to update article');
                 }
             } catch (error) {
                 console.error('Error updating article:', error);
-                this.$toast.error(error.response?.data?.error || 'Failed to update article');
+                this.toastError(error.response?.data?.error || 'Failed to update article');
             }
         },
         async generatePDF(stockRealization) {
@@ -512,19 +645,206 @@ export default {
                 const pdfUrl = `/stock-realizations/${stockRealization.id}/pdf`;
                 window.open(pdfUrl, '_blank');
                 
-                this.$toast.success('PDF opened in new tab!');
+                this.toastSuccess('PDF opened in new tab!');
             } catch (error) {
                 console.error('Error opening PDF:', error);
-                this.$toast.error('Failed to open PDF');
+                this.toastError('Failed to open PDF');
             } finally {
                 this.generatingPDF[stockRealization.id] = false;
             }
+        },
+        openRevertModal(stockRealization) {
+            this.targetStock = stockRealization;
+            this.codeDigits = ['', '', '', ''];
+            this.showRevertModal = true;
+            this.$nextTick(() => {
+                const first = this.$refs['codeInput0'];
+                first && first.focus();
+            });
+        },
+        closeRevertModal() {
+            if (this.deleting) return;
+            this.showRevertModal = false;
+            this.targetStock = null;
+            this.codeDigits = ['', '', '', ''];
+        },
+        async confirmRevert() {
+            if (!this.targetStock) return;
+            const code = (this.codeDigits || []).join('');
+            if (!code || code.length !== 4) {
+                this.toastError('Enter 4-digit passcode');
+                return;
+            }
+            // In-house: quick client-side passcode gate for immediate feedback
+            if (code !== '9632') {
+                this.toastError('Invalid passcode');
+                return;
+            }
+            const stockRealization = this.targetStock;
+            if (this.revertingStocks[stockRealization.id]) return;
+            this.deleting = true;
+            this.revertingStocks[stockRealization.id] = true;
+            let shouldClose = false;
+            try {
+                const response = await axios.post(`/stock-realizations/${stockRealization.id}/revert`, { passcode: code });
+                const respData = (response && response.data) ? response.data : {};
+                if (respData && respData.message) {
+                    const index = this.filteredStockRealizations.findIndex(sr => sr.id === stockRealization.id);
+                    if (index !== -1) {
+                        this.filteredStockRealizations[index].is_realized = false;
+                        this.filteredStockRealizations[index].realized_at = null;
+                        this.filteredStockRealizations[index].realized_by = null;
+                    }
+                    this.toastSuccess('Stock realization reverted successfully!');
+                    shouldClose = true;
+                } else {
+                    const msg = (respData && respData.error) || 'Failed to revert stock realization';
+                    this.toastError(msg);
+                }
+            } catch (error) {
+                console.error('Error reverting stock:', error);
+                const msg = this.getAxiosErrorMessage(error, 'Failed to revert stock realization');
+                this.toastError(msg);
+            } finally {
+                this.revertingStocks[stockRealization.id] = false;
+                this.deleting = false;
+                if (shouldClose) {
+                    this.closeRevertModal();
+                }
+            }
+        },
+        onCodeInput(index, event) {
+            const val = (event.target.value || '').replace(/\D/g, '').slice(0,1);
+            if (Array.isArray(this.codeDigits)) {
+                this.codeDigits.splice(index, 1, val);
+            }
+            event.target.value = val;
+            if (val && index < 3) {
+                const next = this.$refs[`codeInput${index+1}`];
+                next && next.focus();
+            } else if (!val && index > 0) {
+                const prev = this.$refs[`codeInput${index-1}`];
+                prev && prev.focus();
+            }
+        },
+        onCodeKeydown(index, event) {
+            if (event.key === 'Backspace' && !event.target.value && index > 0) {
+                const prev = this.$refs[`codeInput${index-1}`];
+                prev && prev.focus();
+            }
+            if (event.key === 'ArrowLeft' && index > 0) {
+                const prev = this.$refs[`codeInput${index-1}`];
+                prev && prev.focus();
+                event.preventDefault();
+            }
+            if (event.key === 'ArrowRight' && index < 3) {
+                const next = this.$refs[`codeInput${index+1}`];
+                next && next.focus();
+                event.preventDefault();
+            }
+        },
+        onCodePaste(event) {
+            const text = (event.clipboardData || window.clipboardData).getData('text');
+            const digits = (text || '').replace(/\D/g, '').slice(0,4).split('');
+            for (let i=0;i<4;i++) {
+                const d = digits[i] || '';
+                if (Array.isArray(this.codeDigits)) {
+                    this.codeDigits.splice(i, 1, d);
+                }
+                const input = this.$refs[`codeInput${i}`];
+                if (input) input.value = d;
+            }
+            const nextIndex = Math.min(digits.length, 3);
+            const next = this.$refs[`codeInput${nextIndex}`];
+            next && next.focus();
         },
     },
 };
 </script>
 
 <style scoped lang="scss">
+/* Revert Modal Styles */
+.files-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background-color: rgba(0, 0, 0, 0.8);
+    z-index: 1000;
+}
+
+.files-modal-content {
+    background-color: #2d3748;
+    padding: 20px;
+    border-radius: 8px;
+    width: 90%;
+    max-width: 520px;
+    max-height: 80vh;
+    position: relative;
+    color: white;
+}
+
+.files-modal-content.centered {
+    margin: 0 auto;
+}
+
+.files-modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+    border-bottom: 1px solid #4a5568;
+    padding-bottom: 10px;
+}
+
+.files-modal-body.center {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+}
+
+.code-inputs {
+    display: flex;
+    gap: 12px;
+    margin-top: 6px;
+}
+
+.code-box {
+    width: 56px;
+    height: 56px;
+    text-align: center;
+    font-size: 22px;
+    border-radius: 6px;
+}
+
+.nav-btn {
+    background-color: #4a5568;
+    border: none;
+    color: white;
+    font-size: 1em;
+    cursor: pointer;
+    padding: 8px 16px;
+    border-radius: 4px;
+    transition: background-color 0.2s;
+}
+
+.nav-btn:hover:not(:disabled) {
+    background-color: $red;
+}
+
+.nav-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.nav-btn.danger {
+    background-color: #dc2626;
+}
 /* Modern invoice row styling matching Index.vue */
 .dark-gray {
     background-color: $dark-gray;

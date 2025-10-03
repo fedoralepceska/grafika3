@@ -251,7 +251,7 @@ class InvoiceController extends Controller
                                 $neededQuantity
                             );
                             if (!$actualArticle) {
-                                $errorMessages[] = "No available articles with sufficient stock in the selected category (ID: {$article->pivot->category_id}) for catalog item '{$job->catalogItem->name}'.";
+                                \Log::notice("Stock validation disabled: no available articles with sufficient stock in category {$article->pivot->category_id} for catalog item '{$job->catalogItem->name}'.");
                                 continue;
                             }
                         }
@@ -287,7 +287,7 @@ class InvoiceController extends Controller
                         
                         // Check stock availability
                         if (!$article->hasStock($neededQuantity)) {
-                            $errorMessages[] = "For the job '{$job->name}', article '{$article->name}' needs {$neededQuantity} units, but only {$article->getCurrentStock()} are available in stock.";
+                            \Log::notice("Stock validation disabled: '{$job->name}' requires {$neededQuantity} of '{$article->name}', available {$article->getCurrentStock()}.");
                             continue;
                         }
                         
@@ -314,7 +314,7 @@ class InvoiceController extends Controller
                             $units = ($job->catalogItem && $job->catalogItem->by_copies) ? (int)$job->copies : (int)$job->quantity;
                             // Check stock availability
                             if ($units > (int) $large_material->quantity) {
-                                $errorMessages[] = "For the catalog item {$job->catalogItem->name} with material {$large_material->name}, you need {$units} units, but you only have {$large_material->quantity} in storage.";
+                                \Log::notice("Stock validation disabled: catalog item {$job->catalogItem->name} with material {$large_material->name} needs {$units}, available {$large_material->quantity}.");
                             }
                             
                             // Consume material stock
@@ -345,7 +345,7 @@ class InvoiceController extends Controller
                             $units = ($job->catalogItem && $job->catalogItem->by_copies) ? (int)$job->copies : (int)$job->quantity;
                             // Check stock availability
                             if ($units > (int) $small_material->quantity) {
-                                $errorMessages[] = "For the catalog item '{$job->catalogItem->name}', which uses the material '{$small_material->name}', you need {$units} units, but only {$small_material->quantity} are available in storage.";
+                                \Log::notice("Stock validation disabled: catalog item '{$job->catalogItem->name}' material '{$small_material->name}' needs {$units}, available {$small_material->quantity}.");
                             }
                             
                             // Consume material stock
@@ -411,9 +411,9 @@ class InvoiceController extends Controller
                     }
                 }
             }
-            // Check if there are any errors and throw them as a single exception
+            // Stock validation disabled: do not throw collected messages
             if (!empty($errorMessages)) {
-                throw new \Exception(implode("\n", $errorMessages));
+                \Log::notice('Stock validation disabled; collected messages suppressed.', $errorMessages);
             }
         }
 
