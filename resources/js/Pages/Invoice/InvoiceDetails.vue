@@ -279,7 +279,7 @@
                                             </span>
                                         </span></div>
                                         <div v-if="job.copies > 1">{{$t('Total with Copies')}}: <span class="bold">
-                                            {{ (getJobTotalArea(job) * job.copies).toFixed(6) }} m²
+                                            {{ getJobTotalArea(job).toFixed(6) }} m²
                                         </span></div>
                                         </div>
                                    
