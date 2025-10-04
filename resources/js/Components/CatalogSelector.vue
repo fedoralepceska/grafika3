@@ -8,7 +8,7 @@
                         type="text"
                         placeholder="Search catalog items..."
                         class="search-input w-full p-2 border rounded"
-                        @input="fetchCatalogItems"
+                        @input="debouncedSearch"
                     />
                 </div>
                 <div
@@ -85,7 +85,7 @@
                         type="text"
                         placeholder="Search catalog items..."
                         class="search-input w-full p-2 border rounded"
-                        @input="fetchCatalogItems"
+                        @input="debouncedSearch"
                     />
                 </div>
                 <div
@@ -260,6 +260,7 @@ export default {
             catalogItemsSmall: [],
             catalogItemsLarge: [],
             selectedItems: [],
+            selectedItemsData: [], // Store full item data for selected items
             searchTerm: '',
             selectedItemDetails: null,
             // Separate pagination states
@@ -274,10 +275,25 @@ export default {
             questionsModalData: { questionsByCatalogItem: {}, catalogItems: [] },
             questionsModalAnswers: null,
             isCreatingJobs: false,
+            searchTimeout: null, // For debouncing search
         }
     },
 
     methods: {
+        debouncedSearch() {
+            // Clear existing timeout
+            if (this.searchTimeout) {
+                clearTimeout(this.searchTimeout);
+            }
+            
+            // Set new timeout for search
+            this.searchTimeout = setTimeout(() => {
+                this.currentPageSmall = 1;
+                this.currentPageLarge = 1;
+                this.fetchCatalogItems();
+            }, 300); // 300ms delay
+        },
+
         async fetchCatalogItems() {
             try {
                 // Fetch small and large in parallel with separate paginations
@@ -315,8 +331,12 @@ export default {
             const index = this.selectedItems.indexOf(item.id);
             if (index === -1) {
                 this.selectedItems.push(item.id);
+                // Store the full item data for job creation
+                this.selectedItemsData.push(item);
             } else {
                 this.selectedItems.splice(index, 1);
+                // Remove from selectedItemsData as well
+                this.selectedItemsData = this.selectedItemsData.filter(data => data.id !== item.id);
             }
         },
 
@@ -336,14 +356,13 @@ export default {
                 return;
             }
 
-            // Combine both small and large catalog items, removing duplicates
-            const allCatalogItems = [...this.catalogItemsSmall, ...this.catalogItemsLarge];
-            const uniqueCatalogItems = allCatalogItems.filter((item, index, self) => 
-                index === self.findIndex(i => i.id === item.id)
-            );
-            const selectedCatalogItems = uniqueCatalogItems.filter(item =>
-                this.selectedItems.includes(item.id)
-            );
+            // Use the stored selectedItemsData instead of searching current page data
+            const selectedCatalogItems = this.selectedItemsData;
+
+            if (selectedCatalogItems.length === 0) {
+                toast.error('No items selected');
+                return;
+            }
 
             // Check if any selected catalog items require questions
             const catalogItemIds = selectedCatalogItems.map(item => item.id);
@@ -398,6 +417,7 @@ export default {
                 this.$emit('jobs-created', jobs);
                 toast.success('Jobs created from catalog');
                 this.selectedItems = [];
+                this.selectedItemsData = [];
             } catch (error) {
                 console.error('Error creating jobs:', error.response?.data || error);
                 toast.error(error.response?.data?.error || 'Failed to create jobs');
@@ -409,13 +429,10 @@ export default {
             this.questionsModalVisible = false;
             this.questionsModalAnswers = answers;
             const toast = useToast();
-            const allCatalogItems = [...this.catalogItemsSmall, ...this.catalogItemsLarge];
-            const uniqueCatalogItems = allCatalogItems.filter((item, index, self) => 
-                index === self.findIndex(i => i.id === item.id)
-            );
-            const selectedCatalogItems = uniqueCatalogItems.filter(item =>
-                this.selectedItems.includes(item.id)
-            );
+            
+            // Use the stored selectedItemsData instead of searching current page data
+            const selectedCatalogItems = this.selectedItemsData;
+            
             this.isCreatingJobs = true;
             try {
                 const jobs = await Promise.all(selectedCatalogItems.map(async (item) => {
@@ -451,6 +468,7 @@ export default {
                 this.$emit('jobs-created', jobs);
                 toast.success('Jobs created from catalog');
                 this.selectedItems = [];
+                this.selectedItemsData = [];
             } catch (error) {
                 console.error('Error creating jobs:', error.response?.data || error);
                 toast.error(error.response?.data?.error || 'Failed to create jobs');
@@ -521,17 +539,17 @@ export default {
     },
 
     watch: {
-        searchTerm() {
-            this.currentPageSmall = 1;
-            this.currentPageLarge = 1;
-            this.fetchCatalogItems();
-        }
+        // Removed searchTerm watcher - now handled by debouncedSearch method
     },
 
     // Clean up when component is destroyed
     beforeUnmount() {
         // Ensure body scrolling is restored when component is destroyed
         document.body.style.overflow = 'auto';
+        // Clear search timeout
+        if (this.searchTimeout) {
+            clearTimeout(this.searchTimeout);
+        }
     }
 }
 </script>
