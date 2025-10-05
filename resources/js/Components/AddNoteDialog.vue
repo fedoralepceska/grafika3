@@ -20,8 +20,19 @@
                 <v-card-text>
                     <div class="field">
                         <label class="label">Order comment</label>
-                        <textarea v-model="noteComment" class="textarea" placeholder="Write a short note shown on selected actions"/>
-                        <div class="hint">This note appears on the actions you select below.</div>
+                        <textarea 
+                            v-model="noteComment" 
+                            class="textarea" 
+                            placeholder="Write a short note shown on selected actions"
+                            maxlength="256"
+                            @input="handleTextareaInput"
+                        />
+                        <div class="hint">
+                            This note appears on the actions you select below.
+                            <span class="char-count" :class="{ 'char-count--warning': noteComment.length > 200 }">
+                                {{ noteComment.length }}/256 characters
+                            </span>
+                        </div>
                     </div>
 
                     <div class="field mt-3">
@@ -192,6 +203,12 @@ export default {
             if (event.key === 'Escape') {
                 this.closeDialog();
             }
+        },
+        handleTextareaInput(event) {
+            // Ensure we don't exceed 256 characters
+            if (event.target.value.length > 256) {
+                this.noteComment = event.target.value.substring(0, 256);
+            }
         }
     },
     mounted() {
@@ -250,6 +267,15 @@ export default {
 .hint {
     font-size: 12px;
     color: #cbd5e1;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+.char-count {
+    font-weight: 500;
+}
+.char-count--warning {
+    color: #f59e0b;
 }
 .textarea {
     width: 100%;

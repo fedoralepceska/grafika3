@@ -69,7 +69,17 @@
             </Tab>
             <Tab title="Notes" icon="mdi-chat" class="text">
                 <span class="text-white">Add your notes here:</span>
-                <textarea v-model="localComment" @input="updateComment"></textarea>
+                <textarea 
+                    v-model="localComment" 
+                    @input="handleTextareaInput"
+                    maxlength="256"
+                    class="notes-textarea"
+                ></textarea>
+                <div class="hint">
+                    <span class="char-count" :class="{ 'char-count--warning': localComment.length > 200 }">
+                        {{ localComment.length }}/256 characters
+                    </span>
+                </div>
             </Tab>
         </TabsWrapper>
     </div>
@@ -218,6 +228,14 @@ export default {
             this.$emit('commentUpdated', this.localComment);
         },
 
+        handleTextareaInput(event) {
+            // Ensure we don't exceed 256 characters
+            if (event.target.value.length > 256) {
+                this.localComment = event.target.value.substring(0, 256);
+            }
+            this.updateComment();
+        },
+
         handleCatalogJobs(catalogJobs) {
             catalogJobs.forEach(job => {
                 this.jobs.push({
@@ -347,6 +365,30 @@ export default {
     display: flex;
     flex-direction: column;
     padding: 10px;
+}
+
+.hint {
+    font-size: 12px;
+    color: #cbd5e1;
+    margin-top: 4px;
+}
+
+.char-count {
+    font-weight: 500;
+}
+
+.char-count--warning {
+    color: #f59e0b;
+}
+
+.notes-textarea {
+    min-height: 120px;
+    width: 100%;
+    border-radius: 6px;
+    border: 1px solid #4b5563;
+    padding: 8px 10px;
+    resize: vertical;
+    font-family: inherit;
 }
 
 .popover {

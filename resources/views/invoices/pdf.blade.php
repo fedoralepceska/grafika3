@@ -323,7 +323,7 @@
             </tr>
             <tr>
                 <td class="tahoma" style="background-color: #F0EFEF; padding-left: 5px; border-bottom: 1px solid #cccccc;">Коментар</td>
-                <td colspan="3" >{{ $invoice->comment }}</td>
+                <td colspan="3" style="line-height: 0.85; letter-spacing: 0%;" >{{ $invoice->comment }}</td>
 
             </tr>
         </table>
@@ -372,7 +372,7 @@
             ДОРАБОТКИ <span style="color: #3f3f3f; font-size: 10pt; font-family: 'Open Sans', sans-serif; font-weight: bold;">:</span>
         </div>
         
-        <div style="margin-left: 15px; margin-top: 10px; margin-bottom: 15px;">
+        <div style="margin-left: 15px; margin-top: 10px; margin-bottom: 5px;">
             <table style="width: 100%; border-collapse: collapse;">
                 <tr>
                     {{-- Timeline line row --}}
@@ -389,7 +389,7 @@
                 <tr>
                     {{-- Action names --}}
                     @foreach($refinementActions as $index => $action)
-                        <td style="text-align: center; vertical-align: top; padding: 5px; font-size: 9pt; color: #333; font-weight: bold; font-family: 'Tahoma', sans-serif; word-wrap: break-word;">
+                        <td style="text-align: center; vertical-align: top; padding: 5px; font-size: 9pt; color: #333; font-weight: bold; font-family: 'Tahoma', sans-serif; word-wrap: break-word; letter-spacing: 0%; line-height: 0.85;">
                             {{ $action['name'] }}
                         </td>
                     @endforeach
@@ -452,7 +452,7 @@
                             }
                         @endphp
                         <div class="artboard-block">
-                            <div  class="bolder tahoma" style="margin-top: 20px; font-size: 9.5pt; color: #3f3f3f;">
+                            <div  class="bolder tahoma" style="margin-top: 5px; font-size: 9.5pt; color: #3f3f3f;">
                                 ART BOARD {{ $artboardCounter }}@if($pageDimensions) - {{ $pageDimensions }}@endif<span class="opensans bolder" style="color: #333333; font-size: 10pt" >:</span>
                             </div>
                             <div class="image-box" style="text-align: center; height: 370px; overflow: hidden; display: flex; align-items: center; justify-content: center;">
