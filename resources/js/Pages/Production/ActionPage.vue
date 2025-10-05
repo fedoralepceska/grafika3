@@ -312,7 +312,7 @@
                                         </button>
                                         </div>
                                         <div v-if="canEndJob(job) && !canCurrentUserEndJob(job)" class="text-xs text-gray-400 mt-1">
-                                            Started by another user
+                                            Started by {{ actionStarterNames[job.id] || 'Unknown user' }}
                                         </div>
                                     </template>
                                     <template v-else>
@@ -667,9 +667,49 @@ export default {
                 buttons.push(last);
             }
             return buttons;
+        },
+        
+        // Cache starter names to avoid repeated function calls in template
+        actionStarterNames() {
+            const starterNames = {};
+            
+            for (const invoice of this.invoices) {
+                for (const job of invoice.jobs) {
+                    try {
+                        const action = job?.actions?.find(a => a?.name === this.actionId);
+                        if (!action) {
+                            starterNames[job.id] = 'Unknown user';
+                            continue;
+                        }
+                        
+                        // Check if we have a valid started_by_name or starter_name
+                        const byName = typeof action.started_by_name === 'string' ? action.started_by_name.trim() : '';
+                        const altName = typeof action.starter_name === 'string' ? action.starter_name.trim() : '';
+                        if (byName && byName.toLowerCase() !== 'null' && byName.toLowerCase() !== 'undefined') {
+                            starterNames[job.id] = byName;
+                        }
+                        else if (altName && altName.toLowerCase() !== 'null' && altName.toLowerCase() !== 'undefined') {
+                            starterNames[job.id] = altName;
+                        }
+                        // Fallback to user ID if we have it
+                        else if (action.started_by) {
+                            starterNames[job.id] = `User #${action.started_by}`;
+                        }
+                        else {
+                            starterNames[job.id] = 'Unknown user';
+                        }
+                    } catch (e) {
+                        console.error('Error getting action starter name for job', job.id, ':', e);
+                        starterNames[job.id] = 'Unknown user';
+                    }
+                }
+            }
+            
+            return starterNames;
         }
     },
     methods: {
+
         isNoteAcknowledged(job) {
             try {
                 const key = `${job.id}_${this.actionId}`;
@@ -822,6 +862,8 @@ export default {
                     
                     // After loading jobs, restore timer state for actions that are in progress
                     this.restoreTimerState();
+                    // Re-enable hydrator to ensure starter names are present client-side
+                    this.hydrateStarterNames();
                     
                     // Debug the current state
                     this.debugCurrentState();
@@ -835,6 +877,44 @@ export default {
                 .catch(error => {
                     console.error('There was an error fetching the jobs:', error);
                 });
+        },
+        async hydrateStarterNames() {
+            try {
+                const actionIdsToHydrate = [];
+                this.invoices.forEach(inv => {
+                    inv.jobs?.forEach(job => {
+                        const action = job?.actions?.find(a => a?.name === this.actionId);
+                        if (action && action.started_by && (!action.started_by_name || (typeof action.started_by_name === 'string' && action.started_by_name.trim().length === 0))) {
+                            actionIdsToHydrate.push(action.id);
+                        }
+                    });
+                });
+
+                const uniqueIds = [...new Set(actionIdsToHydrate)];
+                if (uniqueIds.length === 0) return;
+
+                await Promise.all(uniqueIds.map(async (aid) => {
+                    try {
+                        const res = await axios.get(`/action/${aid}/status`);
+                        const data = res?.data?.action;
+                        if (!data) return;
+                        this.invoices.forEach(inv => {
+                            inv.jobs?.forEach(job => {
+                                const a = job?.actions?.find(x => x?.id === aid);
+                                if (a) {
+                                    if (typeof data.started_by !== 'undefined') a.started_by = data.started_by;
+                                    const name = (typeof data.started_by_name === 'string' && data.started_by_name.trim().length > 0)
+                                        ? data.started_by_name.trim()
+                                        : (typeof data.starter_name === 'string' ? data.starter_name.trim() : '');
+                                    if (name) {
+                                        a.started_by_name = name;
+                                    }
+                                }
+                            });
+                        });
+                    } catch (e) {}
+                }));
+            } catch (e) {}
         },
         onSearchInput() {
             if (this.searchDebounce) clearTimeout(this.searchDebounce);
@@ -1614,6 +1694,8 @@ export default {
                     if (action) {
                         action.status = 'In progress';
                         action.started_at = ensuredStartTime;
+                        action.started_by = response.data.action?.started_by;
+                        action.started_by_name = response.data.action?.started_by_name;
                         console.log('Updated action status:', action);
                     }
 
@@ -2101,6 +2183,12 @@ export default {
                                 action.status = actionData.status;
                                 action.started_at = actionData.started_at;
                                 action.ended_at = actionData.ended_at;
+                                if (typeof actionData.started_by !== 'undefined') {
+                                    action.started_by = actionData.started_by;
+                                }
+                                if (actionData.started_by_name) {
+                                    action.started_by_name = actionData.started_by_name;
+                                }
                                 
                                 console.log(`Updated action ${actionId} status from ${oldStatus} to ${actionData.status}`);
                                 
@@ -3817,4 +3905,5 @@ td {
     }
 }
 </style>
+
 

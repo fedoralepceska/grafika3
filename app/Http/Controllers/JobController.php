@@ -944,7 +944,9 @@ class JobController extends Controller
                   });
             })
             ->orderBy('invoices.start_date', 'asc')
-            ->select('invoices.*', 'users.name as user_name', 'clients.name as client_name')
+            ->select('invoices.*', 
+                     DB::raw('COALESCE(users.name, CONCAT("User #", invoices.created_by)) as user_name'), 
+                     'clients.name as client_name')
             ->paginate($perPage, ['*'], 'page', $page);
 
         $invoices = collect($invoicesPaginator->items());
@@ -990,7 +992,9 @@ class JobController extends Controller
 
             // Load only the matching jobs, exclude completed jobs
             $jobsWithActions = Job::with([
-                'actions',
+                'actions' => function($query) {
+                    $query->with('starter:id,name'); // Explicitly load only id and name from users
+                },
                 'catalogItem',
                 'articles',
                 'articles.categories',
@@ -1006,9 +1010,49 @@ class JobController extends Controller
                 ->where('status', '!=', 'Completed')
                 ->get();
 
+            // Build a comprehensive user name map for all starter IDs
+            $allStarterIds = collect($jobsWithActions)->flatMap(function($job){
+                return collect($job->actions)->pluck('started_by')->filter();
+            })->unique()->values();
+            
+            $starterNameById = $allStarterIds->isEmpty()
+                ? collect()
+                : collect(DB::table('users')->whereIn('id', $allStarterIds)->pluck('name', 'id'));
+
             $filteredJobs = [];
             foreach ($jobsWithActions as $eloquentJob) {
-                $sortedActions = collect($eloquentJob->actions)->sortBy('id')->values()->map(function($action) {
+                $sortedActions = collect($eloquentJob->actions)->sortBy('id')->values()->map(function($action) use ($starterNameById, $allStarterIds) {
+                    // Get the starter name with proper fallback logic
+                    $starterName = null;
+                    if ($action->started_by) {
+                        // First try the loaded relation
+                        if ($action->relationLoaded('starter') && $action->starter) {
+                            $starterName = $action->starter->name;
+                        } else {
+                            // Fallback to our preloaded map
+                            $starterName = $starterNameById->get($action->started_by);
+                        }
+                        
+                        // If still no name found, create a fallback
+                        if (!$starterName) {
+                            $starterName = "User #" . $action->started_by;
+                        }
+                        
+                        // Log for debugging
+                        \Log::info('Action starter name resolution', [
+                            'action_id' => $action->id,
+                            'action_name' => $action->name,
+                            'started_by' => $action->started_by,
+                            'relation_loaded' => $action->relationLoaded('starter'),
+                            'has_starter' => $action->starter ? true : false,
+                            'starter_name_from_relation' => $action->starter?->name,
+                            'starter_name_from_map' => $starterNameById->get($action->started_by),
+                            'final_starter_name' => $starterName,
+                            'all_starter_ids' => $allStarterIds->toArray(),
+                            'starter_name_map' => $starterNameById->toArray()
+                        ]);
+                    }
+                    
                     return [
                         'id' => $action->id,
                         'name' => $action->name,
@@ -1016,6 +1060,8 @@ class JobController extends Controller
                         'started_at' => $action->getStartedAtIso(),
                         'ended_at' => $action->getEndedAtIso(),
                         'started_by' => $action->started_by,
+                        'started_by_name' => $starterName,
+                        'starter_name' => $starterName,
                         'hasNote' => $action->hasNote,
                         'quantity' => $action->pivot->quantity ?? null,
                         'pivot' => $action->pivot
@@ -1058,6 +1104,27 @@ class JobController extends Controller
             }
         }
 
+        // Debug: Log the final data being sent to frontend
+        foreach ($finalInvoices as $invoice) {
+            \Log::info('Final invoice data', ['invoice_id' => $invoice->id]);
+            if (isset($invoice->jobs)) {
+                foreach ($invoice->jobs as $job) {
+                    \Log::info('Final job data', [
+                        'job_id' => $job->id,
+                        'actions_count' => count($job->actions)
+                    ]);
+                    foreach ($job->actions as $action) {
+                        \Log::info('Final action data', [
+                            'action_id' => $action['id'],
+                            'action_name' => $action['name'],
+                            'started_by' => $action['started_by'],
+                            'started_by_name' => $action['started_by_name']
+                        ]);
+                    }
+                }
+            }
+        }
+
         return response()->json([
             'invoices' => $finalInvoices,
             'actionId' => $actionId,
@@ -1069,6 +1136,33 @@ class JobController extends Controller
                 'total' => $invoicesPaginator->total(),
             ],
         ]);
+    }
+
+    /**
+     * Get the starter name for an action with proper fallback
+     */
+    private function getActionStarterName($action): ?string
+    {
+        if (!$action || !$action->started_by) {
+            return null;
+        }
+
+        // First try the loaded relation
+        if ($action->relationLoaded('starter') && $action->starter) {
+            return $action->starter->name;
+        }
+
+        // Fallback to direct database query
+        try {
+            return DB::table('users')->where('id', $action->started_by)->value('name');
+        } catch (\Exception $e) {
+            \Log::warning('Failed to get starter name for action', [
+                'action_id' => $action->id,
+                'started_by' => $action->started_by,
+                'error' => $e->getMessage()
+            ]);
+            return null;
+        }
     }
 
     /**
@@ -1190,7 +1284,9 @@ class JobController extends Controller
             ->where('status', '!=', 'Completed')
             ->leftJoin('users', 'invoices.created_by', '=', 'users.id') // Join with users table
             ->leftJoin('clients', 'invoices.client_id', '=', 'clients.id') // Join with clients table
-            ->select('invoices.*', 'users.name as user_name', 'clients.name as client_name')
+            ->select('invoices.*', 
+                     DB::raw('COALESCE(users.name, CONCAT("User #", invoices.created_by)) as user_name'), 
+                     'clients.name as client_name')
             ->get();
 
         // Attach jobs to each invoice
@@ -1848,10 +1944,15 @@ class JobController extends Controller
             // Start the action
             $action->startAction(auth()->id());
 
+            // Load the starter relationship to ensure we have the user name
+            $action->load('starter');
+
             \Log::info('Action started', [
                 'action_id' => $action->id,
                 'new_status' => $action->status,
-                'started_at' => $action->started_at
+                'started_at' => $action->started_at,
+                'started_by' => $action->started_by,
+                'starter_name' => optional($action->starter)->name
             ]);
 
             // Create analytics record
@@ -1899,7 +2000,9 @@ class JobController extends Controller
                 'action' => [
                     'id' => $action->id,
                     'name' => $action->name,
-                    'status' => $action->status
+                    'status' => $action->status,
+                    'started_by' => $action->started_by,
+                    'started_by_name' => $this->getActionStarterName($action)
                 ],
                 'started_at' => $action->getStartedAtIso()
             ];
@@ -2169,6 +2272,8 @@ class JobController extends Controller
                     'started_at' => $action->getStartedAtIso(),
                     'ended_at' => $action->getEndedAtIso(),
                     'started_by' => $action->started_by,
+                    'started_by_name' => $this->getActionStarterName($action),
+                    'starter_name' => $this->getActionStarterName($action),
                     'duration' => $action->getDurationInSeconds(),
                     'is_in_progress' => $action->isInProgress(),
                     'is_completed' => $action->isCompleted(),
