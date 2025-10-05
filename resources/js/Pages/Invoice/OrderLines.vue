@@ -2,7 +2,7 @@
     <div v-if="$props.jobs?.length > 0">
         <table class="border">
             <tbody>
-            <tr v-for="(job, index) in jobsToDisplay" :key="index">
+            <tr v-for="(job, index) in jobsToDisplay" :key="`job-row-${job.id}`">
                 <!-- ORDER INDEX, NAME, AND ADDITIONAL INFO -->
                 <div class="text-white">
                     <td class="text-black bg-gray-200 font-weight-black flex justify-between items-center" style="padding: 0 0 0 5px">
@@ -129,8 +129,9 @@
                 <div class="flex text-white">
                     <td>
                         <FileUploadManager
+                            :key="`stable-file-manager-${job.id}`"
                             :job-id="job.id"
-                            :files="job.originalFile || []"
+                            :files="getStableOriginalFiles(job.id)"
                             upload-type="general"
                             accepted-types=".pdf"
                             @files-updated="handleFilesUpdated(job, $event)"
@@ -143,8 +144,9 @@
                     </td>
                     <td>
                         <CuttingFileUploadManager
+                            :key="`stable-cutting-manager-${job.id}`"
                             :job-id="job.id"
-                            :files="job.cuttingFiles || []"
+                            :files="getStableCuttingFiles(job.id)"
                             @files-updated="handleCuttingFilesUpdated(job, $event)"
                             @file-removed="handleCuttingFileRemoved(job, $event)"
                             @upload-started="handleCuttingUploadStarted(job)"
@@ -472,31 +474,74 @@ export default {
             // Cost breakdown modal
             showCostBreakdownModal: false,
             selectedJob: null,
-            costBreakdown: {}
+            costBreakdown: {},
+            // Upload state tracking to prevent component re-creation
+            activeUploads: new Set(), // Track jobs with active uploads
+            stableFileCache: {}, // Cache stable file arrays during uploads
+            stableJobCache: {} // Cache stable job objects during uploads
         };
     },
 
     computed: {
         jobsToDisplay() {
             const mergedJobs = [...this.jobs || [], ...this.updatedJobs || [], ...this.jobsWithPrices || []];
+            
+            // Debug logging
+            // Skip expensive operations during uploads
 
             // Create a Map to store jobs by ID, with later entries overriding earlier ones
             const jobMap = new Map();
 
             // Process all jobs - later ones will override earlier ones with same ID
             for (const job of mergedJobs) {
-                jobMap.set(job.id, {
+                const jobId = job.id;
+                
+                // If upload is active, return cached stable job object
+                if (this.activeUploads.has(jobId) && this.stableJobCache && this.stableJobCache[jobId]) {
+                    jobMap.set(jobId, this.stableJobCache[jobId]);
+                    continue;
+                }
+                
+                // Create normalized job object
+                const normalizedJob = {
                     ...job,
                     // Ensure numeric fields are properly typed
                     quantity: parseInt(job.quantity) || 1,
                     copies: parseInt(job.copies) || 1,
                     price: parseFloat(job.price) || 0,
                     salePrice: parseFloat(job.salePrice) || null
-                });
+                };
+                
+                // Cache the job object for stability during uploads
+                if (!this.stableJobCache) this.stableJobCache = {};
+                this.stableJobCache[jobId] = normalizedJob;
+                
+                jobMap.set(jobId, normalizedJob);
             }
 
             // Convert Map values back to array and sort by ID
             const result = Array.from(jobMap.values()).sort((a, b) => a.id - b.id);
+            
+            // If we have active uploads, try to return a stable array reference
+            if (this.activeUploads.size > 0) {
+                if (!this._stableJobsArray) {
+                    this._stableJobsArray = result;
+                } else {
+                    // Only update if the array actually changed (not just object references)
+                    const currentIds = result.map(j => j.id).sort().join(',');
+                    const cachedIds = this._stableJobsArray.map(j => j.id).sort().join(',');
+                    
+                    if (currentIds !== cachedIds) {
+                        this._stableJobsArray = result;
+                    } else {
+                        return this._stableJobsArray;
+                    }
+                }
+                return this._stableJobsArray;
+            } else {
+                // Clear stable array when no uploads active
+                this._stableJobsArray = null;
+            }
             
             return result;
         },
@@ -511,6 +556,66 @@ export default {
                 return job.originalFile && job.originalFile.length > 0;
             };
         },
+
+        // Stable file computed properties that prevent re-renders during uploads
+        getStableOriginalFiles() {
+            return (jobId) => {
+                const cacheKey = `${jobId}_originalFile`;
+                
+                // If upload is active, return cached version (stable reference)
+                if (this.activeUploads.has(jobId) && this.stableFileCache[cacheKey]) {
+                    return this.stableFileCache[cacheKey];
+                }
+                
+                // Find the job
+                const job = this.jobsToDisplay.find(j => j.id === jobId);
+                if (!job) return [];
+                
+                // Get current files
+                const currentFiles = job.originalFile || [];
+                
+                // Check if cached version matches current files (avoid unnecessary updates)
+                const cachedFiles = this.stableFileCache[cacheKey];
+                if (cachedFiles && JSON.stringify(cachedFiles) === JSON.stringify(currentFiles)) {
+                    return cachedFiles; // Return existing stable reference
+                }
+                
+                // Update cache with new frozen array only when files actually changed
+                this.stableFileCache[cacheKey] = Object.freeze([...currentFiles]);
+                
+                return this.stableFileCache[cacheKey];
+            };
+        },
+
+        getStableCuttingFiles() {
+            return (jobId) => {
+                const cacheKey = `${jobId}_cuttingFiles`;
+                
+                // If upload is active, return cached version (stable reference)
+                if (this.activeUploads.has(jobId) && this.stableFileCache[cacheKey]) {
+                    return this.stableFileCache[cacheKey];
+                }
+                
+                // Find the job
+                const job = this.jobsToDisplay.find(j => j.id === jobId);
+                if (!job) return [];
+                
+                // Get current files
+                const currentFiles = job.cuttingFiles || [];
+                
+                // Check if cached version matches current files (avoid unnecessary updates)
+                const cachedFiles = this.stableFileCache[cacheKey];
+                if (cachedFiles && JSON.stringify(cachedFiles) === JSON.stringify(currentFiles)) {
+                    return cachedFiles; // Return existing stable reference
+                }
+                
+                // Update cache with new frozen array only when files actually changed
+                this.stableFileCache[cacheKey] = Object.freeze([...currentFiles]);
+                
+                return this.stableFileCache[cacheKey];
+            };
+        },
+
     },
 
     mounted() {
@@ -761,7 +866,6 @@ export default {
         },
 
         async openPreviewModal(thumbnail, job) {
-            console.log('Opening PDF preview for:', thumbnail, 'from job:', job.id);
             const toast = useToast();
             
             try {
@@ -780,8 +884,6 @@ export default {
                 };
                 this.previewImage = null;
                 this.showPreviewModal = true;
-                
-                console.log('PDF preview opened with backend URL:', backendUrl);
             } catch (error) {
                 console.error('Failed to open PDF preview:', error);
                 toast.error('Failed to open PDF preview');
@@ -916,10 +1018,10 @@ export default {
                             this.$forceUpdate();
                         },
                         onProgress: (progressData) => {
-                            console.log('Upload progress:', progressData);
+                            // Progress tracking handled by component
                         },
                         onUploadProgress: (progress) => {
-                            console.log('File upload progress:', progress);
+                            // Progress tracking handled by component
                         },
                         onError: (error) => {
                             console.error('Upload error:', error);
@@ -949,15 +1051,7 @@ export default {
                     })
                 };
 
-                // Log the update for debugging
-                console.log('Job updated with new dimensions:', {
-                    jobId: job.id,
-                    existingDimensions: job.dimensions_breakdown?.length || 0,
-                    newDimensions: newBreakdown.length || 0,
-                    totalArea: res.total_area_m2,
-                    originalFiles: (res.originalFiles && res.originalFiles.length) || 0,
-                    responseData: res
-                });
+                // Job updated with new dimensions
 
                 // Update in jobsWithPrices
                 const index = this.jobsWithPrices.findIndex(j => j.id === job.id);
@@ -1048,12 +1142,9 @@ export default {
         async handleLargeFiles(files, job, toast) {
             try {
                 for (const file of files) {
-                    console.log(`Starting multipart upload for large file: ${file.name} (${(file.size / 1024 / 1024).toFixed(2)}MB)`);
                     
                     const onProgress = ({ loaded, total, partNumber, totalParts }) => {
                         const percentage = Math.round((loaded / total) * 100);
-                        console.log(`Upload progress for ${file.name}: ${percentage}% (part ${partNumber}/${totalParts})`);
-                        
                         // Update UI with progress if needed
                         this.$forceUpdate();
                     };
@@ -1064,8 +1155,6 @@ export default {
                         chunkSize: 10 * 1024 * 1024, // 10MB chunks
                         onProgress
                     });
-                    console.log(`Multipart upload completed for: ${file.name}`);
-                    console.log('Multipart completion payload:', mpResult?.completion);
 
                     // Normalize completion payload and update job immediately (no waiting)
                     const res = mpResult?.completion ?? {};
@@ -1191,14 +1280,7 @@ export default {
             const catalog_item_id = job.effective_catalog_item_id;
             const client_id = job.effective_client_id;
 
-            // Debug log to check job data
-            console.log('Job data being sent:', {
-                jobId: job.id,
-                catalog_item_id,
-                client_id,
-                quantity: this.editingField === 'quantity' ? valueToUpdate : job.quantity,
-                copies: this.editingField === 'copies' ? valueToUpdate : job.copies
-            });
+            // Sending job data update
 
             try {
                 // Prepare the request data - only send what's actually being edited
@@ -1213,18 +1295,13 @@ export default {
                 }
 
                 // Debug log to check what data is being sent
-                console.log('Request data being sent:', {
-                    jobId: job.id,
-                    editingField: this.editingField,
-                    value: valueToUpdate,
-                    requestData
-                });
+                // Request data being sent
 
                 // First update the backend
                 const response = await axios.put(`/jobs/${job.id}`, requestData);
 
                 // Debug log to check response data
-                console.log('Response from server:', response.data);
+                // Response from server received
 
                 if (response.status === 200) {
                     // Update the local job with the response data
@@ -1242,7 +1319,7 @@ export default {
                     };
 
                     // Debug log to check updated job data
-                    console.log('Updated job data:', updatedJob);
+                    // Job data updated successfully
 
                     // Update in jobsWithPrices
                     const index = this.jobsWithPrices.findIndex(j => j.id === job.id);
@@ -1505,19 +1582,7 @@ export default {
                     updatedJob.total_area_m2 = 0;
                 }
 
-                // Debug logging to see what's being updated
-                console.log('File removal response:', {
-                    jobId: job.id,
-                    originalFiles: response.data.originalFiles,
-                    dimensions_breakdown: response.data.dimensions_breakdown,
-                    total_area_m2: response.data.total_area_m2
-                });
-                console.log('Updated job:', {
-                    id: updatedJob.id,
-                    originalFile: updatedJob.originalFile,
-                    dimensions_breakdown: updatedJob.dimensions_breakdown,
-                    total_area_m2: updatedJob.total_area_m2
-                });
+                // File removed and job updated successfully
 
                 // Update in jobsWithPrices
                 const index = this.jobsWithPrices.findIndex(j => j.id === job.id);
@@ -1767,10 +1832,10 @@ export default {
                         this.$forceUpdate();
                     },
                     onProgress: (progressData) => {
-                        console.log('Cutting files upload progress:', progressData);
+                        // Cutting files upload progress tracked
                     },
                     onUploadProgress: (progress) => {
-                        console.log('Cutting files upload progress:', progress);
+                        // Cutting files upload progress tracked
                     },
                     onError: (error) => {
                         console.error('Cutting files upload error:', error);
@@ -1953,7 +2018,8 @@ export default {
                 })
             };
 
-            this.updateJobInState(updatedJob);
+            // Use in-place update to prevent component re-creation
+            this.updateJobInStateInPlace(job, updatedJob);
             this.$emit('job-updated', updatedJob);
         },
 
@@ -1982,15 +2048,23 @@ export default {
                 this.jobThumbnails[job.id] = [];
             }
 
-            this.updateJobInState(updatedJob);
+            // Use in-place update to prevent component re-creation
+            this.updateJobInStateInPlace(job, updatedJob);
             this.$emit('job-updated', updatedJob);
             this.forceUpdateDimensions();
         },
 
         handleUploadStarted(job) {
+            // Upload started for job
+            // Mark job as having active upload to prevent component re-creation
+            this.activeUploads.add(job.id);
+            // Cache current files with frozen reference to prevent prop changes
+            this.stableFileCache[`${job.id}_originalFile`] = Object.freeze([...(job.originalFile || [])]);
+            // Cache the job object to prevent component recreation
+            if (!this.stableJobCache) this.stableJobCache = {};
+            this.stableJobCache[job.id] = { ...job };
             // Clear existing thumbnails
             this.jobThumbnails[job.id] = [];
-            this.$forceUpdate();
         },
 
         async handleUploadCompleted(job, data) {
@@ -2022,12 +2096,21 @@ export default {
                 // For multipart uploads, refresh job data to get updated dimensions
                 await this.refreshJobData(job.id);
             }
+            
+            // Mark upload as completed and clear cache
+            this.activeUploads.delete(job.id);
+            delete this.stableFileCache[`${job.id}_originalFile`];
+            delete this.stableJobCache[job.id];
         },
 
         handleUploadFailed(job, error) {
             console.error('Upload failed for job', job.id, error);
             // Reset upload manager state
             this.uploadManager.forceResetJob(job.id);
+            // Mark upload as completed and clear cache
+            this.activeUploads.delete(job.id);
+            delete this.stableFileCache[`${job.id}_originalFile`];
+            delete this.stableJobCache[job.id];
         },
 
         // New event handlers for CuttingFileUploadManager
@@ -2041,7 +2124,8 @@ export default {
                 })
             };
 
-            this.updateJobInState(updatedJob);
+            // Use in-place update to prevent component re-creation
+            this.updateJobInStateInPlace(job, updatedJob);
             this.$emit('job-updated', updatedJob);
         },
 
@@ -2064,15 +2148,23 @@ export default {
                 }, 500);
             }
 
-            this.updateJobInState(updatedJob);
+            // Use in-place update to prevent component re-creation
+            this.updateJobInStateInPlace(job, updatedJob);
             this.$emit('job-updated', updatedJob);
             this.forceUpdateDimensions();
         },
 
         handleCuttingUploadStarted(job) {
+            // Cutting upload started for job
+            // Mark job as having active upload to prevent component re-creation
+            this.activeUploads.add(job.id);
+            // Cache current files with frozen reference to prevent prop changes
+            this.stableFileCache[`${job.id}_cuttingFiles`] = Object.freeze([...(job.cuttingFiles || [])]);
+            // Cache the job object to prevent component recreation
+            if (!this.stableJobCache) this.stableJobCache = {};
+            this.stableJobCache[job.id] = { ...job };
             // Clear existing cutting file thumbnails
             this.jobCuttingFiles[job.id] = [];
-            this.$forceUpdate();
         },
 
         handleCuttingUploadCompleted(job, data) {
@@ -2101,12 +2193,21 @@ export default {
             this.updateJobInState(updatedJob);
             this.$emit('job-updated', updatedJob);
             this.forceUpdateDimensions();
+            
+            // Mark upload as completed and clear cache
+            this.activeUploads.delete(job.id);
+            delete this.stableFileCache[`${job.id}_cuttingFiles`];
+            delete this.stableJobCache[job.id];
         },
 
         handleCuttingUploadFailed(job, error) {
             console.error('Cutting upload failed for job', job.id, error);
             // Reset upload manager state
             this.uploadManager.forceResetJob(job.id);
+            // Mark upload as completed and clear cache
+            this.activeUploads.delete(job.id);
+            delete this.stableFileCache[`${job.id}_cuttingFiles`];
+            delete this.stableJobCache[job.id];
         },
 
         // Helper method to update job in all states
@@ -2133,6 +2234,30 @@ export default {
             Object.assign(updatedJob, updatedJob);
         },
 
+        // Helper method to update job properties in-place to prevent component re-creation
+        updateJobInStateInPlace(originalJob, updatedJob) {
+            // Update properties in-place instead of replacing the object
+            Object.assign(originalJob, updatedJob);
+
+            // Update in jobsWithPrices by finding and updating in-place
+            const index = this.jobsWithPrices.findIndex(j => j.id === originalJob.id);
+            if (index !== -1) {
+                Object.assign(this.jobsWithPrices[index], updatedJob);
+            } else {
+                this.jobsWithPrices.push(originalJob);
+            }
+
+            // Also update in updatedJobs if it exists
+            if (this.updatedJobs) {
+                const updatedIndex = this.updatedJobs.findIndex(j => j.id === originalJob.id);
+                if (updatedIndex !== -1) {
+                    Object.assign(this.updatedJobs[updatedIndex], updatedJob);
+                } else {
+                    this.updatedJobs.push(originalJob);
+                }
+            }
+        },
+
         async recalculateJobCost(job) {
             try {
                 // Call the backend to recalculate cost with new dimensions
@@ -2150,15 +2275,7 @@ export default {
                     salePrice: response.data.salePrice
                 };
 
-                // Log component breakdown for debugging
-                if (response.data.component_breakdown && response.data.component_breakdown.length > 0) {
-                    console.log('Job cost calculation breakdown:', {
-                        job_id: job.id,
-                        component_count: response.data.component_count,
-                        total_cost: response.data.price,
-                        breakdown: response.data.component_breakdown
-                    });
-                }
+                // Component breakdown received for job cost calculation
 
                 // Update in jobsWithPrices
                 const index = this.jobsWithPrices.findIndex(j => j.id === job.id);

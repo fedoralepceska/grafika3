@@ -100,8 +100,18 @@
                 </div>
             </div>
 
+            <!-- Loading state after upload -->
+            <div v-else-if="isPostUploadLoading" class="cutting-post-upload-loading">
+                <div class="cutting-post-upload-loading-content">
+                    <div class="cutting-loading-spinner">
+                        <i class="fa fa-spinner fa-spin"></i>
+                    </div>
+                    <span class="cutting-loading-text">Processing files...</span>
+                </div>
+            </div>
+
             <!-- Placeholder when no cutting files -->
-            <div v-else class="cutting-placeholder-upload" :class="{ 'disabled': isLocked, 'uploading': isUploading }">
+            <div v-else-if="shouldShowPlaceholder" class="cutting-placeholder-upload" :class="{ 'disabled': isLocked, 'uploading': isUploading }">
                 <div 
                     class="cutting-placeholder-content" 
                     @click="!isLocked && triggerFileInput()"
@@ -268,6 +278,7 @@ export default {
     data() {
         return {
             isUploading: false,
+            isPostUploadLoading: false, // Loading state after upload completes
             deletingFiles: new Set(),
             uploadState: {
                 state: 'idle',
@@ -276,6 +287,7 @@ export default {
             },
             thumbnails: [], // Array of thumbnail objects
             thumbnailsLoading: false,
+            thumbnailLoadTimeout: null, // Debounce thumbnail loading
             finalCuttingFiles: [], // Store final cutting files list
             showPreviewModal: false,
             previewFileIndex: null,
@@ -286,7 +298,10 @@ export default {
                 filename: '',
                 errorMessage: '',
                 suggestedFilename: ''
-            }
+            },
+            componentId: `cutting-manager-${this.jobId}-${Math.random().toString(36).substr(2, 9)}`,
+            lastKnownFileCount: 0, // Track last known file count to prevent unnecessary updates
+            isComponentActive: true // Track if this component should respond to changes
         };
     },
     computed: {
@@ -294,25 +309,74 @@ export default {
             return `cutting-files-input-${this.jobId}`;
         },
         isLocked() {
-            return this.isUploading || this.deletingFiles.size > 0;
+            return this.isUploading || this.isPostUploadLoading || this.deletingFiles.size > 0;
+        },
+        
+        shouldShowPlaceholder() {
+            // Don't show placeholder if we're uploading, post-upload loading, or have files
+            return !this.isUploading && !this.isPostUploadLoading && (!this.files || this.files.length === 0);
         }
     },
     mounted() {
-        // Load thumbnails when component mounts
+        // Initialize component state
+        this.isComponentActive = true;
+        this.lastKnownFileCount = this.files?.length || 0;
+        
+
+        
+        // Check if there's an ongoing upload for this job and recover state
+        this.checkAndRecoverUploadState();
+        
+        // Load thumbnails when component mounts (with delay to allow upload recovery)
         if (this.files && this.files.length > 0) {
-            this.loadThumbnails();
+            setTimeout(() => {
+                if (this.isComponentActive && !this.isUploading) {
+                    this.loadThumbnails();
+                }
+            }, 500);
         }
     },
     watch: {
         // Watch for file changes and reload thumbnails
         files: {
             handler(newFiles, oldFiles) {
-                if (newFiles && newFiles.length > 0 && 
-                    (!oldFiles || newFiles.length !== oldFiles.length)) {
-                    // Delay thumbnail loading to allow for generation
+                // Skip if component is not active
+                if (!this.isComponentActive) {
+                    return;
+                }
+                
+                const newCount = newFiles?.length || 0;
+                const oldCount = oldFiles?.length || 0;
+                
+                // Skip if no meaningful change occurred or if it's the same count we already processed
+                if (newCount === this.lastKnownFileCount && newCount === oldCount) {
+                    return;
+                }
+                
+                // Update our known file count
+                this.lastKnownFileCount = newCount;
+                
+
+                
+                // Don't reload thumbnails if we're currently uploading or already loading
+                if (this.isUploading || this.thumbnailsLoading) {
+
+                    return;
+                }
+                
+                // Only reload thumbnails if files were actually added
+                if (newCount > 0 && newCount > oldCount) {
+
+                    // Use optimized loading for immediate thumbnail loading after upload
                     setTimeout(() => {
-                        this.loadThumbnails();
-                    }, 1000);
+                        if (this.isComponentActive) {
+                            this.loadThumbnailsAfterUpload();
+                        }
+                    }, 500);
+                } else if (newCount === 0 && this.thumbnails.length > 0) {
+                    // Clear thumbnails only if files were completely removed
+
+                    this.thumbnails = [];
                 }
             },
             immediate: false
@@ -329,6 +393,7 @@ export default {
             if (!files.length) return;
 
             const toast = useToast();
+
 
             // Validate file sizes first
             const invalidFiles = files.filter(file => file.size > this.maxFileSize);
@@ -388,29 +453,39 @@ export default {
                 this.$emit('upload-completed', response.data);
                 toast.success(`${files.length} cutting file(s) uploaded successfully`);
 
-                // Load thumbnails after successful upload
-                setTimeout(() => {
-                    this.loadThumbnails();
-                }, 2000); // Give time for thumbnail generation
+                // Enter post-upload loading state
+                this.isPostUploadLoading = true;
+                
+                // Load thumbnails immediately after successful upload
+                this.loadThumbnailsAfterUpload();
 
             } catch (error) {
-                console.error('Upload error:', error);
+                console.error(`${this.componentId}: Upload error for job ${this.jobId}:`, error);
                 this.updateUploadState('error', 'Upload failed', 0);
                 this.$emit('upload-failed', error);
                 toast.error(`Upload failed: ${error.message}`);
             } finally {
+
                 this.isUploading = false;
                 this.resetUploadState();
                 this.finalCuttingFiles = [];
                 event.target.value = '';
+                
+                // Quick thumbnail loading after upload completes
+                setTimeout(() => {
+                    if (this.isComponentActive && !this.isUploading) {
+
+                        this.forceLoadThumbnails();
+                    }
+                }, 1000); // Reduced wait time
             }
         },
 
         async handleAllFiles(files, toast) {
             this.updateUploadState('uploading', 'Processing files...', 10);
-            
-            // Use the coordinated upload system
-            return await uploadManager.startUpload(this.jobId, 'cutting', async () => {
+
+            // Use the coordinated upload system with proper job isolation
+            return await uploadManager.startCustomUpload(this.jobId, 'cutting', async () => {
                 let allCuttingFiles = [];
 
                 for (let i = 0; i < files.length; i++) {
@@ -453,6 +528,7 @@ export default {
                 
                 // Store the final cutting files list for the completion event
                 this.finalCuttingFiles = allCuttingFiles;
+                return allCuttingFiles;
             });
         },
 
@@ -610,20 +686,175 @@ export default {
             };
         },
 
+        checkAndRecoverUploadState() {
+            // Check if there's an ongoing upload for this job
+            if (uploadManager && uploadManager.isJobUploading(this.jobId)) {
+
+                this.isUploading = true;
+                this.updateUploadState('uploading', 'Upload in progress...', 50);
+                
+                // Set up a recovery check
+                const checkUploadComplete = () => {
+                    if (!uploadManager.isJobUploading(this.jobId)) {
+
+                        this.isUploading = false;
+                        this.resetUploadState();
+                        // Load thumbnails after upload completion
+                        setTimeout(() => {
+                            if (this.isComponentActive) {
+                                this.waitForThumbnailsToLoad();
+                            }
+                        }, 1000);
+                    } else {
+                        // Check again in 1 second
+                        setTimeout(checkUploadComplete, 1000);
+                    }
+                };
+                
+                setTimeout(checkUploadComplete, 1000);
+            }
+        },
+
         // Thumbnail methods
         async loadThumbnails() {
-            if (this.thumbnailsLoading) return;
+            // Skip if component is not active or already loading
+            if (!this.isComponentActive || this.thumbnailsLoading || this.isUploading) {
+
+                return;
+            }
             
+
             this.thumbnailsLoading = true;
+            
+            try {
+                const response = await axios.get(`/jobs/${this.jobId}/cutting-file-thumbnails`);
+                
+                // Only update if component is still active
+                if (this.isComponentActive) {
+                    this.thumbnails = response.data.thumbnails || [];
+
+                }
+            } catch (error) {
+                console.error(`${this.componentId}: Error loading thumbnails for job ${this.jobId}:`, error);
+                if (this.isComponentActive) {
+                    this.thumbnails = [];
+                }
+            } finally {
+                if (this.isComponentActive) {
+                    this.thumbnailsLoading = false;
+                }
+            }
+        },
+
+        debouncedLoadThumbnails() {
+            // Skip if component is not active
+            if (!this.isComponentActive) {
+                return;
+            }
+            
+            // Clear any existing timeout
+            if (this.thumbnailLoadTimeout) {
+                clearTimeout(this.thumbnailLoadTimeout);
+            }
+            
+            // Set a new timeout with component state check
+            this.thumbnailLoadTimeout = setTimeout(() => {
+                // Double-check component is still active before loading
+                if (this.isComponentActive && !this.isUploading && !this.thumbnailsLoading) {
+                    this.loadThumbnails();
+                }
+            }, 1500); // Increased timeout to reduce cascading updates
+        },
+
+        async waitForThumbnailsToLoad() {
+
+            
+            // Give backend time to generate thumbnails
+            await new Promise(resolve => setTimeout(resolve, 3000));
+            
+            // Force load thumbnails by temporarily bypassing checks
+            await this.forceLoadThumbnails();
+            
+            // Wait for thumbnails to be fully loaded
+            let attempts = 0;
+            const maxAttempts = 15; // Increased attempts
+            
+            while (attempts < maxAttempts) {
+                if (!this.thumbnailsLoading && this.files && this.files.length > 0) {
+                    const expectedThumbnails = this.files.length;
+                    const actualThumbnails = this.thumbnails.length;
+                    
+
+                    
+                    if (actualThumbnails >= expectedThumbnails) {
+                        return;
+                    }
+                }
+                
+                attempts++;
+                await new Promise(resolve => setTimeout(resolve, 1500));
+                
+                // Force load again if not loaded
+                if (!this.thumbnailsLoading) {
+                    await this.forceLoadThumbnails();
+                }
+            }
+            
+            console.warn(`${this.componentId}: Thumbnail loading timeout for job ${this.jobId}`);
+        },
+
+        async forceLoadThumbnails() {
+            this.thumbnailsLoading = true;
+            
             try {
                 const response = await axios.get(`/jobs/${this.jobId}/cutting-file-thumbnails`);
                 this.thumbnails = response.data.thumbnails || [];
             } catch (error) {
-                console.error('Error loading cutting thumbnails:', error);
+                console.error(`${this.componentId}: Error force loading thumbnails for job ${this.jobId}:`, error);
                 this.thumbnails = [];
             } finally {
                 this.thumbnailsLoading = false;
             }
+        },
+
+        loadThumbnailsAfterUpload() {
+            // Immediate attempt with quick retry if needed
+            // Show loading state
+            this.thumbnailsLoading = true;
+            
+            const attemptLoad = async (attempt = 1) => {
+                try {
+                    const response = await axios.get(`/jobs/${this.jobId}/cutting-file-thumbnails`);
+                    const thumbnails = response.data.thumbnails || [];
+                    
+                    if (thumbnails.length > 0) {
+                        this.thumbnails = thumbnails;
+                        this.thumbnailsLoading = false; // Hide loading
+                        this.isPostUploadLoading = false; // Exit post-upload loading
+                        return;
+                    }
+                    
+                    // If no thumbnails and we haven't tried 3 times, retry after short delay
+                    if (attempt < 3) {
+                        setTimeout(() => attemptLoad(attempt + 1), 1500);
+                    } else {
+                        this.thumbnailsLoading = false; // Hide loading even if no thumbnails
+                        this.isPostUploadLoading = false; // Exit post-upload loading
+                        console.warn(`${this.componentId}: No thumbnails found after ${attempt} attempts`);
+                    }
+                } catch (error) {
+                    console.error(`${this.componentId}: Error loading thumbnails (attempt ${attempt}):`, error);
+                    if (attempt < 3) {
+                        setTimeout(() => attemptLoad(attempt + 1), 2000);
+                    } else {
+                        this.thumbnailsLoading = false; // Hide loading on final error
+                        this.isPostUploadLoading = false; // Exit post-upload loading
+                    }
+                }
+            };
+            
+            // Start first attempt immediately
+            attemptLoad();
         },
 
         getFileThumbnails(fileIndex) {
@@ -691,6 +922,17 @@ export default {
                 stage: { message: '' },
                 progress: 0
             };
+        }
+    },
+
+    beforeUnmount() {
+        // Deactivate component to prevent interference
+        this.isComponentActive = false;
+        
+        // Clean up any pending thumbnail load timeouts
+        if (this.thumbnailLoadTimeout) {
+            clearTimeout(this.thumbnailLoadTimeout);
+            this.thumbnailLoadTimeout = null;
         }
     }
 };

@@ -130,7 +130,7 @@
                         <h2 class="sub-title uppercase pl-1" >{{ $t('orderLines') }}</h2>
                         <OrderLines
                             ref="orderLines"
-                            :key="`order-lines-${$refs.dragAndDrop?.jobs?.length || 0}-${updatedJobs.length || 0}`"
+                            key="stable-order-lines"
                             :jobs="$refs.dragAndDrop?.jobs"
                             :updatedJobs="updatedJobs"
                             :invoiceId="null"
