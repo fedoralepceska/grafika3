@@ -442,7 +442,7 @@
                             <div class="modal-image-container">
                                 <img 
                                     v-if="getModalCurrentThumbnail()"
-                                    :src="getModalCurrentThumbnail().url" 
+                                    :src="getModalThumbnailUrl()" 
                                     :alt="`Page ${modalCurrentPage}`"
                                     class="modal-image"
                                     @error="onThumbnailError"
@@ -1872,35 +1872,13 @@ export default {
             return job.file ? [job.file] : [];
         },
         getThumbnailUrl(jobId, fileIndex, page = null) {
-            const thumbnails = this.getThumbnailsForFile(jobId, fileIndex);
-            
-            if (thumbnails.length === 0) {
-                return null;
+            // Prefer backend route: handles optimization/caching and format
+            const pageNumber = page || (this.getCurrentPageIndex(this.findJobById(jobId), fileIndex) + 1) || 1;
+            try {
+                return route('jobs.viewThumbnail', { jobId: jobId, fileIndex: fileIndex, page: pageNumber });
+            } catch (e) {
+                return `/jobs/${jobId}/view-thumbnail/${fileIndex}/${pageNumber}`;
             }
-            
-            // If page is specified, find that specific page
-            if (page && page > 0) {
-                const pageThumbnail = thumbnails.find(t => 
-                    t.page_number === page
-                );
-                
-                if (pageThumbnail) {
-                    return pageThumbnail.url;
-                }
-            }
-            
-            // Use current page index from carousel state
-            const currentPageIndex = this.getCurrentPageIndex(this.findJobById(jobId), fileIndex);
-            if (thumbnails[currentPageIndex]) {
-                return thumbnails[currentPageIndex].url;
-            }
-            
-            // Fallback to first available thumbnail
-            if (thumbnails.length > 0) {
-                return thumbnails[0].url;
-            }
-            
-            return null;
         },
         handleThumbnailError(event, fileIndex) {
             const jobId = event?.target?.closest('tbody')?.dataset?.jobId;
@@ -2072,6 +2050,18 @@ export default {
         getModalCurrentThumbnail() {
             const thumbnails = this.getPreviewThumbnails();
             return thumbnails[this.modalCurrentPage - 1] || thumbnails[0];
+        },
+
+        getModalThumbnailUrl() {
+            const thumb = this.getModalCurrentThumbnail();
+            if (!thumb || !this.currentJob || this.currentFileIndex === null) return null;
+            // Prefer controller route to leverage optimization/caching
+            const page = thumb.page_number || this.modalCurrentPage || 1;
+            try {
+                return route('jobs.viewThumbnail', { jobId: this.currentJob.id, fileIndex: this.currentFileIndex, page });
+            } catch (e) {
+                return `/jobs/${this.currentJob.id}/view-thumbnail/${this.currentFileIndex}/${page}`;
+            }
         },
 
         nextModalPage() {

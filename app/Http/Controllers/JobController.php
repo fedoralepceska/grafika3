@@ -3856,7 +3856,36 @@ class JobController extends Controller
                     // Match thumbnails that belong to this file and specific page
                     if (strpos($thumbnailFileName, $originalFileName) !== false && 
                         strpos($thumbnailFileName, "_page_{$page}.png") !== false) {
-                        
+                        // If local PNG is very large, create and serve an optimized copy (persisted)
+                        $optimizedCandidate = preg_replace('/\.png$/i', '.webp', $thumbnailFile);
+                        $shouldOptimize = @filesize($thumbnailFile) !== false && @filesize($thumbnailFile) > (5 * 1024 * 1024); // >5MB
+                        if ($shouldOptimize) {
+                            try {
+                                // Generate optimized only if missing or stale
+                                $srcMtime = @filemtime($thumbnailFile) ?: time();
+                                $dstMtime = @file_exists($optimizedCandidate) ? (@filemtime($optimizedCandidate) ?: 0) : 0;
+                                if (!@file_exists($optimizedCandidate) || $dstMtime < $srcMtime) {
+                                    $imagick = new \Imagick();
+                                    $imagick->readImage($thumbnailFile);
+                                    // Downscale to reasonable bounds while preserving aspect ratio
+                                    $imagick->setImageFormat('webp');
+                                    $imagick->setImageCompressionQuality(65);
+                                    $imagick->stripImage();
+                                    $imagick->resizeImage(1600, 1600, \Imagick::FILTER_LANCZOS, 1, true);
+                                    $imagick->writeImage($optimizedCandidate);
+                                    $imagick->clear();
+                                }
+                                if (@file_exists($optimizedCandidate)) {
+                                    return response()->file($optimizedCandidate, [
+                                        'Content-Type' => 'image/webp',
+                                        'Cache-Control' => 'public, max-age=86400, immutable'
+                                    ]);
+                                }
+                            } catch (\Throwable $t) {
+                                // Fall back to original PNG below if optimization fails
+                            }
+                        }
+                        // Serve original PNG if not oversized or optimization failed
                         return response()->file($thumbnailFile, [
                             'Content-Type' => 'image/png',
                             'Cache-Control' => 'public, max-age=86400, immutable'

@@ -599,36 +599,13 @@ export default {
         },
         
         getThumbnailUrl(jobId, fileIndex, page = null) {
-            const thumbnails = this.getThumbnailsForFile(jobId, fileIndex);
-            
-            if (thumbnails.length === 0) {
-                // Fallback to route-based URL if no SSR thumbnails
-                return route('jobs.viewThumbnail', { jobId: jobId, fileIndex: fileIndex });
+            // Always prefer the controller route which handles optimization and cache
+            const pageNumber = page || (this.getCurrentPageIndex(this.findJobById(jobId), fileIndex) + 1) || 1;
+            try {
+                return route('jobs.viewThumbnail', { jobId: jobId, fileIndex: fileIndex, page: pageNumber });
+            } catch (e) {
+                return `/jobs/${jobId}/view-thumbnail/${fileIndex}/${pageNumber}`;
             }
-            
-            // If page is specified, find that specific page
-            if (page && page > 0) {
-                const pageThumbnail = thumbnails.find(t => 
-                    t.page_number === page
-                );
-                
-                if (pageThumbnail) {
-                    return pageThumbnail.url;
-                }
-            }
-            
-            // Use current page index from carousel state
-            const currentPageIndex = this.getCurrentPageIndex(this.findJobById(jobId), fileIndex);
-            if (thumbnails[currentPageIndex]) {
-                return thumbnails[currentPageIndex].url;
-            }
-            
-            // Fallback to first available thumbnail
-            if (thumbnails.length > 0) {
-                return thumbnails[0].url;
-            }
-            
-            return route('jobs.viewThumbnail', { jobId: jobId, fileIndex: fileIndex });
         },
         
         getOriginalFileUrl(jobId, fileIndex) {
