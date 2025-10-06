@@ -27,13 +27,19 @@
                             v-model="searchQuery" 
                             @input="debounceSearch"
                             type="text" 
-                            placeholder="Search orders..." 
+                            placeholder="Search orders, clients..." 
                             class="search-input"
                         />
                         <select v-model="statusFilter" @change="fetchOrders" class="status-select">
                             <option value="">All Status</option>
                             <option value="Not started yet">Not started yet</option>
                             <option value="In progress">In progress</option>
+                        </select>
+                        <select v-model="createdByFilter" @change="fetchOrders" class="status-select">
+                            <option value="">All Users</option>
+                            <option v-for="user in availableUsers" :key="user.id" :value="user.id">
+                                {{ user.name }}
+                            </option>
                         </select>
                     </div>
                 </div>
@@ -118,6 +124,12 @@
                             placeholder="Search completed orders..." 
                             class="search-input"
                         />
+                        <select v-model="completedCreatedByFilter" @change="fetchCompletedOrders" class="status-select">
+                            <option value="">All Users</option>
+                            <option v-for="user in availableUsers" :key="user.id" :value="user.id">
+                                {{ user.name }}
+                            </option>
+                        </select>
                     </div>
                 </div>
 
@@ -426,6 +438,9 @@ export default {
             searchQuery: '',
             completedSearchQuery: '',
             statusFilter: '',
+            createdByFilter: '',
+            completedCreatedByFilter: '',
+            availableUsers: [],
             searchTimeout: null,
             completedSearchTimeout: null,
             currentFileIndex: {},
@@ -437,6 +452,7 @@ export default {
         }
     },
     mounted() {
+        this.fetchAvailableUsers();
         this.fetchOrders();
         this.fetchCompletedOrders();
         // Add ESC key listener
@@ -459,6 +475,10 @@ export default {
                     params.searchQuery = this.searchQuery;
                 }
 
+                if (this.createdByFilter) {
+                    params.createdBy = this.createdByFilter;
+                }
+
                 // Always exclude completed orders from latest list (handled server-side)
                 const response = await axios.get('/orders/latest-open', { params });
                 this.orders = response.data;
@@ -478,10 +498,23 @@ export default {
                     params.searchQuery = this.completedSearchQuery;
                 }
 
+                if (this.completedCreatedByFilter) {
+                    params.createdBy = this.completedCreatedByFilter;
+                }
+
                 const response = await axios.get('/orders', { params });
                 this.completedOrders = response.data;
             } catch (error) {
                 console.error('Error fetching completed orders:', error);
+            }
+        },
+
+        async fetchAvailableUsers() {
+            try {
+                const response = await axios.get('/orders/available-users');
+                this.availableUsers = response.data;
+            } catch (error) {
+                console.error('Error fetching available users:', error);
             }
         },
 
@@ -981,6 +1014,7 @@ export default {
     display: flex;
     gap: 1rem;
     align-items: center;
+    flex-wrap: wrap;
 
     @media (max-width: 768px) {
         flex-direction: column;
@@ -1879,6 +1913,7 @@ export default {
     
     .search-input, .status-select {
         min-width: 100%;
+        width: 100%;
     }
     
     // Stack table columns vertically on mobile

@@ -94,11 +94,19 @@ class InvoiceController extends Controller
         if ($request->has('searchQuery')) {
             $searchQuery = $request->input('searchQuery');
 
-            $searchQuery = '%' . preg_replace('/[^A-Za-z0-9\-]/', '', $searchQuery) . '%';
+            // Support Cyrillic letters and other Unicode characters
+            // Remove only truly problematic characters, keep letters, numbers, spaces, and common punctuation
+            $searchQuery = '%' . preg_replace('/[^\p{L}\p{N}\s\-_.,]/u', '', $searchQuery) . '%';
 
             $query->where(function ($query) use ($searchQuery) {
                 $query->where('invoice_title', 'LIKE', $searchQuery)
-                    ->orWhere('id', 'LIKE', $searchQuery);
+                    ->orWhere('id', 'LIKE', $searchQuery)
+                    ->orWhereHas('client', function ($subquery) use ($searchQuery) {
+                        $subquery->where('name', 'LIKE', $searchQuery);
+                    })
+                    ->orWhereHas('user', function ($subquery) use ($searchQuery) {
+                        $subquery->where('name', 'LIKE', $searchQuery);
+                    });
             });
         }
         if ($status && $status !== 'All') {
@@ -109,6 +117,13 @@ class InvoiceController extends Controller
 
             $query->whereHas('client', function ($subquery) use ($client) {
                 $subquery->where('name', $client);
+            });
+        }
+        if ($request->has('createdBy') && $request->input('createdBy') !== 'All') {
+            $createdBy = $request->input('createdBy');
+
+            $query->whereHas('user', function ($subquery) use ($createdBy) {
+                $subquery->where('id', $createdBy);
             });
         }
     }
@@ -735,6 +750,15 @@ class InvoiceController extends Controller
         }
 
         return response()->json($invoices);
+    }
+
+    public function getAvailableUsers()
+    {
+        $users = \App\Models\User::select('id', 'name')
+            ->orderBy('name')
+            ->get();
+
+        return response()->json($users);
     }
 
     /**
