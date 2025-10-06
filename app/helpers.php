@@ -21,6 +21,41 @@ if (!function_exists('getUnit')) {
     }
 }
 
+if (!function_exists('getJobUnitByArticles')) {
+    function getJobUnitByArticles($job) {
+        // Expecting $job as array with 'articles' key (as sent to PDF)
+        $articles = $job['articles'] ?? [];
+        if (!is_array($articles) || count($articles) === 0) {
+            return '';
+        }
+        $units = [];
+        foreach ($articles as $article) {
+            // Article can come as array or model array
+            $inMeters = !empty($article['in_meters']);
+            $inSquare = !empty($article['in_square_meters']);
+            $inKg = !empty($article['in_kilograms']);
+            $inPieces = !empty($article['in_pieces']);
+
+            if ($inSquare) {
+                $units['m2'] = 'м²';
+            } elseif ($inPieces) {
+                $units['pcs'] = 'ком.';
+            } elseif ($inKg) {
+                $units['kg'] = 'кг';
+            } elseif ($inMeters) {
+                $units['m'] = 'м';
+            } else {
+                $units['default'] = 'ед.';
+            }
+        }
+        // If all articles share the same unit, return it; otherwise 'кол.' (mixed)
+        if (count($units) === 1) {
+            return array_values($units)[0];
+        }
+        return 'кол.';
+    }
+}
+
 if (!function_exists('getTaxTypeDecimal')) {
     function getVAT($article) {
         if ($article !== null) {

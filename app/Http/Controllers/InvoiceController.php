@@ -1287,7 +1287,10 @@ class InvoiceController extends Controller
                         'jobs.id', 'jobs.invoice_id', 'jobs.name', 'jobs.status', 'jobs.quantity', 'jobs.copies',
                         'jobs.file', 'jobs.originalFile', 'jobs.cuttingFiles', 'jobs.total_area_m2', 'jobs.dimensions_breakdown',
                         'jobs.small_material_id', 'jobs.large_material_id', 'jobs.salePrice'
-                    ]);
+                    ])->with(['articles' => function ($a) {
+                        // Ensure unit flags and tax type are present in payload
+                        $a->select('article.id', 'article.name', 'article.code', 'article.tax_type', 'article.in_square_meters', 'article.in_pieces', 'article.in_kilograms', 'article.in_meters');
+                    }]);
                 },
                 'jobs.small_material.smallFormatMaterial',
                 'user:id,name', 
@@ -1331,6 +1334,7 @@ class InvoiceController extends Controller
         $invoiceIds = $request->input('orders');
         $comment = $request->input('comment');
         $tradeItems = $request->input('trade_items', []);
+        $createdAtInput = $request->input('created_at');
         
         try {
             // Start a database transaction
@@ -1343,8 +1347,24 @@ class InvoiceController extends Controller
                 'created_by' => auth()->id()
             ]);
 
+            // If client provided a custom created_at date, apply it to the Faktura
+            if (!empty($createdAtInput)) {
+                try {
+                    $faktura->created_at = \Carbon\Carbon::parse($createdAtInput);
+                    $faktura->save();
+                } catch (\Throwable $e) {
+                    // If parsing fails, keep default timestamp
+                }
+            }
+
             // Retrieve the Invoice instances based on the provided IDs
-            $invoices = Invoice::with(['jobs.actions', 'contact', 'user', 'client', 'article', 'client.clientCardStatement'])
+            $invoices = Invoice::with([
+                'jobs.actions',
+                'jobs.articles' => function ($q) {
+                    $q->select('article.id', 'article.name', 'article.price_1', 'article.tax_type', 'article.in_square_meters', 'article.in_pieces', 'article.in_kilograms', 'article.in_meters');
+                },
+                'contact', 'user', 'client', 'article', 'client.clientCardStatement'
+            ])
                 ->find($invoiceIds);
 
             // Associate the retrieved Invoice instances with the new Faktura
@@ -1421,6 +1441,15 @@ class InvoiceController extends Controller
                     ]
                 );
             })->toArray();
+
+            // Ensure trade items are shown only once (per faktura), not repeated per order
+            if (is_array($transformedInvoices) && count($transformedInvoices) > 1) {
+                for ($i = 1; $i < count($transformedInvoices); $i++) {
+                    if (isset($transformedInvoices[$i]['trade_items'])) {
+                        $transformedInvoices[$i]['trade_items'] = [];
+                    }
+                }
+            }
 
             // Debug: return JSON payload when requested
             if ($request->boolean('debug')) {
@@ -1621,6 +1650,7 @@ class InvoiceController extends Controller
             $invoiceIds = $request->input('orders');
             $comment = $request->input('comment');
             $tradeItems = $request->input('trade_items', []);
+            $createdAtInput = $request->input('created_at');
 
             // Basic validation
             if (empty($invoiceIds) || !is_array($invoiceIds)) {
@@ -1634,7 +1664,7 @@ class InvoiceController extends Controller
             // Transform invoices for PDF generation (same as outgoingInvoicePdf)
             $dns1d = new DNS1D();
             $nextFakturaId = (int) (\App\Models\Faktura::max('id') ?? 0) + 1;
-            $transformedInvoices = $invoices->map(function ($invoice) use ($dns1d, $tradeItems, $comment, $nextFakturaId) {
+            $transformedInvoices = $invoices->map(function ($invoice) use ($dns1d, $tradeItems, $comment, $nextFakturaId, $createdAtInput) {
                 // Compose barcode safely (GD may be missing in some environments)
                 $period = $invoice->end_date ? date('m-Y', strtotime($invoice->end_date)) : date('m-Y');
                 $barcodeString = $invoice->id . '-' . $period;
@@ -1648,14 +1678,29 @@ class InvoiceController extends Controller
                     $barcodeImage = null;
                 }
 
-                $totalSalePrice = (float) $invoice->jobs->sum('salePrice');
                 $totalCopies = (int) $invoice->jobs->sum('copies');
 
-                $taxRate = 0.18;
-                $priceWithTax = $totalSalePrice * (1 + $taxRate);
-                $taxAmount = $totalSalePrice * $taxRate;
+                // Dynamic VAT/subtotals from job_articles + trade items
+                $taxMap = [1 => 18, 2 => 5, 3 => 10];
+                $materialsSubtotal = 0.0;
+                $materialsVat = 0.0;
+                $vatBreakdown = [5 => 0.0, 10 => 0.0, 18 => 0.0];
+                foreach ($invoice->jobs as $job) {
+                    foreach ($job->articles as $article) {
+                        $qty = (float) ($article->pivot->quantity ?? 0);
+                        $unitPrice = (float) ($article->price_1 ?? 0);
+                        $line = $qty * $unitPrice;
+                        $materialsSubtotal += $line;
+                        $rate = (float) ($taxMap[$article->tax_type] ?? 0);
+                        $lineVat = $line * ($rate / 100);
+                        $materialsVat += $lineVat;
+                        if (isset($vatBreakdown[(int)$rate])) {
+                            $vatBreakdown[(int)$rate] += $lineVat;
+                        }
+                    }
+                }
 
-                // Add trade items to this invoice's data
+                // Add trade items contribution
                 $invoiceTradeItems = collect($tradeItems)->map(function ($item) {
                     return [
                         'article_id' => $item['article_id'],
@@ -1667,25 +1712,60 @@ class InvoiceController extends Controller
                         'vat_amount' => $item['vat_amount']
                     ];
                 });
+                $tradeSubtotal = (float) $invoiceTradeItems->sum('total_price');
+                $tradeVat = (float) $invoiceTradeItems->sum('vat_amount');
+                // Add trade VAT to breakdown by their explicit vat_rate
+                foreach ($invoiceTradeItems as $ti) {
+                    $vr = (int)($ti['vat_rate'] ?? 0);
+                    if (isset($vatBreakdown[$vr])) {
+                        $vatBreakdown[$vr] += (float)($ti['vat_amount'] ?? 0);
+                    }
+                }
+
+                $subtotal = $materialsSubtotal + $tradeSubtotal;
+                $taxAmount = $materialsVat + $tradeVat;
+                $priceWithTax = $subtotal + $taxAmount;
+                $taxRate = $subtotal > 0 ? ($taxAmount / $subtotal) * 100 : 0;
+
+                // Round monetary values and percentages for presentation
+                $subtotalRounded = round($subtotal, 2);
+                $taxAmountRounded = round($taxAmount, 2);
+                $priceWithTaxRounded = round($priceWithTax, 2);
+                $taxRateRounded = round($taxRate, 2);
+                $vatBreakdownRounded = [];
+                foreach ($vatBreakdown as $r => $amt) { $vatBreakdownRounded[$r] = round($amt, 2); }
 
                 // Return a new array for this invoice with the required fields
                 return array_merge(
                     $invoice->toArray(),
                     [
                         'barcodeImage' => $barcodeImage,
-                        'totalSalePrice' => $totalSalePrice,
-                        'taxRate' => $taxRate * 100,
-                        'priceWithTax' => $priceWithTax,
-                        'taxAmount' => $taxAmount,
+                        'totalSalePrice' => $subtotalRounded,
+                        'taxRate' => $taxRateRounded,
+                        'priceWithTax' => $priceWithTaxRounded,
+                        'taxAmount' => $taxAmountRounded,
                         'copies' => $totalCopies,
+                        // Extra fields for per-rate breakdown
+                        'subtotal_without_vat' => $subtotalRounded,
+                        'vat_breakdown' => $vatBreakdownRounded,
+                        'total_with_vat' => $priceWithTaxRounded,
                         'trade_items' => $invoiceTradeItems,
                         'comment' => $comment,
-                        // Freeze time at preview click
-                        'generated_at' => now()->toDateTimeString(),
+                        // Use provided preview date if valid, otherwise now
+                        'generated_at' => !empty($createdAtInput) ? optional(\Carbon\Carbon::parse($createdAtInput))->toDateTimeString() : now()->toDateTimeString(),
                         'preview_faktura_id' => $nextFakturaId,
                     ]
                 );
             })->toArray();
+
+            // Ensure trade items are shown only once (per previewed invoice, not per order)
+            if (is_array($transformedInvoices) && count($transformedInvoices) > 1) {
+                for ($i = 1; $i < count($transformedInvoices); $i++) {
+                    if (isset($transformedInvoices[$i]['trade_items'])) {
+                        $transformedInvoices[$i]['trade_items'] = [];
+                    }
+                }
+            }
 
             // Generate PDF using v2 template for preview
             $pdf = PDF::loadView('invoices.outgoing_invoice_v2', [

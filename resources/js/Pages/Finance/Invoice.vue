@@ -28,49 +28,46 @@
                 </div>
 
                 <!-- Client Information Row -->
-                <div class="client-info-section">
+                <div class="client-info-section" v-if="invoice[0]?.client">
                     <div class="client-info">
-                        <div class="client-label">Client</div>
-                        <div class="client-name">{{invoice[0]?.client}}</div>
-                    </div>
-                </div>
-
-                <!-- Invoice Information Row -->
-                <div class="invoice-info-minimal">
-                    <div class="info-item">
-                        <span class="info-label">Invoice ID</span>
-                        <span class="info-value">{{ invoice[0]?.fakturaId }}/{{new Date(invoice[0]?.created).toLocaleDateString('en-US', { year: 'numeric'})}}</span>
-                    </div>
-                    <div class="info-item">
-                        <span class="info-label">Created by</span>
-                        <span class="info-value">{{invoice[0]?.createdBy}}</span>
-                    </div>
-                    <div class="info-item">
-                        <span class="info-label">Date Created</span>
-                        <span class="info-value">
-                            <div v-if="isEditMode && editingDate" class="date-edit-container">
-                                <input 
-                                    v-model="dateEdit"
-                                    @keyup.enter="saveDate"
-                                    class="date-input"
-                                    type="date"
-                                />
-                                <button @click="saveDate" class="save-btn" title="Save">
-                                    <i class="fas fa-check"></i>
-                                </button>
-                                <button @click="cancelEditDate" class="cancel-btn" title="Cancel">
-                                    <i class="fas fa-times"></i>
-                                </button>
+                        <div class="client-info-container">
+                            <div class="client-label">Client</div>
+                            <div class="client-name">{{ invoice[0]?.client }}</div>
+                        </div>
+                        <!-- Invoice meta (ID, Date, Created by) -->
+                        <div class="invoice-info-minimal">
+                            <div class="info-item">
+                                <span class="info-label">Invoice ID</span>
+                                <span class="info-value">{{ invoice[0]?.fakturaId }}/{{new Date(invoice[0]?.created).toLocaleDateString('en-US', { year: 'numeric'})}}</span>
                             </div>
-                            <div v-else class="date-display" @click="startEditDate">
-                                {{new Date(invoice[0]?.created).toLocaleDateString('en-US', { year: 'numeric', month: '2-digit', day: '2-digit' })}}
-                                <i v-if="isEditMode" class="fas fa-edit edit-icon"></i>
+                            <div class="info-item">
+                                <span class="info-label">Date Created</span>
+                                <span class="info-value">
+                                    <div v-if="isEditMode && editingDate" class="date-edit-container">
+                                        <input v-model="dateEdit" @keyup.enter="saveDate" class="date-input"
+                                            type="date" />
+                                        <button @click="saveDate" class="save-btn" title="Save">
+                                            <i class="fas fa-check"></i>
+                                        </button>
+                                        <button @click="cancelEditDate" class="cancel-btn" title="Cancel">
+                                            <i class="fas fa-times"></i>
+                                        </button>
+                                    </div>
+                                    <div v-else class="date-display" @click="startEditDate">
+                                        {{new Date(invoice[0]?.created).toLocaleDateString('en-US', { year: 'numeric', month: '2-digit', day: '2-digit' })}}
+                                        <i v-if="isEditMode" class="fas fa-edit edit-icon"></i>
+                                    </div>
+                                </span>
                             </div>
-                        </span>
-                    </div>
-                    <div class="info-item comment" v-if="invoice[0]?.faktura_comment">
-                        <span class="info-label">Comment</span>
-                        <span class="info-value">{{invoice[0]?.faktura_comment}}</span>
+                            <div class="info-item">
+                                <span class="info-label">Created by</span>
+                                <span class="info-value">{{invoice[0]?.createdBy}}</span>
+                            </div>
+                            <div class="info-item comment" v-if="invoice[0]?.faktura_comment">
+                                <span class="info-label">Comment</span>
+                                <span class="info-value">{{invoice[0]?.faktura_comment}}</span>
+                            </div>
+                        </div>
                     </div>
                 </div>
                 <!-- All Orders Container -->
@@ -134,69 +131,85 @@
 
                         <!-- Jobs for this Order -->
                         <div class="jobs-section">
-                            <!-- Edit Mode - Professional Job Editing -->
-                            <div v-if="isEditMode && !spreadsheetMode" class="jobs-edit-mode">
-                                <InvoiceJobEdit 
-                                    v-for="job in invoiceData.jobs" 
-                                    :key="job.id"
-                                    :job="job"
-                                    :faktura-id="invoiceData.fakturaId"
-                                    @job-updated="onJobUpdated"
-                                />
-                            </div>
-                            
-                            <!-- Detail View Mode -->
-                            <div v-else-if="!spreadsheetMode" class="jobs-detail-mode">
+                            <div class="jobs-detail-mode">
+                                <!-- Global labels rendered once per order -->
+                                <div class="job-header-labels">
+                                    <div class="label-cell">Title</div>
+                                    <div class="label-cell">Quantity</div>
+                                    <div class="label-cell">Total m²</div>
+                                    <div class="label-cell">Sale Price</div>
+                                    <div class="label-cell action-cell">Actions</div>
+                                </div>
                                 <div v-for="(job, jobIndex) in invoiceData.jobs" :key="job.id" class="job-card">
                                     <div class="job-header">
-                                        <div class="job-title">
-                                            #{{ jobIndex + 1 }} {{ job.name }}
+                                        <div class="value-cell job-title">
+                                            <template v-if="isEditMode && editingJobId === job.id">
+                                                <input class="inline-input" v-model="job.name" />
+                                            </template>
+                                            <template v-else>
+                                                #{{ jobIndex + 1 }} {{ job.name }}
+                                            </template>
+                                        </div>
+                                        <div class="value-cell">
+                                            <template v-if="isEditMode && editingJobId === job.id">
+                                                <input class="inline-input" type="number" min="0" v-model.number="job.quantity" />
+                                            </template>
+                                            <template v-else>{{ job.quantity }}</template>
+                                        </div>
+                                        <div class="value-cell">
+                                            <template v-if="isEditMode && editingJobId === job.id">
+                                                <input class="inline-input" type="number" min="0" step="0.0001" v-model.number="job.computed_total_area_m2" />
+                                            </template>
+                                            <template v-else>{{ formatArea(job.computed_total_area_m2) }}</template>
+                                        </div>
+                                        <div class="value-cell">
+                                            <template v-if="isEditMode && editingJobId === job.id">
+                                                <input class="inline-input" type="number" min="0" step="0.01" v-model.number="job.salePrice" />
+                                            </template>
+                                            <template v-else>{{ formatPrice(job.salePrice) }} ден.</template>
+                                        </div>
+                                        <div class="value-cell actions">
+                                            <template v-if="isEditMode">
+                                                <template v-if="editingJobId !== job.id">
+                                                    <button class="btn-edit-small" @click="startEditingJob(job)">Edit</button>
+                                                </template>
+                                                <template v-else>
+                                                    <button class="btn-save-small" @click="saveEditingJob(job)">Save</button>
+                                                    <button class="btn-cancel-small" @click="cancelEditingJob(job)">Cancel</button>
+                                                </template>
+                                            </template>
+                                            <button class="btn-edit-small" style="margin-left:6px" @click="toggleMaterials(job.id)">
+                                                {{ materialsOpen[job.id] ? 'Hide Materials' : 'Show Materials' }}
+                                            </button>
                                         </div>
                                     </div>
-                                    <div class="job-details-grid">
-                                        <div class="detail-item">
-                                            <span class="label">{{ $t('height') }}:</span>
-                                            <span class="value">{{ formatDimension(job.height) }} mm</span>
-                                        </div>
-                                        <div class="detail-item">
-                                            <span class="label">{{ $t('width') }}:</span>
-                                            <span class="value">{{ formatDimension(job.width) }} mm</span>
-                                        </div>
-                                        <div class="detail-item">
-                                            <span class="label">{{ $t('quantity') }}:</span>
-                                            <span class="value">{{ job.quantity }}</span>
-                                        </div>
-                                        <div class="detail-item">
-                                            <span class="label">{{ $t('copies') }}:</span>
-                                            <span class="value">{{ job.copies }}</span>
-                                        </div>
-                                        <div class="detail-item">
-                                            <span class="label">{{ $t('totalm') }}<sup>2</sup>:</span>
-                                            <span class="value">{{ formatArea(job.computed_total_area_m2) }}</span>
-                                        </div>
-                                        <div class="detail-item">
-                                            <span class="label">{{ $t('salePrice') }}:</span>
-                                            <span class="value price">{{ formatPrice(job.salePrice) }} ден.</span>
-                                        </div>
-                                        <div class="detail-item">
-                                            <span class="label">{{ $t('jobPrice') }}:</span>
-                                            <span class="value total-price">{{ formatPrice(job.totalPrice) }} ден.</span>
-                                        </div>
-                                    </div>
-                                    <div class="material-info" v-if="getMaterialInfo(job)">
+                                    <!-- Materials (styled like old material-info) -->
+                                    <div v-if="materialsOpen[job.id]" class="material-info">
                                         <span class="label">{{ $t('material') }}:</span>
-                                        <span class="value">{{ getMaterialInfo(job) }}</span>
-                                    </div>
-                                    <div class="shipping-info" v-if="job.shippingInfo">
-                                        <span class="label">{{ $t('shippingTo') }}:</span>
-                                        <span class="value">{{ job.shippingInfo }}</span>
+                                        <div class="value materials-list">
+                                            <template v-if="job.articles && job.articles.length">
+                                                <div v-for="(article, aIdx) in job.articles" :key="aIdx" class="material-item">
+                                                    <span class="item-name">{{ article.name }}</span>
+                                                    <span class="item-sep"> - </span>
+                                                    <span class="item-qty">{{ article.pivot?.quantity ?? 0 }} {{ getUnitTextFromPivot(article) }}</span>
+                                                </div>
+                                            </template>
+                                            <template v-else-if="job.large_material">
+                                                <div class="material-item">
+                                                    <span class="item-name">{{ job.large_material.name }}</span>
+                                                </div>
+                                            </template>
+                                            <template v-else-if="job.small_material">
+                                                <div class="material-item">
+                                                    <span class="item-name">{{ job.small_material.name }}</span>
+                                                </div>
+                                            </template>
+                                            <template v-else>
+                                                <div class="material-item">No materials.</div>
+                                            </template>
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
-                            
-                            <!-- Spreadsheet Mode -->
-                            <div v-else class="spreadsheet-mode">
-                                <OrderSpreadsheet :invoice="invoiceData"/>
                             </div>
                         </div>
                     </div>
@@ -204,28 +217,60 @@
 
                 <!-- Trade Items Section - At the Bottom -->
                 <div class="trade-items-section" v-if="isEditMode || (tradeItems && tradeItems.length > 0)">
-                    <TradeItemsEdit 
-                        v-if="isEditMode"
-                        :trade-items="tradeItems || []"
-                        :faktura-id="faktura.id"
-                        @trade-items-updated="onTradeItemsUpdated"
-                    />
-                    <div v-else class="trade-items-display">
-                        <div class="section-header">
-                            <h3 class="section-title">Trade Items</h3>
+                    <div class="trade-items-container">
+                        <div class="trade-items-header">
+                            <h4 class="section-title">Trade Items</h4>
                         </div>
-                        <div class="trade-items-list">
-                            <div v-for="item in tradeItems" :key="item.id" class="trade-item-card">
-                                <div class="item-info">
-                                    <div class="item-name">{{ item.article_name }}</div>
-                                    <div class="item-code" v-if="item.article_code">Article Code: {{ item.article_code }}</div>
+
+                        <div v-if="tradeItems.length === 0" class="no-items">
+                            No trade items added yet.
+                        </div>
+
+                        <div class="trade-items-list" v-else>
+                            <div class="trade-item-card" v-for="(item, idx) in tradeItems" :key="idx">
+                                <div class="item-header">
+                                    <div class="item-title">
+                                        <span class="article-code" v-if="item.article_code">Article Code: {{ item.article_code }}</span>
+                                        <span class="article-name">{{ item.article_name }}</span>
+                                    </div>
                                 </div>
+
                                 <div class="item-details">
-                                    <span>Qty: {{ item.quantity }}</span>
-                                    <span>@ {{ formatPrice(getTradeItemUnitPrice(item)) }} ден.</span>
-                                    <span class="total">{{ formatPrice(getTradeItemTotalWithVat(item)) }} ден.</span>
+                                    <div class="detail-item">
+                                        <label>Quantity:</label>
+                                        <span class="detail-value">{{ item.quantity }}</span>
+                                    </div>
+
+                                    <div class="detail-item">
+                                        <label>Unit Price:</label>
+                                        <span class="detail-value">{{ formatNumber(item.unit_price) }} ден.</span>
+                                    </div>
+
+                                    <div class="detail-item">
+                                        <label>VAT Rate:</label>
+                                        <span class="detail-value">{{ item.vat_rate }}%</span>
+                                    </div>
+
+                                    <div class="detail-item">
+                                        <label>Total Price:</label>
+                                        <span class="detail-value total-price">{{ formatNumber(item.total_price) }} ден.</span>
+                                    </div>
+
+                                    <div class="detail-item">
+                                        <label>VAT Amount:</label>
+                                        <span class="detail-value">{{ formatNumber(item.vat_amount) }} ден.</span>
+                                    </div>
+
+                                    <div class="detail-item">
+                                        <label>Total with VAT:</label>
+                                        <span class="detail-value total-final">{{ formatNumber(item.total_price + item.vat_amount) }} ден.</span>
+                                    </div>
                                 </div>
                             </div>
+                        </div>
+
+                        <div class="trade-items-total" v-if="tradeItems.length > 0">
+                            <strong>Trade Items Total: {{ formatNumber(tradeItemsTotal) }} ден (incl. VAT)</strong>
                         </div>
                     </div>
                 </div>
@@ -271,6 +316,9 @@ export default {
                 return "green-text";
             }
         },
+        tradeItemsTotal() {
+            return this.tradeItems.reduce((total, item) => total + (item.total_price + item.vat_amount), 0);
+        },
     },
     data() {
         return {
@@ -285,7 +333,10 @@ export default {
             titleEdits: {},
             editingDate: false,
             dateEdit: '',
-            toast: useToast()
+            toast: useToast(),
+            editingJobId: null,
+            originalJobSnapshots: {},
+            materialsOpen: {}
         }
     },
     mounted() {
@@ -467,6 +518,92 @@ export default {
             // Update trade items - they belong to the faktura, not individual invoices
             this.tradeItems = updatedTradeItems;
         },
+        startEditingJob(job) {
+            this.editingJobId = job.id;
+            // snapshot original values for cancel
+            this.$set ? this.$set(this.originalJobSnapshots, job.id, {
+                name: job.name,
+                quantity: job.quantity,
+                computed_total_area_m2: job.computed_total_area_m2,
+                salePrice: job.salePrice,
+                totalPrice: job.totalPrice
+            }) : (this.originalJobSnapshots[job.id] = {
+                name: job.name,
+                quantity: job.quantity,
+                computed_total_area_m2: job.computed_total_area_m2,
+                salePrice: job.salePrice,
+                totalPrice: job.totalPrice
+            });
+        },
+        cancelEditingJob(job) {
+            const snap = this.originalJobSnapshots[job.id];
+            if (snap) {
+                job.name = snap.name;
+                job.quantity = snap.quantity;
+                job.computed_total_area_m2 = snap.computed_total_area_m2;
+                job.salePrice = snap.salePrice;
+                job.totalPrice = snap.totalPrice;
+            }
+            this.editingJobId = null;
+            delete this.originalJobSnapshots[job.id];
+        },
+        async saveEditingJob(job) {
+            try {
+                // Persist supported fields to backend JobController@update
+                const response = await axios.put(`/jobs/${job.id}`, {
+                    name: job.name,
+                    quantity: job.quantity,
+                    salePrice: job.salePrice
+                });
+                if (response?.data?.job) {
+                    // Replace local job with server copy and notify
+                    Object.assign(job, response.data.job);
+                    this.onJobUpdated?.(response.data.job);
+                    this.toast?.success?.('Job updated');
+                } else {
+                    this.toast?.success?.('Job updated');
+                }
+                this.editingJobId = null;
+                delete this.originalJobSnapshots[job.id];
+            } catch (e) {
+                this.toast?.error?.('Failed to update job');
+            }
+        },
+        toggleMaterials(jobId) {
+            const current = !!this.materialsOpen[jobId];
+            this.$set ? this.$set(this.materialsOpen, jobId, !current) : (this.materialsOpen[jobId] = !current);
+        },
+        getUnitTextFromPivot(article) {
+            // Prefer pivot-provided unit if available in future (e.g., pivot.unit_type)
+            const unitType = (article && article.pivot && article.pivot.unit_type) ? String(article.pivot.unit_type).toLowerCase() : '';
+            if (unitType) {
+                if (unitType === 'pieces' || unitType === 'pcs' || unitType === 'kom' || unitType === 'ком') return 'ком.';
+                if (unitType === 'kilograms' || unitType === 'kg') return 'кг';
+                if (unitType === 'meters' || unitType === 'm') return 'м';
+                if (unitType === 'square_meters' || unitType === 'm2' || unitType === 'm²') return 'm²';
+            }
+            // Fallback to article flags/string
+            return this.getUnitText(article);
+        },
+        getUnitText(article) {
+            const a = article && article.article ? article.article : article;
+            const isTrue = (v) => v === true || v === 1 || v === '1' || v === 'true';
+            // Flag-based fields (coerce null/"1"/1/true)
+            if (a && isTrue(a.in_square_meters)) return 'm²';
+            if (a && isTrue(a.in_pieces)) return 'ком.'; // pcs
+            if (a && isTrue(a.in_kilograms)) return 'кг';
+            if (a && isTrue(a.in_meters)) return 'м';
+            // String-based unit fallback (e.g., 'pcs', 'kg', 'm', 'm2')
+            const u = (a && a.unit ? String(a.unit).toLowerCase() : '').trim();
+            if (u === 'pcs' || u === 'kom' || u === 'ком' || u === 'pieces') return 'ком.';
+            if (u === 'kg') return 'кг';
+            if (u === 'm') return 'м';
+            if (u === 'm2' || u === 'm²' || u === 'sqm' || u === 'm^2') return 'm²';
+            return 'кол.';
+        },
+        formatNumber(number) {
+            return Number(number).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        },
         async printInvoice() {
             const toast = useToast();
             const selectedId = this.invoice[0].id;
@@ -600,16 +737,23 @@ $orange: #a36a03;
 .client-info-section {
     background: linear-gradient(135deg, #51A8B1 0%, darken(#51A8B1, 20%) 100%);
     border-radius: 8px 8px 0 0;
-    padding: 20px 24px;
-    margin-bottom: 0;
+    padding: 5px 8px;
+    margin: 10px 0 0 0;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
 
 .client-info {
     display: flex;
+    flex-direction: row;
     align-items: center;
-    justify-content: center;
+    justify-content: space-between;
     gap: 16px;
+}
+
+.client-info-container {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
 }
 
 .client-label {
@@ -637,27 +781,14 @@ $orange: #a36a03;
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    justify-content: space-between;
-
-    @media (max-width: 768px) {
-        flex-direction: column;
-        align-items: flex-start;
-        gap: 12px;
-    }
+    justify-content: flex-start;
+    gap: 20px;
 }
 
 .info-item {
     display: flex;
     align-items: center;
     gap: 8px;
-    flex-shrink: 0;
-
-    &.comment {
-        flex-basis: 100%;
-        margin-top: 8px;
-        padding-top: 12px;
-        border-top: 1px solid rgba($white, 0.1);
-    }
 }
 
 .info-label {
@@ -673,92 +804,67 @@ $orange: #a36a03;
     font-size: 14px;
     color: $white;
     font-weight: 600;
+}
 
-    .date-display {
-        cursor: pointer;
-        display: inline-flex;
-        align-items: center;
-        gap: 8px;
-        transition: all 0.2s ease;
-        padding: 4px 8px;
-        border-radius: 4px;
+.date-display {
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 8px;
+    border-radius: 4px;
+}
 
-        &:hover {
-            background: rgba($white, 0.1);
-        }
+.date-display:hover {
+    background: rgba($white, 0.1);
+}
 
-        .edit-icon {
-            font-size: 12px;
-            opacity: 0.6;
-        }
-    }
+.date-edit-container {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    max-width: 250px;
+}
 
-    .date-edit-container {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        width: 100%;
-        max-width: 250px;
-    }
+.date-input {
+    font-size: 14px;
+    color: $white;
+    background: rgba($white, 0.1);
+    border: 2px solid $blue;
+    border-radius: 4px;
+    padding: 6px 8px;
+    font-weight: 600;
+}
 
-    .date-input {
-        font-size: 14px;
-        color: $white;
-        background: rgba($white, 0.1);
-        border: 2px solid $blue;
-        border-radius: 4px;
-        padding: 6px 8px;
-        font-weight: 600;
-        flex: 1;
+.date-input:focus {
+    outline: none;
+    border-color: $light-green;
+    box-shadow: 0 0 0 2px rgba($light-green, 0.3);
+}
 
-        &:focus {
-            outline: none;
-            border-color: $light-green;
-            box-shadow: 0 0 0 2px rgba($light-green, 0.3);
-        }
+.save-btn,
+.cancel-btn {
+    padding: 6px 8px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 12px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 28px;
+    height: 28px;
+}
 
-        // Style the date picker
-        &::-webkit-calendar-picker-indicator {
-            filter: invert(1);
-            cursor: pointer;
-        }
-    }
+.save-btn {
+    background-color: $green;
+    color: $white;
+}
 
-    .save-btn, .cancel-btn {
-        padding: 6px 8px;
-        border: none;
-        border-radius: 4px;
-        cursor: pointer;
-        font-size: 12px;
-        transition: all 0.2s ease;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        min-width: 28px;
-        height: 28px;
-
-        &:hover {
-            transform: scale(1.05);
-        }
-    }
-
-    .save-btn {
-        background-color: $green;
-        color: $white;
-
-        &:hover {
-            background-color: darken($green, 10%);
-        }
-    }
-
-    .cancel-btn {
-        background-color: $red;
-        color: $white;
-
-        &:hover {
-            background-color: darken($red, 10%);
-        }
-    }
+.cancel-btn {
+    background-color: $red;
+    color: $white;
 }
 
 // Orders Container
@@ -948,8 +1054,9 @@ $orange: #a36a03;
     background: $dark-gray;
     border: 1px solid $light-gray;
     border-radius: 3px;
-    padding: 20px;
+    padding: 5px 8px;
     transition: all 0.2s ease;
+    margin-bottom: 3px;
 
     &:hover {
         box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
@@ -957,19 +1064,73 @@ $orange: #a36a03;
     }
 }
 
+.job-header-labels {
+    display: grid;
+    grid-template-columns: 2fr 1fr 1fr 1fr 1fr;
+    gap: 8px;
+    padding: 5px 10px;
+    border-top: 1px solid $ultra-light-gray;
+}
+
+.job-header-labels .label-cell {
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.9);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    font-weight: 600;
+}
+
 .job-header {
-    display: flex;
-    justify-content: space-between;
+    display: grid;
+    grid-template-columns: 2fr 1fr 1fr 1fr 1fr;
     align-items: center;
-    margin-bottom: 16px;
     padding: 10px;
     background-color: #7DC068;
+    border-radius: 4px;
+    gap: 8px;
+}
 
-    @media (max-width: 768px) {
-        flex-direction: column;
-        gap: 12px;
-        align-items: flex-start;
-    }
+.job-header .value-cell {
+    color: #111827;
+    font-weight: 700;
+    font-size: 14px;
+}
+
+.inline-input {
+    width: 100%;
+    padding: 6px 8px;
+    border: 1px solid rgba(0, 0, 0, 0.15);
+    border-radius: 4px;
+    background-color: #ffffff;
+    color: #111827;
+    font-weight: 600;
+}
+
+.btn-edit-small,
+.btn-save-small,
+.btn-cancel-small {
+    padding: 4px 8px;
+    font-size: 12px;
+    min-width: 32px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: 600;
+}
+
+.btn-edit-small {
+    background-color: #3182ce;
+    color: white;
+}
+
+.btn-save-small {
+    background-color: #38a169;
+    color: white;
+}
+
+.btn-cancel-small {
+    background-color: #e53e3e;
+    color: white;
 }
 
 .job-title {
@@ -1008,59 +1169,132 @@ $orange: #a36a03;
     }
 }
 
+/* New materials list styled to match .material-info */
+.materials-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.materials-list .material-item {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.materials-list .item-name,
+.materials-list .item-qty {
+    color: $white;
+}
+
+.materials-list .item-sep {
+    color: rgba($white, 0.75);
+    margin: 0 6px;
+}
+
 // Trade Items Display
-.trade-items-display {
-    .trade-items-list {
-        display: flex;
-        flex-direction: column;
-        gap: 12px;
-    }
+.trade-items-container {
+    color: $white;
+}
 
-    .trade-item-card {
-        background: rgba(white, 0.15);
-        border: 1px solid #e2e8f0;
-        border-radius: 8px;
-        padding: 16px;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
+.trade-items-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+    padding-bottom: 10px;
+    border-bottom: 2px solid rgba($white, 0.15);
+}
 
-        @media (max-width: 768px) {
-            flex-direction: column;
-            gap: 12px;
-            align-items: stretch;
-        }
-    }
+.trade-items-header .section-title {
+    font-size: 18px;
+    font-weight: 600;
+    margin: 0;
+}
 
-    .item-info {
-        .item-name {
-            font-weight: 600;
-            color: $white;
-            margin-bottom: 4px;
-        }
+.trade-items-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
 
-        .item-code {
-            font-size: 12px;
-            color: $white;
-        }
-    }
+.trade-item-card {
+    background: rgba(white, 0.12);
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 16px;
+}
 
-    .item-details {
-        display: flex;
-        gap: 16px;
-        align-items: center;
-        font-size: 14px;
-        color: $white;
+.item-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+}
 
-        @media (max-width: 768px) {
-            justify-content: space-between;
-        }
+.item-title {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
 
-        .total {
-            font-weight: 600;
-            color: greenyellow;
-        }
-    }
+.item-title .article-code {
+    font-size: 12px;
+    color: $white;
+    opacity: 0.9;
+}
+
+.item-title .article-name {
+    font-size: 16px;
+    font-weight: 600;
+    color: $white;
+}
+
+.item-details {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 12px;
+}
+
+.detail-item {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.detail-item label {
+    font-weight: 600;
+    color: $white;
+    font-size: 13px;
+}
+
+.detail-item .detail-value {
+    color: $white;
+    font-size: 14px;
+}
+
+.detail-item .total-price {
+    color: $blue;
+    font-weight: 600;
+}
+
+.detail-item .total-final {
+    color: greenyellow;
+    font-weight: 600;
+}
+
+.no-items {
+    text-align: center;
+    color: rgba($white, 0.8);
+    padding: 8px 0;
+}
+
+.trade-items-total {
+    text-align: right;
+    margin-top: 10px;
+    padding: 10px;
+    background-color: $dark-gray;
+    border-radius: 4px;
 }
 
 // Utility Classes

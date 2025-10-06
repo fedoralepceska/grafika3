@@ -421,8 +421,30 @@
                                 <div class="truncate-cell" style="color:rgb(109, 128, 129); font-size: 8pt; line-height: 0.8;">@if(!empty($item['invoice_id']))({{ $item['invoice_id'] }}) @endif{{ $orderName }}</div>
                             @endif
                         </td>
-                        <td style="font-size: 10pt; padding: 6px; text-align: center; background-color: #E7F1F2;">{{ $item['taxRate'] }}%</td>
-                        <td style="font-size: 10pt; padding: 6px; text-align: center; background-color: #E7F1F2;">{{getUnit($item['job'])}}</td>
+                        @php
+                            // Determine per-row tax rate from job articles
+                            $rowRateDisplay = '';
+                            $rateMap = [1 => 18, 2 => 5, 3 => 10];
+                            $rates = [];
+                            if (isset($item['job']['articles']) && is_array($item['job']['articles'])) {
+                                foreach ($item['job']['articles'] as $art) {
+                                    $tt = (int) (data_get($art, 'tax_type', 0));
+                                    if (isset($rateMap[$tt])) { $rates[$rateMap[$tt]] = true; }
+                                }
+                            }
+                            $uniqueRates = array_keys($rates);
+                            if (count($uniqueRates) === 1) {
+                                $rowRateDisplay = number_format($uniqueRates[0], 0) . '%';
+                            } elseif (count($uniqueRates) === 0) {
+                                $rowRateDisplay = '';
+                            } else {
+                                // Mixed rates within a single job
+                                $rowRateDisplay = '—';
+                            }
+                        @endphp
+                        <td style="font-size: 10pt; padding: 6px; text-align: center; background-color: #E7F1F2;">{{ $rowRateDisplay }}</td>
+                        @php $unitDisplay = getJobUnitByArticles($item['job']); if ($unitDisplay === '') { $unitDisplay = getUnit($item['job']); } @endphp
+                        <td style="font-size: 10pt; padding: 6px; text-align: center; background-color: #E7F1F2;">{{ $unitDisplay }}</td>
                         <td style="font-size: 10pt; padding: 6px; text-align: center; background-color: #E7F1F2;">{{ $item['job']['quantity'] }}</td>
                         <td style="font-size: 10pt; padding: 6px; text-align: right; background-color: #E7F1F2;">{{ number_format((float) ($item['job']['salePrice'] ?? 0), 2) }}</td>
                         <td style="font-size: 10pt; padding: 6px; text-align: right; background-color: #E7F1F2;">{{ number_format(((float) ($item['job']['salePrice'] ?? 0)) * ((float) ($item['job']['quantity'] ?? 0)), 2) }}</td>
@@ -440,21 +462,91 @@
                 @endif
             @endforeach
             
-            <!-- Summary section: 2 cells per row (label spans 6 cols, amount in last col) -->
+            <!-- Summary section with per-rate VAT breakdown -->
+            @php
+                $firstPayload = is_array($invoices) ? ($invoices[0] ?? []) : ($invoices->first() ?? []);
+                // Recompute VAT breakdown from the SAME data used in the table rows
+                $rateMap = [1 => 18, 2 => 5, 3 => 10];
+                $vatBreakdown = [5 => 0.0, 10 => 0.0, 18 => 0.0];
+                foreach ($allItems as $item) {
+                    if ($item['type'] === 'job') {
+                        $lineNet = ((float) ($item['job']['salePrice'] ?? 0)) * ((float) ($item['job']['quantity'] ?? 0));
+                        // Determine rate from job articles (same logic as row display)
+                        $rates = [];
+                        if (isset($item['job']['articles']) && is_array($item['job']['articles'])) {
+                            foreach ($item['job']['articles'] as $art) {
+                                $tt = (int) (data_get($art, 'tax_type', 0));
+                                if (isset($rateMap[$tt])) { $rates[$rateMap[$tt]] = true; }
+                            }
+                        }
+                        $uniqueRates = array_keys($rates);
+                        if (count($uniqueRates) === 1) {
+                            $r = (int)$uniqueRates[0];
+                            if (isset($vatBreakdown[$r])) $vatBreakdown[$r] += $lineNet * ($r/100);
+                        } elseif (count($uniqueRates) > 1) {
+                            // Mixed within a single job: fall back to article-value-based distribution
+                            $articleVat = 0.0;
+                            foreach (($item['job']['articles'] ?? []) as $art) {
+                                $tt = (int)(data_get($art, 'tax_type', 0));
+                                $rate = $rateMap[$tt] ?? 0;
+                                $qty = (float) data_get($art, 'pivot.quantity', 0);
+                                $unitPrice = (float) data_get($art, 'price_1', 0);
+                                $articleLine = $qty * $unitPrice;
+                                if ($rate > 0) {
+                                    $vatBreakdown[$rate] += $articleLine * ($rate/100);
+                                    $articleVat += $articleLine * ($rate/100);
+                                }
+                            }
+                        }
+                    } elseif ($item['type'] === 'trade_item') {
+                        $vr = (int) data_get($item, 'tradeItem.vat_rate', 0);
+                        $vam = (float) data_get($item, 'tradeItem.vat_amount', 0);
+                        if (isset($vatBreakdown[$vr])) $vatBreakdown[$vr] += $vam;
+                    }
+                }
+                // Force summary to use the same numbers as the displayed "Износ" column
+                $subtotalNoVat = $verticalSums['totalPriceWithTaxSum'];
+                $totalWithVat = $subtotalNoVat + array_sum($vatBreakdown);
+            @endphp
             <tr>
                 <td colspan="2" style="font-size: 10pt; padding: 6px; text-align: right; font-weight: bold;"></td>
                 <td colspan="4" style="font-size: 10pt; padding: 6px; text-align: right; font-weight: bold; background-color: #E7F1F2; border-bottom: 2px solid white">Вкупно без ДДВ:</td>
-                <td style="font-size: 10pt; padding: 6px; text-align: right; font-weight: bold; background-color: #E7F1F2; border-bottom: 2px solid white">{{ number_format($verticalSums['totalPriceWithTaxSum'], 2) }}</td>
+                <td style="font-size: 10pt; padding: 6px; text-align: right; font-weight: bold; background-color: #E7F1F2; border-bottom: 2px solid white">{{ number_format($subtotalNoVat, 2) }}</td>
             </tr>
-            <tr>
-                <td colspan="2" style="font-size: 10pt; padding: 6px; text-align: right; font-weight: bold;"></td>
-                <td colspan="4" style="font-size: 10pt; padding: 6px; text-align: right; font-weight: bold; background-color: #E7F1F2; border-bottom: 2px solid white">ДДВ({{ $effectiveVatPercent }}%):</td>
-                <td style="font-size: 10pt; padding: 6px; text-align: right; font-weight: bold; background-color: #E7F1F2; border-bottom: 2px solid white">{{ number_format($verticalSums['totalTaxSum'], 2) }}</td>
-            </tr>
+            @if(is_array($vatBreakdown))
+                @if(($vatBreakdown[5] ?? 0) > 0)
+                <tr>
+                    <td colspan="2" style="font-size: 10pt; padding: 6px; text-align: right; font-weight: bold;"></td>
+                    <td colspan="4" style="font-size: 10pt; padding: 6px; text-align: right; font-weight: bold; background-color: #E7F1F2; border-bottom: 2px solid white">ДДВ (5%):</td>
+                    <td style="font-size: 10pt; padding: 6px; text-align: right; font-weight: bold; background-color: #E7F1F2; border-bottom: 2px solid white">{{ number_format($vatBreakdown[5], 2) }}</td>
+                </tr>
+                @endif
+                @if(($vatBreakdown[10] ?? 0) > 0)
+                <tr>
+                    <td colspan="2" style="font-size: 10pt; padding: 6px; text-align: right; font-weight: bold;"></td>
+                    <td colspan="4" style="font-size: 10pt; padding: 6px; text-align: right; font-weight: bold; background-color: #E7F1F2; border-bottom: 2px solid white">ДДВ (10%):</td>
+                    <td style="font-size: 10pt; padding: 6px; text-align: right; font-weight: bold; background-color: #E7F1F2; border-bottom: 2px solid white">{{ number_format($vatBreakdown[10], 2) }}</td>
+                </tr>
+                @endif
+                @if(($vatBreakdown[18] ?? 0) > 0)
+                <tr>
+                    <td colspan="2" style="font-size: 10pt; padding: 6px; text-align: right; font-weight: bold;"></td>
+                    <td colspan="4" style="font-size: 10pt; padding: 6px; text-align: right; font-weight: bold; background-color: #E7F1F2; border-bottom: 2px solid white">ДДВ (18%):</td>
+                    <td style="font-size: 10pt; padding: 6px; text-align: right; font-weight: bold; background-color: #E7F1F2; border-bottom: 2px solid white">{{ number_format($vatBreakdown[18], 2) }}</td>
+                </tr>
+                @endif
+            @else
+                <!-- Fallback single-line VAT if breakdown not present -->
+                <tr>
+                    <td colspan="2" style="font-size: 10pt; padding: 6px; text-align: right; font-weight: bold;"></td>
+                    <td colspan="4" style="font-size: 10pt; padding: 6px; text-align: right; font-weight: bold; background-color: #E7F1F2; border-bottom: 2px solid white">ДДВ:</td>
+                    <td style="font-size: 10pt; padding: 6px; text-align: right; font-weight: bold; background-color: #E7F1F2; border-bottom: 2px solid white">{{ number_format($verticalSums['totalTaxSum'], 2) }}</td>
+                </tr>
+            @endif
             <tr>
                 <td colspan="2" style="font-size: 10pt; padding: 6px; text-align: right; font-weight: bold;"></td>
                 <td colspan="4" style="font-size: 10pt; padding: 6px; text-align: right; font-weight: bold; background-color: #E7F1F2;">Вкупно со ДДВ:</td>
-                <td style="font-size: 10pt; padding: 6px; text-align: right; font-weight: bold; background-color: #E7F1F2;">{{ number_format($verticalSums['totalOverallSum'], 2) }}</td>
+                <td style="font-size: 10pt; padding: 6px; text-align: right; font-weight: bold; background-color: #E7F1F2;">{{ number_format($totalWithVat, 2) }}</td>
             </tr>
             </tbody>
         </table>

@@ -8,7 +8,7 @@
             </div>
             <div class="left-column flex-1" style="width: 25%">
                 <div class="flex justify-between">
-                    <Header title="invoice2" subtitle="invoiceGeneration" icon="invoice.png" link="notInvoiced"/>
+                    <Header title="invoice2" subtitle="invoiceGeneration" icon="invoice.png" link="notInvoiced" />
                     <div class="flex pt-4">
                         <div class="buttons pt-3">
                             <button class="btn blue" @click="openCommentModal">
@@ -24,50 +24,49 @@
                             <button class="btn orange" @click="previewInvoice">
                                 Preview <i class="fa-solid fa-eye"></i>
                             </button>
-                            <button  class="btn generate-invoice" @click="generateInvoice">Generate Invoice <i class="fa-solid fa-file-invoice-dollar"></i></button>
+                            <button class="btn generate-invoice" @click="generateInvoice">Generate Invoice <i
+                                    class="fa-solid fa-file-invoice-dollar"></i></button>
                         </div>
                     </div>
                 </div>
                 <!-- Client Information Row -->
                 <div class="client-info-section" v-if="clientName">
                     <div class="client-info">
+                        <div class="client-info-container">
                         <div class="client-label">Client</div>
                         <div class="client-name">{{ clientName }}</div>
-                    </div>
-                </div>
-
-                <!-- Pre-invoice meta (ID and Date) -->
-                <div class="invoice-info-minimal">
-                    <div class="info-item">
-                        <span class="info-label">Invoice ID</span>
-                        <span class="info-value">{{ previewInvoiceId }}{{ previewInvoiceId ? '' : '...' }}</span>
-                    </div>
-                    <div class="info-item">
-                        <span class="info-label">Date Created</span>
-                        <span class="info-value">
-                            <div v-if="isEditMode && editingDate" class="date-edit-container">
-                                <input 
-                                    v-model="dateEdit"
-                                    @keyup.enter="commitPreviewDate"
-                                    class="date-input"
-                                    type="date"
-                                />
-                                <button @click="commitPreviewDate" class="save-btn" title="Save">
-                                    <i class="fas fa-check"></i>
-                                </button>
-                                <button @click="cancelEditPreviewDate" class="cancel-btn" title="Cancel">
-                                    <i class="fas fa-times"></i>
-                                </button>
+                        </div>
+                        <!-- Pre-invoice meta (ID and Date) -->
+                        <div class="invoice-info-minimal">
+                            <div class="info-item">
+                                <span class="info-label">Invoice ID</span>
+                                <span class="info-value">{{ previewInvoiceId }}{{ previewInvoiceId ? '' : '...'
+                                    }}</span>
                             </div>
-                            <div v-else class="date-display" @click="startEditPreviewDate">
-                                {{ formattedPreviewDate }}
-                                <i v-if="isEditMode" class="fas fa-edit edit-icon"></i>
+                            <div class="info-item">
+                                <span class="info-label">Date Created</span>
+                                <span class="info-value">
+                                    <div v-if="isEditMode && editingDate" class="date-edit-container">
+                                        <input v-model="dateEdit" @keyup.enter="commitPreviewDate" class="date-input"
+                                            type="date" />
+                                        <button @click="commitPreviewDate" class="save-btn" title="Save">
+                                            <i class="fas fa-check"></i>
+                                        </button>
+                                        <button @click="cancelEditPreviewDate" class="cancel-btn" title="Cancel">
+                                            <i class="fas fa-times"></i>
+                                        </button>
+                                    </div>
+                                    <div v-else class="date-display" @click="startEditPreviewDate">
+                                        {{ formattedPreviewDate }}
+                                        <i v-if="isEditMode" class="fas fa-edit edit-icon"></i>
+                                    </div>
+                                </span>
                             </div>
-                        </span>
-                    </div>
-                    <div class="info-item comment" v-if="comment">
-                        <span class="info-label">Comment</span>
-                        <span class="info-value">{{ comment }}</span>
+                            <div class="info-item comment" v-if="comment">
+                                <span class="info-label">Comment</span>
+                                <span class="info-value">{{ comment }}</span>
+                            </div>
+                        </div>
                     </div>
                 </div>
                 <div class="orders-container" v-for="(inv, index) in invoiceData" :key="index">
@@ -83,12 +82,8 @@
                                 <span class="label">Title:</span>
                                 <div class="title-content">
                                     <div v-if="isEditMode && editingTitle[inv.id]" class="title-edit-container">
-                                        <input 
-                                            v-model="titleEdits[inv.id]"
-                                            @keyup.enter="saveTitle(inv)"
-                                            class="title-input"
-                                            type="text"
-                                        />
+                                        <input v-model="titleEdits[inv.id]" @keyup.enter="saveTitle(inv)"
+                                            class="title-input" type="text" />
                                         <button @click="saveTitle(inv)" class="save-btn" title="Save">
                                             <i class="fas fa-check"></i>
                                         </button>
@@ -97,8 +92,8 @@
                                         </button>
                                     </div>
                                     <div v-else class="invoice-title" @click="startEditTitle(inv)">
-                                      {{ inv.invoice_title }}
-                                      <i v-if="isEditMode" class="fas fa-edit edit-icon"></i>
+                                        {{ inv.invoice_title }}
+                                        <i v-if="isEditMode" class="fas fa-edit edit-icon"></i>
                                     </div>
                                 </div>
                             </div>
@@ -122,21 +117,94 @@
                     </div>
 
                     <div class="jobs-section">
-                        <div v-if="isEditMode" class="jobs-edit-mode">
-                            <InvoiceJobEdit 
-                                v-for="job in inv.jobs" 
-                                :key="job.id"
-                                :job="job"
-                                @job-updated="onJobUpdated"
-                            />
-                        </div>
-                        <div v-else class="jobs-detail-mode">
+                        <div class="jobs-detail-mode">
+                            <!-- Global labels rendered once per order -->
+                            <div class="job-header-labels">
+                                <div class="label-cell">Title</div>
+                                <div class="label-cell">Quantity</div>
+                                <div class="label-cell">Total m²</div>
+                                <div class="label-cell">Sale Price</div>
+                                <!-- <div class="label-cell">Job Price</div> -->
+                                <div class="label-cell action-cell">Actions</div>
+                            </div>
                             <div v-for="(job, jobIndex) in inv.jobs" :key="job.id" class="job-card">
                                 <div class="job-header">
-                                    <div class="job-title">
-                                        #{{ jobIndex + 1 }} {{ job.name }}
+                                    <div class="value-cell job-title">
+                                        <template v-if="isEditMode && editingJobId === job.id">
+                                            <input class="inline-input" v-model="job.name" />
+                                        </template>
+                                        <template v-else>
+                                            #{{ jobIndex + 1 }} {{ job.name }}
+                                        </template>
+                                    </div>
+                                    <div class="value-cell">
+                                        <template v-if="isEditMode && editingJobId === job.id">
+                                            <input class="inline-input" type="number" min="0" v-model.number="job.quantity" />
+                                        </template>
+                                        <template v-else>{{ job.quantity }}</template>
+                                    </div>
+                                    <div class="value-cell">
+                                        <template v-if="isEditMode && editingJobId === job.id">
+                                            <input class="inline-input" type="number" min="0" step="0.0001" v-model.number="job.computed_total_area_m2" />
+                                        </template>
+                                        <template v-else>{{ formatArea(job.computed_total_area_m2) }}</template>
+                                    </div>
+                                    <div class="value-cell">
+                                        <template v-if="isEditMode && editingJobId === job.id">
+                                            <input class="inline-input" type="number" min="0" step="0.01" v-model.number="job.salePrice" />
+                                        </template>
+                                        <template v-else>{{ formatPrice(job.salePrice) }} ден.</template>
+                                    </div>
+                                    <!--
+                                    <div class="value-cell">
+                                        <template v-if="isEditMode && editingJobId === job.id">
+                                            <input class="inline-input" type="number" min="0" step="0.01" v-model.number="job.totalPrice" />
+                                        </template>
+                                        <template v-else>{{ formatPrice(job.totalPrice) }} ден.</template>
+                                    </div>
+                                    -->
+                                    <div class="value-cell actions">
+                                        <template v-if="isEditMode">
+                                            <template v-if="editingJobId !== job.id">
+                                                <button class="btn-edit-small" @click="startEditingJob(job)">Edit</button>
+                                            </template>
+                                            <template v-else>
+                                                <button class="btn-save-small" @click="saveEditingJob(job)">Save</button>
+                                                <button class="btn-cancel-small" @click="cancelEditingJob(job)">Cancel</button>
+                                            </template>
+                                        </template>
+                                        <button class="btn-edit-small" style="margin-left:6px" @click="toggleMaterials(job.id)">
+                                            {{ materialsOpen[job.id] ? 'Hide Materials' : 'Show Materials' }}
+                                        </button>
                                     </div>
                                 </div>
+                                <!-- Materials (styled like old material-info) -->
+                                <div v-if="materialsOpen[job.id]" class="material-info">
+                                    <span class="label">{{ $t('material') }}:</span>
+                                    <div class="value materials-list">
+                                        <template v-if="job.articles && job.articles.length">
+                                            <div v-for="(article, aIdx) in job.articles" :key="aIdx" class="material-item">
+                                                <span class="item-name">{{ article.name }}</span>
+                                                <span class="item-sep"> - </span>
+                                                <span class="item-qty">{{ article.pivot?.quantity ?? 0 }} {{ getUnitTextFromPivot(article) }}</span>
+                                            </div>
+                                        </template>
+                                        <template v-else-if="job.large_material">
+                                            <div class="material-item">
+                                                <span class="item-name">{{ job.large_material.name }}</span>
+                                            </div>
+                                        </template>
+                                        <template v-else-if="job.small_material">
+                                            <div class="material-item">
+                                                <span class="item-name">{{ job.small_material.name }}</span>
+                                            </div>
+                                        </template>
+                                        <template v-else>
+                                            <div class="material-item">No materials.</div>
+                                        </template>
+                                    </div>
+                                </div>
+                                <!--
                                 <div class="job-details-grid">
                                     <div class="detail-item">
                                         <span class="label">{{ $t('height') }}:</span>
@@ -167,14 +235,17 @@
                                         <span class="value total-price">{{ formatPrice(job.totalPrice) }} ден.</span>
                                     </div>
                                 </div>
+                                -->
+                                <!-- Old materials display removed in favor of the new one above
                                 <div class="material-info" v-if="getMaterialInfo(job)">
                                     <span class="label">{{ $t('material') }}:</span>
                                     <span class="value">{{ getMaterialInfo(job) }}</span>
                                 </div>
-                                <div class="shipping-info" v-if="job.shippingInfo">
+                                -->
+                                <!-- <div class="shipping-info" v-if="job.shippingInfo">
                                     <span class="label">{{ $t('shippingTo') }}:</span>
                                     <span class="value">{{ job.shippingInfo }}</span>
-                                </div>
+                                </div> -->
                             </div>
                         </div>
                     </div>
@@ -198,20 +269,25 @@
                             <div class="trade-item-card" v-for="(item, idx) in tradeItems" :key="idx">
                                 <div class="item-header">
                                     <div class="item-title">
-                                        <span class="article-code" v-if="item.article_code">Article Code: {{ item.article_code }}</span>
+                                        <span class="article-code" v-if="item.article_code">Article Code: {{
+                                            item.article_code }}</span>
                                         <span class="article-name">{{ item.article_name }}</span>
                                     </div>
                                     <div class="item-actions">
-                                        <button v-if="!isEditingTrade[idx]" @click="startEditTrade(idx, item)" class="btn btn-edit-small" title="Edit Item">
+                                        <button v-if="!isEditingTrade[idx]" @click="startEditTrade(idx, item)"
+                                            class="btn btn-edit-small" title="Edit Item">
                                             <i class="fas fa-edit"></i>
                                         </button>
-                                        <button v-else @click="saveEditTrade(idx)" class="btn btn-save-small" title="Save Changes">
+                                        <button v-else @click="saveEditTrade(idx)" class="btn btn-save-small"
+                                            title="Save Changes">
                                             <i class="fas fa-save"></i>
                                         </button>
-                                        <button v-if="isEditingTrade[idx]" @click="cancelEditTrade(idx)" class="btn btn-cancel-small" title="Cancel">
+                                        <button v-if="isEditingTrade[idx]" @click="cancelEditTrade(idx)"
+                                            class="btn btn-cancel-small" title="Cancel">
                                             <i class="fas fa-times"></i>
                                         </button>
-                                        <button @click="removeTradeItem(idx)" class="btn btn-delete" title="Delete Item">
+                                        <button @click="removeTradeItem(idx)" class="btn btn-delete"
+                                            title="Delete Item">
                                             <i class="fa-solid fa-trash"></i>
                                         </button>
                                     </div>
@@ -220,19 +296,24 @@
                                 <div class="item-details">
                                     <div class="detail-item">
                                         <label>Quantity:</label>
-                                        <input v-if="isEditingTrade[idx]" v-model.number="editTradeForms[idx].quantity" type="number" min="1" class="form-input-small" />
+                                        <input v-if="isEditingTrade[idx]" v-model.number="editTradeForms[idx].quantity"
+                                            type="number" min="1" class="form-input-small" />
                                         <span v-else class="detail-value">{{ item.quantity }}</span>
                                     </div>
 
                                     <div class="detail-item">
                                         <label>Unit Price:</label>
-                                        <input v-if="isEditingTrade[idx]" v-model.number="editTradeForms[idx].unit_price" type="number" step="0.01" min="0" class="form-input-small" />
-                                        <span v-else class="detail-value">{{ formatNumber(item.unit_price) }} ден.</span>
+                                        <input v-if="isEditingTrade[idx]"
+                                            v-model.number="editTradeForms[idx].unit_price" type="number" step="0.01"
+                                            min="0" class="form-input-small" />
+                                        <span v-else class="detail-value">{{ formatNumber(item.unit_price) }}
+                                            ден.</span>
                                     </div>
 
                                     <div class="detail-item">
                                         <label>VAT Rate:</label>
-                                        <select v-if="isEditingTrade[idx]" v-model.number="editTradeForms[idx].vat_rate" class="form-select-small">
+                                        <select v-if="isEditingTrade[idx]" v-model.number="editTradeForms[idx].vat_rate"
+                                            class="form-select-small">
                                             <option :value="0">0%</option>
                                             <option :value="5">5%</option>
                                             <option :value="10">10%</option>
@@ -243,17 +324,20 @@
 
                                     <div class="detail-item">
                                         <label>Total Price:</label>
-                                        <span class="detail-value total-price">{{ formatNumber(getPreGenItemTotal(item, idx)) }} ден.</span>
+                                        <span class="detail-value total-price">{{ formatNumber(getPreGenItemTotal(item,
+                                            idx)) }} ден.</span>
                                     </div>
 
                                     <div class="detail-item">
                                         <label>VAT Amount:</label>
-                                        <span class="detail-value">{{ formatNumber(getPreGenItemVat(item, idx)) }} ден.</span>
+                                        <span class="detail-value">{{ formatNumber(getPreGenItemVat(item, idx)) }}
+                                            ден.</span>
                                     </div>
 
                                     <div class="detail-item">
                                         <label>Total with VAT:</label>
-                                        <span class="detail-value total-final">{{ formatNumber(getPreGenItemTotalWithVat(item, idx)) }} ден.</span>
+                                        <span class="detail-value total-final">{{
+                                            formatNumber(getPreGenItemTotalWithVat(item, idx)) }} ден.</span>
                                     </div>
                                 </div>
                             </div>
@@ -280,13 +364,15 @@
                         <select v-model="selectedArticle" class="form-control">
                             <option value="">Choose an article...</option>
                             <option v-for="article in availableTradeArticles" :key="article.id" :value="article">
-                                {{ article.article.name }} ({{ article.article.code }}) - Stock: {{ article.quantity }} - Price: {{ formatNumber(article.selling_price || 0) }} ден
+                                {{ article.article.name }} ({{ article.article.code }}) - Stock: {{ article.quantity }}
+                                - Price: {{ formatNumber(article.selling_price || 0) }} ден
                             </option>
                         </select>
                     </div>
                     <div class="form-group" v-if="selectedArticle">
                         <label>Quantity:</label>
-                        <input type="number" v-model.number="tradeItemQuantity" :max="selectedArticle.quantity" min="1" class="form-control">
+                        <input type="number" v-model.number="tradeItemQuantity" :max="selectedArticle.quantity" min="1"
+                            class="form-control">
                         <small class="form-help-text">Available: {{ selectedArticle.quantity }}</small>
                     </div>
                     <div class="form-group" v-if="selectedArticle">
@@ -297,7 +383,8 @@
                         <div class="price-breakdown">
                             <div>Subtotal: {{ formatNumber(tradeItemQuantity * tradeItemPrice) }} ден</div>
                             <div>VAT (18%): {{ formatNumber((tradeItemQuantity * tradeItemPrice) * 0.18) }} ден</div>
-                            <div><strong>Total: {{ formatNumber((tradeItemQuantity * tradeItemPrice) * 1.18) }} ден</strong></div>
+                            <div><strong>Total: {{ formatNumber((tradeItemQuantity * tradeItemPrice) * 1.18) }}
+                                    ден</strong></div>
                         </div>
                     </div>
                 </div>
@@ -318,7 +405,8 @@
                 <div class="modal-body">
                     <div class="form-group">
                         <label>Comment:</label>
-                        <textarea v-model="tempComment" class="form-control" rows="5" placeholder="Enter a comment for the invoice..."></textarea>
+                        <textarea v-model="tempComment" class="form-control" rows="5"
+                            placeholder="Enter a comment for the invoice..."></textarea>
                     </div>
                 </div>
                 <div class="modal-footer">
@@ -336,12 +424,7 @@
                     <button @click="closePreviewModal" class="close-btn">&times;</button>
                 </div>
                 <div class="preview-modal-body">
-                    <iframe 
-                        :src="previewPdfUrl" 
-                        width="100%" 
-                        height="600px" 
-                        frameborder="0"
-                        title="Invoice Preview">
+                    <iframe :src="previewPdfUrl" width="100%" height="600px" frameborder="0" title="Invoice Preview">
                     </iframe>
                 </div>
                 <div class="modal-footer">
@@ -355,7 +438,7 @@
 <script>
 import MainLayout from "@/Layouts/MainLayout.vue";
 import axios from "axios";
-import Toast, {useToast} from "vue-toastification";
+import Toast, { useToast } from "vue-toastification";
 import OrderJobDetails from "@/Pages/Invoice/OrderJobDetails.vue";
 import OrderSpreadsheet from "@/Components/OrderSpreadsheet.vue";
 import Header from "@/Components/Header.vue";
@@ -366,11 +449,12 @@ export default {
         OrderJobDetails,
         MainLayout,
         Header,
-        InvoiceJobEdit },
+        InvoiceJobEdit
+    },
     props: {
         invoiceData: Object,
     },
-    computed:{
+    computed: {
         getStatusColorClass() {
             const invoiceStatus = this.invoiceData.status;
             if (invoiceStatus === "Not started yet") {
@@ -385,10 +469,10 @@ export default {
             return this.tradeItems.reduce((total, item) => total + (item.total_price + item.vat_amount), 0);
         },
         canAddTradeItem() {
-            return this.selectedArticle && 
-                   this.tradeItemQuantity > 0 && 
-                   this.tradeItemQuantity <= this.selectedArticle.quantity &&
-                   this.tradeItemPrice > 0;
+            return this.selectedArticle &&
+                this.tradeItemQuantity > 0 &&
+                this.tradeItemQuantity <= this.selectedArticle.quantity &&
+                this.tradeItemPrice > 0;
         },
         clientName() {
             const values = Object.values(this.invoiceData || {});
@@ -431,10 +515,68 @@ export default {
             isEditingTrade: {},
             editTradeForms: {},
             showPreviewModalFlag: false,
-            previewPdfUrl: null
+                previewPdfUrl: null,
+                editingJobId: null,
+                originalJobSnapshots: {},
+                materialsOpen: {}
         }
     },
     methods: {
+        startEditingJob(job) {
+            this.editingJobId = job.id;
+            // snapshot original values for cancel
+            this.$set ? this.$set(this.originalJobSnapshots, job.id, {
+                name: job.name,
+                quantity: job.quantity,
+                computed_total_area_m2: job.computed_total_area_m2,
+                salePrice: job.salePrice,
+                totalPrice: job.totalPrice
+            }) : (this.originalJobSnapshots[job.id] = {
+                name: job.name,
+                quantity: job.quantity,
+                computed_total_area_m2: job.computed_total_area_m2,
+                salePrice: job.salePrice,
+                totalPrice: job.totalPrice
+            });
+        },
+        cancelEditingJob(job) {
+            const snap = this.originalJobSnapshots[job.id];
+            if (snap) {
+                job.name = snap.name;
+                job.quantity = snap.quantity;
+                job.computed_total_area_m2 = snap.computed_total_area_m2;
+                job.salePrice = snap.salePrice;
+                job.totalPrice = snap.totalPrice;
+            }
+            this.editingJobId = null;
+            delete this.originalJobSnapshots[job.id];
+        },
+        async saveEditingJob(job) {
+            try {
+                // Persist supported fields to backend JobController@update
+                const response = await axios.put(`/jobs/${job.id}`, {
+                    name: job.name,
+                    quantity: job.quantity,
+                    salePrice: job.salePrice
+                });
+                if (response?.data?.job) {
+                    // Replace local job with server copy and notify
+                    Object.assign(job, response.data.job);
+                    this.onJobUpdated?.(response.data.job);
+                    this.$toast?.success?.('Job updated');
+                } else {
+                    this.$toast?.success?.('Job updated');
+                }
+                this.editingJobId = null;
+                delete this.originalJobSnapshots[job.id];
+            } catch (e) {
+                this.$toast?.error?.('Failed to update job');
+            }
+        },
+        toggleMaterials(jobId) {
+            const current = !!this.materialsOpen[jobId];
+            this.$set ? this.$set(this.materialsOpen, jobId, !current) : (this.materialsOpen[jobId] = !current);
+        },
         async fetchNextInvoiceId() {
             try {
                 const res = await axios.get('/invoices/next-id');
@@ -519,7 +661,7 @@ export default {
         toggleSidebar() {
             this.isSidebarVisible = !this.isSidebarVisible;
         },
-        toggleSpreadsheetMode(){
+        toggleSpreadsheetMode() {
             // removed spreadsheet view; keep no-op for compatibility
         },
         onJobUpdated(updatedJob) {
@@ -543,10 +685,7 @@ export default {
         getMaterialInfo(job) {
             if (job.articles && job.articles.length > 0) {
                 return job.articles.map(article => {
-                    const unit = article.in_square_meters ? 'm²' : 
-                               article.in_pieces ? 'ком.' : 
-                               article.in_kilograms ? 'кг' : 
-                               article.in_meters ? 'м' : 'ед.';
+                    const unit = this.getUnitText(article);
                     return `${article.name} (${article.pivot.quantity} ${unit})`;
                 }).join(', ');
             } else if (job.large_material) {
@@ -575,10 +714,10 @@ export default {
         },
         addTradeItem() {
             if (!this.canAddTradeItem) return;
-            
+
             const subtotal = this.tradeItemQuantity * this.tradeItemPrice;
             const vatAmount = subtotal * 0.18;
-            
+
             this.tradeItems.push({
                 article_id: this.selectedArticle.article.id,
                 article_name: this.selectedArticle.article.name,
@@ -589,7 +728,7 @@ export default {
                 vat_rate: 18.00,
                 vat_amount: vatAmount
             });
-            
+
             this.closeModal();
         },
         startEditTrade(index, item) {
@@ -646,11 +785,32 @@ export default {
             return Number(number).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
         },
         getUnitText(article) {
-            if (article.in_square_meters) return 'm²';
-            if (article.in_pieces) return 'ком.';
-            if (article.in_kilograms) return 'кг';
-            if (article.in_meters) return 'м';
-            return 'ед.';
+            const a = article && article.article ? article.article : article;
+            const isTrue = (v) => v === true || v === 1 || v === '1' || v === 'true';
+            // Flag-based fields (coerce null/"1"/1/true)
+            if (a && isTrue(a.in_square_meters)) return 'm²';
+            if (a && isTrue(a.in_pieces)) return 'ком.'; // pcs
+            if (a && isTrue(a.in_kilograms)) return 'кг';
+            if (a && isTrue(a.in_meters)) return 'м';
+            // String-based unit fallback (e.g., 'pcs', 'kg', 'm', 'm2')
+            const u = (a && a.unit ? String(a.unit).toLowerCase() : '').trim();
+            if (u === 'pcs' || u === 'kom' || u === 'ком' || u === 'pieces') return 'ком.';
+            if (u === 'kg') return 'кг';
+            if (u === 'm') return 'м';
+            if (u === 'm2' || u === 'm²' || u === 'sqm' || u === 'm^2') return 'm²';
+            return 'кол.';
+        },
+        getUnitTextFromPivot(article) {
+            // Prefer pivot-provided unit if available in future (e.g., pivot.unit_type)
+            const unitType = (article && article.pivot && article.pivot.unit_type) ? String(article.pivot.unit_type).toLowerCase() : '';
+            if (unitType) {
+                if (unitType === 'pieces' || unitType === 'pcs' || unitType === 'kom' || unitType === 'ком') return 'ком.';
+                if (unitType === 'kilograms' || unitType === 'kg') return 'кг';
+                if (unitType === 'meters' || unitType === 'm') return 'м';
+                if (unitType === 'square_meters' || unitType === 'm2' || unitType === 'm²') return 'm²';
+            }
+            // Fallback to article flags/string
+            return this.getUnitText(article);
         },
         buildTradeItemsPayload() {
             return (this.tradeItems || []).map((item, idx) => {
@@ -680,18 +840,19 @@ export default {
                 const response = await axios.post('/preview-invoice', {
                     orders: orderIds,
                     comment: this.comment,
-                    trade_items: tradePayload
+                    trade_items: tradePayload,
+                    created_at: this.previewDate
                 }, {
                     responseType: 'blob' // Important for PDF response
                 });
-                
+
                 // Create blob URL for iframe display
                 const blob = new Blob([response.data], { type: 'application/pdf' });
                 const url = window.URL.createObjectURL(blob);
-                
+
                 // Show preview in modal with iframe
                 this.showPreviewModal(url);
-                
+
             } catch (error) {
                 let serverMessage = 'Internal Server Error';
                 try {
@@ -707,7 +868,7 @@ export default {
                         const data = error.response.data;
                         serverMessage = data.error || data.message || JSON.stringify(data);
                     }
-                } catch (_) {}
+                } catch (_) { }
                 console.error('Error generating preview:', serverMessage, error);
                 toast.error(`Error generating preview: ${serverMessage}`);
             }
@@ -733,6 +894,7 @@ export default {
                     orders: orderIds,
                     comment: this.comment,
                     trade_items: tradePayload,
+                    created_at: this.previewDate,
                     return_meta: true
                 }, { responseType: 'json' });
 
@@ -759,7 +921,7 @@ export default {
                         const url = window.URL.createObjectURL(blob);
                         window.open(url, '_blank');
                         toast.success('Invoice generated successfully');
-                    } catch (_) {}
+                    } catch (_) { }
                 }
             } catch (error) {
                 console.error('Error generating invoice:', error);
@@ -770,16 +932,16 @@ export default {
     mounted() {
         this.loadTradeArticles();
         this.fetchNextInvoiceId();
-        
+
         // Watch for changes in selected article to auto-fill price
         this.$watch('selectedArticle', (newArticle) => {
             if (newArticle && newArticle.selling_price) {
                 this.tradeItemPrice = newArticle.selling_price;
             }
         });
-      }
-  };
-  </script>
+    }
+};
+</script>
 
 <style scoped lang="scss">
 // Import color variables
@@ -800,16 +962,19 @@ $orange: #a36a03;
 .client-info-section {
     background: linear-gradient(135deg, #51A8B1 0%, darken(#51A8B1, 20%) 100%);
     border-radius: 8px 8px 0 0;
-    padding: 20px 24px;
+    padding: 5px 8px;
     margin: 10px 0 0 0;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
+
 .client-info {
     display: flex;
+    flex-direction: row;
     align-items: center;
-    justify-content: center;
+    justify-content: space-between;
     gap: 16px;
 }
+
 .client-label {
     font-size: 14px;
     color: rgba($white, 0.8);
@@ -817,6 +982,7 @@ $orange: #a36a03;
     text-transform: uppercase;
     letter-spacing: 1px;
 }
+
 .client-name {
     font-size: 24px;
     color: $white;
@@ -829,50 +995,65 @@ $orange: #a36a03;
     height: 40px;
     border-radius: 50%;
 }
-.flexed{
+
+.flexed {
     justify-content: center;
     align-items: center;
 }
-.popover-content[data-v-19f5b08d]{
+
+.popover-content[data-v-19f5b08d] {
     background-color: #2d3748;
 }
-.fa-close::before{
+
+.fa-close::before {
     color: white;
 }
-[type='checkbox']:checked{
+
+[type='checkbox']:checked {
     border: 1px solid white;
 }
+
 .orange-text {
     color: $orange;
 }
+
 .blue-text {
     color: #1ba5e4;
 }
+
 .bold {
     font-weight: bold;
 }
+
 .green-text {
     color: $green;
 }
-.light-gray{
+
+.light-gray {
     background-color: $light-gray;
 }
-.ultra-light-gray{
+
+.ultra-light-gray {
     background-color: $ultra-light-gray;
 }
-.blue{
+
+.blue {
     background-color: $blue;
 }
-.green{
+
+.green {
     background-color: $green;
 }
-.background{
+
+.background {
     background-color: $background-color;
 }
+
 .header {
     display: flex;
     align-items: center;
 }
+
 .dark-gray {
     background-color: $dark-gray;
     justify-content: left;
@@ -880,6 +1061,7 @@ $orange: #a36a03;
     min-height: 20vh;
     min-width: 80vh;
 }
+
 .sub-title {
     font-size: 20px;
     font-weight: bold;
@@ -887,17 +1069,21 @@ $orange: #a36a03;
     align-items: center;
     color: $white;
 }
-.jobShippingInfo{
+
+.jobShippingInfo {
     max-width: 300px;
-    border: 1px solid  ;
+    border: 1px solid;
 }
-.jobPriceInfo{
+
+.jobPriceInfo {
     max-height: 40px;
     max-width: 30%;
 }
-.right{
+
+.right {
     gap: 34.9rem;
 }
+
 .btn {
     margin-right: 4px;
     padding: 10px 15px;
@@ -907,7 +1093,8 @@ $orange: #a36a03;
     color: white;
     border-radius: 2px;
 }
-.btn2{
+
+.btn2 {
     font-size: 14px;
     margin-right: 4px;
     padding: 7px 10px;
@@ -917,28 +1104,34 @@ $orange: #a36a03;
     background-color: $blue;
     border-radius: 2px;
 }
-.btns{
+
+.btns {
     position: absolute;
     top: -11px;
     right: 0;
     padding: 0;
 }
-.comment-order{
+
+.comment-order {
     background-color: $blue;
     color: white;
 }
-.generate-invoice{
+
+.generate-invoice {
     background-color: $green;
     color: white;
 }
-.InvoiceDetails{
+
+.InvoiceDetails {
     border-bottom: 2px dashed lightgray;
 }
-.bt{
-    font-size:45px ;
+
+.bt {
+    font-size: 45px;
     cursor: pointer;
     padding: 0;
 }
+
 .popover {
     position: fixed;
     top: 0;
@@ -949,7 +1142,8 @@ $orange: #a36a03;
     justify-content: center;
     align-items: center;
     background-color: rgba(0, 0, 0, 0.5);
-    z-index: 1000; /* high z-index to be on top of other content */
+    z-index: 1000;
+    /* high z-index to be on top of other content */
 }
 
 .popover-content {
@@ -979,7 +1173,8 @@ $orange: #a36a03;
     border: none;
     font-size: 24px;
     cursor: pointer;
-    color: #fff; /* Adjust the color to match your layout */
+    color: #fff;
+    /* Adjust the color to match your layout */
 }
 
 .sidebar {
@@ -987,14 +1182,17 @@ $orange: #a36a03;
     top: 0;
     right: 0;
     bottom: 0;
-    width: 350px; /* Width of sidebar */
-    background-color: $background-color; /* Sidebar background color */
-    z-index: 1000; /* Should be below the overlay */
+    width: 350px;
+    /* Width of sidebar */
+    background-color: $background-color;
+    /* Sidebar background color */
+    z-index: 1000;
+    /* Should be below the overlay */
     overflow-y: auto;
     padding: 20px;
     border: 1px solid $white;
-    border-right:none;
-    border-radius: 4px 0 0 4px ;
+    border-right: none;
+    border-radius: 4px 0 0 4px;
 }
 
 .order-history {
@@ -1008,7 +1206,8 @@ $orange: #a36a03;
     background: transparent;
     border: none;
     font-size: 24px;
-    color: #fff; /* Adjust close button color */
+    color: #fff;
+    /* Adjust close button color */
     cursor: pointer;
 }
 
@@ -1017,7 +1216,8 @@ $orange: #a36a03;
 }
 
 .content {
-    transition: filter 0.3s; /* Smooth transition for the blur effect */
+    transition: filter 0.3s;
+    /* Smooth transition for the blur effect */
 }
 
 .history-subtitle {
@@ -1027,10 +1227,12 @@ $orange: #a36a03;
     margin-bottom: 10px;
     font-weight: bold;
 }
+
 .jobImg {
     width: 45px;
     height: 45px;
 }
+
 /*
 spreadheet style
 */
@@ -1044,7 +1246,8 @@ table {
     box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
 }
 
-table th, table td {
+table th,
+table td {
     padding: 10px;
     border: 1px solid #ddd;
     text-align: center;
@@ -1273,8 +1476,8 @@ table th {
 .orders-container {
     background: rgba($white, 0.2);
     border-radius: 0 0 3px 3px;
-    padding: 24px;
-    margin-bottom: 20px;
+    padding: 5px 8px;
+    margin-bottom: 12px;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
     border: 1px solid $light-gray;
 }
@@ -1283,11 +1486,13 @@ table th {
     display: flex;
     align-items: center;
     margin: 10px 0;
+
     .separator-line {
         flex: 1;
         height: 1px;
         background: $white;
     }
+
     .separator-text {
         padding: 0 20px;
         color: $white;
@@ -1299,7 +1504,7 @@ table th {
 }
 
 .order-header {
-    background: $white; 
+    background: $white;
     border-radius: 3px;
     padding: 5px;
     border: 1px solid rgba($light-gray, 0.3);
@@ -1315,6 +1520,7 @@ table th {
     display: flex;
     flex-direction: column;
     gap: 4px;
+
     .label {
         font-size: 12px;
         color: $ultra-light-gray;
@@ -1322,14 +1528,17 @@ table th {
         text-transform: uppercase;
         letter-spacing: 0.5px;
     }
+
     .value {
         font-size: 14px;
         color: $white;
         font-weight: bold;
+
         &.price {
             color: $blue;
             font-weight: bold;
         }
+
         &.total-price {
             color: greenyellow;
             font-weight: bold;
@@ -1351,11 +1560,13 @@ table th {
             display: inline-flex;
             align-items: center;
             gap: 8px;
+
             .edit-icon {
                 font-size: 14px;
                 opacity: 0.6;
             }
         }
+
         .title-edit-container {
             display: flex;
             align-items: center;
@@ -1363,6 +1574,7 @@ table th {
             width: 100%;
             max-width: 350px;
         }
+
         .title-input {
             font-size: 16px;
             font-weight: bold;
@@ -1372,13 +1584,16 @@ table th {
             padding: 4px 8px;
             background: $white;
             flex: 1;
+
             &:focus {
                 outline: none;
                 border-color: $light-green;
                 box-shadow: 0 0 0 2px rgba($light-green, 0.3);
             }
         }
-        .save-btn, .cancel-btn {
+
+        .save-btn,
+        .cancel-btn {
             padding: 6px 8px;
             border: none;
             border-radius: 4px;
@@ -1390,10 +1605,21 @@ table th {
             justify-content: center;
             min-width: 28px;
             height: 28px;
-            &:hover { transform: scale(1.05); }
+
+            &:hover {
+                transform: scale(1.05);
+            }
         }
-        .save-btn { background-color: $green; color: $white; }
-        .cancel-btn { background-color: $red; color: $white; }
+
+        .save-btn {
+            background-color: $green;
+            color: $white;
+        }
+
+        .cancel-btn {
+            background-color: $red;
+            color: $white;
+        }
     }
 }
 
@@ -1408,21 +1634,139 @@ table th {
     background: $dark-gray;
     border: 1px solid $light-gray;
     border-radius: 3px;
-    padding: 20px;
+    padding: 5px 8px;
     transition: all 0.2s ease;
+    margin-bottom: 3px;
+
     &:hover {
         box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
         border-color: $ultra-light-gray;
     }
 }
 
+.job-header-labels {
+    display: grid;
+    grid-template-columns: 2fr 1fr 1fr 1fr 1fr;
+    gap: 8px;
+    padding: 5px 10px;
+    border-top: 1px solid $ultra-light-gray;
+}
+
+.job-header-labels.with-actions {
+    /* Removed Job Price column, keep actions as last */
+    grid-template-columns: 2fr 1fr 1fr 1fr 1fr;
+}
+
+.job-header-labels .label-cell {
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.9);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    font-weight: 600;
+}
+
 .job-header {
+    display: grid;
+    grid-template-columns: 2fr 1fr 1fr 1fr 1fr;
+    align-items: center;
+    padding: 10px;
+    background-color: #7DC068;
+    border-radius: 4px;
+    gap: 8px;
+}
+
+.job-header.with-actions {
+    /* Removed Job Price column, keep actions as last */
+    grid-template-columns: 2fr 1fr 1fr 1fr 1fr;
+}
+
+.job-header .value-cell {
+    color: #111827;
+    font-weight: 700;
+    font-size: 14px;
+}
+
+.inline-input {
+    width: 100%;
+    padding: 6px 8px;
+    border: 1px solid rgba(0, 0, 0, 0.15);
+    border-radius: 4px;
+    background-color: #ffffff;
+    color: #111827;
+    font-weight: 600;
+}
+
+.btn-toggle-materials {
+    background-color: #374151;
+    color: #fff;
+    border: none;
+    padding: 6px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    margin-left: 6px;
+}
+
+.materials-accordion {
+    background: rgba(255, 255, 255, 0.85);
+    border: 1px solid #e5e7eb;
+    border-radius: 6px;
+    margin-top: 8px;
+}
+
+.materials-accordion .accordion-header {
+    padding: 8px 12px;
+    font-weight: 700;
+    color: #111827;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.materials-accordion .accordion-body {
+    padding: 8px 12px;
+}
+
+.materials-accordion .accordion-item {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 16px;
-    padding: 10px;
-    background-color: #7DC068;
+    padding: 6px 0;
+    border-bottom: 1px dashed #e5e7eb;
+}
+
+.materials-accordion .accordion-item:last-child {
+    border-bottom: none;
+}
+
+.materials-accordion .item-name {
+    color: #1f2937;
+    font-weight: 600;
+}
+
+.materials-accordion .item-qty {
+    color: #374151;
+    font-weight: 600;
+}
+
+/* New materials list styled to match .material-info */
+.materials-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.materials-list .material-item {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.materials-list .item-name,
+.materials-list .item-qty {
+    color: $white;
+}
+
+.materials-list .item-sep {
+    color: rgba($white, 0.75);
+    margin: 0 6px;
 }
 
 .job-title {
@@ -1437,7 +1781,8 @@ table th {
     gap: 12px;
 }
 
-.material-info, .shipping-info {
+.material-info,
+.shipping-info {
     grid-column: 1 / -1;
     display: flex;
     flex-direction: column;
@@ -1446,7 +1791,10 @@ table th {
     background: rgba(white, 0.15);
     border-radius: 6px;
     margin-top: 12px;
-    span { color: white; }
+
+    span {
+        color: white;
+    }
 }
 
 /* Trade items cards (pre-generation) */
@@ -1458,7 +1806,11 @@ table th {
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
     border: 1px solid $light-gray;
 }
-.trade-items-container { color: $white; }
+
+.trade-items-container {
+    color: $white;
+}
+
 .trade-items-header {
     display: flex;
     justify-content: space-between;
@@ -1467,33 +1819,137 @@ table th {
     padding-bottom: 10px;
     border-bottom: 2px solid rgba($white, 0.15);
 }
-.trade-items-header .section-title { font-size: 18px; font-weight: 600; margin: 0; }
-.btn-add { background-color: $green; color: $white; }
-.btn-add:hover { background-color: darken($green, 10%); }
-.trade-items-list { display: flex; flex-direction: column; gap: 12px; }
+
+.trade-items-header .section-title {
+    font-size: 18px;
+    font-weight: 600;
+    margin: 0;
+}
+
+.btn-add {
+    background-color: $green;
+    color: $white;
+}
+
+.btn-add:hover {
+    background-color: darken($green, 10%);
+}
+
+.trade-items-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
 .trade-item-card {
     background: rgba(white, 0.12);
     border: 1px solid #e2e8f0;
     border-radius: 8px;
     padding: 16px;
 }
-.item-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
-.item-title { display: flex; flex-direction: column; gap: 4px; }
-.item-title .article-code { font-size: 12px; color: $white; opacity: 0.9; }
-.item-title .article-name { font-size: 16px; font-weight: 600; color: $white; }
-.item-actions { display: flex; gap: 6px; }
-.btn-edit-small, .btn-save-small, .btn-cancel-small, .btn-delete { padding: 4px 8px; font-size: 12px; min-width: 32px; }
-.btn-edit-small { background-color: #3182ce; color: white; }
-.btn-save-small { background-color: #38a169; color: white; }
-.btn-cancel-small, .btn-delete { background-color: #e53e3e; color: white; }
-.item-details { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
-.detail-item { display: flex; flex-direction: column; gap: 5px; }
-.detail-item label { font-weight: 600; color: $white; font-size: 13px; }
-.detail-item .detail-value { color: $white; font-size: 14px; }
-.detail-item .total-price { color: $blue; font-weight: 600; }
-.detail-item .total-final { color: greenyellow; font-weight: 600; }
-.form-input-small, .form-select-small { padding: 6px 8px; border: 1px solid $light-gray; border-radius: 3px; background: $white; color: $black; }
-.no-items { text-align: center; color: rgba($white, 0.8); padding: 8px 0; }
+
+.item-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+}
+
+.item-title {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.item-title .article-code {
+    font-size: 12px;
+    color: $white;
+    opacity: 0.9;
+}
+
+.item-title .article-name {
+    font-size: 16px;
+    font-weight: 600;
+    color: $white;
+}
+
+.item-actions {
+    display: flex;
+    gap: 6px;
+}
+
+.btn-edit-small,
+.btn-save-small,
+.btn-cancel-small,
+.btn-delete {
+    padding: 4px 8px;
+    font-size: 12px;
+    min-width: 32px;
+}
+
+.btn-edit-small {
+    background-color: #3182ce;
+    color: white;
+}
+
+.btn-save-small {
+    background-color: #38a169;
+    color: white;
+}
+
+.btn-cancel-small,
+.btn-delete {
+    background-color: #e53e3e;
+    color: white;
+}
+
+.item-details {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 12px;
+}
+
+.detail-item {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.detail-item label {
+    font-weight: 600;
+    color: $white;
+    font-size: 13px;
+}
+
+.detail-item .detail-value {
+    color: $white;
+    font-size: 14px;
+}
+
+.detail-item .total-price {
+    color: $blue;
+    font-weight: 600;
+}
+
+.detail-item .total-final {
+    color: greenyellow;
+    font-weight: 600;
+}
+
+.form-input-small,
+.form-select-small {
+    padding: 6px 8px;
+    border: 1px solid $light-gray;
+    border-radius: 3px;
+    background: $white;
+    color: $black;
+}
+
+.no-items {
+    text-align: center;
+    color: rgba($white, 0.8);
+    padding: 8px 0;
+}
 
 /* Minimal Invoice Information Section (reused design) */
 .invoice-info-minimal {
@@ -1508,15 +1964,74 @@ table th {
     justify-content: flex-start;
     gap: 20px;
 }
-.info-item { display: flex; align-items: center; gap: 8px; }
-.info-label { font-size: 12px; color: rgba($white, 0.6); font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px; white-space: nowrap; }
-.info-value { font-size: 14px; color: $white; font-weight: 600; }
-.date-display { cursor: pointer; display: inline-flex; align-items: center; gap: 8px; padding: 4px 8px; border-radius: 4px; }
-.date-display:hover { background: rgba($white, 0.1); }
-.date-input { font-size: 14px; color: $white; background: rgba($white, 0.1); border: 2px solid $blue; border-radius: 4px; padding: 6px 8px; font-weight: 600; }
-.save-btn, .cancel-btn { padding: 6px 8px; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; display: inline-flex; align-items: center; justify-content: center; min-width: 28px; height: 28px; }
-.save-btn { background-color: $green; color: $white; }
-.cancel-btn { background-color: $red; color: $white; }
+
+.info-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.info-label {
+    font-size: 12px;
+    color: rgba($white, 0.6);
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    white-space: nowrap;
+}
+
+.info-value {
+    font-size: 14px;
+    color: $white;
+    font-weight: 600;
+}
+
+.date-display {
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 8px;
+    border-radius: 4px;
+}
+
+.date-display:hover {
+    background: rgba($white, 0.1);
+}
+
+.date-input {
+    font-size: 14px;
+    color: $white;
+    background: rgba($white, 0.1);
+    border: 2px solid $blue;
+    border-radius: 4px;
+    padding: 6px 8px;
+    font-weight: 600;
+}
+
+.save-btn,
+.cancel-btn {
+    padding: 6px 8px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 12px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 28px;
+    height: 28px;
+}
+
+.save-btn {
+    background-color: $green;
+    color: $white;
+}
+
+.cancel-btn {
+    background-color: $red;
+    color: $white;
+}
 
 /* Preview Modal Styles */
 .preview-modal-content {
@@ -1545,4 +2060,3 @@ table th {
     background-color: white;
 }
 </style>
-
