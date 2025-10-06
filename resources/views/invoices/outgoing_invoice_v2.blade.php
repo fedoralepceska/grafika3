@@ -333,10 +333,8 @@
                         'type' => 'job',
                         'job' => $job,
                         'invoice_id' => $invoice['id'] ?? null,
-                        'invoice_title' => $invoice['invoice_title'],
-                        'taxRate' => $invoice['taxRate'],
-                        'copies' => $invoice['copies'],
-                        'totalSalePrice' => $invoice['totalSalePrice'],
+                        'invoice_title' => $invoice['invoice_title'] ?? '',
+                        'taxRate' => $invoice['taxRate'] ?? 0,
                         'row_number' => $jobCounter++
                     ];
                 }
@@ -350,30 +348,39 @@
                 }
                 if (is_array($tradeItemsSource)) {
                     foreach ($tradeItemsSource as $tradeItem) {
-                    $allItems[] = [
-                        'type' => 'trade_item',
-                        'tradeItem' => $tradeItem,
-                        'row_number' => $jobCounter++
-                    ];
+                        $allItems[] = [
+                            'type' => 'trade_item',
+                            'tradeItem' => $tradeItem,
+                            'row_number' => $jobCounter++
+                        ];
                     }
                 }
             }
         }
         
-        // Calculate totals from the collected items (no duplication)
-        $tradeItemsTotal = 0;
-        $tradeItemsVatTotal = 0;
+        // Recalculate totals explicitly from items: net (without VAT), VAT, and total
+        $netTotal = 0;
+        $vatTotal = 0;
         foreach ($allItems as $item) {
-            if ($item['type'] === 'trade_item') {
-                $tradeItemsTotal += $item['tradeItem']['total_price'];
-                $tradeItemsVatTotal += $item['tradeItem']['vat_amount'];
+            if ($item['type'] === 'job') {
+                $unit = (float) ($item['job']['salePrice'] ?? 0);
+                $qty = (float) ($item['job']['quantity'] ?? 0);
+                $lineNet = $unit * $qty;
+                $taxRate = (float) ($item['taxRate'] ?? 0);
+                $lineVat = $lineNet * ($taxRate / 100);
+                $netTotal += $lineNet;
+                $vatTotal += $lineVat;
+            } elseif ($item['type'] === 'trade_item') {
+                $lineNet = (float) data_get($item, 'tradeItem.total_price', 0);
+                $lineVat = (float) data_get($item, 'tradeItem.vat_amount', 0);
+                $netTotal += $lineNet;
+                $vatTotal += $lineVat;
             }
         }
-        
-        // Update totals to include trade items
-        $verticalSums['totalPriceWithTaxSum'] += $tradeItemsTotal;
-        $verticalSums['totalTaxSum'] += $tradeItemsVatTotal;
-        $verticalSums['totalOverallSum'] += $tradeItemsTotal + $tradeItemsVatTotal;
+        $verticalSums['totalPriceWithTaxSum'] = $netTotal;
+        $verticalSums['totalTaxSum'] = $vatTotal;
+        $verticalSums['totalOverallSum'] = $netTotal + $vatTotal;
+        $effectiveVatPercent = $netTotal > 0 ? round(($vatTotal / $netTotal) * 100) : 0;
     @endphp
     <div class="main-content">
         <table style="width: 100%; border-collapse: collapse; margin: 0; padding: 0; table-layout: fixed;">
@@ -417,8 +424,8 @@
                         <td style="font-size: 10pt; padding: 6px; text-align: center; background-color: #E7F1F2;">{{ $item['taxRate'] }}%</td>
                         <td style="font-size: 10pt; padding: 6px; text-align: center; background-color: #E7F1F2;">{{getUnit($item['job'])}}</td>
                         <td style="font-size: 10pt; padding: 6px; text-align: center; background-color: #E7F1F2;">{{ $item['job']['quantity'] }}</td>
-                        <td style="font-size: 10pt; padding: 6px; text-align: right; background-color: #E7F1F2;">{{ number_format($item['totalSalePrice'] / $item['copies'], 2) }}</td>
-                        <td style="font-size: 10pt; padding: 6px; text-align: right; background-color: #E7F1F2;">{{ number_format($item['totalSalePrice'], 2) }}</td>
+                        <td style="font-size: 10pt; padding: 6px; text-align: right; background-color: #E7F1F2;">{{ number_format((float) ($item['job']['salePrice'] ?? 0), 2) }}</td>
+                        <td style="font-size: 10pt; padding: 6px; text-align: right; background-color: #E7F1F2;">{{ number_format(((float) ($item['job']['salePrice'] ?? 0)) * ((float) ($item['job']['quantity'] ?? 0)), 2) }}</td>
                     </tr>
                 @elseif($item['type'] === 'trade_item')
                     <tr style="border-bottom: 2px solid #cccccc; font-weight: 700 ; font-family: 'Calibri'">
@@ -441,7 +448,7 @@
             </tr>
             <tr>
                 <td colspan="2" style="font-size: 10pt; padding: 6px; text-align: right; font-weight: bold;"></td>
-                <td colspan="4" style="font-size: 10pt; padding: 6px; text-align: right; font-weight: bold; background-color: #E7F1F2; border-bottom: 2px solid white">ДДВ(18%):</td>
+                <td colspan="4" style="font-size: 10pt; padding: 6px; text-align: right; font-weight: bold; background-color: #E7F1F2; border-bottom: 2px solid white">ДДВ({{ $effectiveVatPercent }}%):</td>
                 <td style="font-size: 10pt; padding: 6px; text-align: right; font-weight: bold; background-color: #E7F1F2; border-bottom: 2px solid white">{{ number_format($verticalSums['totalTaxSum'], 2) }}</td>
             </tr>
             <tr>
