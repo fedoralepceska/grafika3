@@ -7,7 +7,10 @@ use Illuminate\Database\Eloquent\Model;
 class Faktura extends Model
 {
     protected $table = 'faktura';
-    protected $fillable = ['isInvoiced', 'comment', 'created_by'];
+    protected $fillable = ['isInvoiced', 'comment', 'created_by', 'merge_groups'];
+    protected $casts = [
+        'merge_groups' => 'array',
+    ];
 
     /**
      * Get the invoices associated with the faktura.

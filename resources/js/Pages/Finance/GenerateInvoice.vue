@@ -9,14 +9,10 @@
             <div class="left-column flex-1" style="width: 25%">
                 <div class="flex justify-between">
                     <Header title="invoice2" subtitle="invoiceGeneration" icon="invoice.png" link="notInvoiced" />
-                    <div class="flex pt-4">
+                    <div class="flex flex-col pt-4">
                         <div class="buttons pt-3">
                             <button class="btn blue" @click="openCommentModal">
                                 Add Comment <i class="fa-solid fa-comment"></i>
-                            </button>
-                            <button class="btn comment-order" @click="toggleEditMode">
-                                {{ isEditMode ? 'Exit Edit Mode' : 'Enter Edit Mode' }}
-                                <i class="fa-regular fa-edit"></i>
                             </button>
                             <button class="btn blue" @click="showTradeItemsModal = true">
                                 Add Trade Items <i class="fa-solid fa-plus"></i>
@@ -26,6 +22,14 @@
                             </button>
                             <button class="btn generate-invoice" @click="generateInvoice">Generate Invoice <i
                                     class="fa-solid fa-file-invoice-dollar"></i></button>
+                        </div>
+                        <div class="buttons flex justify-end pt-3">
+                            <button v-if="isEditMode" class="btn bg-[#800080]" @click="createOrAddToMergeGroup()">
+                                Merge
+                            </button>
+                            <button v-if="isEditMode" class="btn bg-[#800020]" @click="unmergeSelected()">
+                                Unmerge
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -127,125 +131,116 @@
                                 <!-- <div class="label-cell">Job Price</div> -->
                                 <div class="label-cell action-cell">Actions</div>
                             </div>
-                            <div v-for="(job, jobIndex) in inv.jobs" :key="job.id" class="job-card">
-                                <div class="job-header">
-                                    <div class="value-cell job-title">
-                                        <template v-if="isEditMode && editingJobId === job.id">
-                                            <input class="inline-input" v-model="job.name" />
-                                        </template>
-                                        <template v-else>
-                                            #{{ jobIndex + 1 }} {{ job.name }}
-                                        </template>
-                                    </div>
-                                    <div class="value-cell">
-                                        <template v-if="isEditMode && editingJobId === job.id">
-                                            <input class="inline-input" type="number" min="0" v-model.number="job.quantity" />
-                                        </template>
-                                        <template v-else>{{ job.quantity }}</template>
-                                    </div>
-                                    <div class="value-cell">
-                                        <template v-if="isEditMode && editingJobId === job.id">
-                                            <input class="inline-input" type="number" min="0" step="0.0001" v-model.number="job.computed_total_area_m2" />
-                                        </template>
-                                        <template v-else>{{ formatArea(job.computed_total_area_m2) }}</template>
-                                    </div>
-                                    <div class="value-cell">
-                                        <template v-if="isEditMode && editingJobId === job.id">
-                                            <input class="inline-input" type="number" min="0" step="0.01" v-model.number="job.salePrice" />
-                                        </template>
-                                        <template v-else>{{ formatPrice(job.salePrice) }} ден.</template>
-                                    </div>
-                                    <!--
-                                    <div class="value-cell">
-                                        <template v-if="isEditMode && editingJobId === job.id">
-                                            <input class="inline-input" type="number" min="0" step="0.01" v-model.number="job.totalPrice" />
-                                        </template>
-                                        <template v-else>{{ formatPrice(job.totalPrice) }} ден.</template>
-                                    </div>
-                                    -->
-                                    <div class="value-cell actions">
-                                        <template v-if="isEditMode">
-                                            <template v-if="editingJobId !== job.id">
-                                                <button class="btn-edit-small" @click="startEditingJob(job)">Edit</button>
+                            <!-- Always render all jobs as individual cards -->
+                            <template v-for="(job, jobIndex) in inv.jobs" :key="'flat-'+job.id">
+                                <div v-if="getMergeGroupIndexByJobId(job.id) === -1" class="job-card">
+                                    <div class="job-header">
+                                        <div class="value-cell job-title">
+                                            <template v-if="isEditMode && editingJobId === job.id">
+                                                <input class="inline-input" v-model="job.name" />
                                             </template>
                                             <template v-else>
-                                                <button class="btn-save-small" @click="saveEditingJob(job)">Save</button>
-                                                <button class="btn-cancel-small" @click="cancelEditingJob(job)">Cancel</button>
+                                                #{{ jobIndex + 1 }} {{ job.name }}
                                             </template>
-                                        </template>
-                                        <button class="btn-edit-small" style="margin-left:6px" @click="toggleMaterials(job.id)">
-                                            {{ materialsOpen[job.id] ? 'Hide Materials' : 'Show Materials' }}
+                                        </div>
+                                        <div class="value-cell">
+                                            <template v-if="isEditMode && editingJobId === job.id">
+                                                <input class="inline-input" type="number" min="0" v-model.number="job.quantity" />
+                                            </template>
+                                            <template v-else>{{ job.quantity }}</template>
+                                        </div>
+                                        <div class="value-cell">
+                                            <template v-if="isEditMode && editingJobId === job.id">
+                                                <input class="inline-input" type="number" min="0" step="0.0001" v-model.number="job.computed_total_area_m2" />
+                                            </template>
+                                            <template v-else>{{ formatArea(job.computed_total_area_m2) }}</template>
+                                        </div>
+                                        <div class="value-cell">
+                                            <template v-if="isEditMode && editingJobId === job.id">
+                                                <input class="inline-input" type="number" min="0" step="0.01" v-model.number="job.salePrice" />
+                                            </template>
+                                            <template v-else>{{ formatPrice(job.salePrice) }} ден.</template>
+                                        </div>
+                                        <div class="value-cell actions flex flex-row">
+                                            <template v-if="isEditMode">
+                                                <template v-if="editingJobId !== job.id">
+                                                    <button class="btn-edit-small" @click="startEditingJob(job)">Edit</button>
+                                                </template>
+                                                <template v-else>
+                                                    <button class="btn-save-small" @click="saveEditingJob(job)">Save</button>
+                                                    <button class="btn-cancel-small" @click="cancelEditingJob(job)">Cancel</button>
+                                                </template>
+                                            </template>
+                                            <button class="btn-edit-small" style="margin-left:6px" @click="toggleMaterials(job.id)">
+                                                {{ materialsOpen[job.id] ? 'Hide Materials' : 'Show Materials' }}
+                                            </button>
+                                        <button class="merge-toggle ml-2" :class="{selected: isSelected(job.id)}" @click="toggleMergeSelection(job.id)" title="Toggle merge">
+                                            <i class="fa-solid fa-code-merge"></i>
+                                            Merge
                                         </button>
+                                        </div>
+                                    </div>
+                                    <div v-if="materialsOpen[job.id]" class="material-info">
+                                        <span class="label">{{ $t('material') }}:</span>
+                                        <div class="value materials-list">
+                                            <template v-if="job.articles && job.articles.length">
+                                                <div v-for="(article, aIdx) in job.articles" :key="aIdx" class="material-item">
+                                                    <span class="item-name">{{ article.name }}</span>
+                                                    <span class="item-sep"> - </span>
+                                                    <span class="item-qty">{{ article.pivot?.quantity ?? 0 }} {{ getUnitTextFromPivot(article) }}</span>
+                                                </div>
+                                            </template>
+                                            <template v-else-if="job.large_material">
+                                                <div class="material-item">
+                                                    <span class="item-name">{{ job.large_material.name }}</span>
+                                                </div>
+                                            </template>
+                                            <template v-else-if="job.small_material">
+                                                <div class="material-item">
+                                                    <span class="item-name">{{ job.small_material.name }}</span>
+                                                </div>
+                                            </template>
+                                            <template v-else>
+                                                <div class="material-item">No materials.</div>
+                                            </template>
+                                        </div>
                                     </div>
                                 </div>
-                                <!-- Materials (styled like old material-info) -->
-                                <div v-if="materialsOpen[job.id]" class="material-info">
-                                    <span class="label">{{ $t('material') }}:</span>
-                                    <div class="value materials-list">
-                                        <template v-if="job.articles && job.articles.length">
-                                            <div v-for="(article, aIdx) in job.articles" :key="aIdx" class="material-item">
-                                                <span class="item-name">{{ article.name }}</span>
-                                                <span class="item-sep"> - </span>
-                                                <span class="item-qty">{{ article.pivot?.quantity ?? 0 }} {{ getUnitTextFromPivot(article) }}</span>
+                            </template>
+                            <!-- Render merged containers per order for any group that includes jobs from this order -->
+                            <div v-for="grp in getGroupsForOrder(inv.id)" :key="'grp-'+grp.__idx" class="merged-container" :class="'merged-color-' + (grp.__idx % mergedPalette.length)">
+                                <div class="merged-header">
+                                    <template v-if="isEditMode && isGroupEditableInOrder(grp.__idx, inv.id)">
+                                        <input class="inline-input" placeholder="Group title" v-model="mergeGroups[grp.__idx].title" />
+                                        <input type="number" min="0" step="0.01" class="inline-input" placeholder="Quantity" v-model.number="mergeGroups[grp.__idx].quantity" />
+                                        <div class="value-cell"></div>
+                                        <input type="number" min="0" step="0.01" class="inline-input" placeholder="Sale Price" v-model.number="mergeGroups[grp.__idx].sale_price" />
+                                        <div class="value-cell"></div>
+                                    </template>
+                                    <template v-else>
+                                        <div class="value-cell">{{ mergeGroups[grp.__idx].title || 'Merged group' }}</div>
+                                        <div class="value-cell">{{ formatNumber(mergeGroups[grp.__idx].quantity || 0) }}</div>
+                                        <div class="value-cell"></div>
+                                        <div class="value-cell">{{ formatPrice(mergeGroups[grp.__idx].sale_price || 0) }} ден.</div>
+                                        <div class="value-cell"></div>
+                                    </template>
+                                </div>
+                                <div class="merged-body">
+                                    <div v-for="gid in jobsInGroupForOrder(inv.id, grp.__idx)" :key="'gid-'+gid" class="job-card inside-merged">
+                                        <div class="job-header">
+                                            <div class="value-cell job-title">{{ displayJobName(gid) }}</div>
+                                            <div class="value-cell">{{ displayJobQty(gid) }}</div>
+                                            <div class="value-cell">{{ displayJobArea(gid) }}</div>
+                                            <div class="value-cell">{{ displayJobPrice(gid) }} ден.</div>
+                                            <div class="value-cell actions">
+                                                <button class="merge-toggle" :class="{selected: isSelected(gid)}" @click="toggleMergeSelection(gid)" title="Toggle merge">
+                                                    <i class="fa-solid fa-code-merge"></i>
+                                                    Merge
+                                                </button>
                                             </div>
-                                        </template>
-                                        <template v-else-if="job.large_material">
-                                            <div class="material-item">
-                                                <span class="item-name">{{ job.large_material.name }}</span>
-                                            </div>
-                                        </template>
-                                        <template v-else-if="job.small_material">
-                                            <div class="material-item">
-                                                <span class="item-name">{{ job.small_material.name }}</span>
-                                            </div>
-                                        </template>
-                                        <template v-else>
-                                            <div class="material-item">No materials.</div>
-                                        </template>
+                                        </div>
                                     </div>
                                 </div>
-                                <!--
-                                <div class="job-details-grid">
-                                    <div class="detail-item">
-                                        <span class="label">{{ $t('height') }}:</span>
-                                        <span class="value">{{ formatDimension(job.height) }} mm</span>
-                                    </div>
-                                    <div class="detail-item">
-                                        <span class="label">{{ $t('width') }}:</span>
-                                        <span class="value">{{ formatDimension(job.width) }} mm</span>
-                                    </div>
-                                    <div class="detail-item">
-                                        <span class="label">{{ $t('quantity') }}:</span>
-                                        <span class="value">{{ job.quantity }}</span>
-                                    </div>
-                                    <div class="detail-item">
-                                        <span class="label">{{ $t('copies') }}:</span>
-                                        <span class="value">{{ job.copies }}</span>
-                                    </div>
-                                    <div class="detail-item">
-                                        <span class="label">{{ $t('totalm') }}<sup>2</sup>:</span>
-                                        <span class="value">{{ formatArea(job.computed_total_area_m2) }}</span>
-                                    </div>
-                                    <div class="detail-item">
-                                        <span class="label">{{ $t('salePrice') }}:</span>
-                                        <span class="value price">{{ formatPrice(job.salePrice) }} ден.</span>
-                                    </div>
-                                    <div class="detail-item">
-                                        <span class="label">{{ $t('jobPrice') }}:</span>
-                                        <span class="value total-price">{{ formatPrice(job.totalPrice) }} ден.</span>
-                                    </div>
-                                </div>
-                                -->
-                                <!-- Old materials display removed in favor of the new one above
-                                <div class="material-info" v-if="getMaterialInfo(job)">
-                                    <span class="label">{{ $t('material') }}:</span>
-                                    <span class="value">{{ getMaterialInfo(job) }}</span>
-                                </div>
-                                -->
-                                <!-- <div class="shipping-info" v-if="job.shippingInfo">
-                                    <span class="label">{{ $t('shippingTo') }}:</span>
-                                    <span class="value">{{ job.shippingInfo }}</span>
-                                </div> -->
                             </div>
                         </div>
                     </div>
@@ -494,7 +489,7 @@ export default {
             selectedJob: null,
             isSidebarVisible: false,
             spreadsheetMode: false,
-            isEditMode: false,
+            isEditMode: true,
             editingTitle: {},
             titleEdits: {},
             backgroundColor: null,
@@ -518,10 +513,185 @@ export default {
                 previewPdfUrl: null,
                 editingJobId: null,
                 originalJobSnapshots: {},
-                materialsOpen: {}
+            materialsOpen: {},
+            selectedJobIds: [],
+            mergeGroups: [], // [{job_ids:[1,2,3]}]
+            mergedPalette: ['#7DC068', '#51A8B1', '#a36a03', '#3182ce', '#9e2c30', '#81c950']
         }
     },
     methods: {
+        isSelected(id) {
+            return (this.selectedJobIds || []).includes(id);
+        },
+        toggleMergeSelection(id) {
+            const set = new Set(this.selectedJobIds || []);
+            if (set.has(id)) set.delete(id); else set.add(id);
+            this.selectedJobIds = Array.from(set);
+        },
+        groupTotalAreaForOrder(orderId, groupIdx) {
+            const ids = this.jobsInGroupForOrder(orderId, groupIdx);
+            let total = 0;
+            ids.forEach(id => { const j = this.getJobById(id); total += Number(j?.computed_total_area_m2 || 0); });
+            return total;
+        },
+        getGroupsForOrder(orderId) {
+            const res = [];
+            (this.mergeGroups || []).forEach((g, idx) => {
+                const ids = Array.isArray(g.job_ids) ? g.job_ids : [];
+                const hasJobInOrder = (this.invoiceData && this.invoiceData[orderId] && (this.invoiceData[orderId].jobs||[]).some(j => ids.includes(j.id)));
+                if (hasJobInOrder) res.push({ ...g, __idx: idx });
+            });
+            return res;
+        },
+        jobsInGroupForOrder(orderId, groupIdx) {
+            const g = (this.mergeGroups || [])[groupIdx] || {}; const ids = Array.isArray(g.job_ids) ? g.job_ids : [];
+            const orderJobs = (this.invoiceData && this.invoiceData[orderId]) ? (this.invoiceData[orderId].jobs || []) : [];
+            return ids.filter(id => orderJobs.some(j => j.id === id));
+        },
+        isGroupEditableInOrder(groupIdx, orderId) {
+            const g = (this.mergeGroups || [])[groupIdx] || {}; const ids = Array.isArray(g.job_ids) ? g.job_ids : [];
+            if (ids.length === 0) return false;
+            // Editable only in the order that is the first vertically (lowest id) among orders that contain jobs from this group
+            const involvedOrderIds = Object.values(this.invoiceData || {})
+                .filter(o => (o.jobs || []).some(j => ids.includes(j.id)))
+                .map(o => o.id)
+                .sort((a,b) => a - b);
+            const firstOwnerId = involvedOrderIds[0];
+            return firstOwnerId === orderId;
+        },
+        displayJobName(id) {
+            const j = this.getJobById(id); return j ? j.name : '';
+        },
+        displayJobQty(id) {
+            const j = this.getJobById(id); return j ? j.quantity : '';
+        },
+        displayJobArea(id) {
+            const j = this.getJobById(id); return this.formatArea(j ? j.computed_total_area_m2 : 0);
+        },
+        displayJobPrice(id) {
+            const j = this.getJobById(id); return this.formatPrice(j ? j.salePrice : 0);
+        },
+        isGroupHolderForOrder(groupIndex, orderId) {
+            const group = this.mergeGroups[groupIndex] || {};
+            const ids = Array.isArray(group.job_ids) ? group.job_ids : [];
+            if (ids.length === 0) return false;
+            const firstId = ids[0];
+            // Determine which order owns the first job id
+            const owner = Object.values(this.invoiceData || {}).find(o => (o.jobs || []).some(j => j.id === firstId));
+            return owner && owner.id === orderId;
+        },
+        getJobById(jobId) {
+            for (const o of Object.values(this.invoiceData || {})) {
+                const j = (o.jobs || []).find(x => x.id === jobId);
+                if (j) return j;
+            }
+            return null;
+        },
+        getMergeGroupIndexByJobId(jobId) {
+            const groups = Array.isArray(this.mergeGroups) ? this.mergeGroups : [];
+            for (let i = 0; i < groups.length; i++) {
+                const ids = Array.isArray(groups[i].job_ids) ? groups[i].job_ids : [];
+                if (ids.includes(jobId)) return i;
+            }
+            return -1;
+        },
+        getMergeClass(job) {
+            // Prefer merged_job_ids or job id membership
+            const id = job && job.id;
+            if (!id) return '';
+            const idx = this.getMergeGroupIndexByJobId(id);
+            return idx >= 0 ? `merged-color-${idx % this.mergedPalette.length}` : '';
+        },
+        getMergedJobs(orderId) {
+            try {
+                const order = this.invoiceData && this.invoiceData[orderId] ? this.invoiceData[orderId] : null;
+                const jobs = (order && Array.isArray(order.jobs)) ? order.jobs : [];
+                const groups = Array.isArray(this.mergeGroups) ? this.mergeGroups : [];
+                if (!groups.length) return jobs;
+                const byId = new Map(jobs.map(j => [j.id, { ...j }]));
+                // Build cross-order lookup so selected groups that include other orders still display correctly by placing merged job into this order if it owns the first id
+                // For local display, only merge jobs that belong to this order; keep cross-order merged representative in the order owning the first id in group.
+                const allJobs = Object.values(this.invoiceData || {}).flatMap(o => o.jobs || []);
+                const jobToOrder = new Map();
+                allJobs.forEach(oJob => { jobToOrder.set(oJob.id, Object.values(this.invoiceData).find(o => (o.jobs||[]).some(j => j.id===oJob.id))?.id); });
+                for (const g of groups) {
+                    const ids = Array.isArray(g.job_ids) ? g.job_ids : [];
+                    const presentHere = ids.filter(id => byId.has(id));
+                    if (ids.length < 2) continue;
+                    // Only the order that owns the first id will show the merged representative; others will remove their members
+                    const holderOrderId = jobToOrder.get(ids[0]);
+                    let qty = 0; let area = 0; let first = null;
+                    for (const id of ids) {
+                        const jAll = allJobs.find(j => j.id === id);
+                        if (!jAll) continue;
+                        if (!first) first = jAll;
+                        qty += Number(jAll.quantity || 0);
+                        area += Number(jAll.computed_total_area_m2 || 0);
+                        if (byId.has(id)) byId.delete(id);
+                    }
+                    if (holderOrderId === orderId && first) {
+                        const merged = { ...first, quantity: qty, computed_total_area_m2: area, merged: true, merged_job_ids: ids };
+                        byId.set(first.id, merged);
+                    }
+                }
+                return Array.from(byId.values());
+            } catch (_) { return (this.invoiceData && this.invoiceData[orderId] && this.invoiceData[orderId].jobs) ? this.invoiceData[orderId].jobs : []; }
+        },
+        mergeable(jobA, jobB) {
+            return (jobA?.name || '') === (jobB?.name || '') && Number(jobA?.salePrice || 0) === Number(jobB?.salePrice || 0);
+        },
+        createOrAddToMergeGroup(orderId) {
+            const ids = Array.from(new Set(this.selectedJobIds));
+            if (ids.length < 2) return;
+            // no validation rules: allow merging any selected jobs
+            const allJobs = Object.values(this.invoiceData).flatMap(o => o.jobs || []);
+            const picked = ids.map(id => allJobs.find(j => j.id === id)).filter(Boolean);
+            if (picked.length < 2) return;
+            // If any existing group contains any of these ids, expand that group; else create new
+            let group = this.mergeGroups.find(g => g.job_ids.some(id => ids.includes(id)));
+            if (!group) {
+                group = { job_ids: [] };
+                this.mergeGroups.push(group);
+            }
+            group.job_ids = Array.from(new Set([...group.job_ids, ...ids]));
+            // Attempt autofill when name and price are uniform
+            this.autofillGroupFieldsIfUniform(this.mergeGroups.indexOf(group));
+            this.selectedJobIds = [];
+            this.$toast?.success?.('Jobs merged for preview/generation');
+        },
+        unmergeSelected() {
+            if (!this.selectedJobIds.length) return;
+            const set = new Set(this.selectedJobIds);
+            this.mergeGroups = this.mergeGroups
+                .map(g => ({...g, job_ids: g.job_ids.filter(id => !set.has(id))}))
+                .filter(g => g.job_ids.length > 1);
+            // Re-evaluate autofill for all groups after removal
+            this.mergeGroups.forEach((_, idx) => this.autofillGroupFieldsIfUniform(idx));
+            this.selectedJobIds = [];
+        },
+        getAllJobsFlat() {
+            return Object.values(this.invoiceData || {}).flatMap(o => o.jobs || []);
+        },
+        autofillGroupFieldsIfUniform(groupIdx) {
+            if (groupIdx == null || groupIdx < 0) return;
+            const group = this.mergeGroups[groupIdx];
+            if (!group || !Array.isArray(group.job_ids) || group.job_ids.length < 1) return;
+            const allJobs = this.getAllJobsFlat();
+            const jobs = group.job_ids
+                .map(id => allJobs.find(j => j && j.id === id))
+                .filter(Boolean);
+            if (jobs.length === 0) return;
+            const baseName = jobs[0]?.name ?? null;
+            const basePrice = Number(jobs[0]?.salePrice ?? NaN);
+            const same = jobs.every(j => (j?.name ?? null) === baseName && Number(j?.salePrice ?? NaN) === basePrice);
+            if (!same) return; // do not autofill when not uniform
+            // Sum quantities
+            const totalQty = jobs.reduce((acc, j) => acc + Number(j?.quantity || 0), 0);
+            // Only set fields if not already explicitly set (or set to empty)
+            if (!group.title) this.$set ? this.$set(group, 'title', baseName) : (group.title = baseName);
+            if (!(group.sale_price > 0)) this.$set ? this.$set(group, 'sale_price', basePrice) : (group.sale_price = basePrice);
+            if (!(group.quantity > 0)) this.$set ? this.$set(group, 'quantity', totalQty) : (group.quantity = totalQty);
+        },
         startEditingJob(job) {
             this.editingJobId = job.id;
             // snapshot original values for cancel
@@ -617,13 +787,7 @@ export default {
             this.editingDate = false;
             this.dateEdit = '';
         },
-        toggleEditMode() {
-            this.isEditMode = !this.isEditMode;
-            if (!this.isEditMode) {
-                this.editingTitle = {};
-                this.titleEdits = {};
-            }
-        },
+        toggleEditMode() {},
         startEditTitle(invoiceData) {
             if (!this.isEditMode) return;
             this.editingTitle[invoiceData.id] = true;
@@ -841,7 +1005,8 @@ export default {
                     orders: orderIds,
                     comment: this.comment,
                     trade_items: tradePayload,
-                    created_at: this.previewDate
+                    created_at: this.previewDate,
+                    merge_groups: this.mergeGroups
                 }, {
                     responseType: 'blob' // Important for PDF response
                 });
@@ -895,6 +1060,7 @@ export default {
                     comment: this.comment,
                     trade_items: tradePayload,
                     created_at: this.previewDate,
+                    merge_groups: this.mergeGroups,
                     return_meta: true
                 }, { responseType: 'json' });
 
@@ -1674,6 +1840,56 @@ table th {
     border-radius: 4px;
     gap: 8px;
 }
+
+// Dynamic merged color variants
+// We generate a few classes mapping to the palette defined in data()
+.merged-color-0 { background-color: #3182ce !important; }
+.merged-color-1 { background-color: #51A8B1 !important; }
+.merged-color-2 { background-color: #a36a03 !important; }
+.merged-color-3 { background-color: #d1e93b !important; }
+.merged-color-4 { background-color: #9e2c30 !important; }
+.merged-color-5 { background-color: #81c950 !important; }
+
+.merged-container {
+    border: 1px solid rgba(255,255,255,0.2);
+    border-radius: 6px;
+    margin-bottom: 8px;
+}
+.merged-container .merged-header {
+    display: grid;
+    grid-template-columns: 2fr 1fr 1fr 1fr 1fr; /* align with job header: Title, Qty, Total m², Sale, Actions */
+    gap: 8px;
+    padding: 8px;
+}
+.merged-container .merged-body {
+    padding: 6px 8px 10px 8px;
+}
+
+/* Merge icon toggle */
+.merge-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: fit-content;
+    padding: 6px 8px;
+    height: 30px;
+    border: none;
+    background: rgba(128, 0, 128, 0.6);
+    color: #fff;
+    cursor: pointer;
+    border-radius: 4px;
+}
+.merge-toggle.selected {
+    color: #fff;
+    background: rgba(128, 0, 128, 1);
+    border-radius: 4px;
+}
+.merge-toggle:hover {
+    color: #fff;
+    background: rgba(128, 0, 128, 0.4);
+    border-radius: 4px;
+}
+
 
 .job-header.with-actions {
     /* Removed Job Price column, keep actions as last */

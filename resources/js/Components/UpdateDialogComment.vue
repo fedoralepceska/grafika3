@@ -21,7 +21,7 @@
                         <div v-if="showUpdateCommentForm">
                             <form class="flex">
                                 <div class="form-group">
-                                    <label for="client" class="mr-4 width100 ">Invoice Comment</label>
+                                    <label for="client" class="mr-4  ">Invoice Comment</label>
                                     <input type="text" class="rounded text-gray-700 " v-model="updatedComment" :placeholder="invoice[0].faktura_comment">
                                 </div>
                             </form>

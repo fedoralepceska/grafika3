@@ -1359,6 +1359,7 @@ class InvoiceController extends Controller
         $comment = $request->input('comment');
         $tradeItems = $request->input('trade_items', []);
         $createdAtInput = $request->input('created_at');
+        $mergeGroups = $request->input('merge_groups', []);
         
         try {
             // Start a database transaction
@@ -1370,6 +1371,19 @@ class InvoiceController extends Controller
                 'comment' => $comment,
                 'created_by' => auth()->id()
             ]);
+
+            // Persist merge groups if provided (lightweight JSON structure)
+            if (!empty($mergeGroups) && is_array($mergeGroups)) {
+                try {
+                    $faktura->merge_groups = $mergeGroups;
+                    $faktura->save();
+                } catch (\Throwable $e) {
+                    \Log::warning('Failed to persist merge_groups on faktura', [
+                        'faktura_id' => $faktura->id,
+                        'error' => $e->getMessage()
+                    ]);
+                }
+            }
 
             // If client provided a custom created_at date, apply it to the Faktura
             if (!empty($createdAtInput)) {
@@ -1423,7 +1437,40 @@ class InvoiceController extends Controller
 
             // Generate PDF for the created invoice
             $dns1d = new DNS1D();
-            $transformedInvoices = $invoices->map(function ($invoice) use ($dns1d, $tradeItems, $comment, $faktura) {
+            // If merge groups persisted on faktura (from request or pre-set), build merged jobs
+            $mergeGroups = is_array($request->input('merge_groups')) ? $request->input('merge_groups') : ($faktura->merge_groups ?? []);
+            $mergedJobsByInvoice = [];
+            if (!empty($mergeGroups)) {
+                foreach ($invoices as $inv) {
+                    $mergedJobsByInvoice[$inv->id] = $inv->jobs->map(function ($j) { return $j->toArray(); })->all();
+                }
+                $jobLookup = [];
+                $jobInvoiceLookup = [];
+                foreach ($invoices as $inv) {
+                    foreach ($inv->jobs as $j) { $jobLookup[$j->id] = $j->toArray(); $jobInvoiceLookup[$j->id] = $inv->id; }
+                }
+                foreach ($mergeGroups as $grp) {
+                    $ids = isset($grp['job_ids']) && is_array($grp['job_ids']) ? $grp['job_ids'] : [];
+                    $ids = array_values(array_filter($ids, fn($v) => isset($jobLookup[$v])));
+                    if (count($ids) < 2) continue;
+                    $first = $jobLookup[$ids[0]];
+                    $sumQty = 0; $sumArea = 0.0;
+                    foreach ($ids as $jid) { $jj = $jobLookup[$jid]; $sumQty += (int)($jj['quantity'] ?? 0); $sumArea += (float)($jj['computed_total_area_m2'] ?? 0); }
+                    $merged = $first; $merged['id'] = $first['id'];
+                    $merged['name'] = $grp['title'] ?? ($first['name'] ?? null);
+                    $merged['quantity'] = isset($grp['quantity']) ? (float)$grp['quantity'] : $sumQty;
+                    $merged['salePrice'] = isset($grp['sale_price']) ? (float)$grp['sale_price'] : (float)($first['salePrice'] ?? 0);
+                    $merged['computed_total_area_m2'] = $sumArea; $merged['merged'] = true; $merged['merged_job_ids'] = $ids;
+                    $holderInvoiceId = $jobInvoiceLookup[$ids[0]] ?? $invoices->first()->id;
+                    foreach ($ids as $jid) {
+                        $invId = $jobInvoiceLookup[$jid];
+                        $mergedJobsByInvoice[$invId] = array_values(array_filter($mergedJobsByInvoice[$invId], function ($jrow) use ($jid) { return ($jrow['id'] ?? null) !== $jid; }));
+                    }
+                    $mergedJobsByInvoice[$holderInvoiceId][] = $merged;
+                }
+            }
+
+            $transformedInvoices = $invoices->map(function ($invoice) use ($dns1d, $tradeItems, $comment, $faktura, $mergedJobsByInvoice) {
                 $barcodeString = $invoice->id . '-' . date('m-Y', strtotime($invoice->end_date));
                 $barcodeImage = base64_encode($dns1d->getBarcodePNG($barcodeString, 'C128'));
 
@@ -1448,8 +1495,12 @@ class InvoiceController extends Controller
                 })->toArray();
 
                 // Return a new array for this invoice with the required fields
+                $invoiceArr = $invoice->toArray();
+                if (!empty($mergedJobsByInvoice) && isset($mergedJobsByInvoice[$invoice->id])) {
+                    $invoiceArr['jobs'] = $mergedJobsByInvoice[$invoice->id];
+                }
                 return array_merge(
-                    $invoice->toArray(),
+                    $invoiceArr,
                     [
                         'barcodeImage' => $barcodeImage,
                         'totalSalePrice' => $totalSalePrice,
@@ -1571,7 +1622,8 @@ class InvoiceController extends Controller
             return Inertia::render('Finance/Invoice', [
                 'invoice' => $invoiceData,
                 'faktura' => $faktura,
-                'tradeItems' => $tradeItems
+                'tradeItems' => $tradeItems,
+                'mergeGroups' => $faktura->merge_groups ?? []
             ]);
         } catch (Exception $e) {
             // If Faktura with the given ID is not found, return error response
@@ -1675,6 +1727,7 @@ class InvoiceController extends Controller
             $comment = $request->input('comment');
             $tradeItems = $request->input('trade_items', []);
             $createdAtInput = $request->input('created_at');
+            $mergeGroups = $request->input('merge_groups', []);
 
             // Basic validation
             if (empty($invoiceIds) || !is_array($invoiceIds)) {
@@ -1685,10 +1738,64 @@ class InvoiceController extends Controller
             $invoices = Invoice::with(['jobs.actions', 'contact', 'user', 'client', 'article', 'client.clientCardStatement'])
                 ->find($invoiceIds);
 
+            // If merge groups provided, prepare merged jobs view per-invoice for preview
+            $mergedJobsByInvoice = [];
+            if (!empty($mergeGroups) && is_array($mergeGroups)) {
+                // Seed with original jobs as arrays
+                foreach ($invoices as $inv) {
+                    $mergedJobsByInvoice[$inv->id] = $inv->jobs->map(function ($j) {
+                        return $j->toArray();
+                    })->all();
+                }
+                // Build job lookup by id and invoice id
+                $jobLookup = [];
+                $jobInvoiceLookup = [];
+                foreach ($invoices as $inv) {
+                    foreach ($inv->jobs as $j) {
+                        $jobLookup[$j->id] = $j->toArray();
+                        $jobInvoiceLookup[$j->id] = $inv->id;
+                    }
+                }
+                foreach ($mergeGroups as $grp) {
+                    $ids = isset($grp['job_ids']) && is_array($grp['job_ids']) ? $grp['job_ids'] : [];
+                    $ids = array_values(array_filter($ids, fn($v) => isset($jobLookup[$v])));
+                    if (count($ids) < 2) continue;
+                    $first = $jobLookup[$ids[0]];
+                    // Compute sums
+                    $sumQty = 0; $sumArea = 0.0;
+                    foreach ($ids as $jid) {
+                        $jj = $jobLookup[$jid];
+                        $sumQty += (int)($jj['quantity'] ?? 0);
+                        $sumArea += (float)($jj['computed_total_area_m2'] ?? 0);
+                    }
+                    // Create merged job based on first
+                    $merged = $first;
+                    $merged['id'] = $first['id'];
+                    // Allow explicit override from merge group payload
+                    $merged['name'] = $grp['title'] ?? ($first['name'] ?? null);
+                    $merged['quantity'] = isset($grp['quantity']) ? (float)$grp['quantity'] : $sumQty;
+                    $merged['salePrice'] = isset($grp['sale_price']) ? (float)$grp['sale_price'] : (float)($first['salePrice'] ?? 0);
+                    $merged['computed_total_area_m2'] = $sumArea;
+                    $merged['merged'] = true;
+                    $merged['merged_job_ids'] = $ids;
+                    // Holder is the first invoice in selection to keep deterministic
+                    $holderInvoiceId = $jobInvoiceLookup[$ids[0]] ?? $invoices->first()->id;
+                    // Remove all original jobs from their invoices
+                    foreach ($ids as $jid) {
+                        $invId = $jobInvoiceLookup[$jid];
+                        $mergedJobsByInvoice[$invId] = array_values(array_filter($mergedJobsByInvoice[$invId], function ($jrow) use ($jid) {
+                            return ($jrow['id'] ?? null) !== $jid;
+                        }));
+                    }
+                    // Place merged job into holder invoice
+                    $mergedJobsByInvoice[$holderInvoiceId][] = $merged;
+                }
+            }
+
             // Transform invoices for PDF generation (same as outgoingInvoicePdf)
             $dns1d = new DNS1D();
             $nextFakturaId = (int) (\App\Models\Faktura::max('id') ?? 0) + 1;
-            $transformedInvoices = $invoices->map(function ($invoice) use ($dns1d, $tradeItems, $comment, $nextFakturaId, $createdAtInput) {
+            $transformedInvoices = $invoices->map(function ($invoice) use ($dns1d, $tradeItems, $comment, $nextFakturaId, $createdAtInput, $mergedJobsByInvoice) {
                 // Compose barcode safely (GD may be missing in some environments)
                 $period = $invoice->end_date ? date('m-Y', strtotime($invoice->end_date)) : date('m-Y');
                 $barcodeString = $invoice->id . '-' . $period;
@@ -1760,8 +1867,14 @@ class InvoiceController extends Controller
                 foreach ($vatBreakdown as $r => $amt) { $vatBreakdownRounded[$r] = round($amt, 2); }
 
                 // Return a new array for this invoice with the required fields
+                $invoiceArr = $invoice->toArray();
+                // If merged view exists for this invoice, override jobs in array form
+                if (!empty($mergedJobsByInvoice) && isset($mergedJobsByInvoice[$invoice->id])) {
+                    $invoiceArr['jobs'] = $mergedJobsByInvoice[$invoice->id];
+                }
+
                 return array_merge(
-                    $invoice->toArray(),
+                    $invoiceArr,
                     [
                         'barcodeImage' => $barcodeImage,
                         'totalSalePrice' => $subtotalRounded,
@@ -1839,6 +1952,31 @@ class InvoiceController extends Controller
         } catch (\Exception $e) {
             // Return error response
             return response()->json(['error' => 'Failed to update Faktura comment'], 500);
+        }
+    }
+
+    public function updateMergeGroups(Request $request, $id)
+    {
+        try {
+            // Find the Faktura by its ID
+            $faktura = Faktura::findOrFail($id);
+
+            // Update the merge groups
+            $faktura->update([
+                'merge_groups' => $request->input('merge_groups')
+            ]);
+
+            // Return success response
+            return response()->json([
+                'message' => 'Merge groups updated successfully',
+                'success' => true
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'message' => 'Failed to update merge groups',
+                'error' => $e->getMessage(),
+                'success' => false
+            ], 500);
         }
     }
 

@@ -111,6 +111,7 @@ Route::middleware(['auth', 'verified'])->group(function() {
     Route::get('/invoice/available-articles', [InvoiceController::class, 'getAvailableArticles'])->name('invoices.getAvailableArticles');
     Route::get('/invoice/{id}', [InvoiceController::class, 'getGeneratedInvoice'])->name('invoices.getGeneratedInvoice');
     Route::put('/invoice/{id}/update-comment', [InvoiceController::class, 'updateInvoiceComment'])->name('invoices.updateInvoiceComment');
+    Route::put('/invoice/{id}/merge-groups', [InvoiceController::class, 'updateMergeGroups'])->name('invoices.updateMergeGroups');
     Route::get('/incomingInvoice', [\App\Http\Controllers\IncomingFakturaController::class, 'index'])->name('incomingInvoice.index');
     Route::post('/incomingInvoice', [\App\Http\Controllers\IncomingFakturaController::class, 'store'])->name('incomingInvoice.store');
     Route::get('/invoice-generation', [InvoiceController::class, 'generateAllInvoicesPdf'])->name('invoices.generateAllInvoicesPdf');

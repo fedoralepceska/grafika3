@@ -318,29 +318,53 @@
         // Collect all jobs and trade items from all invoices in this faktura
         $allItems = [];
         $jobCounter = 1;
-        
+
         // Sort invoices by ID to ensure consistent ordering
         $sortedInvoices = is_array($invoices) ? $invoices : $invoices->toArray();
         usort($sortedInvoices, function($a, $b) {
             return ($a['id'] ?? 0) <=> ($b['id'] ?? 0);
         });
-        
+
+        // Separate jobs into merged-first and regular, collect trade items separately
+        $mergedJobItems = [];
+        $regularJobItems = [];
+        $tradeItemItems = [];
+
+        // Map job id -> order meta for earliest-order lookup
+        $jobOrderMeta = [];
         foreach ($sortedInvoices as $invoice) {
-            // Add jobs from this invoice first
+            if (isset($invoice['jobs']) && is_array($invoice['jobs'])) {
+                foreach ($invoice['jobs'] as $jMeta) {
+                    $jid = $jMeta['id'] ?? null;
+                    if (!is_null($jid)) {
+                        $jobOrderMeta[$jid] = [
+                            'order_id' => $invoice['id'] ?? 0,
+                            'order_title' => $invoice['invoice_title'] ?? ''
+                        ];
+                    }
+                }
+            }
+        }
+
+        foreach ($sortedInvoices as $invoice) {
             if (isset($invoice['jobs']) && is_array($invoice['jobs'])) {
                 foreach ($invoice['jobs'] as $job) {
-                    $allItems[] = [
+                    $jobItem = [
                         'type' => 'job',
                         'job' => $job,
                         'invoice_id' => $invoice['id'] ?? null,
                         'invoice_title' => $invoice['invoice_title'] ?? '',
                         'taxRate' => $invoice['taxRate'] ?? 0,
-                        'row_number' => $jobCounter++
+                        // row_number assigned later in final order
                     ];
+                    if (!empty($job['merged'])) {
+                        $mergedJobItems[] = $jobItem;
+                    } else {
+                        $regularJobItems[] = $jobItem;
+                    }
                 }
             }
-            
-            // Add trade items from this invoice after jobs (accept array or object with toArray)
+
             if (isset($invoice['trade_items'])) {
                 $tradeItemsSource = $invoice['trade_items'];
                 if (is_object($tradeItemsSource) && method_exists($tradeItemsSource, 'toArray')) {
@@ -348,15 +372,20 @@
                 }
                 if (is_array($tradeItemsSource)) {
                     foreach ($tradeItemsSource as $tradeItem) {
-                        $allItems[] = [
+                        $tradeItemItems[] = [
                             'type' => 'trade_item',
                             'tradeItem' => $tradeItem,
-                            'row_number' => $jobCounter++
+                            // row_number assigned later
                         ];
                     }
                 }
             }
         }
+
+        // Build final items list: merged jobs first, then regular jobs, then trade items
+        foreach ($mergedJobItems as $it) { $it['row_number'] = $jobCounter++; $allItems[] = $it; }
+        foreach ($regularJobItems as $it) { $it['row_number'] = $jobCounter++; $allItems[] = $it; }
+        foreach ($tradeItemItems as $it) { $it['row_number'] = $jobCounter++; $allItems[] = $it; }
         
         // Recalculate totals explicitly from items: net (without VAT), VAT, and total
         $netTotal = 0;
@@ -411,14 +440,38 @@
                         <td style="font-size: 10pt; padding: 6px; text-align: center; white-space: nowrap;">{{ $item['row_number'] }}.</td>
                         @php
                             $jobName = $item['job']['name'] ?? '';
-                            $orderName = $item['invoice_title'] ?? '';
+                            // For merged jobs: keep only the first order's title, and hide order id
+                            $isMerged = (bool) ($item['job']['merged'] ?? false);
+                            if ($isMerged) {
+                                $ids = $item['job']['merged_job_ids'] ?? [];
+                                $earliestId = null; $earliestTitle = '';
+                                if (is_array($ids)) {
+                                    foreach ($ids as $jid) {
+                                        if (isset($jobOrderMeta[$jid])) {
+                                            $oid = (int) ($jobOrderMeta[$jid]['order_id'] ?? 0);
+                                            if ($earliestId === null || $oid < $earliestId) {
+                                                $earliestId = $oid;
+                                                $earliestTitle = $jobOrderMeta[$jid]['order_title'] ?? '';
+                                            }
+                                        }
+                                    }
+                                }
+                                $orderName = $earliestTitle;
+                            } else {
+                                $orderName = $item['invoice_title'] ?? '';
+                            }
                         @endphp
                         <td style="font-size: 10pt; padding: 6px; text-align: left;">
                             @if($jobName)
                                 <div class="truncate-cell">{{ $jobName }}</div>
                             @endif
                             @if($orderName)
-                                <div class="truncate-cell" style="color:rgb(109, 128, 129); font-size: 8pt; line-height: 0.8;">@if(!empty($item['invoice_id']))({{ $item['invoice_id'] }}) @endif{{ $orderName }}</div>
+                                <div class="truncate-cell" style="color:rgb(109, 128, 129); font-size: 8pt; line-height: 0.8;">
+                                    @if(!$isMerged && !empty($item['invoice_id']))
+                                        ({{ $item['invoice_id'] }})
+                                    @endif
+                                    {{ $orderName }}
+                                </div>
                             @endif
                         </td>
                         @php
