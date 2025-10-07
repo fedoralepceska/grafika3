@@ -1104,7 +1104,16 @@ class InvoiceController extends Controller
     public function getFilteredUninvoicedOrders(Request $request)
     {
         try {
-            $query = Invoice::with(['jobs', 'user', 'client'])
+            $query = Invoice::with([
+                'jobs' => function ($query) {
+                    $query->select([
+                        'jobs.id', 'jobs.invoice_id', 'jobs.name', 'jobs.status', 'jobs.quantity', 'jobs.copies',
+                        'jobs.file', 'jobs.originalFile', 'jobs.cuttingFiles', 'jobs.total_area_m2', 'jobs.dimensions_breakdown'
+                    ]);
+                },
+                'user:id,name',
+                'client:id,name'
+            ])
                 ->where('status', 'Completed') // Filter by 'Completed' status
                 ->whereNull('faktura_id'); // Only show invoices that haven't been invoiced yet
 
@@ -1123,6 +1132,28 @@ class InvoiceController extends Controller
             $perPage = (int) $request->input('per_page', 10);
             $perPage = max(1, min($perPage, 200));
             $invoices = $query->latest()->paginate($perPage);
+
+            // Load thumbnails for all jobs
+            $this->loadThumbnailsForInvoices($invoices->items());
+
+            // Ensure originalFile is properly cast for each job
+            foreach ($invoices->items() as $invoice) {
+                if ($invoice->jobs) {
+                    foreach ($invoice->jobs as $job) {
+                        // Force cast originalFile to array if it's a string
+                        if (is_string($job->originalFile)) {
+                            $job->originalFile = json_decode($job->originalFile, true) ?: [];
+                        }
+                        
+                        // Ensure file field is properly set (for legacy system)
+                        if (empty($job->file) && !empty($job->originalFile) && is_array($job->originalFile) && count($job->originalFile) > 0) {
+                            // If no legacy file but we have originalFile, use the first file as legacy
+                            $firstOriginalFile = $job->originalFile[0];
+                            $job->file = pathinfo(basename($firstOriginalFile), PATHINFO_FILENAME) . '.jpg';
+                        }
+                    }
+                }
+            }
 
             // Return JSON response for AJAX calls
             return response()->json($invoices);
