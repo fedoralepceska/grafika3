@@ -15,7 +15,7 @@
                                 <button class="btn blue" @click="openCommentModal">
                                     Add Comment <i class="fa-solid fa-comment"></i>
                                 </button>
-                                <button class="btn generate-invoice" @click="printInvoice">
+                                <button class="btn generate-invoice" @click="printInvoice" :disabled="!canPrintInvoice">
                                     Print Invoice <i class="fa-solid fa-file-invoice-dollar"></i>
                                 </button>
                             <button v-if="isEditMode" class="btn blue" @click="openAttachOrdersModal">
@@ -233,10 +233,28 @@
                                 <div v-for="grp in getGroupsForOrder(invoiceData.id)" :key="'grp-'+grp.__idx" class="job-card merged-container" :class="'merged-color-' + (grp.__idx % 6)">
                                     <div class="job-header">
                                         <template v-if="isEditMode && isGroupEditableInOrder(grp.__idx, invoiceData.id) && editingMergedGroupId === grp.__idx">
-                                            <input class="inline-input" placeholder="Group title" v-model="grp.title" />
-                                            <input type="number" min="0" step="0.01" class="inline-input" placeholder="Quantity" v-model.number="grp.quantity" />
+                                            <input 
+                                                class="inline-input" 
+                                                :class="{ 'invalid-field': !isMergeGroupFieldValid(grp.__idx, 'title') }"
+                                                placeholder="Group title" 
+                                                v-model="grp.title" />
+                                            <input 
+                                                type="number" 
+                                                min="0" 
+                                                step="0.01" 
+                                                class="inline-input" 
+                                                :class="{ 'invalid-field': !isMergeGroupFieldValid(grp.__idx, 'quantity') }"
+                                                placeholder="Quantity" 
+                                                v-model.number="grp.quantity" />
                                             <div class="value-cell"></div>
-                                            <input type="number" min="0" step="0.01" class="inline-input" placeholder="Sale Price" v-model.number="grp.sale_price" />
+                                            <input 
+                                                type="number" 
+                                                min="0" 
+                                                step="0.01" 
+                                                class="inline-input" 
+                                                :class="{ 'invalid-field': !isMergeGroupFieldValid(grp.__idx, 'sale_price') }"
+                                                placeholder="Sale Price" 
+                                                v-model.number="grp.sale_price" />
                                             <div class="value-cell actions">
                                                 <button class="btn-save-small" @click="saveEditingMergedGroup(grp.__idx)">Save</button>
                                                 <button class="btn-cancel-small" @click="cancelEditingMergedGroup(grp.__idx)">Cancel</button>
@@ -468,8 +486,25 @@
                                 <div class="bold">#{{ ord.id }}</div>
                                 <div class="select-title" :title="ord.invoice_title">{{ truncateTitle(ord.invoice_title, 40) }}</div>
                                 <div class="ml-auto">{{ ord.client?.name || ord.client }}</div>
+                                <div v-if="selectedAttachOrderIds.includes(ord.id)" class="selected-badge">✓ Selected</div>
                             </div>
                             <div v-if="filteredAttachableOrders.length === 0">No matching orders.</div>
+                        </div>
+                    </div>
+                    
+                    <!-- Pagination Controls -->
+                    <div v-if="attachPagination.lastPage > 1" class="pagination-controls" style="margin-top: 15px; padding: 10px; border-top: 1px solid #ddd; display: flex; justify-content: space-between; align-items: center;">
+                        <div class="pagination-info">
+                            <span>Page {{ attachPagination.currentPage }} of {{ attachPagination.lastPage }}</span>
+                            <span style="margin-left: 10px;">({{ attachPagination.total }} total orders)</span>
+                        </div>
+                        <div class="pagination-buttons" style="display: flex; gap: 8px;">
+                            <button @click="prevAttachPage" :disabled="attachPagination.currentPage <= 1" class="btn btn-sm">
+                                <i class="fa-solid fa-chevron-left"></i> Previous
+                            </button>
+                            <button @click="nextAttachPage" :disabled="attachPagination.currentPage >= attachPagination.lastPage" class="btn btn-sm">
+                                Next <i class="fa-solid fa-chevron-right"></i>
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -571,13 +606,41 @@ export default {
             // If faktura prop includes created_by relation, prefer it; else fallback if invoice embeds createdBy string
             return this.faktura?.created_by_name || this.invoice?.[0]?.createdBy || '';
         },
+        allSelectedAttachableOrders() {
+            // This will show selected orders from any page
+            // We need to fetch them separately or store them globally
+            // For now, we'll show selected orders that are in our current attachableOrders list
+            return this.attachableOrders.filter(o => this.selectedAttachOrderIds.includes(o.id));
+        },
         filteredAttachableOrders() {
             const q = (this.attachSearch || '').toLowerCase().trim();
             const base = this.attachableOrders;
             const client = this.attachClientName || (this.invoice?.[0]?.client?.name || this.invoice?.[0]?.client || '');
             const byClient = client ? base.filter(o => (o.client?.name || o.client || '') === client) : base;
-            if (!q) return byClient;
-            return byClient.filter(o => String(o.id).includes(q) || (o.invoice_title || '').toLowerCase().includes(q));
+            let filtered = byClient;
+            
+            // Apply search filter if provided
+            if (q) {
+                filtered = byClient.filter(o => String(o.id).includes(q) || (o.invoice_title || '').toLowerCase().includes(q));
+            }
+            
+            // Get selected orders from all pages (not just current page)
+            const selectedFromAllPages = this.allSelectedOrders.filter(o => {
+                // Apply same client filter
+                const orderClient = o.client?.name || o.client || '';
+                const clientMatch = !client || orderClient === client;
+                
+                // Apply same search filter
+                const searchMatch = !q || String(o.id).includes(q) || (o.invoice_title || '').toLowerCase().includes(q);
+                
+                return clientMatch && searchMatch;
+            });
+            
+            // Get non-selected orders from current page
+            const nonSelectedOrders = filtered.filter(o => !this.selectedAttachOrderIds.includes(o.id));
+            
+            // Return selected orders from all pages first, then non-selected orders from current page
+            return [...selectedFromAllPages, ...nonSelectedOrders];
         },
         filteredDetachableOrders() {
             const list = Array.isArray(this.invoice) ? this.invoice : [];
@@ -585,6 +648,23 @@ export default {
             const q = (this.detachSearch || '').toLowerCase().trim();
             if (!q) return mapped;
             return mapped.filter(o => String(o.id).includes(q) || (o.invoice_title || '').toLowerCase().includes(q));
+        },
+        hasValidMergeGroups() {
+            const mergeGroups = this.faktura?.merge_groups || [];
+            if (!mergeGroups || mergeGroups.length === 0) {
+                return true; // No merge groups means validation passes
+            }
+            
+            return mergeGroups.every(group => {
+                const hasTitle = group.title && group.title.trim() !== '';
+                const hasQuantity = group.quantity && Number(group.quantity) > 0;
+                const hasSalePrice = group.sale_price && Number(group.sale_price) > 0;
+                
+                return hasTitle && hasQuantity && hasSalePrice;
+            });
+        },
+        canPrintInvoice() {
+            return this.hasValidMergeGroups;
         }
     },
     data() {
@@ -626,8 +706,15 @@ export default {
             attachableOrders: [],
             attachSearch: '',
             selectedAttachOrderIds: [],
-            attachClientName: ''
-            ,
+            attachClientName: '',
+            attachPagination: {
+                currentPage: 1,
+                lastPage: 1,
+                perPage: 10,
+                total: 0
+            },
+            // Store selected orders from all pages
+            allSelectedOrders: [],
             // Detach orders state
             showDetachOrders: false,
             detachSearch: '',
@@ -958,6 +1045,10 @@ export default {
         },
         async openAttachOrdersModal() {
             this.showAttachOrders = true;
+            this.attachSearch = '';
+            this.selectedAttachOrderIds = [];
+            this.allSelectedOrders = [];
+            this.attachPagination.currentPage = 1;
             // Always refresh full list to avoid stale filtered state
             await this.fetchAttachableOrders();
             const first = (this.invoice || [])[0];
@@ -997,16 +1088,39 @@ export default {
             this.selectedAttachOrderIds = [];
             this.attachClientName = '';
         },
-        async fetchAttachableOrders() {
+        async fetchAttachableOrders(page = 1) {
             try {
                 this.attachLoading = true;
-                const res = await axios.get('/api/notInvoiced/filtered', { params: { page: 1, sortOrder: 'desc' } });
-                const data = res?.data?.data || res?.data || [];
-                this.attachableOrders = (Array.isArray(data) ? data : []).map(r => ({
-                    id: r.id,
-                    invoice_title: r.invoice_title || r.title || `Order ${r.id}`,
-                    client: r.client || r.client?.name || (r.client_name || ''),
-                }));
+                const res = await axios.get('/api/notInvoiced/filtered', { 
+                    params: { 
+                        page: page, 
+                        per_page: this.attachPagination.perPage,
+                        sortOrder: 'desc' 
+                    } 
+                });
+                
+                // Handle paginated response
+                if (res.data && res.data.data) {
+                    // Laravel pagination response
+                    this.attachableOrders = (Array.isArray(res.data.data) ? res.data.data : []).map(r => ({
+                        id: r.id,
+                        invoice_title: r.invoice_title || r.title || `Order ${r.id}`,
+                        client: r.client || r.client?.name || (r.client_name || ''),
+                    }));
+                    
+                    // Update pagination info
+                    this.attachPagination.currentPage = res.data.current_page || 1;
+                    this.attachPagination.lastPage = res.data.last_page || 1;
+                    this.attachPagination.total = res.data.total || 0;
+                } else {
+                    // Fallback for non-paginated response
+                    const data = res?.data?.data || res?.data || [];
+                    this.attachableOrders = (Array.isArray(data) ? data : []).map(r => ({
+                        id: r.id,
+                        invoice_title: r.invoice_title || r.title || `Order ${r.id}`,
+                        client: r.client || r.client?.name || (r.client_name || ''),
+                    }));
+                }
             } catch (e) {
                 console.error('Failed loading uninvoiced orders', e);
                 this.toast.error('Failed to load uninvoiced orders');
@@ -1062,6 +1176,19 @@ export default {
             if (ids.has(ord.id)) ids.delete(ord.id); else ids.add(ord.id);
             const next = Array.from(ids);
             this.selectedAttachOrderIds = next;
+            
+            // Update global selected orders array
+            if (ids.has(ord.id)) {
+                // Adding order - add to global array if not already there
+                const exists = this.allSelectedOrders.some(o => o.id === ord.id);
+                if (!exists) {
+                    this.allSelectedOrders.push(ord);
+                }
+            } else {
+                // Removing order - remove from global array
+                this.allSelectedOrders = this.allSelectedOrders.filter(o => o.id !== ord.id);
+            }
+            
             if (next.length === 0) {
                 // If last item was deselected, reset client lock and search
                 this.clearAttachSelection();
@@ -1071,8 +1198,35 @@ export default {
             const currentClient = this.attachClientName || (this.invoice?.[0]?.client?.name || this.invoice?.[0]?.client || '');
             const ids = this.filteredAttachableOrders.map(o => o.id);
             this.selectedAttachOrderIds = ids;
+            
+            // Add visible orders to global selected array
+            this.filteredAttachableOrders.forEach(order => {
+                const exists = this.allSelectedOrders.some(o => o.id === order.id);
+                if (!exists) {
+                    this.allSelectedOrders.push(order);
+                }
+            });
         },
-        clearAttachSelection() { this.selectedAttachOrderIds = []; this.attachClientName = ''; },
+        clearAttachSelection() { 
+            this.selectedAttachOrderIds = []; 
+            this.attachClientName = ''; 
+            this.allSelectedOrders = [];
+        },
+        async loadAttachPage(page) {
+            if (page >= 1 && page <= this.attachPagination.lastPage) {
+                await this.fetchAttachableOrders(page);
+            }
+        },
+        async nextAttachPage() {
+            if (this.attachPagination.currentPage < this.attachPagination.lastPage) {
+                await this.loadAttachPage(this.attachPagination.currentPage + 1);
+            }
+        },
+        async prevAttachPage() {
+            if (this.attachPagination.currentPage > 1) {
+                await this.loadAttachPage(this.attachPagination.currentPage - 1);
+            }
+        },
         toggleDetachSelection(ord) {
             const ids = new Set(this.selectedDetachOrderIds);
             if (ids.has(ord.id)) ids.delete(ord.id); else ids.add(ord.id);
@@ -1403,6 +1557,22 @@ export default {
                 this.toast?.error?.('Failed to save merge changes');
             }
         },
+        isMergeGroupFieldValid(groupIdx, fieldName) {
+            const groups = this.faktura?.merge_groups || [];
+            const group = groups[groupIdx];
+            if (!group) return false;
+            
+            switch (fieldName) {
+                case 'title':
+                    return group.title && group.title.trim() !== '';
+                case 'quantity':
+                    return group.quantity && Number(group.quantity) > 0;
+                case 'sale_price':
+                    return group.sale_price && Number(group.sale_price) > 0;
+                default:
+                    return true;
+            }
+        },
         async printInvoice() {
             const toast = useToast();
             try {
@@ -1410,6 +1580,12 @@ export default {
                 const orderIds = (this.invoice || []).map(order => order.id);
                 if (!orderIds.length) {
                     toast.error('Cannot print: no orders available');
+                    return;
+                }
+                
+                // Validate merge groups before printing
+                if (!this.hasValidMergeGroups) {
+                    toast.error('Cannot print: Please fill in all required fields (title, quantity, and price) for merged groups');
                     return;
                 }
                 const tradePayload = this.buildTradeItemsPayload();
@@ -1423,9 +1599,9 @@ export default {
                 }, { responseType: 'blob' });
 
                 // Open blob in new tab
-                const blob = new Blob([response.data], { type: 'application/pdf' });
-                const url = window.URL.createObjectURL(blob);
-                window.open(url, '_blank');
+                        const blob = new Blob([response.data], { type: 'application/pdf' });
+                        const url = window.URL.createObjectURL(blob);
+                        window.open(url, '_blank');
                 toast.success('Invoice preview generated');
             } catch (error) {
                 console.error('Error generating preview for print:', error);
@@ -2176,6 +2352,18 @@ $orange: #a36a03;
     font-weight: 600;
 }
 
+.inline-input.invalid-field {
+    border: 2px solid #e53e3e;
+    background-color: #fed7d7;
+    animation: shake 0.5s ease-in-out;
+}
+
+@keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translateX(-2px); }
+    75% { transform: translateX(2px); }
+}
+
 .btn-edit-small,
 .btn-save-small,
 .btn-cancel-small {
@@ -2477,5 +2665,38 @@ table tr:hover {
     .job-card {
         padding: 16px;
     }
+}
+
+// Pagination styles
+.pagination-controls {
+    background-color: rgba($light-gray, 0.1);
+    border-radius: 6px;
+}
+
+.pagination-info {
+    font-size: 14px;
+    color: $white;
+}
+
+.pagination-buttons .btn-sm {
+    padding: 6px 12px;
+    font-size: 13px;
+    border-radius: 4px;
+}
+
+.pagination-buttons .btn-sm:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.selected-badge {
+    background-color: $green;
+    color: $white;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-size: 11px;
+    font-weight: 600;
+    margin-left: 8px;
+    white-space: nowrap;
 }
 </style>

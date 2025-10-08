@@ -17,10 +17,10 @@
                             <button class="btn blue" @click="showTradeItemsModal = true">
                                 Add Trade Items <i class="fa-solid fa-plus"></i>
                             </button>
-                            <button class="btn orange" @click="previewInvoice" :disabled="!hasOrders">
+                            <button class="btn orange" @click="previewInvoice" :disabled="!canGenerateOrPreview">
                                 Preview <i class="fa-solid fa-eye"></i>
                             </button>
-                            <button class="btn generate-invoice" @click="generateInvoice" :disabled="!hasOrders">Generate Invoice <i
+                            <button class="btn generate-invoice" @click="generateInvoice" :disabled="!canGenerateOrPreview">Generate Invoice <i
                                     class="fa-solid fa-file-invoice-dollar"></i></button>
                         </div>
                         <div class="buttons flex justify-end pt-3">
@@ -211,10 +211,28 @@
                             <div v-for="grp in getGroupsForOrder(inv.id)" :key="'grp-'+grp.__idx" class="merged-container" :class="'merged-color-' + (grp.__idx % mergedPalette.length)">
                                 <div class="merged-header">
                                     <template v-if="isEditMode && isGroupEditableInOrder(grp.__idx, inv.id)">
-                                        <input class="inline-input" placeholder="Group title" v-model="mergeGroups[grp.__idx].title" />
-                                        <input type="number" min="0" step="0.01" class="inline-input" placeholder="Quantity" v-model.number="mergeGroups[grp.__idx].quantity" />
+                                        <input 
+                                            class="inline-input" 
+                                            :class="{ 'invalid-field': !isMergeGroupFieldValid(grp.__idx, 'title') }"
+                                            placeholder="Group title" 
+                                            v-model="mergeGroups[grp.__idx].title" />
+                                        <input 
+                                            type="number" 
+                                            min="0" 
+                                            step="0.01" 
+                                            class="inline-input" 
+                                            :class="{ 'invalid-field': !isMergeGroupFieldValid(grp.__idx, 'quantity') }"
+                                            placeholder="Quantity" 
+                                            v-model.number="mergeGroups[grp.__idx].quantity" />
                                         <div class="value-cell"></div>
-                                        <input type="number" min="0" step="0.01" class="inline-input" placeholder="Sale Price" v-model.number="mergeGroups[grp.__idx].sale_price" />
+                                        <input 
+                                            type="number" 
+                                            min="0" 
+                                            step="0.01" 
+                                            class="inline-input" 
+                                            :class="{ 'invalid-field': !isMergeGroupFieldValid(grp.__idx, 'sale_price') }"
+                                            placeholder="Sale Price" 
+                                            v-model.number="mergeGroups[grp.__idx].sale_price" />
                                         <div class="value-cell"></div>
                                     </template>
                                     <template v-else>
@@ -487,6 +505,22 @@ export default {
             } catch (_) {
                 return this.previewDate || '';
             }
+        },
+        hasValidMergeGroups() {
+            if (!this.mergeGroups || this.mergeGroups.length === 0) {
+                return true; // No merge groups means validation passes
+            }
+            
+            return this.mergeGroups.every(group => {
+                const hasTitle = group.title && group.title.trim() !== '';
+                const hasQuantity = group.quantity && Number(group.quantity) > 0;
+                const hasSalePrice = group.sale_price && Number(group.sale_price) > 0;
+                
+                return hasTitle && hasQuantity && hasSalePrice;
+            });
+        },
+        canGenerateOrPreview() {
+            return this.hasOrders && this.hasValidMergeGroups;
         }
     },
     data() {
@@ -1002,6 +1036,21 @@ export default {
                 };
             });
         },
+        isMergeGroupFieldValid(groupIdx, fieldName) {
+            const group = this.mergeGroups[groupIdx];
+            if (!group) return false;
+            
+            switch (fieldName) {
+                case 'title':
+                    return group.title && group.title.trim() !== '';
+                case 'quantity':
+                    return group.quantity && Number(group.quantity) > 0;
+                case 'sale_price':
+                    return group.sale_price && Number(group.sale_price) > 0;
+                default:
+                    return true;
+            }
+        },
         async previewInvoice() {
             const toast = useToast();
             try {
@@ -1010,6 +1059,12 @@ export default {
                     .filter(Boolean);
                 if (!orderIds.length) {
                     toast.error('Cannot preview: no orders selected');
+                    return;
+                }
+                
+                // Validate merge groups before preview
+                if (!this.hasValidMergeGroups) {
+                    toast.error('Cannot preview: Please fill in all required fields (title, quantity, and price) for merged groups');
                     return;
                 }
                 const tradePayload = this.buildTradeItemsPayload();
@@ -1069,6 +1124,12 @@ export default {
                     .filter(Boolean);
                 if (!orderIds.length) {
                     toast.error('Cannot generate invoice: no orders selected');
+                    return;
+                }
+                
+                // Validate merge groups before generation
+                if (!this.hasValidMergeGroups) {
+                    toast.error('Cannot generate invoice: Please fill in all required fields (title, quantity, and price) for merged groups');
                     return;
                 }
                 const tradePayload = this.buildTradeItemsPayload();
@@ -1928,6 +1989,18 @@ table th {
     background-color: #ffffff;
     color: #111827;
     font-weight: 600;
+}
+
+.inline-input.invalid-field {
+    border: 2px solid #e53e3e;
+    background-color: #fed7d7;
+    animation: shake 0.5s ease-in-out;
+}
+
+@keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translateX(-2px); }
+    75% { transform: translateX(2px); }
 }
 
 .btn-toggle-materials {
