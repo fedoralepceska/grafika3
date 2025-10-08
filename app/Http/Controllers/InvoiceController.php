@@ -1391,12 +1391,33 @@ class InvoiceController extends Controller
         $tradeItems = $request->input('trade_items', []);
         $createdAtInput = $request->input('created_at');
         $mergeGroups = $request->input('merge_groups', []);
-        
+
+        // Validate that we have at least one order id
+        if (empty($invoiceIds) || !is_array($invoiceIds)) {
+            return response()->json(['error' => 'No invoices selected'], 400);
+        }
+
         try {
             // Start a database transaction
             DB::beginTransaction();
 
-            // Create a new Faktura instance
+            // Retrieve the Invoice instances based on the provided IDs
+            $invoices = Invoice::with([
+                'jobs.actions',
+                'jobs.articles' => function ($q) {
+                    $q->select('article.id', 'article.name', 'article.price_1', 'article.tax_type', 'article.in_square_meters', 'article.in_pieces', 'article.in_kilograms', 'article.in_meters');
+                },
+                'contact', 'user', 'client', 'article', 'client.clientCardStatement'
+            ])
+                ->find($invoiceIds);
+
+            // Abort if none of the provided IDs resolved to invoices
+            if (!$invoices || $invoices->count() === 0) {
+                DB::rollBack();
+                return response()->json(['error' => 'No valid invoices found for generation'], 400);
+            }
+
+            // Create a new Faktura instance (only after validation passes)
             $faktura = Faktura::create([
                 'isInvoiced' => 1,
                 'comment' => $comment,
@@ -1425,16 +1446,6 @@ class InvoiceController extends Controller
                     // If parsing fails, keep default timestamp
                 }
             }
-
-            // Retrieve the Invoice instances based on the provided IDs
-            $invoices = Invoice::with([
-                'jobs.actions',
-                'jobs.articles' => function ($q) {
-                    $q->select('article.id', 'article.name', 'article.price_1', 'article.tax_type', 'article.in_square_meters', 'article.in_pieces', 'article.in_kilograms', 'article.in_meters');
-                },
-                'contact', 'user', 'client', 'article', 'client.clientCardStatement'
-            ])
-                ->find($invoiceIds);
 
             // Associate the retrieved Invoice instances with the new Faktura
             foreach ($invoices as $invoice) {
@@ -1593,6 +1604,84 @@ class InvoiceController extends Controller
 
             // Return error response
             return response()->json(['error' => 'Failed to create Faktura'], 500);
+        }
+    }
+
+    public function attachOrders(Request $request, $fakturaId)
+    {
+        $orderIds = $request->input('orders', []);
+        try {
+            if (empty($orderIds) || !is_array($orderIds)) {
+                return response()->json(['error' => 'No orders provided'], 400);
+            }
+            $faktura = Faktura::findOrFail($fakturaId);
+            // Fetch only invoices that are not already attached to a faktura
+            $invoices = Invoice::with([
+                'jobs.actions',
+                'jobs.articles' => function ($q) {
+                    $q->select('article.id', 'article.name', 'article.code', 'article.tax_type', 'article.in_square_meters', 'article.in_pieces', 'article.in_kilograms', 'article.in_meters');
+                },
+                'jobs.small_material.smallFormatMaterial',
+                'user:id,name',
+                'client:id,name',
+                'article',
+            ])->whereNull('faktura_id')->whereIn('id', $orderIds)->get();
+            if ($invoices->isEmpty()) {
+                return response()->json(['error' => 'No attachable orders found'], 400);
+            }
+            foreach ($invoices as $inv) {
+                $inv->faktura_id = $faktura->id;
+                $inv->save();
+            }
+            // Prepare client payload similar to showGenerateInvoice
+            $invoices->each(function ($invoice) {
+                $invoice->jobs->each(function ($job) {
+                    $job->append('totalPrice');
+                });
+            });
+            $invoiceData = $invoices->reduce(function ($acc, $invoice) {
+                $acc[] = [
+                    'id' => $invoice->id,
+                    'invoice_title' => $invoice->invoice_title,
+                    'client' => optional($invoice->client)->name,
+                    'jobs' => $invoice->jobs,
+                    'user' => optional($invoice->user)->name,
+                    'start_date' => $invoice->start_date,
+                    'end_date' => $invoice->end_date,
+                    'status' => $invoice->status,
+                ];
+                return $acc;
+            }, []);
+            return response()->json(['success' => true, 'attached' => $invoices->pluck('id'), 'invoices' => $invoiceData]);
+        } catch (\Throwable $e) {
+            return response()->json(['error' => 'Failed to attach orders'], 500);
+        }
+    }
+
+    public function detachOrders(Request $request, $fakturaId)
+    {
+        $orderIds = $request->input('orders', []);
+        try {
+            if (empty($orderIds) || !is_array($orderIds)) {
+                return response()->json(['error' => 'No orders provided'], 400);
+            }
+            $faktura = Faktura::findOrFail($fakturaId);
+            // Only detach orders currently linked to this faktura
+            $ids = array_values(array_filter((array)$orderIds, fn($v) => is_numeric($v)));
+            if (empty($ids)) {
+                return response()->json(['error' => 'No valid orders provided'], 400);
+            }
+            $invoices = Invoice::where('faktura_id', $faktura->id)->whereIn('id', $ids)->get();
+            if ($invoices->isEmpty()) {
+                return response()->json(['error' => 'No matching orders to detach'], 400);
+            }
+            foreach ($invoices as $inv) {
+                $inv->faktura_id = null;
+                $inv->save();
+            }
+            return response()->json(['success' => true, 'detached' => $invoices->pluck('id')]);
+        } catch (\Throwable $e) {
+            return response()->json(['error' => 'Failed to detach orders'], 500);
         }
     }
 

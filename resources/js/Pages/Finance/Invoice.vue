@@ -18,6 +18,12 @@
                                 <button class="btn generate-invoice" @click="printInvoice">
                                     Print Invoice <i class="fa-solid fa-file-invoice-dollar"></i>
                                 </button>
+                            <button v-if="isEditMode" class="btn blue" @click="openAttachOrdersModal">
+                                Add Orders <i class="fa-solid fa-plus"></i>
+                            </button>
+                            <button v-if="isEditMode" class="btn delete" @click="openDetachOrdersModal">
+                                Remove Orders <i class="fa-solid fa-minus"></i>
+                            </button>
                             </div>
                         <div class="buttons flex justify-end pt-3 gap-2">
                             <button v-if="isEditMode" class="btn btn3" @click="createOrAddToMergeGroup()">
@@ -35,17 +41,17 @@
                 </div>
 
                 <!-- Client Information Row -->
-                <div class="client-info-section" v-if="invoice[0]?.client">
+                <div class="client-info-section" v-if="(invoice && invoice.length > 0) || faktura">
                     <div class="client-info">
                         <div class="client-info-container">
                             <div class="client-label">Client</div>
-                            <div class="client-name">{{ invoice[0]?.client }}</div>
+                            <div class="client-name">{{ invoice[0]?.client || '' }}</div>
                         </div>
                         <!-- Invoice meta (ID, Date, Created by) -->
                         <div class="invoice-info-minimal">
                             <div class="info-item">
                                 <span class="info-label">Invoice ID</span>
-                                <span class="info-value">{{ invoice[0]?.fakturaId }}/{{new Date(invoice[0]?.created).toLocaleDateString('en-US', { year: 'numeric'})}}</span>
+                                <span class="info-value">{{ fakturaId }}/{{ fakturaYear }}</span>
                             </div>
                             <div class="info-item">
                                 <span class="info-label">Date Created</span>
@@ -61,14 +67,14 @@
                                         </button>
                                     </div>
                                     <div v-else class="date-display" @click="startEditDate">
-                                        {{new Date(invoice[0]?.created).toLocaleDateString('en-US', { year: 'numeric', month: '2-digit', day: '2-digit' })}}
+                                        {{ fakturaCreatedDateFormatted }}
                                         <i v-if="isEditMode" class="fas fa-edit edit-icon"></i>
                                     </div>
                                 </span>
                             </div>
                             <div class="info-item">
                                 <span class="info-label">Created by</span>
-                                <span class="info-value">{{invoice[0]?.createdBy}}</span>
+                                <span class="info-value">{{ fakturaCreatedByName }}</span>
                             </div>
                             <div class="info-item comment" v-if="invoice[0]?.faktura_comment">
                                 <span class="info-label">Comment</span>
@@ -281,6 +287,9 @@
                     <div class="trade-items-container">
                         <div class="trade-items-header">
                             <h4 class="section-title">Trade Items</h4>
+                            <button v-if="isEditMode" class="btn green" @click="showTradeItemsModal = true">
+                                <i class="fas fa-plus"></i> Add Item
+                            </button>
                         </div>
 
                         <div v-if="tradeItems.length === 0" class="no-items">
@@ -294,37 +303,65 @@
                                         <span class="article-code" v-if="item.article_code">Article Code: {{ item.article_code }}</span>
                                         <span class="article-name">{{ item.article_name }}</span>
                                     </div>
+                                    <div class="item-actions" v-if="isEditMode">
+                                        <button v-if="!isEditingTrade[idx]" @click="startEditTrade(idx, item)" class="btn-edit-small" title="Edit Item">
+                                            <i class="fas fa-edit"></i>
+                                        </button>
+                                        <button v-else @click="saveEditTrade(idx, item)" class="btn-save-small" title="Save Changes">
+                                            <i class="fas fa-save"></i>
+                                        </button>
+                                        <button v-if="isEditingTrade[idx]" @click="cancelEditTrade(idx)" class="btn-cancel-small" title="Cancel">
+                                            <i class="fas fa-times"></i>
+                                        </button>
+                                        <button @click="removeTradeItem(idx, item)" class="btn-cancel-small" title="Delete Item">
+                                            <i class="fa-solid fa-trash"></i>
+                                        </button>
+                                    </div>
                                 </div>
 
                                 <div class="item-details">
                                     <div class="detail-item">
                                         <label>Quantity:</label>
-                                        <span class="detail-value">{{ item.quantity }}</span>
+                                        <template v-if="isEditingTrade[idx]">
+                                            <input v-model.number="editTradeForms[idx].quantity" type="number" min="1" class="form-control" />
+                                        </template>
+                                        <span v-else class="detail-value">{{ item.quantity }}</span>
                                     </div>
 
                                     <div class="detail-item">
                                         <label>Unit Price:</label>
-                                        <span class="detail-value">{{ formatNumber(item.unit_price) }} ден.</span>
+                                        <template v-if="isEditingTrade[idx]">
+                                            <input v-model.number="editTradeForms[idx].unit_price" type="number" step="0.01" min="0" class="form-control" />
+                                        </template>
+                                        <span v-else class="detail-value">{{ formatNumber(item.unit_price) }} ден.</span>
                                     </div>
 
                                     <div class="detail-item">
                                         <label>VAT Rate:</label>
-                                        <span class="detail-value">{{ item.vat_rate }}%</span>
+                                        <template v-if="isEditingTrade[idx]">
+                                            <select v-model.number="editTradeForms[idx].vat_rate" class="form-control">
+                                                <option :value="0">0%</option>
+                                                <option :value="5">5%</option>
+                                                <option :value="10">10%</option>
+                                                <option :value="18">18%</option>
+                                            </select>
+                                        </template>
+                                        <span v-else class="detail-value">{{ item.vat_rate }}%</span>
                                     </div>
 
                                     <div class="detail-item">
                                         <label>Total Price:</label>
-                                        <span class="detail-value total-price">{{ formatNumber(item.total_price) }} ден.</span>
+                                        <span class="detail-value total-price">{{ formatNumber(getItemTotal(idx, item)) }} ден.</span>
                                     </div>
 
                                     <div class="detail-item">
                                         <label>VAT Amount:</label>
-                                        <span class="detail-value">{{ formatNumber(item.vat_amount) }} ден.</span>
+                                        <span class="detail-value">{{ formatNumber(getItemVat(idx, item)) }} ден.</span>
                                     </div>
 
                                     <div class="detail-item">
                                         <label>Total with VAT:</label>
-                                        <span class="detail-value total-final">{{ formatNumber(item.total_price + item.vat_amount) }} ден.</span>
+                                        <span class="detail-value total-final">{{ formatNumber(getItemTotalWithVat(idx, item)) }} ден.</span>
                                     </div>
                                 </div>
                             </div>
@@ -355,6 +392,122 @@
                 <div class="modal-footer">
                     <button @click="saveComment" class="btn green">Save</button>
                     <button @click="closeCommentModal" class="btn delete">Cancel</button>
+                </div>
+            </div>
+        </div>
+        <!-- Add Trade Item Modal -->
+        <div v-if="showTradeItemsModal" class="modal-overlay" @click="closeAddTradeItemModal">
+            <div class="modal-content" @click.stop>
+                <div class="modal-header">
+                    <h3>Add Trade Item</h3>
+                    <button @click="closeAddTradeItemModal" class="close-btn">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label>Select Article:</label>
+                        <select v-model="selectedArticle" class="form-control">
+                            <option value="">Choose an article...</option>
+                            <option v-for="article in availableTradeArticles" :key="article.id" :value="article">
+                                {{ article.article.name }} ({{ article.article.code }}) - Stock: {{ article.quantity }} - Price: {{ formatNumber(article.selling_price || 0) }} ден
+                            </option>
+                        </select>
+                    </div>
+                    <div class="form-group" v-if="selectedArticle">
+                        <label>Quantity:</label>
+                        <input type="number" v-model.number="tradeItemQuantity" :max="selectedArticle.quantity" min="1" class="form-control">
+                        <small class="form-help-text">Available: {{ selectedArticle.quantity }}</small>
+                    </div>
+                    <div class="form-group" v-if="selectedArticle">
+                        <label>Unit Price:</label>
+                        <input type="number" v-model.number="tradeItemPrice" step="0.01" min="0" class="form-control">
+                    </div>
+                    <div class="form-group" v-if="selectedArticle">
+                        <label>VAT Rate:</label>
+                        <select v-model.number="tradeItemVatRate" class="form-control">
+                            <option :value="0">0%</option>
+                            <option :value="5">5%</option>
+                            <option :value="10">10%</option>
+                            <option :value="18">18%</option>
+                        </select>
+                    </div>
+                    <div class="form-group" v-if="selectedArticle && tradeItemQuantity && (tradeItemPrice || tradeItemPrice===0)">
+                        <div class="price-breakdown">
+                            <div>Subtotal: {{ formatNumber(tradeItemQuantity * tradeItemPrice) }} ден</div>
+                            <div>VAT ({{ tradeItemVatRate }}%): {{ formatNumber((tradeItemQuantity * tradeItemPrice) * (tradeItemVatRate/100)) }} ден</div>
+                            <div><strong>Total: {{ formatNumber((tradeItemQuantity * tradeItemPrice) * (1 + tradeItemVatRate/100)) }} ден</strong></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button @click="addTradeItem" :disabled="!canAddTradeItem()" class="btn green">Add Item</button>
+                    <button @click="closeAddTradeItemModal" class="btn delete">Cancel</button>
+                </div>
+            </div>
+        </div>
+        <!-- Attach Orders Modal -->
+        <div v-if="showAttachOrders" class="modal-overlay" @click="closeAttachOrdersModal">
+            <div class="modal-content wide-modal" @click.stop>
+                <div class="modal-header">
+                    <h3>Add Orders to Faktura</h3>
+                    <button @click="closeAttachOrdersModal" class="close-btn">&times;</button>
+                </div>
+                <div class="modal-body">
+                        <div class="form-group">
+                            <label>Search and select uninvoiced orders<span v-if="attachClientName"> (Client: {{ attachClientName }})</span>:</label>
+                            <input v-model="attachSearch" class="form-control" placeholder="Search by title or #id" />
+                        </div>
+                    <div class="form-group flex" style="gap:8px; align-items:center;">
+                        <button class="btn blue" @click="selectAllAttachVisible" :disabled="filteredAttachableOrders.length===0">Select all visible</button>
+                        <button class="btn delete" @click="clearAttachSelection" :disabled="selectedAttachOrderIds.length===0">Clear selection</button>
+                    </div>
+                    <div class="form-group select-list" style="max-height: 320px; overflow-y: auto;">
+                        <div v-if="attachLoading">Loading...</div>
+                        <div v-else>
+                            <div v-for="ord in filteredAttachableOrders" :key="ord.id" class="flex items-center gap-2 select-row" :class="{selected: selectedAttachOrderIds.includes(ord.id)}" @click="toggleAttachSelection(ord)" style="padding: 6px 0;">
+                                <input type="checkbox" :checked="selectedAttachOrderIds.includes(ord.id)" @click.stop @change="toggleAttachSelection(ord)" />
+                                <div class="bold">#{{ ord.id }}</div>
+                                <div class="select-title" :title="ord.invoice_title">{{ truncateTitle(ord.invoice_title, 40) }}</div>
+                                <div class="ml-auto">{{ ord.client?.name || ord.client }}</div>
+                            </div>
+                            <div v-if="filteredAttachableOrders.length === 0">No matching orders.</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button @click="confirmAttachOrders" :disabled="selectedAttachOrderIds.length === 0" class="btn green">Attach Selected ({{ selectedAttachOrderIds.length }})</button>
+                    <button @click="closeAttachOrdersModal" class="btn delete">Cancel</button>
+                </div>
+            </div>
+        </div>
+        <!-- Detach Orders Modal -->
+        <div v-if="showDetachOrders" class="modal-overlay" @click="closeDetachOrdersModal">
+            <div class="modal-content wide-modal" @click.stop>
+                <div class="modal-header">
+                    <h3>Remove Orders from Faktura</h3>
+                    <button @click="closeDetachOrdersModal" class="close-btn">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label>Search current faktura orders:</label>
+                        <input v-model="detachSearch" class="form-control" placeholder="Search by title or #id" />
+                    </div>
+                    <div class="form-group flex" style="gap:8px; align-items:center;">
+                        <button class="btn blue" @click="selectAllDetachVisible" :disabled="filteredDetachableOrders.length===0">Select all visible</button>
+                        <button class="btn delete" @click="clearDetachSelection" :disabled="selectedDetachOrderIds.length===0">Clear selection</button>
+                    </div>
+                    <div class="form-group select-list" style="max-height: 320px; overflow-y: auto;">
+                        <div v-for="ord in filteredDetachableOrders" :key="ord.id" class="flex items-center gap-2 select-row" :class="{selected: selectedDetachOrderIds.includes(ord.id)}" @click="toggleDetachSelection(ord)" style="padding: 6px 0;">
+                            <input type="checkbox" :checked="selectedDetachOrderIds.includes(ord.id)" @click.stop @change="toggleDetachSelection(ord)" />
+                            <div class="bold">#{{ ord.id }}</div>
+                            <div class="select-title" :title="ord.invoice_title">{{ truncateTitle(ord.invoice_title, 40) }}</div>
+                            <div class="ml-auto">{{ ord.client }}</div>
+                        </div>
+                        <div v-if="filteredDetachableOrders.length === 0">No matching orders.</div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button @click="confirmDetachOrders" :disabled="selectedDetachOrderIds.length === 0" class="btn delete">Remove Selected ({{ selectedDetachOrderIds.length }})</button>
+                    <button @click="closeDetachOrdersModal" class="btn blue">Cancel</button>
                 </div>
             </div>
         </div>
@@ -397,8 +550,42 @@ export default {
             }
         },
         tradeItemsTotal() {
-            return this.tradeItems.reduce((total, item) => total + (item.total_price + item.vat_amount), 0);
+            const items = Array.isArray(this.tradeItems) ? this.tradeItems : [];
+            return items.reduce((sum, it) => sum + Number(it?.total_price ?? 0) + Number(it?.vat_amount ?? 0), 0);
         },
+        fakturaId() {
+            // Prefer faktura prop, fallback to first invoice's fakturaId
+            return this.faktura?.id ?? this.invoice?.[0]?.fakturaId ?? '';
+        },
+        fakturaYear() {
+            const created = this.faktura?.created_at || this.invoice?.[0]?.created || null;
+            if (!created) return '';
+            try { return new Date(created).toLocaleDateString('en-US', { year: 'numeric' }); } catch (_) { return ''; }
+        },
+        fakturaCreatedDateFormatted() {
+            const created = this.faktura?.created_at || this.invoice?.[0]?.created || null;
+            if (!created) return '';
+            try { return new Date(created).toLocaleDateString('en-US', { year: 'numeric', month: '2-digit', day: '2-digit' }); } catch (_) { return ''; }
+        },
+        fakturaCreatedByName() {
+            // If faktura prop includes created_by relation, prefer it; else fallback if invoice embeds createdBy string
+            return this.faktura?.created_by_name || this.invoice?.[0]?.createdBy || '';
+        },
+        filteredAttachableOrders() {
+            const q = (this.attachSearch || '').toLowerCase().trim();
+            const base = this.attachableOrders;
+            const client = this.attachClientName || (this.invoice?.[0]?.client?.name || this.invoice?.[0]?.client || '');
+            const byClient = client ? base.filter(o => (o.client?.name || o.client || '') === client) : base;
+            if (!q) return byClient;
+            return byClient.filter(o => String(o.id).includes(q) || (o.invoice_title || '').toLowerCase().includes(q));
+        },
+        filteredDetachableOrders() {
+            const list = Array.isArray(this.invoice) ? this.invoice : [];
+            const mapped = list.map(o => ({ id: o.id, invoice_title: o.invoice_title, client: o.client?.name || o.client || '' }));
+            const q = (this.detachSearch || '').toLowerCase().trim();
+            if (!q) return mapped;
+            return mapped.filter(o => String(o.id).includes(q) || (o.invoice_title || '').toLowerCase().includes(q));
+        }
     },
     data() {
         return {
@@ -423,13 +610,35 @@ export default {
             editingMergedGroupId: null,
             originalMergedGroupSnapshots: {},
             hasUnsavedMergeChanges: false,
-            originalMergeGroups: []
+            originalMergeGroups: [],
+            // Trade Items edit/add state
+            showTradeItemsModal: false,
+            availableTradeArticles: [],
+            selectedArticle: null,
+            tradeItemQuantity: 1,
+            tradeItemPrice: 0,
+            tradeItemVatRate: 18,
+            isEditingTrade: {},
+            editTradeForms: {},
+            // Attach orders state
+            showAttachOrders: false,
+            attachLoading: false,
+            attachableOrders: [],
+            attachSearch: '',
+            selectedAttachOrderIds: [],
+            attachClientName: ''
+            ,
+            // Detach orders state
+            showDetachOrders: false,
+            detachSearch: '',
+            selectedDetachOrderIds: []
         }
     },
     mounted() {
         // Component mounted
         // Initialize original merge groups for change tracking
         this.originalMergeGroups = JSON.parse(JSON.stringify(this.faktura.merge_groups || []));
+        this.loadTradeArticles();
     },
     methods: {
         getAllJobsFlat() {
@@ -739,6 +948,270 @@ export default {
             // Update trade items - they belong to the faktura, not individual invoices
             this.tradeItems = updatedTradeItems;
         },
+        async loadTradeArticles() {
+            try {
+                const response = await axios.get('/trade-articles');
+                this.availableTradeArticles = response.data.data || [];
+            } catch (error) {
+                console.error('Error loading trade articles:', error);
+            }
+        },
+        async openAttachOrdersModal() {
+            this.showAttachOrders = true;
+            // Always refresh full list to avoid stale filtered state
+            await this.fetchAttachableOrders();
+            const first = (this.invoice || [])[0];
+            this.attachClientName = first?.client?.name || first?.client || '';
+        },
+        openDetachOrdersModal() {
+            this.showDetachOrders = true;
+        },
+        closeDetachOrdersModal() {
+            this.showDetachOrders = false;
+            this.detachSearch = '';
+            this.selectedDetachOrderIds = [];
+        },
+        async confirmDetachOrders() {
+            try {
+                if (!this.faktura || !this.faktura.id) {
+                    this.toast.error('Missing faktura');
+                    return;
+                }
+                if (!this.selectedDetachOrderIds.length) return;
+                await axios.put(`/invoice/${this.faktura.id}/detach-orders`, { orders: this.selectedDetachOrderIds });
+                const set = new Set(this.selectedDetachOrderIds);
+                const remaining = (this.invoice || []).filter(o => !set.has(o.id));
+                // Replace array contents in place to avoid reassigning prop
+                this.invoice.splice(0, this.invoice.length, ...remaining);
+                this.toast.success('Orders removed');
+                this.closeDetachOrdersModal();
+            } catch (e) {
+                const msg = e?.response?.data?.error || e?.message || 'Failed to remove orders';
+                console.error('Failed to detach orders', msg, e);
+                this.toast.error(msg);
+            }
+        },
+        closeAttachOrdersModal() {
+            this.showAttachOrders = false;
+            this.attachSearch = '';
+            this.selectedAttachOrderIds = [];
+            this.attachClientName = '';
+        },
+        async fetchAttachableOrders() {
+            try {
+                this.attachLoading = true;
+                const res = await axios.get('/api/notInvoiced/filtered', { params: { page: 1, sortOrder: 'desc' } });
+                const data = res?.data?.data || res?.data || [];
+                this.attachableOrders = (Array.isArray(data) ? data : []).map(r => ({
+                    id: r.id,
+                    invoice_title: r.invoice_title || r.title || `Order ${r.id}`,
+                    client: r.client || r.client?.name || (r.client_name || ''),
+                }));
+            } catch (e) {
+                console.error('Failed loading uninvoiced orders', e);
+                this.toast.error('Failed to load uninvoiced orders');
+            } finally {
+                this.attachLoading = false;
+            }
+        },
+        async confirmAttachOrders() {
+            try {
+                if (!this.faktura || !this.faktura.id) {
+                    this.toast.error('Missing faktura');
+                    return;
+                }
+                if (!this.selectedAttachOrderIds.length) return;
+                const res = await axios.put(`/invoice/${this.faktura.id}/attach-orders`, { orders: this.selectedAttachOrderIds });
+                const appended = (res?.data?.invoices || []).map(r => ({
+                    id: r.id,
+                    invoice_title: r.invoice_title,
+                    client: r.client,
+                    jobs: r.jobs || [],
+                    user: r.user,
+                    start_date: r.start_date,
+                    end_date: r.end_date,
+                    status: r.status
+                }));
+                this.invoice.push(...appended);
+                // If faktura header fields were empty, hydrate from faktura prop
+                // Keep existing created date if already set
+                if (!this.fakturaCreatedDateFormatted) {
+                    // Force computed to recompute; assigning same object is fine
+                    this.$forceUpdate?.();
+                }
+                this.toast.success('Orders attached');
+                this.closeAttachOrdersModal();
+            } catch (e) {
+                console.error('Failed to attach orders', e);
+                this.toast.error('Failed to attach orders');
+            }
+        },
+        toggleAttachSelection(ord) {
+            const ids = new Set(this.selectedAttachOrderIds);
+            let currentClient = this.attachClientName || (this.invoice?.[0]?.client?.name || this.invoice?.[0]?.client || '');
+            const ordClient = ord?.client?.name || ord?.client || '';
+            // If no client locked yet (empty faktura), lock to first selected client's name
+            if (!currentClient && ordClient) {
+                this.attachClientName = ordClient;
+                currentClient = ordClient;
+            }
+            if (currentClient && ordClient && ordClient !== currentClient) {
+                this.toast.error('You can only add orders from the same client.');
+                return;
+            }
+            if (ids.has(ord.id)) ids.delete(ord.id); else ids.add(ord.id);
+            const next = Array.from(ids);
+            this.selectedAttachOrderIds = next;
+            if (next.length === 0) {
+                // If last item was deselected, reset client lock and search
+                this.clearAttachSelection();
+            }
+        },
+        selectAllAttachVisible() {
+            const currentClient = this.attachClientName || (this.invoice?.[0]?.client?.name || this.invoice?.[0]?.client || '');
+            const ids = this.filteredAttachableOrders.map(o => o.id);
+            this.selectedAttachOrderIds = ids;
+        },
+        clearAttachSelection() { this.selectedAttachOrderIds = []; this.attachClientName = ''; },
+        toggleDetachSelection(ord) {
+            const ids = new Set(this.selectedDetachOrderIds);
+            if (ids.has(ord.id)) ids.delete(ord.id); else ids.add(ord.id);
+            const next = Array.from(ids);
+            this.selectedDetachOrderIds = next;
+            if (next.length === 0) {
+                this.clearDetachSelection();
+            }
+        },
+        selectAllDetachVisible() {
+            this.selectedDetachOrderIds = this.filteredDetachableOrders.map(o => o.id);
+        },
+        clearDetachSelection() { this.selectedDetachOrderIds = []; },
+        truncateTitle(title, max = 40) {
+            const t = String(title || '');
+            if (t.length <= max) return t;
+            return t.slice(0, max - 1) + '…';
+        },
+        closeAddTradeItemModal() {
+            this.showTradeItemsModal = false;
+            this.selectedArticle = null;
+            this.tradeItemQuantity = 1;
+            this.tradeItemPrice = 0;
+            this.tradeItemVatRate = 18;
+        },
+        canAddTradeItem() {
+            return !!this.selectedArticle && this.tradeItemQuantity > 0 && this.tradeItemPrice >= 0;
+        },
+        async addTradeItem() {
+            if (!this.canAddTradeItem()) return;
+            try {
+                if (!this.faktura || !this.faktura.id) {
+                    this.toast.error('Cannot add item: missing faktura');
+                    return;
+                }
+                const subtotal = Number(this.tradeItemQuantity || 0) * Number(this.tradeItemPrice || 0);
+                const vatAmount = subtotal * (Number(this.tradeItemVatRate || 0) / 100);
+                const payload = {
+                    article_id: this.selectedArticle?.article?.id ?? null,
+                    quantity: this.tradeItemQuantity,
+                    unit_price: this.tradeItemPrice,
+                    total_price: subtotal,
+                    vat_rate: this.tradeItemVatRate,
+                    vat_amount: vatAmount,
+                };
+                const res = await axios.post(`/invoice/${this.faktura.id}/trade-items`, payload);
+                // Backend returns created item? If not, append locally from payload
+                const created = res?.data?.trade_item || {
+                    id: Date.now(),
+                    article_id: payload.article_id,
+                    article_name: this.selectedArticle?.article?.name || '',
+                    article_code: this.selectedArticle?.article?.code || '',
+                    quantity: payload.quantity,
+                    unit_price: payload.unit_price,
+                    total_price: payload.total_price,
+                    vat_rate: payload.vat_rate,
+                    vat_amount: payload.vat_amount,
+                };
+                this.tradeItems.push(created);
+                this.closeAddTradeItemModal();
+                this.toast.success('Trade item added');
+            } catch (e) {
+                console.error(e);
+                this.toast.error('Failed to add trade item');
+            }
+        },
+        startEditTrade(index, item) {
+            this.$set ? this.$set(this.isEditingTrade, index, true) : (this.isEditingTrade[index] = true);
+            this.$set ? this.$set(this.editTradeForms, index, {
+                quantity: Number(item.quantity || 0),
+                unit_price: Number(item.unit_price || 0),
+                vat_rate: Number(item.vat_rate || 0)
+            }) : (this.editTradeForms[index] = { quantity: Number(item.quantity || 0), unit_price: Number(item.unit_price || 0), vat_rate: Number(item.vat_rate || 0) });
+        },
+        cancelEditTrade(index) {
+            this.isEditingTrade[index] = false;
+            delete this.editTradeForms[index];
+        },
+        async saveEditTrade(index, item) {
+            try {
+                const form = this.editTradeForms[index];
+                if (!form) return;
+                if (!this.faktura || !this.faktura.id) {
+                    this.toast.error('Cannot update item: missing faktura');
+                    return;
+                }
+                const subtotal = Number(form.quantity || 0) * Number(form.unit_price || 0);
+                const vatAmount = subtotal * (Number(form.vat_rate || 0) / 100);
+                const payload = {
+                    quantity: form.quantity,
+                    unit_price: form.unit_price,
+                    total_price: subtotal,
+                    vat_rate: form.vat_rate,
+                    vat_amount: vatAmount,
+                };
+                await axios.put(`/invoice/${this.faktura.id}/trade-items/${item.id}`, payload);
+                item.quantity = payload.quantity;
+                item.unit_price = payload.unit_price;
+                item.total_price = payload.total_price;
+                item.vat_rate = payload.vat_rate;
+                item.vat_amount = payload.vat_amount;
+                this.isEditingTrade[index] = false;
+                delete this.editTradeForms[index];
+                this.toast.success('Trade item updated');
+            } catch (e) {
+                console.error(e);
+                this.toast.error('Failed to update trade item');
+            }
+        },
+        async removeTradeItem(index, item) {
+            try {
+                if (!this.faktura || !this.faktura.id) {
+                    this.toast.error('Cannot delete item: missing faktura');
+                    return;
+                }
+                await axios.delete(`/invoice/${this.faktura.id}/trade-items/${item.id}`);
+                this.tradeItems.splice(index, 1);
+                this.toast.success('Trade item deleted');
+            } catch (e) {
+                console.error(e);
+                this.toast.error('Failed to delete trade item');
+            }
+        },
+        getItemTotal(index, item) {
+            const form = this.editTradeForms[index];
+            const q = form ? Number(form.quantity || 0) : Number(item.quantity || 0);
+            const u = form ? Number(form.unit_price || 0) : Number(item.unit_price || 0);
+            return q * u;
+        },
+        getItemVat(index, item) {
+            const form = this.editTradeForms[index];
+            const rate = form ? Number(form.vat_rate || 0) : Number(item.vat_rate || 0);
+            return this.getItemTotal(index, item) * (rate / 100);
+        },
+        getItemTotalWithVat(index, item) {
+            const total = this.getItemTotal(index, item);
+            const vat = this.getItemVat(index, item);
+            return total + vat;
+        },
         startEditingJob(job) {
             this.editingJobId = job.id;
             // snapshot original values for cancel
@@ -823,7 +1296,9 @@ export default {
             return 'кол.';
         },
         formatNumber(number) {
-            return Number(number).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            const n = Number(number);
+            if (!Number.isFinite(n)) return '0.00';
+            return n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
         },
         buildTradeItemsPayload() {
             return (this.tradeItems || []).map((item, idx) => {
@@ -931,46 +1406,30 @@ export default {
         async printInvoice() {
             const toast = useToast();
             try {
-                // Use the same logic as GenerateInvoice.vue
-                const orderIds = this.invoice.map(order => order.id);
-                const tradePayload = this.buildTradeItemsPayload();
-                
-                // Request metadata so we can redirect; then separately open the PDF in new tab
-                const response = await axios.post('/generate-invoice', {
-                    orders: orderIds,
-                    comment: this.invoice[0]?.faktura_comment || '',
-                    trade_items: tradePayload,
-                    created_at: new Date(this.invoice[0]?.created).toISOString().split('T')[0],
-                    merge_groups: this.faktura.merge_groups || [],
-                    return_meta: true
-                }, { responseType: 'json' });
-
-                if (response?.data?.success && response?.data?.faktura_id) {
-                    // Open PDF if provided
-                    if (response.data.pdf) {
-                        const binary = atob(response.data.pdf);
-                        const array = new Uint8Array(binary.length);
-                        for (let i = 0; i < binary.length; i++) array[i] = binary.charCodeAt(i);
-                        const blob = new Blob([array], { type: 'application/pdf' });
-                        const url = window.URL.createObjectURL(blob);
-                        window.open(url, '_blank');
-                    }
-                    toast.success('Invoice generated successfully');
+                // Build payload like GenerateInvoice.vue preview, but using current faktura context
+                const orderIds = (this.invoice || []).map(order => order.id);
+                if (!orderIds.length) {
+                    toast.error('Cannot print: no orders available');
                     return;
                 }
+                const tradePayload = this.buildTradeItemsPayload();
+                const createdAt = this.invoice?.length ? new Date(this.invoice[0]?.created).toISOString().split('T')[0] : new Date().toISOString().split('T')[0];
+                const response = await axios.post('/preview-invoice', {
+                    orders: orderIds,
+                    comment: (this.invoice && this.invoice[0]?.faktura_comment) || '',
+                    trade_items: tradePayload,
+                    created_at: createdAt,
+                    merge_groups: this.faktura?.merge_groups || []
+                }, { responseType: 'blob' });
 
-                // Fallback: if server returns a blob (older path), open and keep current page
-                if (response && response.data) {
-                    try {
-                        const blob = new Blob([response.data], { type: 'application/pdf' });
-                        const url = window.URL.createObjectURL(blob);
-                        window.open(url, '_blank');
-                        toast.success('Invoice generated successfully');
-                    } catch (_) { }
-                }
+                // Open blob in new tab
+                const blob = new Blob([response.data], { type: 'application/pdf' });
+                const url = window.URL.createObjectURL(blob);
+                window.open(url, '_blank');
+                toast.success('Invoice preview generated');
             } catch (error) {
-                console.error('Error generating invoice:', error);
-                toast.error('Error generating invoice!');
+                console.error('Error generating preview for print:', error);
+                toast.error('Error generating preview for print');
             }
         },
     },
@@ -1066,6 +1525,10 @@ $orange: #a36a03;
     box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
 }
 
+.wide-modal {
+    max-width: 900px;
+}
+
 .modal-header {
     display: flex;
     justify-content: space-between;
@@ -1117,6 +1580,40 @@ $orange: #a36a03;
     gap: 12px;
     border-top: 1px solid $ultra-light-gray;
     background-color: $dark-gray;
+}
+
+/* Select list styling for add/remove orders */
+.select-list {
+    border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 6px;
+    background: rgba(255,255,255,0.05);
+    padding: 6px 8px;
+}
+.select-row {
+    padding: 8px 10px !important;
+    border-bottom: 1px dashed rgba(255,255,255,0.1);
+    border-radius: 4px;
+    transition: background-color 0.15s ease, transform 0.05s ease;
+}
+.select-row:hover {
+    background: rgba(255,255,255,0.08);
+}
+.select-row.selected {
+    background: rgba(56, 161, 105, 0.25); /* green tint */
+    outline: 1px solid rgba(56,161,105,0.5);
+}
+.select-row input[type='checkbox'] {
+    width: 16px;
+    height: 16px;
+    accent-color: #38a169; /* green */
+}
+
+.select-title {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .form-group {

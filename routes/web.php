@@ -125,6 +125,8 @@ Route::middleware(['auth', 'verified'])->group(function() {
     Route::delete('/invoice/{fakturaId}/trade-items/{tradeItemId}', [InvoiceController::class, 'deleteTradeItem'])->name('invoices.deleteTradeItem');
     Route::put('/invoice/{fakturaId}/invoice/{invoiceId}/title', [InvoiceController::class, 'updateInvoiceTitle'])->name('invoices.updateTitle');
     Route::put('/invoice/{fakturaId}/date', [InvoiceController::class, 'updateInvoiceDate'])->name('invoices.updateDate');
+    Route::put('/invoice/{fakturaId}/attach-orders', [InvoiceController::class, 'attachOrders'])->name('invoices.attachOrders');
+    Route::put('/invoice/{fakturaId}/detach-orders', [InvoiceController::class, 'detachOrders'])->name('invoices.detachOrders');
     // Utility: next faktura id for pre-generation display
     Route::get('/invoices/next-id', [InvoiceController::class, 'getNextFakturaId'])->name('invoices.nextId');
 

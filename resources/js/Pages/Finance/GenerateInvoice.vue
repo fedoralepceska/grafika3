@@ -17,10 +17,10 @@
                             <button class="btn blue" @click="showTradeItemsModal = true">
                                 Add Trade Items <i class="fa-solid fa-plus"></i>
                             </button>
-                            <button class="btn orange" @click="previewInvoice">
+                            <button class="btn orange" @click="previewInvoice" :disabled="!hasOrders">
                                 Preview <i class="fa-solid fa-eye"></i>
                             </button>
-                            <button class="btn generate-invoice" @click="generateInvoice">Generate Invoice <i
+                            <button class="btn generate-invoice" @click="generateInvoice" :disabled="!hasOrders">Generate Invoice <i
                                     class="fa-solid fa-file-invoice-dollar"></i></button>
                         </div>
                         <div class="buttons flex justify-end pt-3">
@@ -459,6 +459,12 @@ export default {
             } else if (invoiceStatus === "Completed") {
                 return "green-text";
             }
+        },
+        hasOrders() {
+            const data = this.invoiceData;
+            if (!data) return false;
+            if (Array.isArray(data)) return data.length > 0;
+            try { return Object.keys(data).length > 0; } catch (_) { return false; }
         },
         tradeItemsTotal() {
             return this.tradeItems.reduce((total, item) => total + (item.total_price + item.vat_amount), 0);
@@ -999,7 +1005,13 @@ export default {
         async previewInvoice() {
             const toast = useToast();
             try {
-                const orderIds = Object.values(this.invoiceData).map(order => order.id);
+                const orderIds = Object.values(this.invoiceData || {})
+                    .map(order => order && order.id)
+                    .filter(Boolean);
+                if (!orderIds.length) {
+                    toast.error('Cannot preview: no orders selected');
+                    return;
+                }
                 const tradePayload = this.buildTradeItemsPayload();
                 const response = await axios.post('/preview-invoice', {
                     orders: orderIds,
@@ -1052,7 +1064,13 @@ export default {
         async generateInvoice() {
             const toast = useToast();
             try {
-                const orderIds = Object.values(this.invoiceData).map(order => order.id);
+                const orderIds = Object.values(this.invoiceData || {})
+                    .map(order => order && order.id)
+                    .filter(Boolean);
+                if (!orderIds.length) {
+                    toast.error('Cannot generate invoice: no orders selected');
+                    return;
+                }
                 const tradePayload = this.buildTradeItemsPayload();
                 // Request metadata so we can redirect; then separately open the PDF in new tab
                 const response = await axios.post('/generate-invoice', {
