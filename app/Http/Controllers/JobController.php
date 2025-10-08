@@ -3248,8 +3248,8 @@ class JobController extends Controller
                 'file_size' => $file->getSize()
             ]);
             
-            // Determine DPI dynamically from physical page size to avoid blurry thumbnails
-            $dpi = $this->computeDpiForSmallUpload($pageDimensions[0]['width_mm'] ?? null, $pageDimensions[0]['height_mm'] ?? null, 1200, 150, 400);
+            // Use 72 DPI for A4 thumbnails to ensure exact 595x842px dimensions
+            $dpi = 72;
             
             // Generate thumbnails using the same job as multipart uploads
             GeneratePdfThumbnails::dispatchSync(

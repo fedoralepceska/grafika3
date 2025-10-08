@@ -205,8 +205,8 @@ class MultipartUploadController extends Controller
                     // Small delay to ensure R2 consistency after completion
                     sleep(1);
                     
-                    // For cutting files use a higher default DPI to avoid blur on small artboards
-                    $cuttingDpi = 200;
+                    // Use 72 DPI for A4 thumbnails to ensure exact 595x842px dimensions
+                    $cuttingDpi = 72;
                     GeneratePdfThumbnails::dispatchSync(
                         jobId: $job->id,
                         r2Key: $data['key'],
@@ -218,8 +218,8 @@ class MultipartUploadController extends Controller
                 } else {
                     // Original file thumbnail generation
                     if (!empty($dimensionsResponse['__temp_pdf_path'])) {
-                        // Compute an appropriate DPI from physical page size to reach a minimum pixel size
-                        $computedDpi = $this->computeDpiForPages($dimensionsResponse['dimensions_breakdown'] ?? [], 1200, 150, 400);
+                        // Use 72 DPI for A4 thumbnails to ensure exact 595x842px dimensions
+                        $computedDpi = 72;
                         \Log::info('Starting synchronous thumbnail generation with temp file (after completion)', [
                             'job_id' => $job->id,
                             'r2_key' => $data['key'],
@@ -240,8 +240,8 @@ class MultipartUploadController extends Controller
                         
                         // Small delay to ensure R2 consistency after completion
                         sleep(1);
-                        // Fallback DPI if we couldn't read dimensions
-                        $fallbackDpi = 200;
+                        // Use 72 DPI for A4 thumbnails to ensure exact 595x842px dimensions
+                        $fallbackDpi = 72;
                         GeneratePdfThumbnails::dispatchSync(
                             jobId: $job->id,
                             r2Key: $data['key'],

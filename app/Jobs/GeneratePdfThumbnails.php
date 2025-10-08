@@ -165,18 +165,19 @@ class GeneratePdfThumbnails implements ShouldQueue
         }
         
         if (!$success) {
-            // Fallback to pdftocairo
-            \Log::channel('stderr')->info('GeneratePdfThumbnails: pdftoppm failed, trying pdftocairo', [
+            // Fallback to pdftocairo with A4 paper size
+            \Log::channel('stderr')->info('GeneratePdfThumbnails: pdftoppm failed, trying pdftocairo with A4 standardization', [
                 'job_id' => $job->id,
                 'source_still_exists' => file_exists($sourcePath),
+                'target_format' => 'A4 (595x842px)',
             ]);
             
-            // Build a cross-platform command (Windows CMD vs *nix shells quoting differs)
-            // Using PNG format which is universally supported by pdftocairo
+            // Build a cross-platform command with A4 paper size constraint
+            // Using PNG format with A4 paper size (210x297mm)
             if (DIRECTORY_SEPARATOR === '\\') {
-                $command = $finalExe . ' -png -r ' . (int) $this->dpi . ' ' . '"' . $sourcePath . '" ' . '"' . $outputPrefix . '"';
+                $command = $finalExe . ' -png -r ' . (int) $this->dpi . ' -paper A4 ' . '"' . $sourcePath . '" ' . '"' . $outputPrefix . '"';
             } else {
-                $command = $finalExe . ' -png -r ' . escapeshellarg((string) $this->dpi) . ' ' . escapeshellarg($sourcePath) . ' ' . escapeshellarg($outputPrefix);
+                $command = $finalExe . ' -png -r ' . escapeshellarg((string) $this->dpi) . ' -paper A4 ' . escapeshellarg($sourcePath) . ' ' . escapeshellarg($outputPrefix);
             }
             
             try {
@@ -861,16 +862,17 @@ class GeneratePdfThumbnails implements ShouldQueue
     private function tryPdf2Pic(string $sourcePath, string $workDir, int $jobId): bool
     {
         try {
-            \Log::channel('stderr')->info('GeneratePdfThumbnails: trying pdf-poppler', [
+            \Log::channel('stderr')->info('GeneratePdfThumbnails: trying pdf-poppler with A4 standardization', [
                 'job_id' => $jobId,
                 'source_path' => $sourcePath,
                 'source_exists' => file_exists($sourcePath),
                 'source_size' => filesize($sourcePath),
                 'work_dir' => $workDir,
                 'dpi' => $this->dpi,
+                'target_format' => 'A4 standardized if canvas available',
             ]);
 
-            // Build the Node.js command for pdf-poppler
+            // Build the Node.js command for pdf-poppler (now with A4 standardization built-in)
             $scriptPath = base_path('scripts/generate-thumbnails-poppler.cjs');
             
             if (!file_exists($scriptPath)) {
@@ -943,13 +945,18 @@ class GeneratePdfThumbnails implements ShouldQueue
     private function tryImageMagickThumbnails(string $sourcePath, string $workDir, int $jobId): bool
     {
         try {
-            \Log::channel('stderr')->info('GeneratePdfThumbnails: trying ImageMagick', [
+            \Log::channel('stderr')->info('GeneratePdfThumbnails: trying ImageMagick with A4 standardization', [
                 'job_id' => $jobId,
                 'source_path' => $sourcePath,
                 'source_exists' => file_exists($sourcePath),
                 'source_size' => filesize($sourcePath),
                 'work_dir' => $workDir,
+                'target_format' => 'A4 (595x842px)',
             ]);
+
+            // A4 dimensions at 72 DPI
+            $a4Width = 595;  // 210mm at 72 DPI
+            $a4Height = 842; // 297mm at 72 DPI
 
             $imagick = new \Imagick();
             
@@ -971,31 +978,51 @@ class GeneratePdfThumbnails implements ShouldQueue
                 $originalWidth = $page->getImageWidth();
                 $originalHeight = $page->getImageHeight();
                 
-                // Scale down to 1:10 ratio (10% of original size)
-                $thumbnailWidth = (int) ($originalWidth * 0.1);
-                $thumbnailHeight = (int) ($originalHeight * 0.1);
+                // Create A4 canvas
+                $a4Canvas = new \Imagick();
+                $a4Canvas->newImage($a4Width, $a4Height, 'white');
+                $a4Canvas->setImageFormat('png');
                 
-                // Resize the image for thumbnail
-                $page->resizeImage($thumbnailWidth, $thumbnailHeight, \Imagick::FILTER_LANCZOS, 1);
+                // Calculate scaling to fit within A4 while preserving aspect ratio
+                $scaleX = $a4Width / $originalWidth;
+                $scaleY = $a4Height / $originalHeight;
+                $scale = min($scaleX, $scaleY); // Use smaller scale to fit entirely
                 
-                // Set format to PNG with compression
-                $page->setImageFormat('png');
-                $page->setImageCompressionQuality(85); // Good quality but smaller file size
+                $scaledWidth = (int) ($originalWidth * $scale);
+                $scaledHeight = (int) ($originalHeight * $scale);
                 
-                // Write the thumbnail
-                $page->writeImage($outputPath);
+                // Resize the original page
+                $page->resizeImage($scaledWidth, $scaledHeight, \Imagick::FILTER_LANCZOS, 1);
                 
-                \Log::channel('stderr')->info('GeneratePdfThumbnails: ImageMagick page processed', [
+                // Calculate centering offset
+                $offsetX = (int) (($a4Width - $scaledWidth) / 2);
+                $offsetY = (int) (($a4Height - $scaledHeight) / 2);
+                
+                // Composite the scaled image onto the A4 canvas
+                $a4Canvas->compositeImage($page, \Imagick::COMPOSITE_OVER, $offsetX, $offsetY);
+                
+                // Set compression quality
+                $a4Canvas->setImageCompressionQuality(85);
+                
+                // Write the A4 standardized thumbnail
+                $a4Canvas->writeImage($outputPath);
+                
+                \Log::channel('stderr')->info('GeneratePdfThumbnails: ImageMagick A4 page processed', [
                     'job_id' => $jobId,
                     'page' => $pageNumber,
                     'original_size' => $originalWidth . 'x' . $originalHeight,
-                    'thumbnail_size' => $thumbnailWidth . 'x' . $thumbnailHeight,
-                    'scale_ratio' => '1:10',
+                    'a4_size' => $a4Width . 'x' . $a4Height,
+                    'scale_factor' => round($scale, 3),
+                    'centered_at' => $offsetX . ',' . $offsetY,
                 ]);
+                
+                // Clean up page canvas
+                $a4Canvas->clear();
+                $a4Canvas->destroy();
                 
                 if (file_exists($outputPath)) {
                     $filesCreated++;
-                    \Log::channel('stderr')->info('GeneratePdfThumbnails: ImageMagick created thumbnail', [
+                    \Log::channel('stderr')->info('GeneratePdfThumbnails: ImageMagick created A4 thumbnail', [
                         'job_id' => $jobId,
                         'page' => $pageNumber,
                         'file' => basename($outputPath),
@@ -1008,10 +1035,11 @@ class GeneratePdfThumbnails implements ShouldQueue
             $imagick->destroy();
             
             if ($filesCreated > 0) {
-                \Log::channel('stderr')->info('GeneratePdfThumbnails: ImageMagick succeeded', [
+                \Log::channel('stderr')->info('GeneratePdfThumbnails: ImageMagick A4 standardization succeeded', [
                     'job_id' => $jobId,
                     'pages_processed' => $pageCount,
                     'files_created' => $filesCreated,
+                    'standard_size' => '595x842px (A4)',
                 ]);
                 return true;
             } else {
@@ -1022,7 +1050,7 @@ class GeneratePdfThumbnails implements ShouldQueue
             }
             
         } catch (\Throwable $e) {
-            \Log::channel('stderr')->warning('GeneratePdfThumbnails: ImageMagick failed', [
+            \Log::channel('stderr')->warning('GeneratePdfThumbnails: ImageMagick A4 standardization failed', [
                 'job_id' => $jobId,
                 'error' => $e->getMessage(),
                 'source_exists' => file_exists($sourcePath),
