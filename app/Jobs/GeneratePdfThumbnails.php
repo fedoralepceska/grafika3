@@ -869,19 +869,19 @@ class GeneratePdfThumbnails implements ShouldQueue
     private function tryPdf2Pic(string $sourcePath, string $workDir, int $jobId): bool
     {
         try {
-            \Log::channel('stderr')->info('GeneratePdfThumbnails: trying pdf-poppler V2 with color fix', [
+            \Log::channel('stderr')->info('GeneratePdfThumbnails: trying V3 pure pdftocairo', [
                 'job_id' => $jobId,
                 'source_path' => $sourcePath,
                 'source_exists' => file_exists($sourcePath),
                 'source_size' => filesize($sourcePath),
                 'work_dir' => $workDir,
                 'dpi' => $this->dpi,
-                'target_format' => 'Original dimensions with sRGB color space',
-                'script_version' => 'v2',
+                'target_format' => 'Original dimensions with color fix',
+                'script_version' => 'v3',
             ]);
 
-            // Build the Node.js command for pdf-poppler V2 (with color fix and no A4 standardization)
-            $scriptPath = base_path('scripts/generate-thumbnails-poppler-v2.cjs');
+            // Build the Node.js command for V3 (pure pdftocairo, no Canvas dependency)
+            $scriptPath = base_path('scripts/generate-thumbnails-poppler-v3.cjs');
             
             if (!file_exists($scriptPath)) {
                 \Log::warning('GeneratePdfThumbnails: pdf-poppler script not found', [
