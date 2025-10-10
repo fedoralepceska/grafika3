@@ -81,6 +81,7 @@ Route::middleware(['auth', 'verified'])->group(function() {
     Route::get('/orders', [InvoiceController::class, 'index'])->name('orders.index');
     Route::get('/notInvoiced', [InvoiceController::class, 'invoiceReady'])->name('invoices.invoiceReady');
     Route::get('/api/notInvoiced/filtered', [InvoiceController::class, 'getFilteredUninvoicedOrders'])->name('api.invoices.filteredUninvoiced');
+    Route::get('/api/invoice/{id}/client', [InvoiceController::class, 'getInvoiceClient'])->name('api.invoices.getClient');
     Route::get('/invoiceGeneration',  [InvoiceController::class, 'showGenerateInvoice'])->name('invoices.showGenerateInvoice');
     Route::get('/allInvoices',  [InvoiceController::class, 'allFaktura'])->name('invoices.allFaktura');
     Route::get('/api/allInvoices/filtered', [InvoiceController::class, 'getFilteredAllInvoices'])->name('api.invoices.filteredAllInvoices');
@@ -112,6 +113,8 @@ Route::middleware(['auth', 'verified'])->group(function() {
     Route::get('/invoice/{id}', [InvoiceController::class, 'getGeneratedInvoice'])->name('invoices.getGeneratedInvoice');
     Route::put('/invoice/{id}/update-comment', [InvoiceController::class, 'updateInvoiceComment'])->name('invoices.updateInvoiceComment');
     Route::put('/invoice/{id}/merge-groups', [InvoiceController::class, 'updateMergeGroups'])->name('invoices.updateMergeGroups');
+    Route::put('/invoice/{id}/payment-deadline', [InvoiceController::class, 'updatePaymentDeadline'])->name('invoices.updatePaymentDeadline');
+    Route::get('/clients/{clientName}/card-statement', [\App\Http\Controllers\ClientController::class, 'getCardStatement'])->name('clients.getCardStatement');
     Route::get('/incomingInvoice', [\App\Http\Controllers\IncomingFakturaController::class, 'index'])->name('incomingInvoice.index');
     Route::post('/incomingInvoice', [\App\Http\Controllers\IncomingFakturaController::class, 'store'])->name('incomingInvoice.store');
     Route::get('/invoice-generation', [InvoiceController::class, 'generateAllInvoicesPdf'])->name('invoices.generateAllInvoicesPdf');

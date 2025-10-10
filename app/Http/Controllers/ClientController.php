@@ -193,4 +193,51 @@ class ClientController extends Controller
             'city' => $client->city
         ]);
     }
+
+    public function getCardStatement($clientName)
+    {
+        try {
+            \Log::info('Fetching card statement for client', ['client_name' => $clientName]);
+            
+            $client = Client::with('clientCardStatement')
+                ->where('name', $clientName)
+                ->first();
+            
+            if (!$client) {
+                \Log::warning('Client not found', ['client_name' => $clientName]);
+                return response()->json(['message' => 'Client not found'], 404);
+            }
+
+            $cardStatement = $client->clientCardStatement;
+            
+            if (!$cardStatement) {
+                \Log::info('No card statement found, returning default', ['client_id' => $client->id]);
+                return response()->json(['payment_deadline' => 30], 200);
+            }
+
+            // Ensure payment_deadline is returned as an integer
+            $paymentDeadline = $cardStatement->payment_deadline;
+            if ($paymentDeadline === null || $paymentDeadline === '') {
+                $paymentDeadline = 30;
+            } else {
+                $paymentDeadline = (int) round((float) $paymentDeadline);
+            }
+
+            \Log::info('Returning payment deadline', [
+                'client_id' => $client->id,
+                'raw_value' => $cardStatement->payment_deadline,
+                'returned_value' => $paymentDeadline
+            ]);
+
+            return response()->json([
+                'payment_deadline' => $paymentDeadline
+            ], 200);
+        } catch (\Exception $e) {
+            \Log::error('Error fetching card statement', [
+                'client_name' => $clientName,
+                'error' => $e->getMessage()
+            ]);
+            return response()->json(['error' => 'Failed to fetch card statement'], 500);
+        }
+    }
 }

@@ -80,6 +80,25 @@
                                 <span class="info-label">Comment</span>
                                 <span class="info-value">{{invoice[0]?.faktura_comment}}</span>
                             </div>
+                            <div class="info-item">
+                                <span class="info-label">Payment Deadline (days)</span>
+                                <span class="info-value">
+                                    <div v-if="isEditMode && editingPaymentDeadline" class="date-edit-container">
+                                        <input v-model.number="paymentDeadlineEdit" @keyup.enter="savePaymentDeadline" class="date-input"
+                                            type="number" min="0" step="1" />
+                                        <button @click="savePaymentDeadline" class="save-btn" title="Save">
+                                            <i class="fas fa-check"></i>
+                                        </button>
+                                        <button @click="cancelEditPaymentDeadline" class="cancel-btn" title="Cancel">
+                                            <i class="fas fa-times"></i>
+                                        </button>
+                                    </div>
+                                    <div v-else class="date-display" @click="startEditPaymentDeadline">
+                                        {{ displayPaymentDeadline }} days
+                                        <i v-if="isEditMode" class="fas fa-edit edit-icon"></i>
+                                    </div>
+                                </span>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -597,14 +616,34 @@ export default {
             if (!created) return '';
             try { return new Date(created).toLocaleDateString('en-US', { year: 'numeric' }); } catch (_) { return ''; }
         },
+
         fakturaCreatedDateFormatted() {
-            const created = this.faktura?.created_at || this.invoice?.[0]?.created || null;
+            const created = this.faktura?.created_at || null;
             if (!created) return '';
-            try { return new Date(created).toLocaleDateString('en-US', { year: 'numeric', month: '2-digit', day: '2-digit' }); } catch (_) { return ''; }
+            
+            try { 
+                // Use the same approach as AllInvoices.vue for consistency
+                return new Date(created).toLocaleDateString('en-US', { year: 'numeric', month: '2-digit', day: '2-digit' });
+            } catch (_) { return ''; }
         },
         fakturaCreatedByName() {
             // If faktura prop includes created_by relation, prefer it; else fallback if invoice embeds createdBy string
             return this.faktura?.created_by_name || this.invoice?.[0]?.createdBy || '';
+        },
+        displayPaymentDeadline() {
+            // Use override if set, otherwise fall back to client card statement default
+            console.log('displayPaymentDeadline - faktura:', this.faktura);
+            console.log('displayPaymentDeadline - override value:', this.faktura?.payment_deadline_override);
+            console.log('displayPaymentDeadline - override type:', typeof this.faktura?.payment_deadline_override);
+            
+            if (this.faktura?.payment_deadline_override !== null && this.faktura?.payment_deadline_override !== undefined) {
+                console.log('Using override:', this.faktura.payment_deadline_override);
+                return this.faktura.payment_deadline_override;
+            }
+            
+            const clientDeadline = this.invoice?.[0]?.client?.client_card_statement?.payment_deadline;
+            console.log('Using client default:', clientDeadline);
+            return clientDeadline !== null && clientDeadline !== undefined && clientDeadline !== '' ? parseInt(clientDeadline) : 30;
         },
         allSelectedAttachableOrders() {
             // This will show selected orders from any page
@@ -680,6 +719,8 @@ export default {
             titleEdits: {},
             editingDate: false,
             dateEdit: '',
+            editingPaymentDeadline: false,
+            paymentDeadlineEdit: null,
             toast: useToast(),
             editingJobId: null,
             originalJobSnapshots: {},
@@ -728,6 +769,26 @@ export default {
         this.loadTradeArticles();
     },
     methods: {
+        // Helper method to get the faktura date consistently
+        getFakturaDate() {
+            return this.faktura?.created_at || null;
+        },
+        // Helper method to extract date in YYYY-MM-DD format consistently from faktura
+        getDateForPayload() {
+            const created = this.getFakturaDate();
+            if (!created) return new Date().toISOString().split('T')[0];
+            
+            try {
+                // Use the same Date conversion as the display to ensure consistency
+                const date = new Date(created);
+                const year = date.getFullYear();
+                const month = String(date.getMonth() + 1).padStart(2, '0');
+                const day = String(date.getDate()).padStart(2, '0');
+                return `${year}-${month}-${day}`;
+            } catch (_) {
+                return new Date().toISOString().split('T')[0];
+            }
+        },
         getAllJobsFlat() {
             return (this.invoice || []).flatMap(o => o.jobs || []);
         },
@@ -980,9 +1041,8 @@ export default {
             if (!this.isEditMode) return;
             
             this.editingDate = true;
-            // Convert the current date to YYYY-MM-DD format for the date input
-            const currentDate = new Date(this.invoice[0]?.created);
-            this.dateEdit = currentDate.toISOString().split('T')[0];
+            // Use the same date logic for consistency
+            this.dateEdit = this.getDateForPayload();
             
             // Focus the input in the next tick
             this.$nextTick(() => {
@@ -1005,8 +1065,10 @@ export default {
                 );
 
                 if (response.data.success) {
-                    // Update the invoice data
-                    this.invoice[0].created = this.dateEdit;
+                    // Update the faktura data
+                    if (this.faktura) {
+                        this.faktura.created_at = this.dateEdit;
+                    }
                     this.toast.success('Invoice date updated successfully');
                 }
 
@@ -1021,6 +1083,39 @@ export default {
         cancelEditDate() {
             this.editingDate = false;
             this.dateEdit = '';
+        },
+        startEditPaymentDeadline() {
+            if (!this.isEditMode) return;
+            this.editingPaymentDeadline = true;
+            this.paymentDeadlineEdit = this.displayPaymentDeadline;
+            this.$nextTick(() => {
+                const input = document.querySelector('.date-input[type="number"]');
+                if (input) input.focus();
+            });
+        },
+        async savePaymentDeadline() {
+            if (this.paymentDeadlineEdit === null || this.paymentDeadlineEdit === '') {
+                this.cancelEditPaymentDeadline();
+                return;
+            }
+            try {
+                const response = await axios.put(`/invoice/${this.faktura.id}/payment-deadline`, {
+                    payment_deadline_override: parseInt(this.paymentDeadlineEdit)
+                });
+                if (response.data.success) {
+                    this.faktura.payment_deadline_override = parseInt(this.paymentDeadlineEdit);
+                    this.toast.success('Payment deadline updated successfully');
+                }
+                this.cancelEditPaymentDeadline();
+            } catch (error) {
+                console.error('Error updating payment deadline:', error);
+                this.toast.error('Failed to update payment deadline');
+                this.cancelEditPaymentDeadline();
+            }
+        },
+        cancelEditPaymentDeadline() {
+            this.editingPaymentDeadline = false;
+            this.paymentDeadlineEdit = null;
         },
         onJobUpdated(updatedJob) {
             // Find and update the job in the invoice data
@@ -1589,13 +1684,18 @@ export default {
                     return;
                 }
                 const tradePayload = this.buildTradeItemsPayload();
-                const createdAt = this.invoice?.length ? new Date(this.invoice[0]?.created).toISOString().split('T')[0] : new Date().toISOString().split('T')[0];
+                // Use the same date logic as the display to ensure consistency
+                const createdAt = this.getDateForPayload();
+                
+                console.log('Print Invoice - final createdAt being sent:', createdAt);
+                
                 const response = await axios.post('/preview-invoice', {
                     orders: orderIds,
                     comment: (this.invoice && this.invoice[0]?.faktura_comment) || '',
                     trade_items: tradePayload,
                     created_at: createdAt,
-                    merge_groups: this.faktura?.merge_groups || []
+                    merge_groups: this.faktura?.merge_groups || [],
+                    payment_deadline_override: this.displayPaymentDeadline
                 }, { responseType: 'blob' });
 
                 // Open blob in new tab

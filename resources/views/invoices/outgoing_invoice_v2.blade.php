@@ -298,9 +298,20 @@
                         $generatedAt = $firstInvoice['end_date'] ?? date('Y-m-d');
                     }
                     $generatedDate = date('Y-m-d', strtotime($generatedAt));
-                    // Payment deadline days from client card statement; can be string/float
-                    $deadlineDaysRaw = $firstInvoice['client']['client_card_statement']['payment_deadline'] ?? null;
-                    $deadlineDays = is_null($deadlineDaysRaw) || $deadlineDaysRaw === '' ? 30 : (int) $deadlineDaysRaw;
+                    
+                    \Log::info('PDF Template - Date Debug', [
+                        'generated_at_raw' => $firstInvoice['generated_at'] ?? 'NOT SET',
+                        'generated_date' => $generatedDate,
+                    ]);
+                    
+                    // Payment deadline: use override from request/faktura if provided, otherwise fall back to client card statement
+                    $deadlineDaysOverride = $firstInvoice['payment_deadline_override'] ?? null;
+                    if (!is_null($deadlineDaysOverride) && $deadlineDaysOverride !== '') {
+                        $deadlineDays = (int) $deadlineDaysOverride;
+                    } else {
+                        $deadlineDaysRaw = $firstInvoice['client']['client_card_statement']['payment_deadline'] ?? null;
+                        $deadlineDays = is_null($deadlineDaysRaw) || $deadlineDaysRaw === '' ? 30 : (int) $deadlineDaysRaw;
+                    }
                     $currencyDate = date('Y-m-d', strtotime($generatedDate . ' +' . $deadlineDays . ' days'));
                 @endphp
                 <div style="font-size: 8pt; font-family: 'Calibri'; font-weight: 300;">

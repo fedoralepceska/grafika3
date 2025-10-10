@@ -910,6 +910,19 @@ class InvoiceController extends Controller
         return response()->json(['count' => $count]);
     }
 
+    public function getInvoiceClient($id) {
+        try {
+            $invoice = Invoice::with('client')->findOrFail($id);
+            
+            return response()->json([
+                'client_name' => $invoice->client ? $invoice->client->name : null,
+                'client_id' => $invoice->client ? $invoice->client->id : null
+            ]);
+        } catch (\Exception $e) {
+            return response()->json(['error' => 'Invoice not found'], 404);
+        }
+    }
+
     public function updateLockedNote(Request $request)
     {
         $request->validate([
@@ -1418,10 +1431,13 @@ class InvoiceController extends Controller
             }
 
             // Create a new Faktura instance (only after validation passes)
+            $paymentDeadlineOverride = $request->input('payment_deadline_override');
+            
             $faktura = Faktura::create([
                 'isInvoiced' => 1,
                 'comment' => $comment,
-                'created_by' => auth()->id()
+                'created_by' => auth()->id(),
+                'payment_deadline_override' => is_numeric($paymentDeadlineOverride) ? (int)$paymentDeadlineOverride : null
             ]);
 
             // Persist merge groups if provided (lightweight JSON structure)
@@ -1440,8 +1456,19 @@ class InvoiceController extends Controller
             // If client provided a custom created_at date, apply it to the Faktura
             if (!empty($createdAtInput)) {
                 try {
-                    $faktura->created_at = \Carbon\Carbon::parse($createdAtInput);
+                    // Parse date as start of day in UTC to avoid timezone conversion issues
+                    $parsedDate = \Carbon\Carbon::parse($createdAtInput, 'UTC')->startOfDay();
+                    \Log::info('Setting faktura created_at', [
+                        'input' => $createdAtInput,
+                        'parsed' => $parsedDate->toDateTimeString(),
+                        'parsed_iso' => $parsedDate->toISOString()
+                    ]);
+                    $faktura->created_at = $parsedDate;
                     $faktura->save();
+                    \Log::info('Faktura saved with created_at', [
+                        'faktura_id' => $faktura->id,
+                        'created_at' => $faktura->created_at->toDateTimeString()
+                    ]);
                 } catch (\Throwable $e) {
                     // If parsing fails, keep default timestamp
                 }
@@ -1469,10 +1496,7 @@ class InvoiceController extends Controller
                     'vat_amount' => $tradeItem['vat_amount'] ?? 0,
                 ]);
             }
-            \Log::info('Faktura trade items stored', [
-                'faktura_id' => $faktura->id,
-                'stored_count' => $faktura->tradeItems()->count()
-            ]);
+
 
             // Commit the transaction
             DB::commit();
@@ -1512,7 +1536,7 @@ class InvoiceController extends Controller
                 }
             }
 
-            $transformedInvoices = $invoices->map(function ($invoice) use ($dns1d, $tradeItems, $comment, $faktura, $mergedJobsByInvoice) {
+            $transformedInvoices = $invoices->map(function ($invoice) use ($dns1d, $tradeItems, $comment, $faktura, $mergedJobsByInvoice, $paymentDeadlineOverride) {
                 $barcodeString = $invoice->id . '-' . date('m-Y', strtotime($invoice->end_date));
                 $barcodeImage = base64_encode($dns1d->getBarcodePNG($barcodeString, 'C128'));
 
@@ -1555,6 +1579,7 @@ class InvoiceController extends Controller
                         // Use Faktura creation time as the official generated time
                         'generated_at' => optional($faktura->created_at)->toDateTimeString(),
                         'faktura_id' => $faktura->id,
+                        'payment_deadline_override' => is_numeric($paymentDeadlineOverride) ? (int)$paymentDeadlineOverride : null,
                     ]
                 );
             })->toArray();
@@ -1698,6 +1723,8 @@ class InvoiceController extends Controller
                 'invoices.jobs.large_material',
                 'tradeItems.article'
             ])->findOrFail($id);
+            
+
 
             $faktura->invoices->each(function ($invoice)  {
                 $invoice->jobs->each(function ($job) {
@@ -1848,6 +1875,7 @@ class InvoiceController extends Controller
             $tradeItems = $request->input('trade_items', []);
             $createdAtInput = $request->input('created_at');
             $mergeGroups = $request->input('merge_groups', []);
+            $paymentDeadlineOverride = $request->input('payment_deadline_override');
 
             // Basic validation
             if (empty($invoiceIds) || !is_array($invoiceIds)) {
@@ -1915,7 +1943,7 @@ class InvoiceController extends Controller
             // Transform invoices for PDF generation (same as outgoingInvoicePdf)
             $dns1d = new DNS1D();
             $nextFakturaId = (int) (\App\Models\Faktura::max('id') ?? 0) + 1;
-            $transformedInvoices = $invoices->map(function ($invoice) use ($dns1d, $tradeItems, $comment, $nextFakturaId, $createdAtInput, $mergedJobsByInvoice) {
+            $transformedInvoices = $invoices->map(function ($invoice) use ($dns1d, $tradeItems, $comment, $nextFakturaId, $createdAtInput, $mergedJobsByInvoice, $paymentDeadlineOverride) {
                 // Compose barcode safely (GD may be missing in some environments)
                 $period = $invoice->end_date ? date('m-Y', strtotime($invoice->end_date)) : date('m-Y');
                 $barcodeString = $invoice->id . '-' . $period;
@@ -2009,8 +2037,10 @@ class InvoiceController extends Controller
                         'trade_items' => $invoiceTradeItems,
                         'comment' => $comment,
                         // Use provided preview date if valid, otherwise now
-                        'generated_at' => !empty($createdAtInput) ? optional(\Carbon\Carbon::parse($createdAtInput))->toDateTimeString() : now()->toDateTimeString(),
+                        // Parse date in UTC to avoid timezone conversion issues
+                        'generated_at' => !empty($createdAtInput) ? \Carbon\Carbon::parse($createdAtInput, 'UTC')->startOfDay()->toDateTimeString() : now()->toDateTimeString(),
                         'preview_faktura_id' => $nextFakturaId,
+                        'payment_deadline_override' => is_numeric($paymentDeadlineOverride) ? (int)$paymentDeadlineOverride : null,
                     ]
                 );
             })->toArray();
@@ -2040,8 +2070,17 @@ class InvoiceController extends Controller
             ]);
 
         } catch (\Exception $e) {
-            Log::error('Preview Invoice Error: ' . $e->getMessage());
-            return response()->json(['error' => 'Failed to generate preview'], 500);
+            Log::error('Preview Invoice Error: ' . $e->getMessage(), [
+                'trace' => $e->getTraceAsString(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine()
+            ]);
+            return response()->json([
+                'error' => 'Failed to generate preview',
+                'message' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine()
+            ], 500);
         }
     }
 
@@ -2094,6 +2133,31 @@ class InvoiceController extends Controller
         } catch (\Exception $e) {
             return response()->json([
                 'message' => 'Failed to update merge groups',
+                'error' => $e->getMessage(),
+                'success' => false
+            ], 500);
+        }
+    }
+
+    public function updatePaymentDeadline(Request $request, $id)
+    {
+        try {
+            $request->validate([
+                'payment_deadline_override' => 'nullable|integer|min:0'
+            ]);
+
+            $faktura = Faktura::findOrFail($id);
+            $faktura->update([
+                'payment_deadline_override' => $request->input('payment_deadline_override')
+            ]);
+
+            return response()->json([
+                'message' => 'Payment deadline updated successfully',
+                'success' => true
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'message' => 'Failed to update payment deadline',
                 'error' => $e->getMessage(),
                 'success' => false
             ], 500);
@@ -2768,7 +2832,8 @@ class InvoiceController extends Controller
                 'created' => 'required|date'
             ]);
 
-            $faktura->created_at = $validatedData['created'];
+            // Parse date as start of day in UTC to avoid timezone conversion issues
+            $faktura->created_at = \Carbon\Carbon::parse($validatedData['created'], 'UTC')->startOfDay();
             $faktura->save();
 
             DB::commit();

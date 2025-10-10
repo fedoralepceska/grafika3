@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 class Faktura extends Model
 {
     protected $table = 'faktura';
-    protected $fillable = ['isInvoiced', 'comment', 'created_by', 'merge_groups'];
+    protected $fillable = ['isInvoiced', 'comment', 'created_by', 'merge_groups', 'payment_deadline_override'];
     protected $casts = [
         'merge_groups' => 'array',
     ];

@@ -1,7 +1,7 @@
 <template>
     <MainLayout>
         <div class="pl-7 pr-7">
-            <Header title="invoice2" subtitle="UninvoicedOrders" icon="invoice.png" link="notInvoiced"/>
+            <Header title="invoice2" subtitle="UninvoicedOrders" icon="invoice.png" link="notInvoiced" />
             <div class="dark-gray p-2 text-white">
                 <RedirectTabs :route="$page.url" />
                 <div class="form-container p-2 ">
@@ -10,31 +10,30 @@
                     </h2>
                     <div class="filter-container flex gap-4 pb-10">
                         <div class="search flex gap-2">
-                            <input v-model="searchQuery" placeholder="Enter order number or order name" class="text-black search-input" @keyup.enter="searchInvoices" />
+                            <input v-model="searchQuery" placeholder="Enter order number or order name"
+                                class="text-black search-input" @keyup.enter="searchInvoices" />
                             <button class="btn create-order1" @click="searchInvoices">Search</button>
                         </div>
                         <div class="flex gap-2 filters-group">
-                        <div class="status">
-                            
-                            <ClientSelectDropdown 
-                                v-model="filterClient"
-                                :clients="uniqueClients"
-                                @change="applyFilter"
-                            />
-                        </div>
-                        <div class="date">
-                            <select v-model="sortOrder" class="text-black filter-select" @change="applyFilter">
-                                <option value="desc" hidden>Date</option>
-                                <option value="desc">Newest to Oldest</option>
-                                <option value="asc">Oldest to Newest</option>
-                            </select>
-                        </div>
+                            <div class="status">
+
+                                <ClientSelectDropdown v-model="filterClient" :clients="uniqueClients"
+                                    @change="applyFilter" />
+                            </div>
+                            <div class="date">
+                                <select v-model="sortOrder" class="text-black filter-select" @change="applyFilter">
+                                    <option value="desc" hidden>Date</option>
+                                    <option value="desc">Newest to Oldest</option>
+                                    <option value="asc">Oldest to Newest</option>
+                                </select>
+                            </div>
                         </div>
                         <div class="button flex gap-3">
-                            <button @click="clearAllSelections" v-if="hasSelectedInvoices || filterClient !== 'All'" class="btn create-order1" >
+                            <button @click="clearAllSelections" v-if="hasSelectedInvoices || filterClient !== 'All'"
+                                class="btn create-order1">
                                 Clear Selection <i class="fa-solid fa-times"></i>
                             </button>
-                            <button @click="generateInvoices" class="btn create-order" >
+                            <button @click="generateInvoices" class="btn create-order">
                                 Generate Invoice <i class="fa-solid fa-file-invoice-dollar"></i>
                             </button>
                         </div>
@@ -47,22 +46,26 @@
                         </div>
                     </div>
                     <div v-else-if="filteredInvoices && filteredInvoices.length > 0">
-                        <div :class="['border mb-2 invoice-row', getStatusRowClass(invoice.status)]" v-for="invoice in filteredInvoices" :key="invoice.id">
+                        <div :class="['border mb-2 invoice-row', getStatusRowClass(invoice.status)]"
+                            v-for="invoice in filteredInvoices" :key="invoice.id">
                             <div class="text-black flex justify-between order-info" style="line-height: normal">
-                                <div class="p-2 bold" style="font-size: 16px">{{invoice.invoice_title}}</div>
+                                <div class="p-2 bold" style="font-size: 16px">{{ invoice.invoice_title }}</div>
                                 <div class="flex" style="font-size: 12px">
                                     <button class="flex items-center p-1" @click="viewInvoice(invoice.id)">
                                         <i class="fa fa-eye bg-gray-300 p-2 rounded" aria-hidden="true"></i>
                                     </button>
                                     <div class="flex items-center p-1">
-                                        <input type="checkbox" :id="`invoice-${invoice.id}`" :checked="selectedInvoices[invoice.id]" @change="toggleInvoiceSelection(invoice, $event)" class="bg-gray-200 p-2 rounded px-3 py-3 border-gray-500">
+                                        <input type="checkbox" :id="`invoice-${invoice.id}`"
+                                            :checked="selectedInvoices[invoice.id]"
+                                            @change="toggleInvoiceSelection(invoice, $event)"
+                                            class="bg-gray-200 p-2 rounded px-3 py-3 border-gray-500">
                                     </div>
                                 </div>
                             </div>
                             <div class="flex row-columns pl-2 pt-1" style="line-height: initial">
                                 <div class="info col-order">
                                     <div>Order</div>
-                                    <div class="bold">#{{invoice.id}}</div>
+                                    <div class="bold">#{{ invoice.id }}</div>
                                 </div>
                                 <div class="info min-w-80 no-wrap col-client">
                                     <div>Customer</div>
@@ -86,83 +89,83 @@
                                                         <!-- Multiple files - display in flex row -->
                                                         <template v-if="hasMultipleFiles(job)">
                                                             <div class="multiple-thumbnails-row">
-                                                                <div 
-                                                                    v-for="(file, fileIndex) in getJobFiles(job)"
+                                                                <div v-for="(file, fileIndex) in getJobFiles(job)"
                                                                     :key="`${job.id}-${fileIndex}`"
                                                                     class="file-thumbnail-wrapper"
-                                                                    @click="openFileThumbnailModal(job, jobIndex, fileIndex)"
-                                                                >
+                                                                    @click="openFileThumbnailModal(job, jobIndex, fileIndex)">
                                                                     <!-- File thumbnail -->
-                                                                    <div v-if="getAvailableThumbnails(job.id, fileIndex).length > 0" class="thumbnail-preview-container">
-                                                                        <img 
-                                                                            v-if="shouldAttemptImageLoad(job, fileIndex)"
-                                                                            :src="getThumbnailUrl(job.id, fileIndex)" 
+                                                                    <div v-if="getAvailableThumbnails(job.id, fileIndex).length > 0"
+                                                                        class="thumbnail-preview-container">
+                                                                        <img v-if="shouldAttemptImageLoad(job, fileIndex)"
+                                                                            :src="getThumbnailUrl(job.id, fileIndex)"
                                                                             :alt="`File ${fileIndex + 1}`"
                                                                             class="preview-thumbnail-img"
-                                                                            @error="handleThumbnailError($event, job, fileIndex)"
-                                                                        />
+                                                                            @error="handleThumbnailError($event, job, fileIndex)" />
                                                                         <div v-else class="thumbnail-placeholder-icon">
                                                                             <i class="fa fa-file-o"></i>
                                                                         </div>
-                                                                        
+
                                                                         <!-- Page count indicator -->
-                                                                        <div v-if="getAvailableThumbnails(job.id, fileIndex).length > 1" class="page-count-indicator">
-                                                                            {{ getAvailableThumbnails(job.id, fileIndex).length }}
+                                                                        <div v-if="getAvailableThumbnails(job.id, fileIndex).length > 1"
+                                                                            class="page-count-indicator">
+                                                                            {{ getAvailableThumbnails(job.id,
+                                                                                fileIndex).length }}
                                                                         </div>
-                                                                        
+
                                                                         <!-- File number indicator -->
                                                                         <div class="file-number-indicator">
                                                                             {{ fileIndex + 1 }}
                                                                         </div>
                                                                     </div>
-                                                                    
+
                                                                     <!-- Loading state -->
-                                                                    <div v-else-if="thumbnailLoading && thumbnailLoading[job.id]" class="thumbnail-loading-indicator">
+                                                                    <div v-else-if="thumbnailLoading && thumbnailLoading[job.id]"
+                                                                        class="thumbnail-loading-indicator">
                                                                         <i class="fa fa-spinner fa-spin"></i>
                                                                     </div>
-                                                                    
+
                                                                     <!-- No thumbnails available -->
                                                                     <div v-else class="thumbnail-placeholder-icon">
-                                                                       <span class="text-xs">No preview</span>
+                                                                        <span class="text-xs">No preview</span>
                                                                     </div>
                                                                 </div>
                                                             </div>
                                                         </template>
-                                                        
+
                                                         <!-- Single file - centered display -->
                                                         <template v-else-if="hasSingleNewFile(job) || isLegacyJob(job)">
                                                             <div class="single-thumbnail-container">
-                                                                <div 
-                                                                    class="file-thumbnail-wrapper single-file"
-                                                                    @click="openFileThumbnailModal(job, jobIndex, 0)"
-                                                                >
+                                                                <div class="file-thumbnail-wrapper single-file"
+                                                                    @click="openFileThumbnailModal(job, jobIndex, 0)">
                                                                     <!-- Single file thumbnail -->
-                                                                    <div v-if="getAvailableThumbnails(job.id, 0).length > 0" class="thumbnail-preview-container">
-                                                                        <img 
-                                                                            v-if="shouldAttemptImageLoad(job, 0)"
-                                                                            :src="getThumbnailUrl(job.id, 0)" 
+                                                                    <div v-if="getAvailableThumbnails(job.id, 0).length > 0"
+                                                                        class="thumbnail-preview-container">
+                                                                        <img v-if="shouldAttemptImageLoad(job, 0)"
+                                                                            :src="getThumbnailUrl(job.id, 0)"
                                                                             :alt="`Job ${jobIndex + 1} Preview`"
                                                                             class="preview-thumbnail-img single-file-img"
-                                                                            @error="handleThumbnailError($event, job, 0)"
-                                                                        />
+                                                                            @error="handleThumbnailError($event, job, 0)" />
                                                                         <div v-else class="thumbnail-placeholder-icon">
                                                                             <i class="fa fa-file-o"></i>
                                                                         </div>
-                                                                        
+
                                                                         <!-- Page count indicator -->
-                                                                        <div v-if="getAvailableThumbnails(job.id, 0).length > 1" class="page-count-indicator">
-                                                                            {{ getAvailableThumbnails(job.id, 0).length }}
+                                                                        <div v-if="getAvailableThumbnails(job.id, 0).length > 1"
+                                                                            class="page-count-indicator">
+                                                                            {{ getAvailableThumbnails(job.id, 0).length
+                                                                            }}
                                                                         </div>
                                                                     </div>
-                                                                    
+
                                                                     <!-- Loading state -->
-                                                                    <div v-else-if="thumbnailLoading && thumbnailLoading[job.id]" class="thumbnail-loading-indicator">
+                                                                    <div v-else-if="thumbnailLoading && thumbnailLoading[job.id]"
+                                                                        class="thumbnail-loading-indicator">
                                                                         <i class="fa fa-spinner fa-spin"></i>
                                                                     </div>
-                                                                    
+
                                                                     <!-- No thumbnails available -->
                                                                     <div v-else class="thumbnail-placeholder-icon">
-                                                                    <span class="text-xs">No preview</span>
+                                                                        <span class="text-xs">No preview</span>
                                                                     </div>
                                                                 </div>
                                                             </div>
@@ -177,17 +180,20 @@
                                     </div>
                                 </div>
                                 <div v-if="invoice.LockedNote" class="info locked">
-                                    <ViewLockDialog :invoice="invoice"/>
+                                    <ViewLockDialog :invoice="invoice" />
                                 </div>
                                 <div class="info col-status">
                                     <div>Status</div>
-                                    <div :class="[getStatusColorClass(invoice.status), 'bold', 'truncate', 'status-pill']">{{invoice.status}}</div>
+                                    <div
+                                        :class="[getStatusColorClass(invoice.status), 'bold', 'truncate', 'status-pill']">
+                                        {{ invoice.status }}</div>
                                 </div>
                             </div>
                         </div>
                     </div>
                 </div>
-                <Pagination :pagination="{ data: [], links: invoices?.links || [] }" @pagination-change-page="goToPage"/>
+                <Pagination :pagination="{ data: [], links: invoices?.links || [] }"
+                    @pagination-change-page="goToPage" />
             </div>
 
             <!-- File-Specific Thumbnail Preview Modal -->
@@ -201,40 +207,29 @@
                             <i class="fa fa-times"></i>
                         </button>
                     </div>
-                    
+
                     <div class="modal-carousel">
                         <!-- Large thumbnail display -->
-                        <img 
-                            v-if="getCurrentFileThumbnail() && !fileModal.hasError"
-                            :src="getModalThumbnailUrl()"
-                            :alt="`Page ${fileModal.currentIndex + 1}`"
-                            class="modal-thumbnail"
-                            @error="onThumbnailError"
-                        />
+                        <img v-if="getCurrentFileThumbnail() && !fileModal.hasError" :src="getModalThumbnailUrl()"
+                            :alt="`Page ${fileModal.currentIndex + 1}`" class="modal-thumbnail"
+                            @error="onThumbnailError" />
                         <div v-else class="modal-no-thumbnail">
                             <i class="fa fa-image"></i>
                             <p>No preview available</p>
                         </div>
-                        
+
                         <!-- Navigation controls -->
-                        <button 
-                            v-if="fileModal.thumbnails.length > 1"
-                            @click="previousFileThumbnail()"
-                            class="modal-nav-btn prev-btn"
-                            :disabled="fileModal.currentIndex === 0"
-                        >
+                        <button v-if="fileModal.thumbnails.length > 1" @click="previousFileThumbnail()"
+                            class="modal-nav-btn prev-btn" :disabled="fileModal.currentIndex === 0">
                             <i class="fa fa-chevron-left"></i>
                         </button>
-                        
-                        <button 
-                            v-if="fileModal.thumbnails.length > 1"
-                            @click="nextFileThumbnail()"
+
+                        <button v-if="fileModal.thumbnails.length > 1" @click="nextFileThumbnail()"
                             class="modal-nav-btn next-btn"
-                            :disabled="fileModal.currentIndex === fileModal.thumbnails.length - 1"
-                        >
+                            :disabled="fileModal.currentIndex === fileModal.thumbnails.length - 1">
                             <i class="fa fa-chevron-right"></i>
                         </button>
-                        
+
                         <!-- Page indicator -->
                         <div v-if="fileModal.thumbnails.length > 1" class="modal-page-indicator">
                             Page {{ fileModal.currentIndex + 1 }} of {{ fileModal.thumbnails.length }}
@@ -251,17 +246,17 @@ import MainLayout from "@/Layouts/MainLayout.vue";
 import Header from "@/Components/Header.vue";
 import Pagination from "@/Components/Pagination.vue"
 import axios from 'axios';
-import {reactive} from "vue";
+import { reactive } from "vue";
 import OrderJobDetails from "@/Pages/Invoice/OrderJobDetails.vue";
 import ViewLockDialog from "@/Components/ViewLockDialog.vue";
 import RedirectTabs from "@/Components/RedirectTabs.vue";
 import ClientSelectDropdown from "@/Components/ClientSelectDropdown.vue";
-import {useToast} from "vue-toastification";
+import { useToast } from "vue-toastification";
 
 export default {
-    components: {Header, MainLayout,Pagination,OrderJobDetails, ViewLockDialog, RedirectTabs, ClientSelectDropdown },
-    props:{
-        invoices:Object,
+    components: { Header, MainLayout, Pagination, OrderJobDetails, ViewLockDialog, RedirectTabs, ClientSelectDropdown },
+    props: {
+        invoices: Object,
     },
     data() {
         return {
@@ -269,9 +264,9 @@ export default {
             filterClient: 'All',
             sortOrder: 'desc',
             localInvoices: [],
-            uniqueClients:[],
+            uniqueClients: [],
             filteredInvoices: [],
-            selectedInvoices:{},
+            selectedInvoices: {},
             loading: false,
             perPage: 10,
             // Image error tracking
@@ -298,11 +293,11 @@ export default {
         // Force initial load with testing per-page value
         this.applyFilter(1)
     },
-    computed:{
+    computed: {
         hasSelectedInvoices() {
             return Object.values(this.selectedInvoices).some(value => value);
         },
-        
+
     },
     methods: {
         formatDate(dateStr) {
@@ -334,7 +329,7 @@ export default {
             // If unselecting an invoice, remove it and check if we should clear filter
             if (isCurrentlySelected) {
                 this.selectedInvoices[invoice.id] = false;
-                
+
                 // If no invoices are selected anymore, clear the filter
                 const remainingSelected = Object.keys(this.selectedInvoices).filter(id => this.selectedInvoices[id]);
                 if (remainingSelected.length === 0 && this.filterClient !== 'All') {
@@ -346,26 +341,54 @@ export default {
             // Get IDs of currently selected invoices
             const selectedInvoiceIds = Object.keys(this.selectedInvoices).filter(id => this.selectedInvoices[id]);
 
-            // If this is the first selection OR same client, auto-filter and select
-            if (selectedInvoiceIds.length === 0 || 
-                (selectedInvoiceIds.length > 0 && invoice.client && selectedInvoiceIds.some(id => {
-                    const existingInvoice = this.filteredInvoices.find(inv => inv.id == id);
-                    return existingInvoice && existingInvoice.client && existingInvoice.client.name === invoice.client.name;
-                }))) {
-                
-                // Auto-filter to same client if this is the first selection
-                if (selectedInvoiceIds.length === 0) {
-                    this.autoFilterByClient(invoice.client.name);
-                }
-                
-                // Select the invoice
+            // If this is the first selection, auto-filter and select
+            if (selectedInvoiceIds.length === 0) {
+                this.autoFilterByClient(invoice.client.name);
                 this.selectedInvoices[invoice.id] = true;
                 return;
             }
 
-            // Different client - show error
-            toast.error('You can only select invoices from the same client.');
-            event.target.checked = false; // Revert checkbox state
+            // If we have existing selections, check if we're already filtered to the same client
+            // or if the current invoice matches the filter
+            if (this.filterClient !== 'All' && this.filterClient === invoice.client.name) {
+                // We're already filtered to this client, so it's safe to select
+                this.selectedInvoices[invoice.id] = true;
+                return;
+            }
+
+            // If we're not filtered to a specific client, check against existing selections
+            // We need to make an API call to get the client info for previously selected invoices
+            this.checkClientCompatibilityAndSelect(invoice, selectedInvoiceIds);
+        },
+
+        async checkClientCompatibilityAndSelect(invoice, selectedInvoiceIds) {
+            const toast = useToast();
+
+            try {
+                // Get the first selected invoice's client info
+                const firstSelectedId = selectedInvoiceIds[0];
+                const response = await axios.get(`/api/invoice/${firstSelectedId}/client`);
+                const existingClientName = response.data.client_name;
+
+                if (existingClientName === invoice.client.name) {
+                    // Same client - auto-filter and select
+                    this.autoFilterByClient(invoice.client.name);
+                    this.selectedInvoices[invoice.id] = true;
+                } else {
+                    // Different client - show error
+                    toast.error('You can only select invoices from the same client.');
+                    // Don't change checkbox state as it will be handled by Vue reactivity
+                }
+            } catch (error) {
+                console.error('Error checking client compatibility:', error);
+
+                // Fallback: if API fails, just allow the selection and auto-filter
+                // This prevents the UI from being stuck due to API issues
+                this.autoFilterByClient(invoice.client.name);
+                this.selectedInvoices[invoice.id] = true;
+
+                toast.warning('Unable to verify client compatibility, but selection was allowed.');
+            }
         },
 
         getStatusColorClass(status) {
@@ -380,7 +403,7 @@ export default {
         async applyFilter(page = 1) {
             try {
                 this.loading = true;
-                
+
                 const response = await axios.get('/api/notInvoiced/filtered', {
                     params: {
                         searchQuery: this.searchQuery,
@@ -389,18 +412,18 @@ export default {
                         page: page,
                     },
                 });
-                
+
                 // Update the filtered invoices directly without showing all orders
                 this.filteredInvoices = response.data.data || response.data;
                 // Keep pagination links from backend if sent
                 if (response.data && response.data.links) {
                     this.invoices.links = response.data.links;
                 }
-                
+
                 // Build URL with current filters for browser history
                 let redirectUrl = '/notInvoiced';
                 const params = [];
-                
+
                 if (this.searchQuery) {
                     params.push(`searchQuery=${encodeURIComponent(this.searchQuery)}`);
                 }
@@ -413,7 +436,7 @@ export default {
                 if (page) {
                     params.push(`page=${page}`);
                 }
-                
+
                 if (params.length > 0) {
                     redirectUrl += '?' + params.join('&');
                 }
@@ -430,7 +453,7 @@ export default {
             // Use the same applyFilter method for consistency
             await this.applyFilter(1);
         },
-        goToPage(page){
+        goToPage(page) {
             this.applyFilter(page);
         },
         async fetchUniqueClients() {
@@ -441,7 +464,7 @@ export default {
                 console.error(error);
             }
         },
-        
+
         async autoFilterByClient(clientName) {
             // Set the client filter and apply it
             this.filterClient = clientName;
@@ -455,7 +478,7 @@ export default {
             this.filterClient = 'All';
             this.applyFilter(1);
         },
-        
+
         async generateInvoices() {
             const toast = useToast();
             const selectedIds = Object.entries(this.selectedInvoices)
@@ -485,22 +508,22 @@ export default {
             }
             return false;
         },
-        
+
         hasMultipleFiles(job) {
             // Check if job has dimensions_breakdown (new system) and has 2 or more files
             return job.dimensions_breakdown && Array.isArray(job.dimensions_breakdown) && job.dimensions_breakdown.length > 1;
         },
-        
+
         hasSingleNewFile(job) {
             // Check if job has dimensions_breakdown (new system) with exactly 1 file
             return job.dimensions_breakdown && Array.isArray(job.dimensions_breakdown) && job.dimensions_breakdown.length === 1;
         },
-        
+
         isLegacyJob(job) {
             // Check if this is a legacy job (pre-dimensions_breakdown)
             return !job.dimensions_breakdown && job.file;
         },
-        
+
         getJobFiles(job) {
             // Return dimensions_breakdown array for new system, or create array from legacy file
             if (job.dimensions_breakdown && Array.isArray(job.dimensions_breakdown)) {
@@ -508,7 +531,7 @@ export default {
             }
             return job.file ? [job.file] : [];
         },
-        
+
         getThumbnailUrl(jobId, fileIndex, page = null) {
             // Use dynamic API route like InvoiceDetails.vue for consistency
             try {
@@ -519,13 +542,13 @@ export default {
                 return `/jobs/${jobId}/view-thumbnail/${fileIndex}/${pageNumber || 1}`;
             }
         },
-        
+
         handleThumbnailError(event, job, fileIndex) {
             const jobKey = `${job.id}_${fileIndex}`;
-            
+
             // Mark this image as failed to prevent repeated requests
             this.imageErrors[jobKey] = true;
-            
+
             // Hide the broken image and show a placeholder instead
             const parentElement = event.target.parentElement;
             if (parentElement) {
@@ -533,13 +556,13 @@ export default {
                 const placeholder = document.createElement('div');
                 placeholder.className = 'image-error-placeholder';
                 placeholder.innerHTML = '<i class="fa fa-file-o"></i><span>File not found</span>';
-                
+
                 // Replace the broken image with placeholder
                 event.target.style.display = 'none';
                 parentElement.appendChild(placeholder);
             }
         },
-        
+
         shouldAttemptImageLoad(job, fileIndex) {
             if (fileIndex === 'legacy') {
                 const jobKey = `${job.id}_legacy`;
@@ -549,7 +572,7 @@ export default {
             const shouldLoad = !this.imageErrors[jobKey];
             return shouldLoad;
         },
-        
+
         getJobThumbnails(jobId) {
             // Find the job in the current invoices data
             for (const invoice of this.filteredInvoices) {
@@ -562,19 +585,19 @@ export default {
             }
             return [];
         },
-        
+
         getThumbnailsForFile(jobId, fileIndex) {
             // For new API-based approach, we'll rely on SSR thumbnails when available
             const thumbnails = this.getJobThumbnails(jobId);
             const job = this.findJobById(jobId);
             if (!job) return [];
-            
+
             // If we have SSR thumbnails, filter them by file index
             if (thumbnails && thumbnails.length > 0) {
-                const matchingThumbnails = thumbnails.filter(t => 
+                const matchingThumbnails = thumbnails.filter(t =>
                     t && t.file_index === fileIndex
                 );
-                
+
                 // Sort by page number to ensure proper order
                 return matchingThumbnails.sort((a, b) => {
                     const pageA = parseInt(a.page_number || '0');
@@ -582,11 +605,11 @@ export default {
                     return pageA - pageB;
                 });
             }
-            
+
             // Return empty array - getAvailableThumbnails will handle fallback
             return [];
         },
-        
+
         findJobById(jobId) {
             // Find job by ID across all invoices
             for (const invoice of this.filteredInvoices) {
@@ -597,26 +620,26 @@ export default {
             }
             return null;
         },
-        
+
         getAvailableThumbnails(jobId, fileIndex) {
             // Get all available thumbnail pages for a specific file
             const thumbnails = this.getThumbnailsForFile(jobId, fileIndex);
-            
+
             // If no thumbnails found via SSR data, create placeholder thumbnail objects for API calls
             if (thumbnails.length === 0) {
                 const job = this.findJobById(jobId);
-                if (job && ((this.hasMultipleFiles(job) && fileIndex < job.dimensions_breakdown.length) || 
-                           (this.hasSingleNewFile(job) && fileIndex === 0) || 
-                           (this.isLegacyJob(job) && fileIndex === 0))) {
-                    
+                if (job && ((this.hasMultipleFiles(job) && fileIndex < job.dimensions_breakdown.length) ||
+                    (this.hasSingleNewFile(job) && fileIndex === 0) ||
+                    (this.isLegacyJob(job) && fileIndex === 0))) {
+
                     const fileThumbnails = [];
-                    
+
                     // Check if job has page dimensions breakdown for multiple pages
-                    if (job.dimensions_breakdown && job.dimensions_breakdown[fileIndex] && 
+                    if (job.dimensions_breakdown && job.dimensions_breakdown[fileIndex] &&
                         job.dimensions_breakdown[fileIndex].page_dimensions) {
-                        
+
                         const pageCount = job.dimensions_breakdown[fileIndex].page_dimensions.length;
-                        
+
                         // Create thumbnail entry for each page
                         for (let page = 1; page <= pageCount; page++) {
                             fileThumbnails.push({
@@ -635,24 +658,24 @@ export default {
                             file_name: `placeholder_${jobId}_${fileIndex}.png`
                         });
                     }
-                    
+
                     return fileThumbnails;
                 }
             }
-            
+
             return thumbnails;
         },
-        
+
         openFileThumbnailModal(job, jobIndex, fileIndex) {
             const jobName = `Job #${jobIndex + 1}`;
             const fileName = this.getFileName(job, fileIndex);
             const thumbnails = this.getAvailableThumbnails(job.id, fileIndex);
-            
+
             if (thumbnails.length === 0) {
-                console.warn(`No thumbnails found for job ${job.id}, file ${fileIndex}`);  
+                console.warn(`No thumbnails found for job ${job.id}, file ${fileIndex}`);
                 return;
             }
-            
+
             this.fileModal = {
                 show: true,
                 jobId: job.id,
@@ -664,7 +687,7 @@ export default {
                 hasError: false
             };
         },
-        
+
         closeFileModal() {
             this.fileModal.show = false;
             this.fileModal = {
@@ -678,33 +701,33 @@ export default {
                 hasError: false
             };
         },
-        
+
         getCurrentFileThumbnail() {
             return this.fileModal.thumbnails[this.fileModal.currentIndex];
         },
-        
+
         getModalThumbnailUrl() {
             // Use dynamic API route for modal thumbnails
             const thumbnail = this.getCurrentFileThumbnail();
             if (!thumbnail) return null;
-            
+
             return this.getThumbnailUrl(this.fileModal.jobId, this.fileModal.fileIndex, thumbnail.page_number || 1);
         },
-        
+
         previousFileThumbnail() {
             if (this.fileModal.currentIndex > 0) {
                 this.fileModal.currentIndex--;
                 this.fileModal.hasError = false; // Reset error state
             }
         },
-        
+
         nextFileThumbnail() {
             if (this.fileModal.currentIndex < this.fileModal.thumbnails.length - 1) {
                 this.fileModal.currentIndex++;
                 this.fileModal.hasError = false; // Reset error state
             }
         },
-        
+
         getFileName(job, fileIndex) {
             // Get filename for the specific file index
             if (job.dimensions_breakdown && job.dimensions_breakdown[fileIndex]) {
@@ -719,20 +742,20 @@ export default {
             } else if (job.file && fileIndex === 0) {
                 return typeof job.file === 'string' ? job.file.split('/').pop() || job.file : 'Legacy File';
             }
-            
+
             return `File ${fileIndex + 1}`;
         },
-        
+
         getFileNameFromPath(filePath) {
             if (!filePath) return '';
             let fileName = filePath.split('/').pop() || filePath;
-            
+
             // Remove timestamp prefix (e.g., "1759428892_adoadoadoado.pdf")
             fileName = fileName.replace(/^\d+_/, '');
-            
+
             return fileName;
         },
-        
+
         onThumbnailError(event) {
             console.warn('Modal thumbnail failed to load');
             // Set error flag to show placeholder
@@ -742,7 +765,6 @@ export default {
 };
 </script>
 <style scoped lang="scss">
-
 .border:nth-child(odd) .order-info {
     background-color: white;
 }
@@ -750,7 +772,7 @@ export default {
 .border:nth-child(even) .order-info {
     background-color: rgba(255, 255, 255, 0.65);
 }
- 
+
 .info {
     min-width: 0;
     display: flex;
@@ -758,7 +780,7 @@ export default {
     justify-content: center;
 }
 
-.filter-container{
+.filter-container {
     justify-content: space-between;
     flex-wrap: wrap;
 }
@@ -772,57 +794,57 @@ export default {
     flex-wrap: wrap;
 }
 
-.search-input{
+.search-input {
     width: 50vh;
     max-width: 100%;
     border-radius: 3px;
 }
 
-.filter-select{
+.filter-select {
     width: 30vh;
     min-width: 200px;
     max-width: 100%;
 }
 
-.locked{
+.locked {
     display: flex;
     justify-content: center;
 }
 
-select{
+select {
     width: 25vh;
     border-radius: 3px;
 }
 
-.orange{
+.orange {
     color: $orange;
 }
 
-.blue-text{
+.blue-text {
     color: $blue;
 }
 
-.bold{
+.bold {
     font-weight: bold;
 }
 
-.green-text{
+.green-text {
     color: $green;
 }
 
-.blue{
+.blue {
     background-color: $blue;
 }
 
-.green{
+.green {
     background-color: $green;
 }
 
-.green:hover{
+.green:hover {
     background-color: green;
 }
 
-.header{
+.header {
     display: flex;
     align-items: center;
 }
@@ -836,7 +858,7 @@ select{
     min-width: 80vh;
 }
 
-.sub-title{
+.sub-title {
     font-size: 20px;
     font-weight: bold;
     margin-bottom: 20px;
@@ -845,7 +867,7 @@ select{
     color: $white;
 }
 
-.button-container{
+.button-container {
     display: flex;
     justify-content: end;
 }
@@ -858,12 +880,12 @@ select{
     border-radius: 2px;
 }
 
-.create-order1{
+.create-order1 {
     background-color: $blue;
     color: white;
 }
 
-.create-order{
+.create-order {
     background-color: $green;
     color: white;
 }
@@ -880,18 +902,37 @@ select{
     background-color: $background-color;
 }
 
-.col-status { margin-left: auto; }
+.col-status {
+    margin-left: auto;
+}
 
-.row-columns > .info div:nth-child(2) {
+.row-columns>.info div:nth-child(2) {
     white-space: nowrap;
 }
 
-.col-order { width: 90px; }
-.col-client { width: 320px; }
-.col-date { width: 170px; }
-.col-user { width: 200px; }
-.col-thumbnails { width: 180px; }
-.col-status { width: 180px; }
+.col-order {
+    width: 90px;
+}
+
+.col-client {
+    width: 320px;
+}
+
+.col-date {
+    width: 170px;
+}
+
+.col-user {
+    width: 200px;
+}
+
+.col-thumbnails {
+    width: 180px;
+}
+
+.col-status {
+    width: 180px;
+}
 
 .truncate {
     overflow: hidden;
@@ -933,12 +974,12 @@ select{
     flex-direction: column;
     align-items: center;
     gap: 10px;
-    
+
     i {
         font-size: 24px;
         color: $blue;
     }
-    
+
     span {
         font-size: 16px;
         color: white;
@@ -947,11 +988,11 @@ select{
 
 /* Improved invoice row styling */
 .invoice-row {
-    border: 3px solid rgba(255,255,255,0.25);
+    border: 3px solid rgba(255, 255, 255, 0.25);
     border-radius: 8px;
     overflow: hidden;
-    background: rgba(255,255,255,0.06);
-    box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+    background: rgba(255, 255, 255, 0.06);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
     transition: box-shadow 0.2s ease, transform 0.2s ease, border-color 0.2s ease;
 }
 
@@ -973,15 +1014,18 @@ select{
 
 /* Status-based row accents for a more lively UI */
 .row-completed {
-    border-color: rgba(16, 185, 129, 0.35); /* green */
+    border-color: rgba(16, 185, 129, 0.35);
+    /* green */
 }
 
 .row-progress {
-    border-color: rgba(59, 130, 246, 0.35); /* blue */
+    border-color: rgba(59, 130, 246, 0.35);
+    /* blue */
 }
 
 .row-pending {
-    border-color: rgba(234, 179, 8, 0.35); /* amber */
+    border-color: rgba(234, 179, 8, 0.35);
+    /* amber */
 }
 
 /* Status pill styling */
@@ -989,61 +1033,108 @@ select{
     display: inline-block;
     padding: 4px 10px;
     border-radius: 9999px;
-    background-color: rgba(255,255,255,0.08);
+    background-color: rgba(255, 255, 255, 0.08);
     width: fit-content;
 }
 
 @media (max-width: 1024px) {
-    .filter-container { gap: 12px; }
-    .search-input { width: 100%; }
-    .filter-select { width: 100%; }
-    .filters-group { flex: 1 1 100%; }
-    .row-columns { gap: 1rem; }
-    .col-client { width: 220px; }
-    .col-user { width: 150px; }
-    .col-thumbnails { width: 160px; }
-    .col-status { width: 140px; }
+    .filter-container {
+        gap: 12px;
+    }
+
+    .search-input {
+        width: 100%;
+    }
+
+    .filter-select {
+        width: 100%;
+    }
+
+    .filters-group {
+        flex: 1 1 100%;
+    }
+
+    .row-columns {
+        gap: 1rem;
+    }
+
+    .col-client {
+        width: 220px;
+    }
+
+    .col-user {
+        width: 150px;
+    }
+
+    .col-thumbnails {
+        width: 160px;
+    }
+
+    .col-status {
+        width: 140px;
+    }
 }
 
 @media (max-width: 768px) {
-    .row-columns { gap: 0.75rem; }
-    .col-client { width: 180px; }
-    .col-user { width: 120px; }
-    .col-thumbnails { width: 120px; }
-    .col-status { width: 120px; }
+    .row-columns {
+        gap: 0.75rem;
+    }
+
+    .col-client {
+        width: 180px;
+    }
+
+    .col-user {
+        width: 120px;
+    }
+
+    .col-thumbnails {
+        width: 120px;
+    }
+
+    .col-status {
+        width: 120px;
+    }
 }
 
 @media (max-width: 640px) {
-    .filter-container { gap: 8px; flex-wrap: nowrap; overflow-x: hidden; }
-    .filters-group { flex-wrap: nowrap; }
-    
+    .filter-container {
+        gap: 8px;
+        flex-wrap: nowrap;
+        overflow-x: hidden;
+    }
+
+    .filters-group {
+        flex-wrap: nowrap;
+    }
+
     /* Responsive thumbnail adjustments */
     .thumbnail-section {
         min-width: 100px;
         max-width: 120px;
     }
-    
+
     .multiple-thumbnails-row {
         gap: 4px;
         max-width: 100px;
     }
-    
+
     .preview-thumbnail-img {
         width: 30px;
         height: 40px;
-        
+
         &.single-file-img {
             width: 35px;
             height: 45px;
         }
     }
-    
+
     .thumbnail-placeholder-icon,
     .thumbnail-loading-indicator {
         width: 30px;
         height: 40px;
     }
-    
+
     .file-number-indicator,
     .page-count-indicator {
         font-size: 8px;
@@ -1052,7 +1143,7 @@ select{
 }
 
 /* Thumbnail styles */
-.thumbnail-section{
+.thumbnail-section {
     min-width: 140px;
     max-width: 180px;
     display: flex;
@@ -1092,14 +1183,14 @@ select{
     transition: all 0.2s ease;
     cursor: pointer;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-    
+
     &:hover {
         transform: scale(1.05);
         z-index: 10;
         position: relative;
         box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
     }
-    
+
     &.single-file {
         width: 50px;
         height: 60px;
@@ -1124,7 +1215,7 @@ select{
     border-radius: 4px;
     cursor: pointer;
     transition: all 0.2s ease;
-    
+
     &.single-file-img {
         width: 50px;
         height: 60px;
@@ -1141,7 +1232,7 @@ select{
     border: 2px dashed #dee2e6;
     border-radius: 4px;
     color: #6c757d;
-    
+
     i {
         font-size: 16px;
     }
@@ -1154,7 +1245,7 @@ select{
     width: 40px;
     height: 50px;
     color: #6c757d;
-    
+
     i {
         font-size: 14px;
         animation: spin 1s linear infinite;
@@ -1203,13 +1294,13 @@ select{
     color: #dc2626;
     font-size: 9px;
     text-align: center;
-    
+
     i {
         font-size: 14px;
         margin-bottom: 2px;
         color: #f87171;
     }
-    
+
     span {
         font-size: 7px;
         line-height: 1;
@@ -1266,7 +1357,7 @@ select{
         color: $white;
         font-weight: bold;
     }
-    
+
     .close-btn {
         background: none;
         border: none;
@@ -1277,7 +1368,7 @@ select{
         border-radius: 4px;
         transition: all 0.2s ease;
 
-        &:hover {   
+        &:hover {
             color: $red;
         }
     }
@@ -1313,12 +1404,12 @@ select{
         justify-content: center;
         height: 200px;
         color: #6c757d;
-        
+
         i {
             font-size: 48px;
             margin-bottom: 10px;
         }
-        
+
         p {
             margin: 0;
             font-size: 16px;
@@ -1376,8 +1467,12 @@ select{
 }
 
 @keyframes spin {
-    from { transform: rotate(0deg); }
-    to { transform: rotate(360deg); }
+    from {
+        transform: rotate(0deg);
+    }
+
+    to {
+        transform: rotate(360deg);
+    }
 }
 </style>
-

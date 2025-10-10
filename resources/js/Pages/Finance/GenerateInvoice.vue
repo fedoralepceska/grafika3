@@ -20,7 +20,8 @@
                             <button class="btn orange" @click="previewInvoice" :disabled="!canGenerateOrPreview">
                                 Preview <i class="fa-solid fa-eye"></i>
                             </button>
-                            <button class="btn generate-invoice" @click="generateInvoice" :disabled="!canGenerateOrPreview">Generate Invoice <i
+                            <button class="btn generate-invoice" @click="generateInvoice"
+                                :disabled="!canGenerateOrPreview">Generate Invoice <i
                                     class="fa-solid fa-file-invoice-dollar"></i></button>
                         </div>
                         <div class="buttons flex justify-end pt-3">
@@ -37,15 +38,15 @@
                 <div class="client-info-section" v-if="clientName">
                     <div class="client-info">
                         <div class="client-info-container">
-                        <div class="client-label">Client</div>
-                        <div class="client-name">{{ clientName }}</div>
+                            <div class="client-label">Client</div>
+                            <div class="client-name">{{ clientName }}</div>
                         </div>
                         <!-- Pre-invoice meta (ID and Date) -->
                         <div class="invoice-info-minimal">
                             <div class="info-item">
                                 <span class="info-label">Invoice ID</span>
                                 <span class="info-value">{{ previewInvoiceId }}{{ previewInvoiceId ? '' : '...'
-                                    }}</span>
+                                }}</span>
                             </div>
                             <div class="info-item">
                                 <span class="info-label">Date Created</span>
@@ -69,6 +70,25 @@
                             <div class="info-item comment" v-if="comment">
                                 <span class="info-label">Comment</span>
                                 <span class="info-value">{{ comment }}</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="info-label">Payment Deadline (days)</span>
+                                <span class="info-value">
+                                    <div v-if="isEditMode && editingPaymentDeadline" class="date-edit-container">
+                                        <input v-model.number="paymentDeadlineEdit" @keyup.enter="commitPaymentDeadline"
+                                            class="date-input" type="number" min="0" step="1" />
+                                        <button @click="commitPaymentDeadline" class="save-btn" title="Save">
+                                            <i class="fas fa-check"></i>
+                                        </button>
+                                        <button @click="cancelEditPaymentDeadline" class="cancel-btn" title="Cancel">
+                                            <i class="fas fa-times"></i>
+                                        </button>
+                                    </div>
+                                    <div v-else class="date-display" @click="startEditPaymentDeadline">
+                                        {{ paymentDeadline }} days
+                                        <i v-if="isEditMode" class="fas fa-edit edit-icon"></i>
+                                    </div>
+                                </span>
                             </div>
                         </div>
                     </div>
@@ -145,49 +165,59 @@
                                         </div>
                                         <div class="value-cell">
                                             <template v-if="isEditMode && editingJobId === job.id">
-                                                <input class="inline-input" type="number" min="0" v-model.number="job.quantity" />
+                                                <input class="inline-input" type="number" min="0"
+                                                    v-model.number="job.quantity" />
                                             </template>
                                             <template v-else>{{ job.quantity }}</template>
                                         </div>
                                         <div class="value-cell">
                                             <template v-if="isEditMode && editingJobId === job.id">
-                                                <input class="inline-input" type="number" min="0" step="0.0001" v-model.number="job.computed_total_area_m2" />
+                                                <input class="inline-input" type="number" min="0" step="0.0001"
+                                                    v-model.number="job.computed_total_area_m2" />
                                             </template>
                                             <template v-else>{{ formatArea(job.computed_total_area_m2) }}</template>
                                         </div>
                                         <div class="value-cell">
                                             <template v-if="isEditMode && editingJobId === job.id">
-                                                <input class="inline-input" type="number" min="0" step="0.01" v-model.number="job.salePrice" />
+                                                <input class="inline-input" type="number" min="0" step="0.01"
+                                                    v-model.number="job.salePrice" />
                                             </template>
                                             <template v-else>{{ formatPrice(job.salePrice) }} ден.</template>
                                         </div>
                                         <div class="value-cell actions flex flex-row">
                                             <template v-if="isEditMode">
                                                 <template v-if="editingJobId !== job.id">
-                                                    <button class="btn-edit-small" @click="startEditingJob(job)">Edit</button>
+                                                    <button class="btn-edit-small"
+                                                        @click="startEditingJob(job)">Edit</button>
                                                 </template>
                                                 <template v-else>
-                                                    <button class="btn-save-small" @click="saveEditingJob(job)">Save</button>
-                                                    <button class="btn-cancel-small" @click="cancelEditingJob(job)">Cancel</button>
+                                                    <button class="btn-save-small"
+                                                        @click="saveEditingJob(job)">Save</button>
+                                                    <button class="btn-cancel-small"
+                                                        @click="cancelEditingJob(job)">Cancel</button>
                                                 </template>
                                             </template>
-                                            <button class="btn-edit-small" style="margin-left:6px" @click="toggleMaterials(job.id)">
+                                            <button class="btn-edit-small" style="margin-left:6px"
+                                                @click="toggleMaterials(job.id)">
                                                 {{ materialsOpen[job.id] ? 'Hide Materials' : 'Show Materials' }}
                                             </button>
-                                        <button class="merge-toggle ml-2" :class="{selected: isSelected(job.id)}" @click="toggleMergeSelection(job.id)" title="Toggle merge">
-                                            <i class="fa-solid fa-code-merge"></i>
-                                            Merge
-                                        </button>
+                                            <button class="merge-toggle ml-2" :class="{ selected: isSelected(job.id) }"
+                                                @click="toggleMergeSelection(job.id)" title="Toggle merge">
+                                                <i class="fa-solid fa-code-merge"></i>
+                                                Merge
+                                            </button>
                                         </div>
                                     </div>
                                     <div v-if="materialsOpen[job.id]" class="material-info">
                                         <span class="label">{{ $t('material') }}:</span>
                                         <div class="value materials-list">
                                             <template v-if="job.articles && job.articles.length">
-                                                <div v-for="(article, aIdx) in job.articles" :key="aIdx" class="material-item">
+                                                <div v-for="(article, aIdx) in job.articles" :key="aIdx"
+                                                    class="material-item">
                                                     <span class="item-name">{{ article.name }}</span>
                                                     <span class="item-sep"> - </span>
-                                                    <span class="item-qty">{{ article.pivot?.quantity ?? 0 }} {{ getUnitTextFromPivot(article) }}</span>
+                                                    <span class="item-qty">{{ article.pivot?.quantity ?? 0 }} {{
+                                                        getUnitTextFromPivot(article) }}</span>
                                                 </div>
                                             </template>
                                             <template v-else-if="job.large_material">
@@ -208,50 +238,45 @@
                                 </div>
                             </template>
                             <!-- Render merged containers per order for any group that includes jobs from this order -->
-                            <div v-for="grp in getGroupsForOrder(inv.id)" :key="'grp-'+grp.__idx" class="merged-container" :class="'merged-color-' + (grp.__idx % mergedPalette.length)">
+                            <div v-for="grp in getGroupsForOrder(inv.id)" :key="'grp-' + grp.__idx"
+                                class="merged-container" :class="'merged-color-' + (grp.__idx % mergedPalette.length)">
                                 <div class="merged-header">
                                     <template v-if="isEditMode && isGroupEditableInOrder(grp.__idx, inv.id)">
-                                        <input 
-                                            class="inline-input" 
+                                        <input class="inline-input"
                                             :class="{ 'invalid-field': !isMergeGroupFieldValid(grp.__idx, 'title') }"
-                                            placeholder="Group title" 
-                                            v-model="mergeGroups[grp.__idx].title" />
-                                        <input 
-                                            type="number" 
-                                            min="0" 
-                                            step="0.01" 
-                                            class="inline-input" 
+                                            placeholder="Group title" v-model="mergeGroups[grp.__idx].title" />
+                                        <input type="number" min="0" step="0.01" class="inline-input"
                                             :class="{ 'invalid-field': !isMergeGroupFieldValid(grp.__idx, 'quantity') }"
-                                            placeholder="Quantity" 
-                                            v-model.number="mergeGroups[grp.__idx].quantity" />
+                                            placeholder="Quantity" v-model.number="mergeGroups[grp.__idx].quantity" />
                                         <div class="value-cell"></div>
-                                        <input 
-                                            type="number" 
-                                            min="0" 
-                                            step="0.01" 
-                                            class="inline-input" 
+                                        <input type="number" min="0" step="0.01" class="inline-input"
                                             :class="{ 'invalid-field': !isMergeGroupFieldValid(grp.__idx, 'sale_price') }"
-                                            placeholder="Sale Price" 
+                                            placeholder="Sale Price"
                                             v-model.number="mergeGroups[grp.__idx].sale_price" />
                                         <div class="value-cell"></div>
                                     </template>
                                     <template v-else>
-                                        <div class="value-cell">{{ mergeGroups[grp.__idx].title || 'Merged group' }}</div>
-                                        <div class="value-cell">{{ formatNumber(mergeGroups[grp.__idx].quantity || 0) }}</div>
+                                        <div class="value-cell">{{ mergeGroups[grp.__idx].title || 'Merged group' }}
+                                        </div>
+                                        <div class="value-cell">{{ formatNumber(mergeGroups[grp.__idx].quantity || 0) }}
+                                        </div>
                                         <div class="value-cell"></div>
-                                        <div class="value-cell">{{ formatPrice(mergeGroups[grp.__idx].sale_price || 0) }} ден.</div>
+                                        <div class="value-cell">{{ formatPrice(mergeGroups[grp.__idx].sale_price || 0)
+                                            }} ден.</div>
                                         <div class="value-cell"></div>
                                     </template>
                                 </div>
                                 <div class="merged-body">
-                                    <div v-for="gid in jobsInGroupForOrder(inv.id, grp.__idx)" :key="'gid-'+gid" class="job-card inside-merged">
+                                    <div v-for="gid in jobsInGroupForOrder(inv.id, grp.__idx)" :key="'gid-' + gid"
+                                        class="job-card inside-merged">
                                         <div class="job-header">
                                             <div class="value-cell job-title">{{ displayJobName(gid) }}</div>
                                             <div class="value-cell">{{ displayJobQty(gid) }}</div>
                                             <div class="value-cell">{{ displayJobArea(gid) }}</div>
                                             <div class="value-cell">{{ displayJobPrice(gid) }} ден.</div>
                                             <div class="value-cell actions">
-                                                <button class="merge-toggle" :class="{selected: isSelected(gid)}" @click="toggleMergeSelection(gid)" title="Toggle merge">
+                                                <button class="merge-toggle" :class="{ selected: isSelected(gid) }"
+                                                    @click="toggleMergeSelection(gid)" title="Toggle merge">
                                                     <i class="fa-solid fa-code-merge"></i>
                                                     Merge
                                                 </button>
@@ -510,12 +535,12 @@ export default {
             if (!this.mergeGroups || this.mergeGroups.length === 0) {
                 return true; // No merge groups means validation passes
             }
-            
+
             return this.mergeGroups.every(group => {
                 const hasTitle = group.title && group.title.trim() !== '';
                 const hasQuantity = group.quantity && Number(group.quantity) > 0;
                 const hasSalePrice = group.sale_price && Number(group.sale_price) > 0;
-                
+
                 return hasTitle && hasQuantity && hasSalePrice;
             });
         },
@@ -539,6 +564,10 @@ export default {
             previewDate: new Date().toISOString().split('T')[0],
             editingDate: false,
             dateEdit: '',
+            paymentDeadline: 30,
+            defaultPaymentDeadline: 30, // Track the original default from client
+            editingPaymentDeadline: false,
+            paymentDeadlineEdit: 30,
             showTradeItemsModal: false,
             showCommentModal: false,
             tempComment: '',
@@ -550,9 +579,9 @@ export default {
             isEditingTrade: {},
             editTradeForms: {},
             showPreviewModalFlag: false,
-                previewPdfUrl: null,
-                editingJobId: null,
-                originalJobSnapshots: {},
+            previewPdfUrl: null,
+            editingJobId: null,
+            originalJobSnapshots: {},
             materialsOpen: {},
             selectedJobIds: [],
             mergeGroups: [], // [{job_ids:[1,2,3]}]
@@ -578,7 +607,7 @@ export default {
             const res = [];
             (this.mergeGroups || []).forEach((g, idx) => {
                 const ids = Array.isArray(g.job_ids) ? g.job_ids : [];
-                const hasJobInOrder = (this.invoiceData && this.invoiceData[orderId] && (this.invoiceData[orderId].jobs||[]).some(j => ids.includes(j.id)));
+                const hasJobInOrder = (this.invoiceData && this.invoiceData[orderId] && (this.invoiceData[orderId].jobs || []).some(j => ids.includes(j.id)));
                 if (hasJobInOrder) res.push({ ...g, __idx: idx });
             });
             return res;
@@ -595,7 +624,7 @@ export default {
             const involvedOrderIds = Object.values(this.invoiceData || {})
                 .filter(o => (o.jobs || []).some(j => ids.includes(j.id)))
                 .map(o => o.id)
-                .sort((a,b) => a - b);
+                .sort((a, b) => a - b);
             const firstOwnerId = involvedOrderIds[0];
             return firstOwnerId === orderId;
         },
@@ -653,7 +682,7 @@ export default {
                 // For local display, only merge jobs that belong to this order; keep cross-order merged representative in the order owning the first id in group.
                 const allJobs = Object.values(this.invoiceData || {}).flatMap(o => o.jobs || []);
                 const jobToOrder = new Map();
-                allJobs.forEach(oJob => { jobToOrder.set(oJob.id, Object.values(this.invoiceData).find(o => (o.jobs||[]).some(j => j.id===oJob.id))?.id); });
+                allJobs.forEach(oJob => { jobToOrder.set(oJob.id, Object.values(this.invoiceData).find(o => (o.jobs || []).some(j => j.id === oJob.id))?.id); });
                 for (const g of groups) {
                     const ids = Array.isArray(g.job_ids) ? g.job_ids : [];
                     const presentHere = ids.filter(id => byId.has(id));
@@ -703,7 +732,7 @@ export default {
             if (!this.selectedJobIds.length) return;
             const set = new Set(this.selectedJobIds);
             this.mergeGroups = this.mergeGroups
-                .map(g => ({...g, job_ids: g.job_ids.filter(id => !set.has(id))}))
+                .map(g => ({ ...g, job_ids: g.job_ids.filter(id => !set.has(id)) }))
                 .filter(g => g.job_ids.length > 1);
             // Re-evaluate autofill for all groups after removal
             this.mergeGroups.forEach((_, idx) => this.autofillGroupFieldsIfUniform(idx));
@@ -795,6 +824,41 @@ export default {
                 this.previewInvoiceId = null;
             }
         },
+        async loadDefaultPaymentDeadline() {
+            try {
+                // Get client from first invoice
+                const firstInvoice = Object.values(this.invoiceData || {})[0];
+                if (!firstInvoice || !firstInvoice.client) {
+                    console.warn('No invoice or client found, using default 30 days');
+                    this.paymentDeadline = 30;
+                    return;
+                }
+
+                const clientName = firstInvoice.client;
+
+                // Fetch client card statement to get default payment deadline
+                const res = await axios.get(`/clients/${encodeURIComponent(clientName)}/card-statement`);
+
+                const deadline = res?.data?.payment_deadline;
+
+                if (deadline !== null && deadline !== undefined && deadline !== '') {
+                    // Handle both string and number types, convert to integer
+                    const parsedDeadline = Number(deadline);
+                    if (!isNaN(parsedDeadline) && parsedDeadline > 0) {
+                        this.paymentDeadline = Math.round(parsedDeadline);
+                        this.defaultPaymentDeadline = Math.round(parsedDeadline); // Store the default
+                    } else {
+                        this.paymentDeadline = 30;
+                        this.defaultPaymentDeadline = 30;
+                    }
+                } else {
+                    this.paymentDeadline = 30;
+                    this.defaultPaymentDeadline = 30;
+                }
+            } catch (e) {
+                this.paymentDeadline = 30;
+            }
+        },
         openCommentModal() {
             this.tempComment = this.comment || '';
             this.showCommentModal = true;
@@ -827,7 +891,28 @@ export default {
             this.editingDate = false;
             this.dateEdit = '';
         },
-        toggleEditMode() {},
+        startEditPaymentDeadline() {
+            if (!this.isEditMode) return;
+            this.editingPaymentDeadline = true;
+            this.paymentDeadlineEdit = this.paymentDeadline;
+            this.$nextTick(() => {
+                const input = document.querySelector('.date-input[type="number"]');
+                if (input) input.focus();
+            });
+        },
+        commitPaymentDeadline() {
+            if (this.paymentDeadlineEdit === null || this.paymentDeadlineEdit === '') {
+                this.cancelEditPaymentDeadline();
+                return;
+            }
+            this.paymentDeadline = parseInt(this.paymentDeadlineEdit) || 30;
+            this.cancelEditPaymentDeadline();
+        },
+        cancelEditPaymentDeadline() {
+            this.editingPaymentDeadline = false;
+            this.paymentDeadlineEdit = this.paymentDeadline;
+        },
+        toggleEditMode() { },
         startEditTitle(invoiceData) {
             if (!this.isEditMode) return;
             this.editingTitle[invoiceData.id] = true;
@@ -1039,7 +1124,7 @@ export default {
         isMergeGroupFieldValid(groupIdx, fieldName) {
             const group = this.mergeGroups[groupIdx];
             if (!group) return false;
-            
+
             switch (fieldName) {
                 case 'title':
                     return group.title && group.title.trim() !== '';
@@ -1061,20 +1146,29 @@ export default {
                     toast.error('Cannot preview: no orders selected');
                     return;
                 }
-                
+
                 // Validate merge groups before preview
                 if (!this.hasValidMergeGroups) {
                     toast.error('Cannot preview: Please fill in all required fields (title, quantity, and price) for merged groups');
                     return;
                 }
                 const tradePayload = this.buildTradeItemsPayload();
-                const response = await axios.post('/preview-invoice', {
+                
+                // Only send payment_deadline_override if user changed it from default
+                const payloadData = {
                     orders: orderIds,
                     comment: this.comment,
                     trade_items: tradePayload,
                     created_at: this.previewDate,
                     merge_groups: this.mergeGroups
-                }, {
+                };
+                
+                // Only include override if it's different from the client's default
+                if (this.paymentDeadline !== this.defaultPaymentDeadline) {
+                    payloadData.payment_deadline_override = this.paymentDeadline;
+                }
+                
+                const response = await axios.post('/preview-invoice', payloadData, {
                     responseType: 'blob' // Important for PDF response
                 });
 
@@ -1126,7 +1220,7 @@ export default {
                     toast.error('Cannot generate invoice: no orders selected');
                     return;
                 }
-                
+
                 // Validate merge groups before generation
                 if (!this.hasValidMergeGroups) {
                     toast.error('Cannot generate invoice: Please fill in all required fields (title, quantity, and price) for merged groups');
@@ -1134,14 +1228,22 @@ export default {
                 }
                 const tradePayload = this.buildTradeItemsPayload();
                 // Request metadata so we can redirect; then separately open the PDF in new tab
-                const response = await axios.post('/generate-invoice', {
+                // Only send payment_deadline_override if user changed it from default
+                const payloadData = {
                     orders: orderIds,
                     comment: this.comment,
                     trade_items: tradePayload,
                     created_at: this.previewDate,
                     merge_groups: this.mergeGroups,
                     return_meta: true
-                }, { responseType: 'json' });
+                };
+                
+                // Only include override if it's different from the client's default
+                if (this.paymentDeadline !== this.defaultPaymentDeadline) {
+                    payloadData.payment_deadline_override = this.paymentDeadline;
+                }
+                
+                const response = await axios.post('/generate-invoice', payloadData, { responseType: 'json' });
 
                 if (response?.data?.success && response?.data?.faktura_id) {
                     // Open PDF if provided
@@ -1177,6 +1279,7 @@ export default {
     mounted() {
         this.loadTradeArticles();
         this.fetchNextInvoiceId();
+        this.loadDefaultPaymentDeadline();
 
         // Watch for changes in selected article to auto-fill price
         this.$watch('selectedArticle', (newArticle) => {
@@ -1922,24 +2025,44 @@ table th {
 
 // Dynamic merged color variants
 // We generate a few classes mapping to the palette defined in data()
-.merged-color-0 { background-color: #3182ce !important; }
-.merged-color-1 { background-color: #51A8B1 !important; }
-.merged-color-2 { background-color: #a36a03 !important; }
-.merged-color-3 { background-color: #d1e93b !important; }
-.merged-color-4 { background-color: #9e2c30 !important; }
-.merged-color-5 { background-color: #81c950 !important; }
+.merged-color-0 {
+    background-color: #3182ce !important;
+}
+
+.merged-color-1 {
+    background-color: #51A8B1 !important;
+}
+
+.merged-color-2 {
+    background-color: #a36a03 !important;
+}
+
+.merged-color-3 {
+    background-color: #d1e93b !important;
+}
+
+.merged-color-4 {
+    background-color: #9e2c30 !important;
+}
+
+.merged-color-5 {
+    background-color: #81c950 !important;
+}
 
 .merged-container {
-    border: 1px solid rgba(255,255,255,0.2);
+    border: 1px solid rgba(255, 255, 255, 0.2);
     border-radius: 6px;
     margin-bottom: 8px;
 }
+
 .merged-container .merged-header {
     display: grid;
-    grid-template-columns: 2fr 1fr 1fr 1fr 1fr; /* align with job header: Title, Qty, Total m², Sale, Actions */
+    grid-template-columns: 2fr 1fr 1fr 1fr 1fr;
+    /* align with job header: Title, Qty, Total m², Sale, Actions */
     gap: 8px;
     padding: 8px;
 }
+
 .merged-container .merged-body {
     padding: 6px 8px 10px 8px;
 }
@@ -1958,11 +2081,13 @@ table th {
     cursor: pointer;
     border-radius: 4px;
 }
+
 .merge-toggle.selected {
     color: #fff;
     background: rgba(128, 0, 128, 1);
     border-radius: 4px;
 }
+
 .merge-toggle:hover {
     color: #fff;
     background: rgba(128, 0, 128, 0.4);
@@ -1998,9 +2123,19 @@ table th {
 }
 
 @keyframes shake {
-    0%, 100% { transform: translateX(0); }
-    25% { transform: translateX(-2px); }
-    75% { transform: translateX(2px); }
+
+    0%,
+    100% {
+        transform: translateX(0);
+    }
+
+    25% {
+        transform: translateX(-2px);
+    }
+
+    75% {
+        transform: translateX(2px);
+    }
 }
 
 .btn-toggle-materials {
