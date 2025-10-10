@@ -26,19 +26,36 @@ async function tryAlternativeColorConversion(inputPath, outputDir, dpi) {
 
     console.log('Trying alternative color conversion methods...');
 
-    // Method 1: Try with explicit sRGB color space
+    // Method 1: Try version-specific approach
     try {
         const outputPrefix = path.join(outputDir, 'thumb');
-        const command = `pdftocairo -png -r ${dpi} -icc "${inputPath}" "${outputPrefix}"`;
+        
+        // Get pdftocairo version
+        let useSimpleMode = false;
+        try {
+            const { stdout } = await execAsync('pdftocairo -v');
+            const versionMatch = stdout.match(/pdftocairo version (\d+\.\d+)/);
+            if (versionMatch && parseFloat(versionMatch[1]) < 23.0) {
+                useSimpleMode = true;
+                console.log('Using simple mode for older pdftocairo version');
+            }
+        } catch (e) {
+            useSimpleMode = true; // Default to simple mode if version check fails
+        }
+        
+        const command = useSimpleMode 
+            ? `pdftocairo -png -r ${dpi} "${inputPath}" "${outputPrefix}"`
+            : `pdftocairo -png -r ${dpi} -icc "${inputPath}" "${outputPrefix}"`;
+            
         await execAsync(command);
 
         const files = fs.readdirSync(outputDir).filter(f => f.startsWith('thumb') && f.endsWith('.png'));
         if (files.length > 0) {
-            console.log('Success with ICC color profile method');
+            console.log(`Success with ${useSimpleMode ? 'simple' : 'ICC'} color method`);
             return files.length;
         }
     } catch (error) {
-        console.log('ICC method failed, trying next...');
+        console.log('Version-specific method failed, trying next...');
     }
 
     // Method 2: Try with different color space flags
@@ -263,15 +280,20 @@ async function tryA4WithPdftocairo(inputPath, outputDir, dpi) {
         const { promisify } = require('util');
         const execAsync = promisify(exec);
 
-        console.log('Attempting A4 standardization using pdftocairo with color space fixes');
+        console.log('Attempting A4 standardization using pdftocairo with version-specific color fixes');
 
-        // Try to find pdftocairo
+        // Try to find pdftocairo and get version
         const isWindows = process.platform === 'win32';
         const pdftocairoCmd = isWindows ? 'pdftocairo.exe' : 'pdftocairo';
 
-        // Test if pdftocairo is available
+        let popplerVersion = null;
         try {
-            await execAsync(`${pdftocairoCmd} -v`);
+            const { stdout } = await execAsync(`${pdftocairoCmd} -v`);
+            const versionMatch = stdout.match(/pdftocairo version (\d+\.\d+)/);
+            if (versionMatch) {
+                popplerVersion = parseFloat(versionMatch[1]);
+                console.log(`Detected pdftocairo version: ${popplerVersion}`);
+            }
         } catch (error) {
             console.log('pdftocairo not found, skipping A4 standardization');
             return false;
@@ -285,10 +307,19 @@ async function tryA4WithPdftocairo(inputPath, outputDir, dpi) {
             console.log(`Adjusted DPI from ${dpi} to ${optimalDpi} for A4 standardization`);
         }
 
-        // Use pdftocairo with size constraint and color space fixes
+        // Use version-specific color handling
         const outputPrefix = path.join(outputDir, 'thumb');
-        // Add color space conversion flags to fix inverted colors
-        const command = `${pdftocairoCmd} -png -r ${optimalDpi} -W 595 -H 842 -singlefile -transp "${inputPath}" "${outputPrefix}"`;
+        let command;
+        
+        if (popplerVersion && popplerVersion < 23.0) {
+            // Older versions (22.x and below) - use simpler approach
+            console.log('Using older pdftocairo version compatibility mode');
+            command = `${pdftocairoCmd} -png -r ${optimalDpi} -W 595 -H 842 "${inputPath}" "${outputPrefix}"`;
+        } else {
+            // Newer versions (23.0+) - use advanced color handling
+            console.log('Using newer pdftocairo version with ICC support');
+            command = `${pdftocairoCmd} -png -r ${optimalDpi} -W 595 -H 842 -singlefile -transp -icc "${inputPath}" "${outputPrefix}"`;
+        }
 
         console.log(`Executing: ${command}`);
 
