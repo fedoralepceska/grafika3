@@ -87,13 +87,17 @@ async function generateThumbnails(inputPath, outputDir, dpi = 72) {
             fs.mkdirSync(outputDir, { recursive: true });
         }
 
+        // TESTING: Temporarily disable Canvas to isolate issues
+        console.log('🧪 Testing without Canvas - using direct pdf-poppler');
+        return await generateOriginalThumbnails(inputPath, outputDir, dpi);
+        
         // If canvas is available, use canvas-based A4 standardization (best quality)
-        if (createCanvas && loadImage) {
-            return await generateA4StandardizedThumbnails(inputPath, outputDir, dpi);
-        } else {
-            // Try A4 standardization without canvas (using pdftocairo or fallback to original)
-            return await generateOriginalThumbnails(inputPath, outputDir, dpi);
-        }
+        // if (createCanvas && loadImage) {
+        //     return await generateA4StandardizedThumbnails(inputPath, outputDir, dpi);
+        // } else {
+        //     // Try A4 standardization without canvas (using pdftocairo or fallback to original)
+        //     return await generateOriginalThumbnails(inputPath, outputDir, dpi);
+        // }
 
     } catch (error) {
         console.error('Error generating thumbnails:', error.message);
