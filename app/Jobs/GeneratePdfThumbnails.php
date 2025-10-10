@@ -349,7 +349,14 @@ class GeneratePdfThumbnails implements ShouldQueue
         
         \Log::channel('stderr')->info('GeneratePdfThumbnails: executing command', [ 'command' => $command ]);
         
+        // Increase PHP execution time for thumbnail generation
+        $originalTimeLimit = ini_get('max_execution_time');
+        set_time_limit(300); // 5 minutes for problematic PDFs
+        
         exec($command . ' 2>&1', $output, $exitCode);
+        
+        // Restore original time limit
+        set_time_limit($originalTimeLimit);
         
         \Log::channel('stderr')->info('GeneratePdfThumbnails: command result', [
             'command' => $command,
@@ -899,9 +906,15 @@ class GeneratePdfThumbnails implements ShouldQueue
                     }
                 }
                 
-                $command = '"' . $nodeExe . '" "' . $scriptPath . '" "' . $sourcePath . '" "' . $workDir . '" ' . (int) $this->dpi;
+                // Set POPPLER_BIN environment variable for the Node.js script
+                $popplerBin = env('POPPLER_BIN') ?: config('services.poppler_bin');
+                $envPrefix = $popplerBin ? 'set POPPLER_BIN=' . $popplerBin . ' && ' : '';
+                $command = $envPrefix . '"' . $nodeExe . '" "' . $scriptPath . '" "' . $sourcePath . '" "' . $workDir . '" ' . (int) $this->dpi;
             } else {
-                $command = 'node ' . escapeshellarg($scriptPath) . ' ' . escapeshellarg($sourcePath) . ' ' . escapeshellarg($workDir) . ' ' . (int) $this->dpi;
+                // Set POPPLER_BIN environment variable for the Node.js script
+                $popplerBin = env('POPPLER_BIN') ?: config('services.poppler_bin');
+                $envPrefix = $popplerBin ? 'POPPLER_BIN=' . escapeshellarg($popplerBin) . ' ' : '';
+                $command = $envPrefix . 'node ' . escapeshellarg($scriptPath) . ' ' . escapeshellarg($sourcePath) . ' ' . escapeshellarg($workDir) . ' ' . (int) $this->dpi;
             }
             
             \Log::channel('stderr')->info('GeneratePdfThumbnails: executing pdf-poppler command', [

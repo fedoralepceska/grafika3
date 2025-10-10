@@ -7,11 +7,14 @@ const path = require('path');
 // Try to load canvas for A4 standardization, fallback gracefully if not available
 let createCanvas, loadImage;
 try {
+    console.log('🔍 Attempting to load Canvas module...');
     const canvas = require('canvas');
     createCanvas = canvas.createCanvas;
     loadImage = canvas.loadImage;
+    console.log('✅ Canvas module loaded successfully');
 } catch (error) {
-    console.log('Canvas module not available, using original thumbnail generation');
+    console.log('❌ Canvas module failed to load:', error.message);
+    console.log('Using original thumbnail generation instead');
 }
 
 // A4 dimensions at 72 DPI
@@ -29,7 +32,7 @@ async function tryAlternativeColorConversion(inputPath, outputDir, dpi) {
     // Method 1: Try version-specific approach
     try {
         const outputPrefix = path.join(outputDir, 'thumb');
-        
+
         // Get pdftocairo version
         let useSimpleMode = false;
         try {
@@ -42,11 +45,11 @@ async function tryAlternativeColorConversion(inputPath, outputDir, dpi) {
         } catch (e) {
             useSimpleMode = true; // Default to simple mode if version check fails
         }
-        
-        const command = useSimpleMode 
+
+        const command = useSimpleMode
             ? `pdftocairo -png -r ${dpi} "${inputPath}" "${outputPrefix}"`
             : `pdftocairo -png -r ${dpi} -icc "${inputPath}" "${outputPrefix}"`;
-            
+
         await execAsync(command);
 
         const files = fs.readdirSync(outputDir).filter(f => f.startsWith('thumb') && f.endsWith('.png'));
@@ -90,7 +93,7 @@ async function generateThumbnails(inputPath, outputDir, dpi = 72) {
         // TESTING: Temporarily disable Canvas to isolate issues
         console.log('🧪 Testing without Canvas - using direct pdf-poppler');
         return await generateOriginalThumbnails(inputPath, outputDir, dpi);
-        
+
         // If canvas is available, use canvas-based A4 standardization (best quality)
         // if (createCanvas && loadImage) {
         //     return await generateA4StandardizedThumbnails(inputPath, outputDir, dpi);
@@ -314,16 +317,13 @@ async function tryA4WithPdftocairo(inputPath, outputDir, dpi) {
         // Use version-specific color handling
         const outputPrefix = path.join(outputDir, 'thumb');
         let command;
-        
-        if (popplerVersion && popplerVersion < 23.0) {
-            // Older versions (22.x and below) - use simpler approach
-            console.log('Using older pdftocairo version compatibility mode');
-            command = `${pdftocairoCmd} -png -r ${optimalDpi} -W 595 -H 842 "${inputPath}" "${outputPrefix}"`;
-        } else {
-            // Newer versions (23.0+) - use advanced color handling
-            console.log('Using newer pdftocairo version with ICC support');
-            command = `${pdftocairoCmd} -png -r ${optimalDpi} -W 595 -H 842 -singlefile -transp -icc "${inputPath}" "${outputPrefix}"`;
-        }
+
+        // Use ultra-simple mode that works reliably across versions
+        console.log(`Using ultra-simple mode for version ${popplerVersion || 'unknown'} (most reliable)`);
+        command = `${pdftocairoCmd} -png -r ${optimalDpi} "${inputPath}" "${outputPrefix}"`;
+
+        // Note: Removed -W 595 -H 842 and other flags as they cause issues with problematic PDFs
+        // The output won't be exactly A4 constrained, but it will work reliably
 
         console.log(`Executing: ${command}`);
 

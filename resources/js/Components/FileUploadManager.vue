@@ -495,7 +495,10 @@ export default {
                         };
 
                         // Use multipart upload for all files with appropriate chunk size
-                        const chunkSize = file.size > 50 * 1024 * 1024 ? 10 * 1024 * 1024 : 5 * 1024 * 1024; // 10MB for large, 5MB for smaller
+                        // Larger chunks for better reliability with slow connections
+                        const chunkSize = file.size > 100 * 1024 * 1024 ? 25 * 1024 * 1024 : 
+                                         file.size > 50 * 1024 * 1024 ? 20 * 1024 * 1024 : 
+                                         10 * 1024 * 1024; // 25MB for very large, 20MB for large, 10MB for medium
                         
                         await uploadFileInParts({
                             file,

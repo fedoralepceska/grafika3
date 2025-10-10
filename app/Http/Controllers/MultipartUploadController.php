@@ -207,14 +207,14 @@ class MultipartUploadController extends Controller
                     
                     // Use 72 DPI for A4 thumbnails to ensure exact 595x842px dimensions
                     $cuttingDpi = 72;
-                    GeneratePdfThumbnails::dispatchSync(
+                    GeneratePdfThumbnails::dispatch(
                         jobId: $job->id,
                         r2Key: $data['key'],
                         tempLocalPath: null,
                         dpi: $cuttingDpi,
                         fileIndex: $fileIndex,
                         isCuttingFile: true
-                    );
+                    )->delay(now()->addSeconds(2));
                 } else {
                     // Original file thumbnail generation
                     if (!empty($dimensionsResponse['__temp_pdf_path'])) {
@@ -226,12 +226,12 @@ class MultipartUploadController extends Controller
                             'temp_path' => $dimensionsResponse['__temp_pdf_path']
                         ]);
                         
-                        GeneratePdfThumbnails::dispatchSync(
+                        GeneratePdfThumbnails::dispatch(
                             jobId: $job->id,
                             r2Key: $data['key'],
                             tempLocalPath: $dimensionsResponse['__temp_pdf_path'],
                             dpi: $computedDpi
-                        );
+                        )->delay(now()->addSeconds(2));
                     } else {
                         \Log::info('Starting synchronous thumbnail generation without temp file (after completion)', [
                             'job_id' => $job->id,
@@ -242,12 +242,12 @@ class MultipartUploadController extends Controller
                         sleep(1);
                         // Use 72 DPI for A4 thumbnails to ensure exact 595x842px dimensions
                         $fallbackDpi = 72;
-                        GeneratePdfThumbnails::dispatchSync(
+                        GeneratePdfThumbnails::dispatch(
                             jobId: $job->id,
                             r2Key: $data['key'],
                             tempLocalPath: null,
                             dpi: $fallbackDpi
-                        );
+                        )->delay(now()->addSeconds(2));
                     }
                 }
             } catch (\Throwable $thumbError) {
