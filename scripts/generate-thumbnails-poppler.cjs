@@ -21,64 +21,6 @@ try {
 const A4_WIDTH_PX = 595;  // 210mm at 72 DPI
 const A4_HEIGHT_PX = 842; // 297mm at 72 DPI
 
-// Function to try different color space conversion methods
-async function tryAlternativeColorConversion(inputPath, outputDir, dpi) {
-    const { exec } = require('child_process');
-    const { promisify } = require('util');
-    const execAsync = promisify(exec);
-
-    console.log('Trying alternative color conversion methods...');
-
-    // Method 1: Try version-specific approach
-    try {
-        const outputPrefix = path.join(outputDir, 'thumb');
-
-        // Get pdftocairo version
-        let useSimpleMode = false;
-        try {
-            const { stdout } = await execAsync('pdftocairo -v');
-            const versionMatch = stdout.match(/pdftocairo version (\d+\.\d+)/);
-            if (versionMatch && parseFloat(versionMatch[1]) < 23.0) {
-                useSimpleMode = true;
-                console.log('Using simple mode for older pdftocairo version');
-            }
-        } catch (e) {
-            useSimpleMode = true; // Default to simple mode if version check fails
-        }
-
-        const command = useSimpleMode
-            ? `pdftocairo -png -r ${dpi} "${inputPath}" "${outputPrefix}"`
-            : `pdftocairo -png -r ${dpi} -icc "${inputPath}" "${outputPrefix}"`;
-
-        await execAsync(command);
-
-        const files = fs.readdirSync(outputDir).filter(f => f.startsWith('thumb') && f.endsWith('.png'));
-        if (files.length > 0) {
-            console.log(`Success with ${useSimpleMode ? 'simple' : 'ICC'} color method`);
-            return files.length;
-        }
-    } catch (error) {
-        console.log('Version-specific method failed, trying next...');
-    }
-
-    // Method 2: Try with different color space flags
-    try {
-        const outputPrefix = path.join(outputDir, 'thumb');
-        const command = `pdftocairo -png -r ${dpi} -gray "${inputPath}" "${outputPrefix}"`;
-        await execAsync(command);
-
-        const files = fs.readdirSync(outputDir).filter(f => f.startsWith('thumb') && f.endsWith('.png'));
-        if (files.length > 0) {
-            console.log('Success with grayscale conversion (fallback)');
-            return files.length;
-        }
-    } catch (error) {
-        console.log('Grayscale method failed');
-    }
-
-    return false;
-}
-
 async function generateThumbnails(inputPath, outputDir, dpi = 72) {
     try {
         console.log(`Starting thumbnail generation: ${inputPath} -> ${outputDir}`);
@@ -90,17 +32,9 @@ async function generateThumbnails(inputPath, outputDir, dpi = 72) {
             fs.mkdirSync(outputDir, { recursive: true });
         }
 
-        // TESTING: Temporarily disable Canvas to isolate issues
-        console.log('🧪 Testing without Canvas - using direct pdf-poppler');
+        // Always use original thumbnails without A4 standardization
+        // This ensures consistent behavior between local and production
         return await generateOriginalThumbnails(inputPath, outputDir, dpi);
-
-        // If canvas is available, use canvas-based A4 standardization (best quality)
-        // if (createCanvas && loadImage) {
-        //     return await generateA4StandardizedThumbnails(inputPath, outputDir, dpi);
-        // } else {
-        //     // Try A4 standardization without canvas (using pdftocairo or fallback to original)
-        //     return await generateOriginalThumbnails(inputPath, outputDir, dpi);
-        // }
 
     } catch (error) {
         console.error('Error generating thumbnails:', error.message);
@@ -240,16 +174,16 @@ async function generateA4StandardizedThumbnails(inputPath, outputDir, baseDpi) {
 
 async function generateOriginalThumbnails(inputPath, outputDir, dpi) {
     try {
-        // Try A4 standardization using pdftocairo first (no canvas needed)
-        const a4Success = await tryA4WithPdftocairo(inputPath, outputDir, dpi);
-        if (a4Success) {
-            return a4Success;
+        // Use pdftocairo directly for better color handling
+        const pdftocairoSuccess = await tryPdftocairoWithColorFix(inputPath, outputDir, dpi);
+        if (pdftocairoSuccess) {
+            return pdftocairoSuccess;
         }
 
         // Fallback to original pdf-poppler
         console.log('Falling back to original pdf-poppler method');
 
-        // Configure pdf-poppler options with color fixes
+        // Configure pdf-poppler options
         const options = {
             format: 'png',
             out_dir: outputDir,
@@ -281,15 +215,15 @@ async function generateOriginalThumbnails(inputPath, outputDir, dpi) {
     }
 }
 
-async function tryA4WithPdftocairo(inputPath, outputDir, dpi) {
+async function tryPdftocairoWithColorFix(inputPath, outputDir, dpi) {
     try {
         const { exec } = require('child_process');
         const { promisify } = require('util');
         const execAsync = promisify(exec);
 
-        console.log('Attempting A4 standardization using pdftocairo with version-specific color fixes');
+        console.log('Using pdftocairo with proper color space handling');
 
-        // Try to find pdftocairo and get version
+        // Try to find pdftocairo
         const isWindows = process.platform === 'win32';
         const pdftocairoCmd = isWindows ? 'pdftocairo.exe' : 'pdftocairo';
 
@@ -302,58 +236,65 @@ async function tryA4WithPdftocairo(inputPath, outputDir, dpi) {
                 console.log(`Detected pdftocairo version: ${popplerVersion}`);
             }
         } catch (error) {
-            console.log('pdftocairo not found, skipping A4 standardization');
+            console.log('pdftocairo not found, will use pdf-poppler fallback');
             return false;
         }
 
-        // Calculate optimal DPI for very large files
-        let optimalDpi = dpi;
-        if (dpi > 150) {
-            // For high DPI requests on potentially large files, be more conservative
-            optimalDpi = Math.max(72, Math.min(dpi, 150));
-            console.log(`Adjusted DPI from ${dpi} to ${optimalDpi} for A4 standardization`);
-        }
-
-        // Use version-specific color handling
         const outputPrefix = path.join(outputDir, 'thumb');
-        let command;
 
-        // Use ultra-simple mode that works reliably across versions
-        console.log(`Using ultra-simple mode for version ${popplerVersion || 'unknown'} (most reliable)`);
-        command = `${pdftocairoCmd} -png -r ${optimalDpi} "${inputPath}" "${outputPrefix}"`;
+        // Try multiple methods in order of preference
+        const methods = [
+            // Method 1: sRGB color space (best for color accuracy)
+            { flag: '-srgb', name: 'sRGB color space' },
+            // Method 2: Transcode to sRGB (alternative color fix)
+            { flag: '-transp', name: 'transparent background with sRGB' },
+            // Method 3: Simple mode (most compatible)
+            { flag: '', name: 'simple mode' }
+        ];
 
-        // Note: Removed -W 595 -H 842 and other flags as they cause issues with problematic PDFs
-        // The output won't be exactly A4 constrained, but it will work reliably
+        for (const method of methods) {
+            try {
+                console.log(`Trying ${method.name}...`);
 
-        console.log(`Executing: ${command}`);
+                const command = method.flag
+                    ? `${pdftocairoCmd} -png ${method.flag} -r ${dpi} "${inputPath}" "${outputPrefix}"`
+                    : `${pdftocairoCmd} -png -r ${dpi} "${inputPath}" "${outputPrefix}"`;
 
-        const { stdout, stderr } = await execAsync(command);
+                console.log(`Executing: ${command}`);
 
-        if (stderr && !stderr.includes('Warning')) {
-            console.log('pdftocairo stderr:', stderr);
+                const { stdout, stderr } = await execAsync(command);
+
+                if (stderr && !stderr.includes('Warning')) {
+                    console.log('pdftocairo stderr:', stderr);
+                }
+
+                // Check if files were created
+                const files = fs.readdirSync(outputDir).filter(f => f.startsWith('thumb') && f.endsWith('.png'));
+
+                if (files.length > 0) {
+                    console.log(`Success with ${method.name}: ${files.length} pages generated`);
+
+                    files.forEach((file, index) => {
+                        const filePath = path.join(outputDir, file);
+                        const stats = fs.statSync(filePath);
+                        console.log(`Page ${index + 1}: ${file} (${stats.size} bytes)`);
+                    });
+
+                    return files.length;
+                }
+            } catch (error) {
+                console.log(`${method.name} failed:`, error.message);
+                // Clean up any partial files
+                const partialFiles = fs.readdirSync(outputDir).filter(f => f.startsWith('thumb'));
+                partialFiles.forEach(f => fs.unlinkSync(path.join(outputDir, f)));
+            }
         }
 
-        // Check if files were created
-        const files = fs.readdirSync(outputDir).filter(f => f.startsWith('thumb') && f.endsWith('.png'));
-
-        if (files.length > 0) {
-            console.log(`A4 standardization successful using pdftocairo: ${files.length} pages`);
-            console.log(`Target format: A4 constrained (approximately 595x842px at ${optimalDpi} DPI)`);
-
-            files.forEach((file, index) => {
-                const filePath = path.join(outputDir, file);
-                const stats = fs.statSync(filePath);
-                console.log(`Page ${index + 1}: ${file} (${stats.size} bytes, A4 format)`);
-            });
-
-            return files.length;
-        } else {
-            console.log('Standard pdftocairo failed, trying alternative color conversion...');
-            return await tryAlternativeColorConversion(inputPath, outputDir, optimalDpi);
-        }
+        console.log('All pdftocairo methods failed');
+        return false;
 
     } catch (error) {
-        console.log('A4 standardization with pdftocairo failed:', error.message);
+        console.log('pdftocairo with color fix failed:', error.message);
         return false;
     }
 }
