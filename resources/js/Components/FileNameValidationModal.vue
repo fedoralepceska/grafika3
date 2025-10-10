@@ -7,38 +7,42 @@
                     <i class="fa fa-times"></i>
                 </button>
             </div>
-            
+
             <div class="modal-content">
                 <div class="error-info">
                     <p class="error-message">
                         File <strong>"{{ invalidFile.filename }}"</strong> has incorrect naming.
                     </p>
-                    
+
                     <p v-if="invalidFile.errorMessage" class="specific-error">
                         {{ invalidFile.errorMessage }}
                     </p>
-                    
+
                     <div class="suggestion">
                         <p><strong>Suggested filename:</strong></p>
-                        <code class="suggested-filename" :title="invalidFile.suggestedFilename">{{ invalidFile.suggestedFilename }}</code>
+                        <code class="suggested-filename"
+                            :title="invalidFile.suggestedFilename">{{ invalidFile.suggestedFilename }}</code>
                         <button @click="copySuggestion" class="copy-btn" :disabled="copyButtonDisabled">
                             <i class="fa fa-copy"></i> {{ copyButtonText }}
                         </button>
                     </div>
                 </div>
-                
+
                 <div class="naming-rules">
                     <h4><i class="fa fa-info-circle"></i> File Naming Rules:</h4>
                     <div class="rules-list">
                         <div class="rule-item"><i class="fa fa-times-circle"></i> No spaces allowed</div>
                         <div class="rule-item"><i class="fa fa-times-circle"></i> No parentheses ( ) allowed</div>
                         <div class="rule-item"><i class="fa fa-times-circle"></i> No Cyrillic characters allowed</div>
-                        <div class="rule-item"><i class="fa fa-times-circle"></i> No special characters: &lt;&gt;:"/\|?*[]{};&=$&#,~`!@%^+</div>
-                        <div class="rule-item"><i class="fa fa-check-circle"></i> Use only letters, numbers, dots, hyphens (-), underscores (_)</div>
-                        <div class="rule-item"><i class="fa fa-check-circle"></i> Keep filenames under 200 characters</div>
+                        <div class="rule-item"><i class="fa fa-times-circle"></i> No special characters:
+                            &lt;&gt;:"/\|?*[]{};&=$&#,~`!@%^+</div>
+                        <div class="rule-item"><i class="fa fa-check-circle"></i> Use only letters, numbers, dots,
+                            hyphens (-), underscores (_)</div>
+                        <div class="rule-item"><i class="fa fa-check-circle"></i> Keep filenames under 200 characters
+                        </div>
                     </div>
                 </div>
-                
+
                 <div class="examples">
                     <h4><i class="fa fa-lightbulb-o"></i> Examples:</h4>
                     <div class="example-list">
@@ -61,7 +65,7 @@
                     </div>
                 </div>
             </div>
-            
+
             <div class="modal-footer">
                 <button @click="closeModal" class="btn btn-primary">
                     <i class="fa fa-check"></i> I Understand
@@ -98,32 +102,75 @@ export default {
         closeModal() {
             this.$emit('close');
         },
-        
+
         copySuggestion() {
             if (this.invalidFile.suggestedFilename && !this.copyButtonDisabled) {
-                navigator.clipboard.writeText(this.invalidFile.suggestedFilename).then(() => {
-                    // Update button text and disable temporarily
-                    this.copyButtonText = 'Copied!';
-                    this.copyButtonDisabled = true;
-                    
-                    // Optional: Show a toast notification
-                    const event = new CustomEvent('show-toast', {
-                        detail: {
-                            message: 'Filename copied to clipboard!',
-                            type: 'success'
-                        }
+                // Try modern clipboard API first
+                if (navigator.clipboard && navigator.clipboard.writeText) {
+                    navigator.clipboard.writeText(this.invalidFile.suggestedFilename).then(() => {
+                        this.handleCopySuccess();
+                    }).catch(err => {
+                        console.error('Clipboard API failed: ', err);
+                        this.fallbackCopy();
                     });
-                    window.dispatchEvent(event);
-                    
-                    // Reset button after 2 seconds
-                    setTimeout(() => {
-                        this.copyButtonText = 'Copy';
-                        this.copyButtonDisabled = false;
-                    }, 2000);
-                }).catch(err => {
-                    console.error('Failed to copy text: ', err);
-                });
+                } else {
+                    // Fallback for browsers without clipboard API
+                    this.fallbackCopy();
+                }
             }
+        },
+
+        fallbackCopy() {
+            try {
+                // Create a temporary textarea element
+                const textarea = document.createElement('textarea');
+                textarea.value = this.invalidFile.suggestedFilename;
+                textarea.style.position = 'fixed';
+                textarea.style.opacity = '0';
+                document.body.appendChild(textarea);
+                textarea.select();
+
+                // Try to copy using execCommand
+                const successful = document.execCommand('copy');
+                document.body.removeChild(textarea);
+
+                if (successful) {
+                    this.handleCopySuccess();
+                } else {
+                    this.handleCopyError();
+                }
+            } catch (err) {
+                console.error('Fallback copy failed: ', err);
+                this.handleCopyError();
+            }
+        },
+
+        handleCopySuccess() {
+            // Update button text and disable temporarily
+            this.copyButtonText = 'Copied!';
+            this.copyButtonDisabled = true;
+
+            // Optional: Show a toast notification
+            const event = new CustomEvent('show-toast', {
+                detail: {
+                    message: 'Filename copied to clipboard!',
+                    type: 'success'
+                }
+            });
+            window.dispatchEvent(event);
+
+            // Reset button after 2 seconds
+            setTimeout(() => {
+                this.copyButtonText = 'Copy';
+                this.copyButtonDisabled = false;
+            }, 2000);
+        },
+
+        handleCopyError() {
+            this.copyButtonText = 'Failed';
+            setTimeout(() => {
+                this.copyButtonText = 'Copy';
+            }, 2000);
         }
     }
 };
@@ -299,7 +346,7 @@ export default {
     .rules-list {
         margin: 0;
         padding: 0;
-        
+
         .rule-item {
             display: flex;
             align-items: flex-start;
@@ -449,13 +496,13 @@ export default {
         width: 98vw;
         margin: 10px;
     }
-    
+
     .error-info,
     .naming-rules,
     .examples {
         margin-bottom: 16px;
     }
-    
+
     .modal-content {
         padding: 16px;
     }
