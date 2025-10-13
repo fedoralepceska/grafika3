@@ -55,4 +55,12 @@ class Faktura extends Model
     {
         return $this->hasMany(Job::class);
     }
+
+    /**
+     * Get the additional services associated with the faktura.
+     */
+    public function additionalServices()
+    {
+        return $this->hasMany(AdditionalService::class);
+    }
 }

@@ -325,6 +325,8 @@
     </table>
     @php
         $verticalSums = calculateVerticalSums($invoices);
+        // Formatter: show integer quantities without decimals, otherwise 2 decimals
+        $fmtQty = function($n) { $n = (float)$n; return floor($n) == $n ? number_format($n, 0) : number_format($n, 2); };
         
         // Collect all jobs and trade items from all invoices in this faktura
         $allItems = [];
@@ -336,10 +338,11 @@
             return ($a['id'] ?? 0) <=> ($b['id'] ?? 0);
         });
 
-        // Separate jobs into merged-first and regular, collect trade items separately
+        // Separate jobs into merged-first and regular, collect trade items and additional services separately
         $mergedJobItems = [];
         $regularJobItems = [];
         $tradeItemItems = [];
+        $additionalServiceItems = [];
 
         // Map job id -> order meta for earliest-order lookup
         $jobOrderMeta = [];
@@ -393,10 +396,22 @@
             }
         }
 
-        // Build final items list: merged jobs first, then regular jobs, then trade items
+        // Collect additional services from the faktura (they are faktura-level, not invoice-level)
+        if (isset($additionalServices) && is_array($additionalServices)) {
+            foreach ($additionalServices as $service) {
+                $additionalServiceItems[] = [
+                    'type' => 'additional_service',
+                    'service' => $service,
+                    // row_number assigned later
+                ];
+            }
+        }
+
+        // Build final items list: merged jobs first, then regular jobs, then trade items, then additional services
         foreach ($mergedJobItems as $it) { $it['row_number'] = $jobCounter++; $allItems[] = $it; }
         foreach ($regularJobItems as $it) { $it['row_number'] = $jobCounter++; $allItems[] = $it; }
         foreach ($tradeItemItems as $it) { $it['row_number'] = $jobCounter++; $allItems[] = $it; }
+        foreach ($additionalServiceItems as $it) { $it['row_number'] = $jobCounter++; $allItems[] = $it; }
         
         // Recalculate totals explicitly from items: net (without VAT), VAT, and total
         $netTotal = 0;
@@ -413,6 +428,14 @@
             } elseif ($item['type'] === 'trade_item') {
                 $lineNet = (float) data_get($item, 'tradeItem.total_price', 0);
                 $lineVat = (float) data_get($item, 'tradeItem.vat_amount', 0);
+                $netTotal += $lineNet;
+                $vatTotal += $lineVat;
+            } elseif ($item['type'] === 'additional_service') {
+                $serviceQty = (float) data_get($item, 'service.quantity', 0);
+                $servicePrice = (float) data_get($item, 'service.sale_price', 0);
+                $serviceVatRate = (float) data_get($item, 'service.vat_rate', 0);
+                $lineNet = $serviceQty * $servicePrice;
+                $lineVat = $lineNet * ($serviceVatRate / 100);
                 $netTotal += $lineNet;
                 $vatTotal += $lineVat;
             }
@@ -515,7 +538,7 @@
                             } 
                         @endphp
                         <td style="font-size: 10pt; padding: 6px; text-align: center; background-color: #E7F1F2;">{{ $unitDisplay }}</td>
-                        <td style="font-size: 10pt; padding: 6px; text-align: center; background-color: #E7F1F2;">{{ $item['job']['quantity'] }}</td>
+                        <td style="font-size: 10pt; padding: 6px; text-align: center; background-color: #E7F1F2;">{{ $fmtQty($item['job']['quantity'] ?? 0) }}</td>
                         <td style="font-size: 10pt; padding: 6px; text-align: right; background-color: #E7F1F2;">{{ number_format((float) ($item['job']['salePrice'] ?? 0), 2) }}</td>
                         <td style="font-size: 10pt; padding: 6px; text-align: right; background-color: #E7F1F2;">{{ number_format(((float) ($item['job']['salePrice'] ?? 0)) * ((float) ($item['job']['quantity'] ?? 0)), 2) }}</td>
                     </tr>
@@ -525,9 +548,19 @@
                         <td style="font-size: 10pt; padding: 6px; text-align: left;"><span class="truncate-cell">{{ data_get($item, 'tradeItem.article_name') }}</span></td>
                         <td style="font-size: 10pt; padding: 6px; text-align: center; background-color: #E7F1F2;">{{ number_format((float) data_get($item, 'tradeItem.vat_rate', 0), 0) }}%</td>
                         <td style="font-size: 10pt; padding: 8px; text-align: center; background-color: #E7F1F2;">ед.</td>
-                        <td style="font-size: 10pt; padding: 6px; text-align: center; background-color: #E7F1F2;">{{ number_format((float) data_get($item, 'tradeItem.quantity', 0), 2) }}</td>
+                        <td style="font-size: 10pt; padding: 6px; text-align: center; background-color: #E7F1F2;">{{ $fmtQty(data_get($item, 'tradeItem.quantity', 0)) }}</td>
                         <td style="font-size: 10pt; padding: 6px; text-align: right; background-color: #E7F1F2;">{{ number_format((float) data_get($item, 'tradeItem.unit_price', 0), 2) }}</td>
                         <td style="font-size: 10pt; padding: 6px; text-align: right; background-color: #E7F1F2;">{{ number_format((float) data_get($item, 'tradeItem.total_price', 0), 2) }}</td>
+                    </tr>
+                @elseif($item['type'] === 'additional_service')
+                    <tr style="border-bottom: 2px solid #cccccc; font-weight: 700 ; font-family: 'Calibri'">
+                        <td style="font-size: 10pt; padding: 6px; text-align: center; white-space: nowrap;">{{ $item['row_number'] }}.</td>
+                        <td style="font-size: 10pt; padding: 6px; text-align: left;"><span class="truncate-cell">{{ data_get($item, 'service.name') }}</span></td>
+                        <td style="font-size: 10pt; padding: 6px; text-align: center; background-color: #E7F1F2;">{{ number_format((float) data_get($item, 'service.vat_rate', 0), 0) }}%</td>
+                        <td style="font-size: 10pt; padding: 6px; text-align: center; background-color: #E7F1F2;">{{ data_get($item, 'service.unit', 'ед') }}</td>
+                        <td style="font-size: 10pt; padding: 6px; text-align: center; background-color: #E7F1F2;">{{ $fmtQty(data_get($item, 'service.quantity', 0)) }}</td>
+                        <td style="font-size: 10pt; padding: 6px; text-align: right; background-color: #E7F1F2;">{{ number_format((float) data_get($item, 'service.sale_price', 0), 2) }}</td>
+                        <td style="font-size: 10pt; padding: 6px; text-align: right; background-color: #E7F1F2;">{{ number_format(((float) data_get($item, 'service.quantity', 0)) * ((float) data_get($item, 'service.sale_price', 0)), 2) }}</td>
                     </tr>
                 @endif
             @endforeach
@@ -572,6 +605,12 @@
                         $vr = (int) data_get($item, 'tradeItem.vat_rate', 0);
                         $vam = (float) data_get($item, 'tradeItem.vat_amount', 0);
                         if (isset($vatBreakdown[$vr])) $vatBreakdown[$vr] += $vam;
+                    } elseif ($item['type'] === 'additional_service') {
+                        $vr = (int) data_get($item, 'service.vat_rate', 0);
+                        $qty = (float) data_get($item, 'service.quantity', 0);
+                        $price = (float) data_get($item, 'service.sale_price', 0);
+                        $lineNet = $qty * $price;
+                        if (isset($vatBreakdown[$vr])) $vatBreakdown[$vr] += $lineNet * ($vr/100);
                     }
                 }
                 // Force summary to use the same numbers as the displayed "Износ" column

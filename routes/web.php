@@ -127,6 +127,13 @@ Route::middleware(['auth', 'verified'])->group(function() {
     Route::post('/invoice/{fakturaId}/trade-items', [InvoiceController::class, 'addTradeItem'])->name('invoices.addTradeItem');
     Route::put('/invoice/{fakturaId}/trade-items/{tradeItemId}', [InvoiceController::class, 'updateTradeItem'])->name('invoices.updateTradeItem');
     Route::delete('/invoice/{fakturaId}/trade-items/{tradeItemId}', [InvoiceController::class, 'deleteTradeItem'])->name('invoices.deleteTradeItem');
+    
+    // Additional Services routes
+    Route::get('/invoice/{faktura}/additional-services', [\App\Http\Controllers\AdditionalServiceController::class, 'index'])->name('invoices.additionalServices.index');
+    Route::post('/invoice/{faktura}/additional-services', [\App\Http\Controllers\AdditionalServiceController::class, 'store'])->name('invoices.additionalServices.store');
+    Route::put('/invoice/{faktura}/additional-services/{additionalService}', [\App\Http\Controllers\AdditionalServiceController::class, 'update'])->name('invoices.additionalServices.update');
+    Route::delete('/invoice/{faktura}/additional-services/{additionalService}', [\App\Http\Controllers\AdditionalServiceController::class, 'destroy'])->name('invoices.additionalServices.destroy');
+    
     Route::put('/invoice/{fakturaId}/invoice/{invoiceId}/title', [InvoiceController::class, 'updateInvoiceTitle'])->name('invoices.updateTitle');
     Route::put('/invoice/{fakturaId}/date', [InvoiceController::class, 'updateInvoiceDate'])->name('invoices.updateDate');
     Route::put('/invoice/{fakturaId}/attach-orders', [InvoiceController::class, 'attachOrders'])->name('invoices.attachOrders');

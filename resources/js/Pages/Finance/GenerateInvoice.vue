@@ -580,6 +580,118 @@
                         </div>
                     </div>
                 </div>
+
+                <!-- Additional Services Section -->
+                <div class="additional-services-section" v-if="isEditMode || (additionalServices && additionalServices.length > 0)">
+                    <div class="additional-services-container">
+                        <div class="additional-services-header">
+                            <h4 class="section-title">Additional Services</h4>
+                            <button class="btn btn-add" @click="showAdditionalServicesModal = true">
+                                <i class="fas fa-plus"></i> Add Service
+                            </button>
+                        </div>
+
+                        <div v-if="additionalServices.length === 0" class="no-items">
+                            No additional services added yet.
+                        </div>
+
+                        <div class="additional-services-list" v-else>
+                            <div class="additional-service-card" v-for="(service, idx) in additionalServices" :key="idx">
+                                <div class="item-header">
+                                    <div class="item-title">
+                                        <span class="service-name">{{ service.name }}</span>
+                                    </div>
+                                    <div class="item-actions">
+                                        <button v-if="!isEditingService[idx]" @click="startEditService(idx, service)"
+                                            class="btn btn-edit-small" title="Edit Service">
+                                            <i class="fas fa-edit"></i>
+                                        </button>
+                                        <button v-else @click="saveEditService(idx)" class="btn btn-save-small"
+                                            title="Save Changes">
+                                            <i class="fas fa-save"></i>
+                                        </button>
+                                        <button v-if="isEditingService[idx]" @click="cancelEditService(idx)"
+                                            class="btn btn-cancel-small" title="Cancel">
+                                            <i class="fas fa-times"></i>
+                                        </button>
+                                        <button @click="removeAdditionalService(idx)" class="btn btn-delete"
+                                            title="Delete Service">
+                                            <i class="fa-solid fa-trash"></i>
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div class="item-details">
+                                    <div class="detail-item">
+                                        <label>Service Name:</label>
+                                        <input v-if="isEditingService[idx]" v-model="editServiceForms[idx].name"
+                                            type="text" class="form-input-small" />
+                                        <span v-else class="detail-value">{{ service.name }}</span>
+                                    </div>
+
+                                    <div class="detail-item">
+                                        <label>Quantity:</label>
+                                        <input v-if="isEditingService[idx]" v-model.number="editServiceForms[idx].quantity"
+                                            type="number" min="0" step="0.01" class="form-input-small" />
+                                        <span v-else class="detail-value">{{ service.quantity }}</span>
+                                    </div>
+
+                                    <div class="detail-item">
+                                        <label>Unit:</label>
+                                        <select v-if="isEditingService[idx]" v-model="editServiceForms[idx].unit"
+                                            class="form-select-small">
+                                            <option value="м">м</option>
+                                            <option value="м²">м²</option>
+                                            <option value="кг">кг</option>
+                                            <option value="ком">ком</option>
+                                            <option value="час">час</option>
+                                            <option value="ед">ед</option>
+                                        </select>
+                                        <span v-else class="detail-value">{{ service.unit }}</span>
+                                    </div>
+
+                                    <div class="detail-item">
+                                        <label>Unit Price:</label>
+                                        <input v-if="isEditingService[idx]" v-model.number="editServiceForms[idx].sale_price"
+                                            type="number" step="0.01" min="0" class="form-input-small" />
+                                        <span v-else class="detail-value">{{ formatNumber(service.sale_price) }} ден.</span>
+                                    </div>
+
+                                    <div class="detail-item">
+                                        <label>VAT Rate:</label>
+                                        <select v-if="isEditingService[idx]" v-model.number="editServiceForms[idx].vat_rate"
+                                            class="form-select-small">
+                                            <option :value="0">0%</option>
+                                            <option :value="5">5%</option>
+                                            <option :value="10">10%</option>
+                                            <option :value="18">18%</option>
+                                        </select>
+                                        <span v-else class="detail-value">{{ service.vat_rate }}%</span>
+                                    </div>
+
+                                    <div class="detail-item">
+                                        <label>Total Price:</label>
+                                        <span class="detail-value total-price">{{ formatNumber(getServiceTotal(service, idx)) }} ден.</span>
+                                    </div>
+
+                                    <div class="detail-item">
+                                        <label>VAT Amount:</label>
+                                        <span class="detail-value">{{ formatNumber(getServiceVat(service, idx)) }} ден.</span>
+                                    </div>
+
+                                    <div class="detail-item">
+                                        <label>Total with VAT:</label>
+                                        <span class="detail-value total-final">{{ formatNumber(getServiceTotalWithVat(service, idx)) }} ден.</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="additional-services-total" v-if="additionalServices.length > 0">
+                            <strong>Additional Services Total: {{ formatNumber(additionalServicesTotal) }} ден (incl. VAT)</strong>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -738,6 +850,61 @@
                 </div>
             </div>
         </div>
+
+        <!-- Additional Services Modal -->
+        <div v-if="showAdditionalServicesModal" class="modal-overlay" @click="closeAdditionalServicesModal">
+            <div class="modal-content" @click.stop>
+                <div class="modal-header">
+                    <h3>Add Additional Service</h3>
+                    <button @click="closeAdditionalServicesModal" class="close-btn">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label>Service Name:</label>
+                        <input type="text" v-model="newServiceName" class="form-control" placeholder="Enter service name...">
+                    </div>
+                    <div class="form-group">
+                        <label>Quantity:</label>
+                        <input type="number" v-model.number="newServiceQuantity" min="0" step="0.01" class="form-control">
+                    </div>
+                    <div class="form-group">
+                        <label>Unit:</label>
+                        <select v-model="newServiceUnit" class="form-control">
+                            <option value="м">м</option>
+                            <option value="м²">м²</option>
+                            <option value="кг">кг</option>
+                            <option value="ком">ком</option>
+                            <option value="час">час</option>
+                            <option value="ед">ед</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Unit Price:</label>
+                        <input type="number" v-model.number="newServicePrice" step="0.01" min="0" class="form-control">
+                    </div>
+                    <div class="form-group">
+                        <label>VAT Rate:</label>
+                        <select v-model.number="newServiceVatRate" class="form-control">
+                            <option :value="0">0%</option>
+                            <option :value="5">5%</option>
+                            <option :value="10">10%</option>
+                            <option :value="18">18%</option>
+                        </select>
+                    </div>
+                    <div class="form-group" v-if="newServiceName && newServiceQuantity && newServicePrice">
+                        <div class="price-breakdown">
+                            <div>Subtotal: {{ formatNumber(newServiceQuantity * newServicePrice) }} ден</div>
+                            <div>VAT ({{ newServiceVatRate }}%): {{ formatNumber((newServiceQuantity * newServicePrice) * (newServiceVatRate/100)) }} ден</div>
+                            <div><strong>Total: {{ formatNumber((newServiceQuantity * newServicePrice) * (1 + newServiceVatRate/100)) }} ден</strong></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button @click="addAdditionalService" :disabled="!canAddAdditionalService" class="btn green">Add Service</button>
+                    <button @click="closeAdditionalServicesModal" class="btn delete">Cancel</button>
+                </div>
+            </div>
+        </div>
     </MainLayout>
 </template>
 
@@ -825,6 +992,18 @@ export default {
             return this.availableClients.filter(client => 
                 client.name.toLowerCase().includes(this.clientSearchQuery.toLowerCase())
             ).slice(0, 10); // Limit to 10 results
+        },
+        additionalServicesTotal() {
+            return this.additionalServices.reduce((total, service) => {
+                const subtotal = Number(service.quantity || 0) * Number(service.sale_price || 0);
+                const vatAmount = subtotal * (Number(service.vat_rate || 0) / 100);
+                return total + subtotal + vatAmount;
+            }, 0);
+        },
+        canAddAdditionalService() {
+            return this.newServiceName.trim() && 
+                   this.newServiceQuantity > 0 && 
+                   this.newServicePrice >= 0;
         }
     },
     data() {
@@ -876,7 +1055,17 @@ export default {
             selectedPreviewTab: 0,
             availableClients: [],
             clientSearchQuery: '',
-            openDropdowns: {} // Track which dropdowns are open
+            openDropdowns: {}, // Track which dropdowns are open
+            // Additional Services functionality
+            additionalServices: [],
+            showAdditionalServicesModal: false,
+            newServiceName: '',
+            newServiceQuantity: 1,
+            newServiceUnit: 'ком',
+            newServicePrice: 0,
+            newServiceVatRate: 18,
+            isEditingService: {},
+            editServiceForms: {}
         }
     },
     methods: {
@@ -1553,6 +1742,7 @@ export default {
                     orders: orderIds,
                     comment: this.comment,
                     trade_items: tradePayload,
+                    additional_services: this.additionalServices,
                     created_at: this.previewDate,
                     merge_groups: this.mergeGroups,
                     job_units: jobsWithUnits
@@ -1650,6 +1840,7 @@ export default {
                     orders: orderIds,
                     comment: this.comment,
                     trade_items: tradePayload,
+                    additional_services: this.additionalServices,
                     created_at: this.previewDate,
                     merge_groups: this.mergeGroups,
                     job_units: jobsWithUnits,
@@ -1898,6 +2089,7 @@ export default {
                     split_groups: this.splitGroups,
                     comment: this.comment,
                     trade_items: tradePayload,
+                    additional_services: this.additionalServices,
                     created_at: this.previewDate,
                     job_units: jobsWithUnits,
                     return_meta: true
@@ -1965,6 +2157,7 @@ export default {
                     split_groups: this.splitGroups,
                     comment: this.comment,
                     trade_items: tradePayload,
+                    additional_services: this.additionalServices,
                     created_at: this.previewDate,
                     job_units: jobsWithUnits
                 };
@@ -2058,6 +2251,95 @@ export default {
             return colors[index % colors.length];
         },
 
+        // Additional Services Methods
+        closeAdditionalServicesModal() {
+            this.showAdditionalServicesModal = false;
+            this.newServiceName = '';
+            this.newServiceQuantity = 1;
+            this.newServiceUnit = 'ком';
+            this.newServicePrice = 0;
+            this.newServiceVatRate = 18;
+        },
+
+        addAdditionalService() {
+            if (!this.canAddAdditionalService) return;
+
+            const newService = {
+                id: Date.now(), // Temporary ID for frontend
+                name: this.newServiceName.trim(),
+                quantity: this.newServiceQuantity,
+                unit: this.newServiceUnit,
+                sale_price: this.newServicePrice,
+                vat_rate: this.newServiceVatRate
+            };
+
+            this.additionalServices.push(newService);
+            this.closeAdditionalServicesModal();
+            this.$toast?.success?.('Additional service added');
+        },
+
+        startEditService(index, service) {
+            this.$set ? this.$set(this.isEditingService, index, true) : (this.isEditingService[index] = true);
+            this.$set ? this.$set(this.editServiceForms, index, {
+                name: service.name,
+                quantity: Number(service.quantity || 0),
+                unit: service.unit || 'ком',
+                sale_price: Number(service.sale_price || 0),
+                vat_rate: Number(service.vat_rate || 18)
+            }) : (this.editServiceForms[index] = {
+                name: service.name,
+                quantity: Number(service.quantity || 0),
+                unit: service.unit || 'ком',
+                sale_price: Number(service.sale_price || 0),
+                vat_rate: Number(service.vat_rate || 18)
+            });
+        },
+
+        cancelEditService(index) {
+            this.isEditingService[index] = false;
+            delete this.editServiceForms[index];
+        },
+
+        saveEditService(index) {
+            const form = this.editServiceForms[index];
+            if (!form) return;
+            
+            const service = this.additionalServices[index];
+            service.name = form.name;
+            service.quantity = form.quantity;
+            service.unit = form.unit;
+            service.sale_price = form.sale_price;
+            service.vat_rate = form.vat_rate;
+            
+            this.isEditingService[index] = false;
+            delete this.editServiceForms[index];
+            this.$toast?.success?.('Service updated');
+        },
+
+        removeAdditionalService(index) {
+            this.additionalServices.splice(index, 1);
+            this.$toast?.success?.('Service removed');
+        },
+
+        getServiceTotal(service, index) {
+            const form = this.editServiceForms[index];
+            const quantity = form ? Number(form.quantity || 0) : Number(service.quantity || 0);
+            const price = form ? Number(form.sale_price || 0) : Number(service.sale_price || 0);
+            return quantity * price;
+        },
+
+        getServiceVat(service, index) {
+            const form = this.editServiceForms[index];
+            const vatRate = form ? Number(form.vat_rate || 0) : Number(service.vat_rate || 0);
+            const total = this.getServiceTotal(service, index);
+            return total * (vatRate / 100);
+        },
+
+        getServiceTotalWithVat(service, index) {
+            const total = this.getServiceTotal(service, index);
+            const vat = this.getServiceVat(service, index);
+            return total + vat;
+        },
 
     },
     mounted() {
@@ -3265,6 +3547,62 @@ table th {
     text-align: center;
     color: rgba($white, 0.8);
     padding: 8px 0;
+}
+
+/* Additional Services Styles */
+.additional-services-section {
+    background: $light-gray;
+    border-radius: 3px;
+    padding: 24px;
+    margin: 20px 0;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    border: 1px solid $light-gray;
+}
+
+.additional-services-container {
+    color: $white;
+}
+
+.additional-services-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+    padding-bottom: 10px;
+    border-bottom: 2px solid rgba($white, 0.15);
+}
+
+.additional-services-header .section-title {
+    font-size: 18px;
+    font-weight: 600;
+    margin: 0;
+}
+
+.additional-services-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.additional-service-card {
+    background: rgba(white, 0.12);
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 16px;
+}
+
+.additional-services-total {
+    text-align: right;
+    margin-top: 10px;
+    padding: 10px;
+    background-color: $dark-gray;
+    border-radius: 4px;
+}
+
+.service-name {
+    font-size: 16px;
+    font-weight: 600;
+    color: $white;
 }
 
 /* Minimal Invoice Information Section (reused design) */

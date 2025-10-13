@@ -1357,6 +1357,7 @@ class InvoiceController extends Controller
 
             $pdf = PDF::loadView('invoices.outgoing_invoice_v2', [
                 'invoices' => $transformedInvoices,
+                'additionalServices' => is_array($additionalServices) ? $additionalServices : [],
                 'jobUnits' => $jobUnits,
                 'isHtml5ParserEnabled' => true,
                 'isRemoteEnabled' => true,
@@ -1449,6 +1450,7 @@ class InvoiceController extends Controller
         $invoiceIds = $request->input('orders');
         $comment = $request->input('comment');
         $tradeItems = $request->input('trade_items', []);
+        $additionalServices = $request->input('additional_services', []);
         $createdAtInput = $request->input('created_at');
         $mergeGroups = $request->input('merge_groups', []);
         $splitGroups = $request->input('split_groups', []);
@@ -1561,6 +1563,22 @@ class InvoiceController extends Controller
                     'total_price' => $tradeItem['total_price'] ?? 0,
                     'vat_rate' => $tradeItem['vat_rate'] ?? 0,
                     'vat_amount' => $tradeItem['vat_amount'] ?? 0,
+                ]);
+            }
+
+            // Handle additional services if provided
+            \Log::info('GenerateInvoice received additional services', [
+                'count' => is_array($additionalServices) ? count($additionalServices) : 0,
+                'services' => $additionalServices,
+            ]);
+            foreach ($additionalServices as $service) {
+                \App\Models\AdditionalService::create([
+                    'faktura_id' => $faktura->id,
+                    'name' => $service['name'] ?? '',
+                    'quantity' => $service['quantity'] ?? 0,
+                    'unit' => $service['unit'] ?? 'ком',
+                    'sale_price' => $service['sale_price'] ?? 0,
+                    'vat_rate' => $service['vat_rate'] ?? 18,
                 ]);
             }
 
@@ -1699,6 +1717,7 @@ class InvoiceController extends Controller
             // Generate PDF using v2 template for preview
             $pdf = PDF::loadView('invoices.outgoing_invoice_v2', [
                 'invoices' => $transformedInvoices,
+                'additionalServices' => is_array($additionalServices) ? $additionalServices : [],
                 'jobUnits' => $jobUnits,
                 'isHtml5ParserEnabled' => true,
                 'isRemoteEnabled' => true,
@@ -1974,6 +1993,7 @@ class InvoiceController extends Controller
 
         return PDF::loadView('invoices.outgoing_invoice_v2', [
             'invoices' => [$invoiceData],
+            'additionalServices' => ($faktura->additionalServices ?? collect())->toArray(),
             'jobUnits' => $jobUnits,
             'isHtml5ParserEnabled' => true,
             'isRemoteEnabled' => true,
@@ -2196,15 +2216,31 @@ class InvoiceController extends Controller
                 ];
             });
 
+            // Additional services are also separate from invoices - they belong to the faktura
+            $additionalServices = $faktura->additionalServices->map(function ($service) {
+                return [
+                    'id' => $service->id,
+                    'name' => $service->name,
+                    'quantity' => $service->quantity,
+                    'unit' => $service->unit,
+                    'sale_price' => $service->sale_price,
+                    'vat_rate' => $service->vat_rate,
+                    'total_price' => $service->total_price,
+                    'vat_amount' => $service->vat_amount,
+                    'total_price_with_vat' => $service->total_price_with_vat
+                ];
+            });
+
             return Inertia::render('Finance/Invoice', [
                 'invoice' => $invoiceData,
                 'faktura' => $faktura,
                 'tradeItems' => $tradeItems,
+                'additionalServices' => $additionalServices,
                 'mergeGroups' => $faktura->merge_groups ?? []
             ]);
         } catch (Exception $e) {
-            // If Faktura with the given ID is not found, return error response
-            return response()->json(['error' => 'Invoice not found'], 404);
+            // If Faktura with the given ID is not found, return a valid Inertia response (redirect)
+            return \Inertia\Inertia::location(url('/allInvoices'));
         }
     }
 
@@ -2401,6 +2437,7 @@ class InvoiceController extends Controller
             $invoiceIds = $request->input('orders');
             $comment = $request->input('comment');
             $tradeItems = $request->input('trade_items', []);
+            $additionalServices = $request->input('additional_services', []);
             $createdAtInput = $request->input('created_at');
             $mergeGroups = $request->input('merge_groups', []);
             $splitGroups = $request->input('split_groups', []);
@@ -2623,6 +2660,7 @@ class InvoiceController extends Controller
             // Generate PDF using v2 template for preview
             $pdf = PDF::loadView('invoices.outgoing_invoice_v2', [
                 'invoices' => $transformedInvoices,
+                'additionalServices' => is_array($additionalServices) ? $additionalServices : [],
                 'jobUnits' => $jobUnits,
                 'isHtml5ParserEnabled' => true,
                 'isRemoteEnabled' => true,
@@ -2781,9 +2819,10 @@ class InvoiceController extends Controller
                     'payment_deadline_override' => is_numeric($paymentDeadlineOverride) ? (int)$paymentDeadlineOverride : null,
                 ];
 
-                $pdf = PDF::loadView('invoices.outgoing_invoice_v2', [
-                    'invoices' => [$mockInvoice],
-                    'jobUnits' => $jobUnits,
+            $pdf = PDF::loadView('invoices.outgoing_invoice_v2', [
+                'invoices' => [$mockInvoice],
+                'additionalServices' => is_array($additionalServices) ? $additionalServices : [],
+                'jobUnits' => $jobUnits,
                     'isHtml5ParserEnabled' => true,
                     'isRemoteEnabled' => true,
                     'isFontSubsettingEnabled' => true,
@@ -2989,9 +3028,10 @@ class InvoiceController extends Controller
                 })->toArray();
 
                 // Generate PDF using same method as normal preview
-                $pdf = PDF::loadView('invoices.outgoing_invoice_v2', [
-                    'invoices' => $transformedInvoices,
-                    'jobUnits' => $jobUnits,
+            $pdf = PDF::loadView('invoices.outgoing_invoice_v2', [
+                'invoices' => $transformedInvoices,
+                'additionalServices' => is_array($additionalServices) ? $additionalServices : [],
+                'jobUnits' => $jobUnits,
                     'isHtml5ParserEnabled' => true,
                     'isRemoteEnabled' => true,
                     'isFontSubsettingEnabled' => true,
