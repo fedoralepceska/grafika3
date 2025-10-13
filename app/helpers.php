@@ -12,7 +12,17 @@ if (!function_exists('getUnit')) {
             return $unit;
         }
         
-        // Check if custom unit is provided for this job
+        // Check if unit is stored directly in the job (highest priority for database-stored units)
+        if (!empty($job['unit'])) {
+            $unit = $job['unit'];
+            // Normalize 'ком.' to 'ком' for consistency
+            if ($unit === 'ком.') {
+                $unit = 'ком';
+            }
+            return $unit;
+        }
+        
+        // Check if custom unit is provided for this job (fallback for frontend-only units)
         if ($jobUnits && is_array($jobUnits)) {
             $jobId = $job['id'] ?? null;
             foreach ($jobUnits as $unitData) {
@@ -59,7 +69,17 @@ if (!function_exists('getJobUnitByArticles')) {
             return $unit;
         }
         
-        // Check if custom unit is provided for this job (highest priority)
+        // Check if unit is stored directly in the job (highest priority for database-stored units)
+        if (!empty($job['unit'])) {
+            $unit = $job['unit'];
+            // Normalize 'ком.' to 'ком' for consistency
+            if ($unit === 'ком.') {
+                $unit = 'ком';
+            }
+            return $unit;
+        }
+        
+        // Check if custom unit is provided for this job (fallback for frontend-only units)
         if ($jobUnits && is_array($jobUnits)) {
             $jobId = $job['id'] ?? null;
             foreach ($jobUnits as $unitData) {

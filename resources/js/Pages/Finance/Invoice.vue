@@ -837,8 +837,28 @@ export default {
             }
         },
         // Update job unit
-        updateJobUnit(job, newUnit) {
+        async updateJobUnit(job, newUnit) {
             this.$set ? this.$set(job, 'unit', newUnit) : (job.unit = newUnit);
+            
+            // Find the invoice that contains this job
+            let invoiceId = null;
+            for (const invoiceData of (this.invoice || [])) {
+                if (invoiceData.jobs && invoiceData.jobs.some(j => j.id === job.id)) {
+                    invoiceId = invoiceData.id;
+                    break;
+                }
+            }
+            
+            if (invoiceId) {
+                try {
+                    await axios.put(`/invoice/${invoiceId}/job/${job.id}/unit`, {
+                        unit: newUnit
+                    });
+                } catch (error) {
+                    console.error('Failed to update job unit:', error);
+                    this.$toast?.error?.('Failed to save unit change');
+                }
+            }
         },
         // Update merge group unit
         updateMergeGroupUnit(groupIndex, newUnit) {

@@ -131,6 +131,7 @@ Route::middleware(['auth', 'verified'])->group(function() {
     Route::put('/invoice/{fakturaId}/date', [InvoiceController::class, 'updateInvoiceDate'])->name('invoices.updateDate');
     Route::put('/invoice/{fakturaId}/attach-orders', [InvoiceController::class, 'attachOrders'])->name('invoices.attachOrders');
     Route::put('/invoice/{fakturaId}/detach-orders', [InvoiceController::class, 'detachOrders'])->name('invoices.detachOrders');
+    Route::put('/invoice/{invoiceId}/job/{jobId}/unit', [InvoiceController::class, 'updateJobUnit'])->name('invoices.updateJobUnit');
     // Utility: next faktura id for pre-generation display
     Route::get('/invoices/next-id', [InvoiceController::class, 'getNextFakturaId'])->name('invoices.nextId');
 

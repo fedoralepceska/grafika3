@@ -189,8 +189,13 @@ class InvoiceController extends Controller
         $jobs = $request->jobs;
         foreach ($jobs as $job) {
             $job_id = $job['id']; // Assuming 'id' holds the job ID
+            $unit = $job['unit'] ?? 'ком'; // Default unit if not provided
 
+            // Attach job to invoice
             $invoice->jobs()->attach($job_id);
+            
+            // Update job's unit directly on the job model
+            Job::where('id', $job_id)->update(['unit' => $unit]);
         }
 
         $client = $invoice->client;
@@ -1529,6 +1534,19 @@ class InvoiceController extends Controller
                 $invoice->save();
             }
 
+            // Update job units directly on job model if provided
+            if (!empty($jobUnits) && is_array($jobUnits)) {
+                foreach ($jobUnits as $unitData) {
+                    if (isset($unitData['id']) && !empty($unitData['unit'])) {
+                        $jobId = $unitData['id'];
+                        $unit = $unitData['unit'];
+                        
+                        // Update the job's unit directly
+                        Job::where('id', $jobId)->update(['unit' => $unit]);
+                    }
+                }
+            }
+
             // Handle trade items if provided
             \Log::info('GenerateInvoice received trade items', [
                 'count' => is_array($tradeItems) ? count($tradeItems) : 0,
@@ -2013,6 +2031,30 @@ class InvoiceController extends Controller
             return response()->json(['success' => true, 'attached' => $invoices->pluck('id'), 'invoices' => $invoiceData]);
         } catch (\Throwable $e) {
             return response()->json(['error' => 'Failed to attach orders'], 500);
+        }
+    }
+
+    public function updateJobUnit(Request $request, $invoiceId, $jobId)
+    {
+        $request->validate([
+            'unit' => 'required|string|in:м,м²,кг,ком'
+        ]);
+
+        try {
+            // Verify the job exists and belongs to the invoice
+            $invoice = Invoice::findOrFail($invoiceId);
+            $job = $invoice->jobs()->where('jobs.id', $jobId)->first();
+            
+            if (!$job) {
+                return response()->json(['error' => 'Job not found in this invoice'], 404);
+            }
+            
+            // Update the job's unit directly
+            Job::where('id', $jobId)->update(['unit' => $request->input('unit')]);
+
+            return response()->json(['success' => true]);
+        } catch (\Throwable $e) {
+            return response()->json(['error' => 'Failed to update job unit'], 500);
         }
     }
 

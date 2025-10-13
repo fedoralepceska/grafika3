@@ -111,7 +111,8 @@ class Job extends Model
         'price',
         'salePrice',
         'invoice_id',
-        'faktura_id'
+        'faktura_id',
+        'unit'
     ];
 
     protected $with = ['actions', 'invoice', 'articles'];
