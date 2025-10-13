@@ -115,8 +115,15 @@ class ClientCardStatementController extends Controller
         // Fetch relevant fakturas (isInvoiced=true and client_id matches)
         $fakturasQuery = Faktura::query()
             ->where('isInvoiced', 1)
-            ->whereHas('invoices', function ($query) use ($cardStatement) {
-                $query->where('client_id', $cardStatement->client_id);
+            ->where(function ($query) use ($cardStatement) {
+                // Include fakturas with regular invoices for this client
+                $query->whereHas('invoices', function ($subQuery) use ($cardStatement) {
+                    $subQuery->where('client_id', $cardStatement->client_id);
+                })
+                // Or include fakturas with split jobs for this client
+                ->orWhereHas('jobs', function ($subQuery) use ($cardStatement) {
+                    $subQuery->where('client_id', $cardStatement->client_id);
+                });
             });
 
         // Fetch relevant incoming fakturas (client_id matches)
@@ -149,7 +156,7 @@ class ClientCardStatementController extends Controller
             $fakturasQuery->whereDate('created_at', '<=', $toDate);
         }
 
-        $fakturas = $fakturasQuery->get();
+        $fakturas = $fakturasQuery->with(['invoices.jobs', 'jobs'])->get();
 
         $formattedItems = $items->flatMap(function ($item) use ($totalIncomingFromFaktura) {
             $number = sprintf('%03d/%d', $item->id, $item->created_at->format('Y'));
@@ -200,17 +207,35 @@ class ClientCardStatementController extends Controller
 
         // Format data for fakturas
         $formattedFakturas = $fakturas->map(function ($faktura) use ($cardStatement) {
-            $invoice = $faktura->invoices->first();
-            if (!$invoice || $invoice->client_id !== $cardStatement->client_id) {
+            $invoiceTotal = 0;
+            $documentType = 'Output Invoice';
+            
+            // Handle regular invoices
+            $clientInvoices = $faktura->invoices->where('client_id', $cardStatement->client_id);
+            if ($clientInvoices->isNotEmpty()) {
+                foreach ($clientInvoices as $invoice) {
+                    $invoice->load('jobs');
+                    $invoiceTotal += $invoice->jobs->sum('salePrice');
+                }
+            }
+            
+            // Handle split invoices (jobs directly assigned to faktura)
+            if ($faktura->is_split_invoice) {
+                $clientJobs = $faktura->jobs->where('client_id', $cardStatement->client_id);
+                if ($clientJobs->isNotEmpty()) {
+                    $invoiceTotal += $clientJobs->sum('salePrice');
+                    $documentType = 'Output Invoice (Split)';
+                }
+            }
+            
+            // Skip if no relevant invoices or jobs for this client
+            if ($invoiceTotal == 0) {
                 return null;
             }
 
-            $invoice->load('jobs');
-            $invoiceTotal = $invoice->jobs->sum('salePrice');
-
             return [
                 'date' => $faktura->created_at->format('Y-m-d'),
-                'document' => 'Output Invoice',
+                'document' => $documentType,
                 'number' => sprintf('%03d/%d', $faktura->id, $faktura->created_at->format('Y')),
                 'incoming_invoice' => 0,
                 'output_invoice' => $invoiceTotal,

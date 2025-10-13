@@ -110,7 +110,8 @@ class Job extends Model
         'client_id',
         'price',
         'salePrice',
-        'invoice_id'
+        'invoice_id',
+        'faktura_id'
     ];
 
     protected $with = ['actions', 'invoice', 'articles'];
@@ -193,6 +194,11 @@ class Job extends Model
     public function client(): BelongsTo
     {
         return $this->belongsTo(Client::class);
+    }
+
+    public function faktura(): BelongsTo
+    {
+        return $this->belongsTo(Faktura::class);
     }
 
     public function small_material()

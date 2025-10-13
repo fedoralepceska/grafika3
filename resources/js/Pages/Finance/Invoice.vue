@@ -168,6 +168,7 @@
                                 <div class="job-header-labels">
                                     <div class="label-cell">Title</div>
                                     <div class="label-cell">Quantity</div>
+                                    <div class="label-cell">Unit</div>
                                     <div class="label-cell">Total m²</div>
                                     <div class="label-cell">Sale Price</div>
                                     <div class="label-cell action-cell">Actions</div>
@@ -189,6 +190,14 @@
                                                     <input class="inline-input" type="number" min="0" v-model.number="job.quantity" />
                                                 </template>
                                                 <template v-else>{{ job.quantity }}</template>
+                                            </div>
+                                            <div class="value-cell">
+                                                <select class="inline-input unit-select" :value="job.unit || 'ком'" @input="updateJobUnit(job, $event.target.value)">
+                                                    <option value="м">м</option>
+                                                    <option value="м²">м²</option>
+                                                    <option value="кг">кг</option>
+                                                    <option value="ком">ком</option>
+                                                </select>
                                             </div>
                                             <div class="value-cell">
                                                 <template v-if="isEditMode && editingJobId === job.id">
@@ -265,6 +274,12 @@
                                                 :class="{ 'invalid-field': !isMergeGroupFieldValid(grp.__idx, 'quantity') }"
                                                 placeholder="Quantity" 
                                                 v-model.number="grp.quantity" />
+                                            <select class="inline-input unit-select" :value="grp.unit || 'ком'" @input="updateMergeGroupUnit(grp.__idx, $event.target.value)">
+                                                <option value="м">м</option>
+                                                <option value="м²">м²</option>
+                                                <option value="кг">кг</option>
+                                                <option value="ком">ком</option>
+                                            </select>
                                             <div class="value-cell"></div>
                                             <input 
                                                 type="number" 
@@ -282,6 +297,7 @@
                                         <template v-else>
                                             <div class="value-cell">{{ grp.title || 'Merged group' }}</div>
                                             <div class="value-cell">{{ formatNumber(grp.quantity || 0) }}</div>
+                                            <div class="value-cell">{{ grp.unit || 'м²' }}</div>
                                             <div class="value-cell"></div>
                                             <div class="value-cell">{{ formatPrice(grp.sale_price || 0) }} ден.</div>
                                             <div class="value-cell actions">
@@ -302,6 +318,7 @@
                                             <div class="job-header">
                                                 <div class="value-cell job-title">{{ displayJobName(gid) }}</div>
                                                 <div class="value-cell">{{ displayJobQty(gid) }}</div>
+                                                <div class="value-cell">{{ displayJobUnit(gid) }}</div>
                                                 <div class="value-cell">{{ displayJobArea(gid) }}</div>
                                                 <div class="value-cell">{{ displayJobPrice(gid) }} ден.</div>
                                                 <div class="value-cell actions">
@@ -767,6 +784,7 @@ export default {
         // Initialize original merge groups for change tracking
         this.originalMergeGroups = JSON.parse(JSON.stringify(this.faktura.merge_groups || []));
         this.loadTradeArticles();
+        this.initializeJobUnits();
     },
     methods: {
         // Helper method to get the faktura date consistently
@@ -801,6 +819,31 @@ export default {
         },
         displayJobName(id) { const j = this.getJobById(id); return j ? j.name : ''; },
         displayJobQty(id) { const j = this.getJobById(id); return j ? j.quantity : ''; },
+        displayJobUnit(id) { const j = this.getJobById(id); return j ? (j.unit || 'ком') : 'ком'; },
+        // Initialize units for all jobs
+        initializeJobUnits() {
+            if (this.invoice) {
+                // Handle both array and object formats
+                const invoices = Array.isArray(this.invoice) ? this.invoice : Object.values(this.invoice);
+                invoices.forEach(invoice => {
+                    if (invoice.jobs && Array.isArray(invoice.jobs)) {
+                        invoice.jobs.forEach(job => {
+                            if (!job.unit) {
+                                this.$set ? this.$set(job, 'unit', 'ком') : (job.unit = 'ком');
+                            }
+                        });
+                    }
+                });
+            }
+        },
+        // Update job unit
+        updateJobUnit(job, newUnit) {
+            this.$set ? this.$set(job, 'unit', newUnit) : (job.unit = newUnit);
+        },
+        // Update merge group unit
+        updateMergeGroupUnit(groupIndex, newUnit) {
+            this.$set ? this.$set(this.faktura.merge_groups[groupIndex], 'unit', newUnit) : (this.faktura.merge_groups[groupIndex].unit = newUnit);
+        },
         displayJobArea(id) { const j = this.getJobById(id); return this.formatArea(j ? j.computed_total_area_m2 : 0); },
         displayJobPrice(id) { const j = this.getJobById(id); return this.formatPrice(j ? j.salePrice : 0); },
         getMergeGroupIndexByJobId(jobId) {
@@ -1671,7 +1714,43 @@ export default {
         async printInvoice() {
             const toast = useToast();
             try {
-                // Build payload like GenerateInvoice.vue preview, but using current faktura context
+                // Check if this is a split invoice
+                const isSplitInvoice = this.faktura?.is_split_invoice || false;
+                
+                if (isSplitInvoice) {
+                    // For split invoices, build job units and send as POST request
+                    const jobsWithUnits = [];
+                    if (this.invoice) {
+                        // Handle both array and object formats
+                        const invoices = Array.isArray(this.invoice) ? this.invoice : Object.values(this.invoice);
+                        invoices.forEach(invoice => {
+                            if (invoice.jobs && Array.isArray(invoice.jobs)) {
+                                invoice.jobs.forEach(job => {
+                                    jobsWithUnits.push({
+                                        id: job.id,
+                                        unit: job.unit || 'ком'
+                                    });
+                                });
+                            }
+                        });
+                    }
+
+                    const response = await axios.post(`/invoice/${this.faktura.id}/pdf`, {
+                        job_units: jobsWithUnits,
+                        merge_groups: this.faktura?.merge_groups || []
+                    }, { 
+                        responseType: 'blob' 
+                    });
+                    
+                    // Open blob in new tab
+                    const blob = new Blob([response.data], { type: 'application/pdf' });
+                    const url = window.URL.createObjectURL(blob);
+                    window.open(url, '_blank');
+                    toast.success('Split invoice printed');
+                    return;
+                }
+
+                // For regular invoices, use the existing preview-invoice endpoint
                 const orderIds = (this.invoice || []).map(order => order.id);
                 if (!orderIds.length) {
                     toast.error('Cannot print: no orders available');
@@ -1683,6 +1762,24 @@ export default {
                     toast.error('Cannot print: Please fill in all required fields (title, quantity, and price) for merged groups');
                     return;
                 }
+                
+                // Include job data with units for printing
+                const jobsWithUnits = [];
+                if (this.invoice) {
+                    // Handle both array and object formats
+                    const invoices = Array.isArray(this.invoice) ? this.invoice : Object.values(this.invoice);
+                    invoices.forEach(invoice => {
+                        if (invoice.jobs && Array.isArray(invoice.jobs)) {
+                            invoice.jobs.forEach(job => {
+                                jobsWithUnits.push({
+                                    id: job.id,
+                                    unit: job.unit || 'ком'
+                                });
+                            });
+                        }
+                    });
+                }
+
                 const tradePayload = this.buildTradeItemsPayload();
                 // Use the same date logic as the display to ensure consistency
                 const createdAt = this.getDateForPayload();
@@ -1695,13 +1792,14 @@ export default {
                     trade_items: tradePayload,
                     created_at: createdAt,
                     merge_groups: this.faktura?.merge_groups || [],
+                    job_units: jobsWithUnits,
                     payment_deadline_override: this.displayPaymentDeadline
                 }, { responseType: 'blob' });
 
                 // Open blob in new tab
-                        const blob = new Blob([response.data], { type: 'application/pdf' });
-                        const url = window.URL.createObjectURL(blob);
-                        window.open(url, '_blank');
+                const blob = new Blob([response.data], { type: 'application/pdf' });
+                const url = window.URL.createObjectURL(blob);
+                window.open(url, '_blank');
                 toast.success('Invoice preview generated');
             } catch (error) {
                 console.error('Error generating preview for print:', error);
@@ -1767,7 +1865,7 @@ $orange: #a36a03;
 }
 .merged-container .merged-header {
     display: grid;
-    grid-template-columns: 2fr 1fr 1fr 1fr 1fr; /* align with job header: Title, Qty, Total m², Sale, Actions */
+    grid-template-columns: 2fr 1fr 0.8fr 1fr 1fr 1fr; /* align with job header: Title, Qty, Unit, Total m², Sale, Actions */
     gap: 8px;
     padding: 8px;
 }
@@ -2412,7 +2510,7 @@ $orange: #a36a03;
 
 .job-header-labels {
     display: grid;
-    grid-template-columns: 2fr 1fr 1fr 1fr 1fr;
+    grid-template-columns: 2fr 1fr 0.8fr 1fr 1fr 1fr;
     gap: 8px;
     padding: 5px 10px;
     border-top: 1px solid $ultra-light-gray;
@@ -2428,7 +2526,7 @@ $orange: #a36a03;
 
 .job-header {
     display: grid;
-    grid-template-columns: 2fr 1fr 1fr 1fr 1fr;
+    grid-template-columns: 2fr 1fr 0.8fr 1fr 1fr 1fr;
     align-items: center;
     padding: 10px;
     background-color: #7DC068;
@@ -2462,6 +2560,34 @@ $orange: #a36a03;
     0%, 100% { transform: translateX(0); }
     25% { transform: translateX(-2px); }
     75% { transform: translateX(2px); }
+}
+
+.unit-select {
+    font-size: 12px;
+    padding: 4px 6px;
+    cursor: pointer;
+    width: fit-content;
+    background: transparent;
+    border: 1px solid #000000;
+    border-radius: 3px;
+    
+    &:hover {
+        background: rgba(255, 255, 255, 0.1);
+        border-color: #333333;
+    }
+    
+    &:focus {
+        background: #ffffff;
+        border-color: #008080;
+        box-shadow: 0 0 0 2px rgba(0, 128, 128, 0.2);
+    }
+    
+    option {
+        padding: 4px 8px;
+        font-size: 12px;
+        background: #ffffff;
+        color: #111827;
+    }
 }
 
 .btn-edit-small,

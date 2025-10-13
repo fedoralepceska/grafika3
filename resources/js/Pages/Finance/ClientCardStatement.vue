@@ -67,7 +67,7 @@
                                 <th>{{ $t('statementExpense') }}</th>
                                 <th>{{ $t('comment') }}</th>
                             </tr>
-                            <tr v-for="item in tableData.data" :key="item.number">
+                            <tr v-for="item in tableData.data" :key="item.number" :class="{ 'split-invoice-row': item.document && item.document.includes('Split') }">
                                 <th>{{ item?.date }}</th>
                                 <th>{{ item?.document }}</th>
                                 <th>{{ item?.number }}</th>
@@ -434,6 +434,15 @@ table th {
     border-top: 1px solid #ddd;
     border-bottom: 1px solid #ddd;
     background-color: $ultra-light-gray;
+}
 
+/* Split invoice row styling */
+.split-invoice-row {
+    background-color: rgba(168, 85, 247, 0.1) !important;
+    border-left: 3px solid rgba(168, 85, 247, 0.6);
+}
+
+.split-invoice-row th {
+    background-color: rgba(168, 85, 247, 0.15) !important;
 }
 </style>

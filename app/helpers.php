@@ -1,7 +1,33 @@
 <?php
 
 if (!function_exists('getUnit')) {
-    function getUnit($job) {
+    function getUnit($job, $jobUnits = null) {
+        // For merged jobs, check if unit is already stored in the job itself
+        if (!empty($job['merged']) && !empty($job['unit'])) {
+            $unit = $job['unit'];
+            // Normalize 'ком.' to 'ком' for consistency
+            if ($unit === 'ком.') {
+                $unit = 'ком';
+            }
+            return $unit;
+        }
+        
+        // Check if custom unit is provided for this job
+        if ($jobUnits && is_array($jobUnits)) {
+            $jobId = $job['id'] ?? null;
+            foreach ($jobUnits as $unitData) {
+                if (isset($unitData['id']) && $unitData['id'] == $jobId && !empty($unitData['unit'])) {
+                    $unit = $unitData['unit'];
+                    // Normalize 'ком.' to 'ком' for consistency
+                    if ($unit === 'ком.') {
+                        $unit = 'ком';
+                    }
+                    return $unit;
+                }
+            }
+        }
+
+        // Fall back to original logic based on materials
         $small = \App\Models\SmallMaterial::find($job['small_material_id']);
         $large = \App\Models\LargeFormatMaterial::find($job['large_material_id']);
 
@@ -22,8 +48,33 @@ if (!function_exists('getUnit')) {
 }
 
 if (!function_exists('getJobUnitByArticles')) {
-    function getJobUnitByArticles($job) {
-        // Expecting $job as array with 'articles' key (as sent to PDF)
+    function getJobUnitByArticles($job, $jobUnits = null) {
+        // For merged jobs, check if unit is already stored in the job itself
+        if (!empty($job['merged']) && !empty($job['unit'])) {
+            $unit = $job['unit'];
+            // Normalize 'ком.' to 'ком' for consistency
+            if ($unit === 'ком.') {
+                $unit = 'ком';
+            }
+            return $unit;
+        }
+        
+        // Check if custom unit is provided for this job (highest priority)
+        if ($jobUnits && is_array($jobUnits)) {
+            $jobId = $job['id'] ?? null;
+            foreach ($jobUnits as $unitData) {
+                if (isset($unitData['id']) && $unitData['id'] == $jobId && !empty($unitData['unit'])) {
+                    $unit = $unitData['unit'];
+                    // Normalize 'ком.' to 'ком' for consistency
+                    if ($unit === 'ком.') {
+                        $unit = 'ком';
+                    }
+                    return $unit;
+                }
+            }
+        }
+
+        // Fall back to original logic based on articles
         $articles = $job['articles'] ?? [];
         if (!is_array($articles) || count($articles) === 0) {
             return '';

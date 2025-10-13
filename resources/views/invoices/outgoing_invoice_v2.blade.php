@@ -507,7 +507,13 @@
                             }
                         @endphp
                         <td style="font-size: 10pt; padding: 6px; text-align: center; background-color: #E7F1F2;">{{ $rowRateDisplay }}</td>
-                        @php $unitDisplay = getJobUnitByArticles($item['job']); if ($unitDisplay === '') { $unitDisplay = getUnit($item['job']); } @endphp
+                        @php 
+                            $jobUnits = $jobUnits ?? null; // Get job_units from template data
+                            $unitDisplay = getJobUnitByArticles($item['job'], $jobUnits); 
+                            if ($unitDisplay === '') { 
+                                $unitDisplay = getUnit($item['job'], $jobUnits); 
+                            } 
+                        @endphp
                         <td style="font-size: 10pt; padding: 6px; text-align: center; background-color: #E7F1F2;">{{ $unitDisplay }}</td>
                         <td style="font-size: 10pt; padding: 6px; text-align: center; background-color: #E7F1F2;">{{ $item['job']['quantity'] }}</td>
                         <td style="font-size: 10pt; padding: 6px; text-align: right; background-color: #E7F1F2;">{{ number_format((float) ($item['job']['salePrice'] ?? 0), 2) }}</td>

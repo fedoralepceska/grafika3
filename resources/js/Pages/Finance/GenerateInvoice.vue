@@ -8,7 +8,13 @@
             </div>
             <div class="left-column flex-1" style="width: 25%">
                 <div class="flex justify-between">
-                    <Header title="invoice2" subtitle="invoiceGeneration" icon="invoice.png" link="notInvoiced" />
+                    <div class="flex flex-col">
+                        <Header title="invoice2" subtitle="invoiceGeneration" icon="invoice.png" link="notInvoiced" />
+                        <div v-if="splitMode" class="split-mode-indicator">
+                            <i class="fas fa-cut"></i>
+                            Split Mode Active - Create groups and assign jobs to them
+                        </div>
+                    </div>
                     <div class="flex flex-col pt-4">
                         <div class="buttons pt-3">
                             <button class="btn blue" @click="openCommentModal">
@@ -18,18 +24,23 @@
                                 Add Trade Items <i class="fa-solid fa-plus"></i>
                             </button>
                             <button class="btn orange" @click="previewInvoice" :disabled="!canGenerateOrPreview">
-                                Preview <i class="fa-solid fa-eye"></i>
+                                {{ splitMode ? 'Preview Split Invoices' : 'Preview' }} <i class="fa-solid fa-eye"></i>
                             </button>
                             <button class="btn generate-invoice" @click="generateInvoice"
-                                :disabled="!canGenerateOrPreview">Generate Invoice <i
+                                :disabled="!canGenerateOrPreview">
+                                {{ splitMode ? 'Generate Split Invoices' : 'Generate Invoice' }} <i
                                     class="fa-solid fa-file-invoice-dollar"></i></button>
                         </div>
                         <div class="buttons flex justify-end pt-3">
-                            <button v-if="isEditMode" class="btn bg-[#800080]" @click="createOrAddToMergeGroup()">
+                            <button v-if="isEditMode && !splitMode" class="btn bg-[#800080]" @click="createOrAddToMergeGroup()">
                                 Merge
                             </button>
-                            <button v-if="isEditMode" class="btn bg-[#800020]" @click="unmergeSelected()">
+                            <button v-if="isEditMode && !splitMode" class="btn bg-[#800020]" @click="unmergeSelected()">
                                 Unmerge
+                            </button>
+
+                            <button v-if="isEditMode" class="btn" :class="splitMode ? 'bg-[#dc2626]' : 'bg-[#008080]'" @click="toggleSplitMode()">
+                                {{ splitMode ? 'Exit Split Mode' : 'Split Jobs' }}
                             </button>
                         </div>
                     </div>
@@ -146,6 +157,7 @@
                             <div class="job-header-labels">
                                 <div class="label-cell">Title</div>
                                 <div class="label-cell">Quantity</div>
+                                <div class="label-cell">Unit</div>
                                 <div class="label-cell">Total m²</div>
                                 <div class="label-cell">Sale Price</div>
                                 <!-- <div class="label-cell">Job Price</div> -->
@@ -171,6 +183,14 @@
                                             <template v-else>{{ job.quantity }}</template>
                                         </div>
                                         <div class="value-cell">
+                                            <select class="inline-input unit-select" :value="job.unit || 'ком'" @input="updateJobUnit(job, $event.target.value)">
+                                                <option value="м">м</option>
+                                                <option value="м²">м²</option>
+                                                <option value="кг">кг</option>
+                                                <option value="ком">ком</option>
+                                            </select>
+                                        </div>
+                                        <div class="value-cell">
                                             <template v-if="isEditMode && editingJobId === job.id">
                                                 <input class="inline-input" type="number" min="0" step="0.0001"
                                                     v-model.number="job.computed_total_area_m2" />
@@ -184,28 +204,74 @@
                                             </template>
                                             <template v-else>{{ formatPrice(job.salePrice) }} ден.</template>
                                         </div>
-                                        <div class="value-cell actions flex flex-row">
-                                            <template v-if="isEditMode">
-                                                <template v-if="editingJobId !== job.id">
-                                                    <button class="btn-edit-small"
-                                                        @click="startEditingJob(job)">Edit</button>
-                                                </template>
-                                                <template v-else>
-                                                    <button class="btn-save-small"
-                                                        @click="saveEditingJob(job)">Save</button>
-                                                    <button class="btn-cancel-small"
-                                                        @click="cancelEditingJob(job)">Cancel</button>
-                                                </template>
-                                            </template>
-                                            <button class="btn-edit-small" style="margin-left:6px"
-                                                @click="toggleMaterials(job.id)">
-                                                {{ materialsOpen[job.id] ? 'Hide Materials' : 'Show Materials' }}
-                                            </button>
-                                            <button class="merge-toggle ml-2" :class="{ selected: isSelected(job.id) }"
-                                                @click="toggleMergeSelection(job.id)" title="Toggle merge">
-                                                <i class="fa-solid fa-code-merge"></i>
-                                                Merge
-                                            </button>
+                                        <div class="value-cell actions">
+                                            <div class="actions-row">
+                                                <!-- Edit Actions -->
+                                                <div class="action-group" v-if="isEditMode">
+                                                    <template v-if="editingJobId !== job.id">
+                                                        <button class="action-btn edit" @click="startEditingJob(job)" title="Edit Job">
+                                                            <i class="fas fa-edit"></i>
+                                                        </button>
+                                                    </template>
+                                                    <template v-else>
+                                                        <button class="action-btn save" @click="saveEditingJob(job)" title="Save Changes">
+                                                            <i class="fas fa-check"></i>
+                                                        </button>
+                                                        <button class="action-btn cancel" @click="cancelEditingJob(job)" title="Cancel">
+                                                            <i class="fas fa-times"></i>
+                                                        </button>
+                                                    </template>
+                                                </div>
+                                                
+                                                <!-- Materials Toggle -->
+                                                <button class="action-btn materials" @click="toggleMaterials(job.id)" 
+                                                        :title="materialsOpen[job.id] ? 'Hide Materials' : 'Show Materials'">
+                                                    <i :class="materialsOpen[job.id] ? 'fas fa-eye-slash' : 'fas fa-eye'"></i>
+                                                </button>
+                                                
+                                                <!-- Mode-specific Actions -->
+                                                <div class="mode-actions">
+                                                    <!-- Merge Mode -->
+                                                    <button v-if="!splitMode" class="action-btn merge" 
+                                                            :class="{ selected: isSelected(job.id) }"
+                                                            @click="toggleMergeSelection(job.id)" 
+                                                            title="Toggle merge">
+                                                        <i class="fas fa-code-merge"></i>
+                                                    </button>
+                                                    
+                                                    <!-- Split Mode -->
+                                                    <div v-if="splitMode" class="split-assignment-compact">
+                                                        <div class="custom-split-dropdown" :class="{ open: openDropdowns[job.id] }">
+                                                            <button class="split-dropdown-trigger" 
+                                                                    @click="toggleDropdown(job.id)"
+                                                                    :class="{ assigned: getJobSplitGroup(job.id) !== '' }"
+                                                                    title="Assign to split group">
+                                                                <span class="dropdown-text">
+                                                                    {{ getJobSplitGroup(job.id) !== '' ? 'G' + (parseInt(getJobSplitGroup(job.id)) + 1) : '—' }}
+                                                                </span>
+                                                                <i class="fas fa-chevron-down dropdown-arrow"></i>
+                                                            </button>
+                                                            <div class="split-dropdown-menu" v-if="openDropdowns[job.id]">
+                                                                <div class="dropdown-option unassign" 
+                                                                     @click="assignJobToGroup(job.id, ''); closeDropdown(job.id)"
+                                                                     :class="{ active: getJobSplitGroup(job.id) === '' }">
+                                                                    <span class="option-badge">—</span>
+                                                                    <span class="option-text">Unassigned</span>
+                                                                </div>
+                                                                <div v-for="(group, index) in splitGroups" :key="index"
+                                                                     class="dropdown-option" 
+                                                                     @click="assignJobToGroup(job.id, index.toString()); closeDropdown(job.id)"
+                                                                     :class="{ active: getJobSplitGroup(job.id) === index.toString() }">
+                                                                    <span class="option-badge" :style="{ backgroundColor: getGroupColor(index) }">
+                                                                        G{{ index + 1 }}
+                                                                    </span>
+                                                                    <span class="option-text">{{ group.client }}</span>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
                                         </div>
                                     </div>
                                     <div v-if="materialsOpen[job.id]" class="material-info">
@@ -248,6 +314,12 @@
                                         <input type="number" min="0" step="0.01" class="inline-input"
                                             :class="{ 'invalid-field': !isMergeGroupFieldValid(grp.__idx, 'quantity') }"
                                             placeholder="Quantity" v-model.number="mergeGroups[grp.__idx].quantity" />
+                                        <select class="inline-input unit-select" :value="mergeGroups[grp.__idx].unit || 'ком'" @input="updateMergeGroupUnit(grp.__idx, $event.target.value)">
+                                            <option value="м">м</option>
+                                            <option value="м²">м²</option>
+                                            <option value="кг">кг</option>
+                                            <option value="ком">ком</option>
+                                        </select>
                                         <div class="value-cell"></div>
                                         <input type="number" min="0" step="0.01" class="inline-input"
                                             :class="{ 'invalid-field': !isMergeGroupFieldValid(grp.__idx, 'sale_price') }"
@@ -260,6 +332,7 @@
                                         </div>
                                         <div class="value-cell">{{ formatNumber(mergeGroups[grp.__idx].quantity || 0) }}
                                         </div>
+                                        <div class="value-cell">{{ mergeGroups[grp.__idx].unit || 'ком' }}</div>
                                         <div class="value-cell"></div>
                                         <div class="value-cell">{{ formatPrice(mergeGroups[grp.__idx].sale_price || 0)
                                             }} ден.</div>
@@ -272,18 +345,139 @@
                                         <div class="job-header">
                                             <div class="value-cell job-title">{{ displayJobName(gid) }}</div>
                                             <div class="value-cell">{{ displayJobQty(gid) }}</div>
+                                            <div class="value-cell">
+                                                <select class="inline-input unit-select" :value="getJobById(gid).unit || 'ком'" @input="updateJobUnit(getJobById(gid), $event.target.value)">
+                                                    <option value="м">м</option>
+                                                    <option value="м²">м²</option>
+                                                    <option value="кг">кг</option>
+                                                    <option value="ком">ком</option>
+                                                </select>
+                                            </div>
                                             <div class="value-cell">{{ displayJobArea(gid) }}</div>
                                             <div class="value-cell">{{ displayJobPrice(gid) }} ден.</div>
                                             <div class="value-cell actions">
-                                                <button class="merge-toggle" :class="{ selected: isSelected(gid) }"
-                                                    @click="toggleMergeSelection(gid)" title="Toggle merge">
-                                                    <i class="fa-solid fa-code-merge"></i>
-                                                    Merge
-                                                </button>
+                                                <div class="actions-row">
+                                                    <div class="mode-actions">
+                                                        <!-- Merge Mode -->
+                                                        <button v-if="!splitMode" class="action-btn merge" 
+                                                                :class="{ selected: isSelected(gid) }"
+                                                                @click="toggleMergeSelection(gid)" 
+                                                                title="Toggle merge">
+                                                            <i class="fas fa-code-merge"></i>
+                                                        </button>
+                                                        
+                                                        <!-- Split Mode -->
+                                                        <div v-if="splitMode" class="split-assignment-compact">
+                                                            <div class="custom-split-dropdown" :class="{ open: openDropdowns[gid] }">
+                                                                <button class="split-dropdown-trigger" 
+                                                                        @click="toggleDropdown(gid)"
+                                                                        :class="{ assigned: getJobSplitGroup(gid) !== '' }"
+                                                                        title="Assign to split group">
+                                                                    <span class="dropdown-text">
+                                                                        {{ getJobSplitGroup(gid) !== '' ? 'G' + (parseInt(getJobSplitGroup(gid)) + 1) : '—' }}
+                                                                    </span>
+                                                                    <i class="fas fa-chevron-down dropdown-arrow"></i>
+                                                                </button>
+                                                                <div class="split-dropdown-menu" v-if="openDropdowns[gid]">
+                                                                    <div class="dropdown-option unassign" 
+                                                                         @click="assignJobToGroup(gid, ''); closeDropdown(gid)"
+                                                                         :class="{ active: getJobSplitGroup(gid) === '' }">
+                                                                        <span class="option-badge">—</span>
+                                                                        <span class="option-text">Unassigned</span>
+                                                                    </div>
+                                                                    <div v-for="(group, index) in splitGroups" :key="index"
+                                                                         class="dropdown-option" 
+                                                                         @click="assignJobToGroup(gid, index.toString()); closeDropdown(gid)"
+                                                                         :class="{ active: getJobSplitGroup(gid) === index.toString() }">
+                                                                        <span class="option-badge" :style="{ backgroundColor: getGroupColor(index) }">
+                                                                            G{{ index + 1 }}
+                                                                        </span>
+                                                                        <span class="option-text">{{ group.client }}</span>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
                                 </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Split Groups Section -->
+                <div class="split-groups-section" v-if="splitMode">
+                    <div class="split-groups-container">
+                        <div class="split-groups-header">
+                            <h4 class="section-title">
+                                <i class="fas fa-cut"></i>
+                                Split Groups
+                            </h4>
+                            <button class="btn btn-add" @click="createEmptySplitGroup()">
+                                <i class="fas fa-plus"></i> Add Group
+                            </button>
+                        </div>
+
+                        <div v-if="splitGroups.length === 0" class="no-split-groups">
+                            <p>No split groups created yet. Click "Add Group" to create your first split group.</p>
+                        </div>
+
+                        <div class="split-groups-list" v-else>
+                            <div class="split-group-card job-card" v-for="(group, index) in splitGroups" :key="index">
+                                <div class="split-group-header">
+                                    <div class="split-group-info">
+                                        <div class="group-title-row">
+                                            <span class="group-badge">Group {{ index + 1 }}</span>
+                                            <span class="group-title">{{ group.order_title || 'Split Group' }}</span>
+                                        </div>
+                                        <div class="group-meta-row">
+                                            <span class="group-client">
+                                                <i class="fas fa-user"></i>
+                                                {{ group.client }}
+                                            </span>
+                                            <span class="group-job-count">
+                                                <i class="fas fa-briefcase"></i>
+                                                {{ group.job_ids.length }} jobs
+                                            </span>
+                                        </div>
+                                    </div>
+                                    <div class="group-actions">
+                                        <button @click="changeSplitGroupClient(index)" class="btn-edit-small" title="Change Client">
+                                            <i class="fas fa-user-edit"></i>
+                                        </button>
+                                        <button @click="removeSplitGroup(index)" class="btn-cancel-small" title="Remove Group">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                                <div class="group-jobs" v-if="group.job_ids.length > 0">
+                                    <div class="jobs-grid">
+                                        <div v-for="jobId in group.job_ids" :key="jobId" class="group-job-item">
+                                            <span class="job-name">{{ displayJobName(jobId) }}</span>
+                                            <button @click="removeJobFromSplitGroup(index, jobId)" class="btn-remove-job" title="Remove Job">
+                                                <i class="fas fa-times"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div v-else class="empty-group">
+                                    <i class="fas fa-inbox"></i>
+                                    <span>No jobs assigned yet. Use the dropdowns above to assign jobs to this group.</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="split-validation" v-if="splitGroups.length > 0">
+                            <div v-if="getUnassignedJobs().length > 0" class="validation-warning">
+                                <i class="fas fa-exclamation-triangle"></i>
+                                {{ getUnassignedJobs().length }} jobs not assigned to any split group
+                            </div>
+                            <div v-if="getUnassignedJobs().length === 0 && splitGroups.length > 0" class="validation-success">
+                                <i class="fas fa-check-circle"></i>
+                                All jobs assigned to split groups
                             </div>
                         </div>
                     </div>
@@ -470,6 +664,80 @@
                 </div>
             </div>
         </div>
+
+        <!-- Client Change Modal -->
+        <div v-if="showClientChangeModal" class="modal-overlay" @click="closeClientChangeModal">
+            <div class="modal-content" @click.stop>
+                <div class="modal-header">
+                    <h3>Change Client for Split Group</h3>
+                    <button @click="closeClientChangeModal" class="close-btn">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label>Search and Select Client:</label>
+                        <div class="client-search-container">
+                            <input v-model="clientSearchQuery" 
+                                   @input="filterClients"
+                                   class="form-control client-search-input" 
+                                   type="text" 
+                                   placeholder="Type to search clients..." />
+                            <div v-if="filteredClients.length > 0" class="client-dropdown">
+                                <div v-for="client in filteredClients" 
+                                     :key="client.id"
+                                     @click="selectClient(client)"
+                                     class="client-option"
+                                     :class="{ selected: tempClientName === client.name }">
+                                    {{ client.name }}
+                                </div>
+                            </div>
+                            <div v-else-if="clientSearchQuery.length > 0" class="no-clients">
+                                No clients found matching "{{ clientSearchQuery }}"
+                            </div>
+                        </div>
+                        <div v-if="tempClientName" class="selected-client">
+                            <strong>Selected:</strong> {{ tempClientName }}
+                            <button @click="clearClientSelection" class="btn-clear-client">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button @click="saveClientChange" :disabled="!tempClientName" class="btn green">Save</button>
+                    <button @click="closeClientChangeModal" class="btn delete">Cancel</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Split Preview Modal -->
+        <div v-if="showSplitPreviewModal" class="modal-overlay" @click="closeSplitPreviewModal">
+            <div class="preview-modal-content" @click.stop>
+                <div class="modal-header">
+                    <h3>Split Invoice Previews</h3>
+                    <button @click="closeSplitPreviewModal" class="close-btn">&times;</button>
+                </div>
+                <div class="split-preview-tabs">
+                    <button v-for="(preview, index) in splitPreviewPdfs" :key="index"
+                            class="split-tab" 
+                            :class="{ active: selectedPreviewTab === index }"
+                            @click="selectedPreviewTab = index">
+                        {{ preview.order_title || `Group ${preview.split_group}` }} - {{ preview.client }}
+                    </button>
+                </div>
+                <div class="preview-modal-body">
+                    <iframe v-if="splitPreviewPdfs[selectedPreviewTab]?.pdfBlobUrl"
+                            :src="splitPreviewPdfs[selectedPreviewTab].pdfBlobUrl" 
+                            width="100%" height="600px" frameborder="0" title="Split Invoice Preview">
+                    </iframe>
+                    <div v-else class="pdf-error">
+                        No PDF data available for this preview
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button @click="closeSplitPreviewModal" class="btn delete">Close Preview</button>
+                </div>
+            </div>
+        </div>
     </MainLayout>
 </template>
 
@@ -545,7 +813,18 @@ export default {
             });
         },
         canGenerateOrPreview() {
+            if (this.splitMode) {
+                return this.splitGroups.length > 0 && this.getUnassignedJobs().length === 0;
+            }
             return this.hasOrders && this.hasValidMergeGroups;
+        },
+        filteredClients() {
+            if (!this.clientSearchQuery) {
+                return this.availableClients.slice(0, 10); // Show first 10 clients when no search
+            }
+            return this.availableClients.filter(client => 
+                client.name.toLowerCase().includes(this.clientSearchQuery.toLowerCase())
+            ).slice(0, 10); // Limit to 10 results
         }
     },
     data() {
@@ -585,12 +864,60 @@ export default {
             materialsOpen: {},
             selectedJobIds: [],
             mergeGroups: [], // [{job_ids:[1,2,3]}]
-            mergedPalette: ['#7DC068', '#51A8B1', '#a36a03', '#3182ce', '#9e2c30', '#81c950']
+            mergedPalette: ['#7DC068', '#51A8B1', '#a36a03', '#3182ce', '#9e2c30', '#81c950'],
+            // Split functionality
+            splitMode: false,
+            splitGroups: [], // [{job_ids: [1,2], client: 'Client A'}, {job_ids: [3], client: 'Client B'}]
+            showClientChangeModal: false,
+            selectedSplitGroup: null,
+            tempClientName: '',
+            showSplitPreviewModal: false,
+            splitPreviewPdfs: [],
+            selectedPreviewTab: 0,
+            availableClients: [],
+            clientSearchQuery: '',
+            openDropdowns: {} // Track which dropdowns are open
         }
     },
     methods: {
         isSelected(id) {
             return (this.selectedJobIds || []).includes(id);
+        },
+        // Initialize units for all jobs
+        initializeJobUnits() {
+            if (this.invoiceData) {
+                // Handle both array and object formats
+                const invoices = Array.isArray(this.invoiceData) ? this.invoiceData : Object.values(this.invoiceData);
+                invoices.forEach(invoice => {
+                    if (invoice.jobs && Array.isArray(invoice.jobs)) {
+                        invoice.jobs.forEach(job => {
+                            if (!job.unit) {
+                                this.$set ? this.$set(job, 'unit', 'ком') : (job.unit = 'ком');
+                            }
+                        });
+                    }
+                });
+            }
+        },
+        // Initialize unit for a single job
+        initializeJobUnit(job) {
+            if (!job.unit) {
+                this.$set ? this.$set(job, 'unit', 'ком') : (job.unit = 'ком');
+            }
+        },
+        // Initialize unit for a merge group
+        initializeMergeGroupUnit(groupIndex) {
+            if (!this.mergeGroups[groupIndex].unit) {
+                this.$set ? this.$set(this.mergeGroups[groupIndex], 'unit', 'ком') : (this.mergeGroups[groupIndex].unit = 'ком');
+            }
+        },
+        // Update job unit
+        updateJobUnit(job, newUnit) {
+            this.$set ? this.$set(job, 'unit', newUnit) : (job.unit = newUnit);
+        },
+        // Update merge group unit
+        updateMergeGroupUnit(groupIndex, newUnit) {
+            this.$set ? this.$set(this.mergeGroups[groupIndex], 'unit', newUnit) : (this.mergeGroups[groupIndex].unit = newUnit);
         },
         toggleMergeSelection(id) {
             const set = new Set(this.selectedJobIds || []);
@@ -633,6 +960,9 @@ export default {
         },
         displayJobQty(id) {
             const j = this.getJobById(id); return j ? j.quantity : '';
+        },
+        displayJobUnit(id) {
+            const j = this.getJobById(id); return j ? (j.unit || 'ком') : 'ком';
         },
         displayJobArea(id) {
             const j = this.getJobById(id); return this.formatArea(j ? j.computed_total_area_m2 : 0);
@@ -763,16 +1093,22 @@ export default {
         },
         startEditingJob(job) {
             this.editingJobId = job.id;
+            // Initialize unit if it doesn't exist
+            if (!job.unit) {
+                this.$set ? this.$set(job, 'unit', 'ком') : (job.unit = 'ком');
+            }
             // snapshot original values for cancel
             this.$set ? this.$set(this.originalJobSnapshots, job.id, {
                 name: job.name,
                 quantity: job.quantity,
+                unit: job.unit,
                 computed_total_area_m2: job.computed_total_area_m2,
                 salePrice: job.salePrice,
                 totalPrice: job.totalPrice
             }) : (this.originalJobSnapshots[job.id] = {
                 name: job.name,
                 quantity: job.quantity,
+                unit: job.unit,
                 computed_total_area_m2: job.computed_total_area_m2,
                 salePrice: job.salePrice,
                 totalPrice: job.totalPrice
@@ -783,6 +1119,7 @@ export default {
             if (snap) {
                 job.name = snap.name;
                 job.quantity = snap.quantity;
+                job.unit = snap.unit;
                 job.computed_total_area_m2 = snap.computed_total_area_m2;
                 job.salePrice = snap.salePrice;
                 job.totalPrice = snap.totalPrice;
@@ -792,24 +1129,38 @@ export default {
         },
         async saveEditingJob(job) {
             try {
+                // Store unit locally (frontend-only field)
+                const localUnit = job.unit;
+                
                 // Persist supported fields to backend JobController@update
                 const response = await axios.put(`/jobs/${job.id}`, {
                     name: job.name,
                     quantity: job.quantity,
                     salePrice: job.salePrice
                 });
+                
                 if (response?.data?.job) {
-                    // Replace local job with server copy and notify
-                    Object.assign(job, response.data.job);
+                    // Update only the fields that came from server, preserve frontend-only fields
+                    job.name = response.data.job.name;
+                    job.quantity = response.data.job.quantity;
+                    job.salePrice = response.data.job.salePrice;
+                    if (response.data.job.computed_total_area_m2 !== undefined) {
+                        job.computed_total_area_m2 = response.data.job.computed_total_area_m2;
+                    }
+                    // Keep the frontend-only unit field
+                    job.unit = localUnit;
                     this.onJobUpdated?.(response.data.job);
                     this.$toast?.success?.('Job updated');
                 } else {
+                    // Even if no job data returned, keep the unit
+                    job.unit = localUnit;
                     this.$toast?.success?.('Job updated');
                 }
                 this.editingJobId = null;
                 delete this.originalJobSnapshots[job.id];
             } catch (e) {
-                this.$toast?.error?.('Failed to update job');
+                console.error('Save error:', e);
+                this.$toast?.error?.('Failed to update job: ' + (e.response?.data?.message || e.message));
             }
         },
         toggleMaterials(jobId) {
@@ -1138,6 +1489,12 @@ export default {
         },
         async previewInvoice() {
             const toast = useToast();
+            
+            // Check if we're in split mode
+            if (this.splitMode && this.splitGroups.length > 0) {
+                return this.previewSplitInvoices();
+            }
+
             try {
                 const orderIds = Object.values(this.invoiceData || {})
                     .map(order => order && order.id)
@@ -1154,13 +1511,31 @@ export default {
                 }
                 const tradePayload = this.buildTradeItemsPayload();
                 
+                // Include job data with units for preview
+                const jobsWithUnits = [];
+                if (this.invoiceData) {
+                    // Handle both array and object formats
+                    const invoices = Array.isArray(this.invoiceData) ? this.invoiceData : Object.values(this.invoiceData);
+                    invoices.forEach(invoice => {
+                        if (invoice.jobs && Array.isArray(invoice.jobs)) {
+                            invoice.jobs.forEach(job => {
+                                jobsWithUnits.push({
+                                    id: job.id,
+                                    unit: job.unit || 'ком'
+                                });
+                            });
+                        }
+                    });
+                }
+
                 // Only send payment_deadline_override if user changed it from default
                 const payloadData = {
                     orders: orderIds,
                     comment: this.comment,
                     trade_items: tradePayload,
                     created_at: this.previewDate,
-                    merge_groups: this.mergeGroups
+                    merge_groups: this.mergeGroups,
+                    job_units: jobsWithUnits
                 };
                 
                 // Only include override if it's different from the client's default
@@ -1213,6 +1588,11 @@ export default {
         async generateInvoice() {
             const toast = useToast();
             try {
+                // Check if we're in split mode
+                if (this.splitMode && this.splitGroups.length > 0) {
+                    return this.generateSplitInvoices();
+                }
+
                 const orderIds = Object.values(this.invoiceData || {})
                     .map(order => order && order.id)
                     .filter(Boolean);
@@ -1227,6 +1607,23 @@ export default {
                     return;
                 }
                 const tradePayload = this.buildTradeItemsPayload();
+                // Include job data with units for generation
+                const jobsWithUnits = [];
+                if (this.invoiceData) {
+                    // Handle both array and object formats
+                    const invoices = Array.isArray(this.invoiceData) ? this.invoiceData : Object.values(this.invoiceData);
+                    invoices.forEach(invoice => {
+                        if (invoice.jobs && Array.isArray(invoice.jobs)) {
+                            invoice.jobs.forEach(job => {
+                                jobsWithUnits.push({
+                                    id: job.id,
+                                    unit: job.unit || 'ком'
+                                });
+                            });
+                        }
+                    });
+                }
+
                 // Request metadata so we can redirect; then separately open the PDF in new tab
                 // Only send payment_deadline_override if user changed it from default
                 const payloadData = {
@@ -1235,6 +1632,7 @@ export default {
                     trade_items: tradePayload,
                     created_at: this.previewDate,
                     merge_groups: this.mergeGroups,
+                    job_units: jobsWithUnits,
                     return_meta: true
                 };
                 
@@ -1274,12 +1672,379 @@ export default {
                 console.error('Error generating invoice:', error);
                 toast.error('Error generating invoice!');
             }
-        }
+        },
+
+        // Split functionality methods
+        toggleSplitMode() {
+            this.splitMode = !this.splitMode;
+            if (!this.splitMode) {
+                // Clear split mode data
+                this.splitGroups = [];
+                this.selectedJobIds = [];
+                this.showClientChangeModal = false;
+                this.selectedSplitGroup = null;
+                this.tempClientName = '';
+                this.$toast?.info?.('Split mode disabled');
+            } else {
+                // Clear merge mode data when entering split mode
+                this.mergeGroups = [];
+                this.selectedJobIds = [];
+                this.$toast?.info?.('Split mode enabled - Create groups and assign jobs');
+            }
+        },
+
+        createEmptySplitGroup() {
+            const newGroup = {
+                job_ids: [],
+                client: this.clientName // default to original client
+            };
+
+            this.splitGroups.push(newGroup);
+            this.$toast?.success?.('Split group created');
+        },
+
+        assignJobToGroup(jobId, groupIndex) {
+            if (groupIndex === '') {
+                // Remove job from all groups
+                this.splitGroups.forEach(group => {
+                    group.job_ids = group.job_ids.filter(id => id !== jobId);
+                });
+                return;
+            }
+
+            const targetGroupIndex = parseInt(groupIndex);
+            if (targetGroupIndex < 0 || targetGroupIndex >= this.splitGroups.length) return;
+
+            // Remove job from all other groups first
+            this.splitGroups.forEach((group, index) => {
+                if (index !== targetGroupIndex) {
+                    group.job_ids = group.job_ids.filter(id => id !== jobId);
+                }
+            });
+
+            // Add job to target group if not already there
+            const targetGroup = this.splitGroups[targetGroupIndex];
+            if (!targetGroup.job_ids.includes(jobId)) {
+                targetGroup.job_ids.push(jobId);
+                
+                // Update group title with order title if not already set or if this is the first job
+                if (!targetGroup.order_title || targetGroup.job_ids.length === 1) {
+                    const orderTitle = this.getOrderTitleForJob(jobId);
+                    if (orderTitle) {
+                        targetGroup.order_title = orderTitle;
+                    }
+                }
+            }
+        },
+
+        getJobSplitGroup(jobId) {
+            for (let i = 0; i < this.splitGroups.length; i++) {
+                if (this.splitGroups[i].job_ids.includes(jobId)) {
+                    return i.toString();
+                }
+            }
+            return '';
+        },
+
+        removeSplitGroup(index) {
+            this.splitGroups.splice(index, 1);
+        },
+
+        removeJobFromSplitGroup(groupIndex, jobId) {
+            const group = this.splitGroups[groupIndex];
+            if (group) {
+                group.job_ids = group.job_ids.filter(id => id !== jobId);
+                if (group.job_ids.length === 0) {
+                    this.removeSplitGroup(groupIndex);
+                }
+            }
+        },
+
+        changeSplitGroupClient(groupIndex) {
+            this.selectedSplitGroup = groupIndex;
+            this.tempClientName = this.splitGroups[groupIndex].client;
+            this.clientSearchQuery = '';
+            this.showClientChangeModal = true;
+            this.loadClients(); // Load clients when modal opens
+        },
+
+        async loadClients() {
+            try {
+                const response = await axios.get('/api/clients/all');
+                this.availableClients = response.data || [];
+            } catch (error) {
+                console.error('Error loading clients:', error);
+                this.$toast?.error?.('Failed to load clients');
+            }
+        },
+
+        filterClients() {
+            // This method is called on input, the computed property handles the actual filtering
+        },
+
+        selectClient(client) {
+            this.tempClientName = client.name;
+            this.clientSearchQuery = '';
+        },
+
+        clearClientSelection() {
+            this.tempClientName = '';
+            this.clientSearchQuery = '';
+        },
+
+        saveClientChange() {
+            if (this.selectedSplitGroup !== null && this.tempClientName.trim()) {
+                this.splitGroups[this.selectedSplitGroup].client = this.tempClientName.trim();
+                this.closeClientChangeModal();
+                this.$toast?.success?.('Client updated for split group');
+            }
+        },
+
+        closeClientChangeModal() {
+            this.showClientChangeModal = false;
+            this.selectedSplitGroup = null;
+            this.tempClientName = '';
+            this.clientSearchQuery = '';
+        },
+
+        getUnassignedJobs() {
+            const allJobIds = this.getAllJobIds();
+            const assignedJobIds = this.splitGroups.flatMap(g => g.job_ids);
+            return allJobIds.filter(id => !assignedJobIds.includes(id));
+        },
+
+        getAllJobIds() {
+            return Object.values(this.invoiceData || {}).flatMap(order => 
+                (order.jobs || []).map(job => job.id)
+            );
+        },
+
+        getOrderTitleForJob(jobId) {
+            for (const order of Object.values(this.invoiceData || {})) {
+                if (order.jobs && order.jobs.some(job => job.id === jobId)) {
+                    return order.invoice_title || `Order ${order.id}`;
+                }
+            }
+            return null;
+        },
+
+        validateSplitGroups() {
+            if (this.splitGroups.length === 0) {
+                this.$toast?.error?.('Please create at least one split group');
+                return false;
+            }
+
+            const unassignedJobs = this.getUnassignedJobs();
+            if (unassignedJobs.length > 0) {
+                this.$toast?.error?.('All jobs must be assigned to a split group');
+                return false;
+            }
+
+            if (this.splitGroups.some(g => g.job_ids.length === 0)) {
+                this.$toast?.error?.('Each split group must contain at least one job');
+                return false;
+            }
+
+            return true;
+        },
+
+        async generateSplitInvoices() {
+            const toast = useToast();
+            
+            if (!this.validateSplitGroups()) {
+                return;
+            }
+
+            try {
+                // Include job data with units for split generation
+                const jobsWithUnits = [];
+                if (this.invoiceData) {
+                    // Handle both array and object formats
+                    const invoices = Array.isArray(this.invoiceData) ? this.invoiceData : Object.values(this.invoiceData);
+                    invoices.forEach(invoice => {
+                        if (invoice.jobs && Array.isArray(invoice.jobs)) {
+                            invoice.jobs.forEach(job => {
+                                jobsWithUnits.push({
+                                    id: job.id,
+                                    unit: job.unit || 'ком'
+                                });
+                            });
+                        }
+                    });
+                }
+
+                const tradePayload = this.buildTradeItemsPayload();
+                const payloadData = {
+                    split_groups: this.splitGroups,
+                    comment: this.comment,
+                    trade_items: tradePayload,
+                    created_at: this.previewDate,
+                    job_units: jobsWithUnits,
+                    return_meta: true
+                };
+
+                if (this.paymentDeadline !== this.defaultPaymentDeadline) {
+                    payloadData.payment_deadline_override = this.paymentDeadline;
+                }
+
+                const response = await axios.post('/generate-invoice', payloadData, { responseType: 'json' });
+
+                if (response?.data?.success && response?.data?.is_split) {
+                    // Open PDFs for each split invoice
+                    if (response.data.pdfs && response.data.pdfs.length > 0) {
+                        response.data.pdfs.forEach(pdfData => {
+                            const binary = atob(pdfData.pdf);
+                            const array = new Uint8Array(binary.length);
+                            for (let i = 0; i < binary.length; i++) array[i] = binary.charCodeAt(i);
+                            const blob = new Blob([array], { type: 'application/pdf' });
+                            const url = window.URL.createObjectURL(blob);
+                            window.open(url, '_blank');
+                        });
+                    }
+
+                    toast.success(`Generated ${response.data.invoices.length} split invoices successfully`);
+                    
+                    // Redirect to the first invoice or stay on current page
+                    if (response.data.invoices.length > 0) {
+                        this.$inertia.visit(`/invoice/${response.data.invoices[0].faktura_id}`);
+                    }
+                }
+            } catch (error) {
+                console.error('Error generating split invoices:', error);
+                toast.error('Error generating split invoices!');
+            }
+        },
+
+        async previewSplitInvoices() {
+            const toast = useToast();
+            
+            if (!this.validateSplitGroups()) {
+                return;
+            }
+
+            try {
+                // Include job data with units for split preview
+                const jobsWithUnits = [];
+                if (this.invoiceData) {
+                    // Handle both array and object formats
+                    const invoices = Array.isArray(this.invoiceData) ? this.invoiceData : Object.values(this.invoiceData);
+                    invoices.forEach(invoice => {
+                        if (invoice.jobs && Array.isArray(invoice.jobs)) {
+                            invoice.jobs.forEach(job => {
+                                jobsWithUnits.push({
+                                    id: job.id,
+                                    unit: job.unit || 'ком'
+                                });
+                            });
+                        }
+                    });
+                }
+
+                const tradePayload = this.buildTradeItemsPayload();
+                const payloadData = {
+                    split_groups: this.splitGroups,
+                    comment: this.comment,
+                    trade_items: tradePayload,
+                    created_at: this.previewDate,
+                    job_units: jobsWithUnits
+                };
+
+                if (this.paymentDeadline !== this.defaultPaymentDeadline) {
+                    payloadData.payment_deadline_override = this.paymentDeadline;
+                }
+
+                const response = await axios.post('/preview-invoice', payloadData, { responseType: 'json' });
+
+                if (response?.data?.success && response?.data?.is_split_preview) {
+                    console.log('Split preview response:', response.data);
+                    console.log('PDF data length:', response.data.previews.map(p => p.pdf ? p.pdf.length : 0));
+                    
+                    // Convert base64 PDFs to blob URLs for better iframe compatibility
+                    this.splitPreviewPdfs = response.data.previews.map(preview => {
+                        if (preview.pdf) {
+                            try {
+                                const binary = atob(preview.pdf);
+                                const array = new Uint8Array(binary.length);
+                                for (let i = 0; i < binary.length; i++) {
+                                    array[i] = binary.charCodeAt(i);
+                                }
+                                const blob = new Blob([array], { type: 'application/pdf' });
+                                const blobUrl = window.URL.createObjectURL(blob);
+                                
+                                return {
+                                    ...preview,
+                                    pdfBlobUrl: blobUrl,
+                                    originalPdf: preview.pdf // Keep original for download
+                                };
+                            } catch (error) {
+                                console.error('Error creating blob URL:', error);
+                                return preview;
+                            }
+                        }
+                        return preview;
+                    });
+                    
+                    this.selectedPreviewTab = 0;
+                    this.showSplitPreviewModal = true;
+                }
+            } catch (error) {
+                console.error('Error generating split preview:', error);
+                toast.error('Error generating split preview!');
+            }
+        },
+
+        closeSplitPreviewModal() {
+            this.showSplitPreviewModal = false;
+            
+            // Clean up blob URLs to prevent memory leaks (same as regular preview)
+            if (this.splitPreviewPdfs && this.splitPreviewPdfs.length > 0) {
+                this.splitPreviewPdfs.forEach(preview => {
+                    if (preview.pdfBlobUrl) {
+                        window.URL.revokeObjectURL(preview.pdfBlobUrl);
+                    }
+                });
+            }
+            
+            this.splitPreviewPdfs = [];
+            this.selectedPreviewTab = 0;
+        },
+
+        // Custom dropdown methods
+        toggleDropdown(jobId) {
+            // Close all other dropdowns first
+            Object.keys(this.openDropdowns).forEach(key => {
+                if (key !== jobId.toString()) {
+                    this.$set ? this.$set(this.openDropdowns, key, false) : (this.openDropdowns[key] = false);
+                }
+            });
+            
+            // Toggle the clicked dropdown
+            const isOpen = this.openDropdowns[jobId];
+            this.$set ? this.$set(this.openDropdowns, jobId, !isOpen) : (this.openDropdowns[jobId] = !isOpen);
+        },
+
+        closeDropdown(jobId) {
+            this.$set ? this.$set(this.openDropdowns, jobId, false) : (this.openDropdowns[jobId] = false);
+        },
+
+        closeAllDropdowns() {
+            Object.keys(this.openDropdowns).forEach(key => {
+                this.$set ? this.$set(this.openDropdowns, key, false) : (this.openDropdowns[key] = false);
+            });
+        },
+
+        getGroupColor(index) {
+            const colors = ['#3182ce', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4'];
+            return colors[index % colors.length];
+        },
+
+
     },
     mounted() {
         this.loadTradeArticles();
         this.fetchNextInvoiceId();
         this.loadDefaultPaymentDeadline();
+        this.initializeJobUnits();
 
         // Watch for changes in selected article to auto-fill price
         this.$watch('selectedArticle', (newArticle) => {
@@ -1287,7 +2052,7 @@ export default {
                 this.tradeItemPrice = newArticle.selling_price;
             }
         });
-    }
+    },
 };
 </script>
 
@@ -1994,7 +2759,7 @@ table th {
 
 .job-header-labels {
     display: grid;
-    grid-template-columns: 2fr 1fr 1fr 1fr 1fr;
+    grid-template-columns: 2fr 1fr 0.8fr 1fr 1fr 1fr;
     gap: 8px;
     padding: 5px 10px;
     border-top: 1px solid $ultra-light-gray;
@@ -2002,7 +2767,7 @@ table th {
 
 .job-header-labels.with-actions {
     /* Removed Job Price column, keep actions as last */
-    grid-template-columns: 2fr 1fr 1fr 1fr 1fr;
+    grid-template-columns: 2fr 1fr 0.8fr 1fr 1fr 1fr;
 }
 
 .job-header-labels .label-cell {
@@ -2015,7 +2780,7 @@ table th {
 
 .job-header {
     display: grid;
-    grid-template-columns: 2fr 1fr 1fr 1fr 1fr;
+    grid-template-columns: 2fr 1fr 0.8fr 1fr 1fr 1fr;
     align-items: center;
     padding: 10px;
     background-color: #7DC068;
@@ -2057,8 +2822,8 @@ table th {
 
 .merged-container .merged-header {
     display: grid;
-    grid-template-columns: 2fr 1fr 1fr 1fr 1fr;
-    /* align with job header: Title, Qty, Total m², Sale, Actions */
+    grid-template-columns: 2fr 1fr 0.8fr 1fr 1fr 1fr;
+    /* align with job header: Title, Qty, Unit, Total m², Sale, Actions */
     gap: 8px;
     padding: 8px;
 }
@@ -2094,10 +2859,37 @@ table th {
     border-radius: 4px;
 }
 
+/* Split toggle button */
+.split-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: fit-content;
+    padding: 6px 8px;
+    height: 30px;
+    border: none;
+    background: rgba(0, 128, 128, 0.6);
+    color: #fff;
+    cursor: pointer;
+    border-radius: 4px;
+}
+
+.split-toggle.selected {
+    color: #fff;
+    background: rgba(0, 128, 128, 1);
+    border-radius: 4px;
+}
+
+.split-toggle:hover {
+    color: #fff;
+    background: rgba(0, 128, 128, 0.8);
+    border-radius: 4px;
+}
+
 
 .job-header.with-actions {
     /* Removed Job Price column, keep actions as last */
-    grid-template-columns: 2fr 1fr 1fr 1fr 1fr;
+    grid-template-columns: 2fr 1fr 0.8fr 1fr 1fr 1fr;
 }
 
 .job-header .value-cell {
@@ -2114,6 +2906,46 @@ table th {
     background-color: #ffffff;
     color: #111827;
     font-weight: 600;
+    transition: all 0.2s ease;
+    
+    &:focus {
+        outline: none;
+        border-color: #008080;
+        box-shadow: 0 0 0 2px rgba(0, 128, 128, 0.2);
+        background-color: #ffffff;
+    }
+    
+    &:hover {
+        border-color: rgba(0, 0, 0, 0.25);
+    }
+}
+
+.unit-select {
+    font-size: 12px;
+    padding: 4px 6px;
+    cursor: pointer;
+    width: fit-content;
+    background: transparent;
+    border: 1px solid #000000;
+    border-radius: 3px;
+    
+    &:hover {
+        background: rgba(255, 255, 255, 0.1);
+        border-color: #333333;
+    }
+    
+    &:focus {
+        background: #ffffff;
+        border-color: #008080;
+        box-shadow: 0 0 0 2px rgba(0, 128, 128, 0.2);
+    }
+    
+    option {
+        padding: 4px 8px;
+        font-size: 12px;
+        background: #ffffff;
+        color: #111827;
+    }
 }
 
 .inline-input.invalid-field {
@@ -2320,13 +3152,22 @@ table th {
     gap: 6px;
 }
 
+/* Legacy button styles - updated for consistency */
 .btn-edit-small,
 .btn-save-small,
 .btn-cancel-small,
 .btn-delete {
-    padding: 4px 8px;
+    padding: 6px 10px;
     font-size: 12px;
     min-width: 32px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
 }
 
 .btn-edit-small {
@@ -2334,15 +3175,28 @@ table th {
     color: white;
 }
 
+.btn-edit-small:hover {
+    background-color: darken(#3182ce, 10%);
+}
+
 .btn-save-small {
     background-color: #38a169;
     color: white;
+}
+
+.btn-save-small:hover {
+    background-color: darken(#38a169, 10%);
 }
 
 .btn-cancel-small,
 .btn-delete {
     background-color: #e53e3e;
     color: white;
+}
+
+.btn-cancel-small:hover,
+.btn-delete:hover {
+    background-color: darken(#e53e3e, 10%);
 }
 
 .item-details {
@@ -2449,6 +3303,19 @@ table th {
     border-radius: 4px;
     padding: 6px 8px;
     font-weight: 600;
+    transition: all 0.2s ease;
+    
+    &:focus {
+        outline: none;
+        border-color: $light-green;
+        box-shadow: 0 0 0 2px rgba($light-green, 0.3);
+        background: rgba($white, 0.15);
+    }
+    
+    &:hover {
+        background: rgba($white, 0.12);
+        border-color: lighten($blue, 10%);
+    }
 }
 
 .save-btn,
@@ -2500,5 +3367,650 @@ table th {
     border: none;
     border-radius: 4px;
     background-color: white;
+}
+
+/* Split Groups Styles */
+.split-groups-section {
+    background: $light-gray;
+    border-radius: 3px;
+    padding: 24px;
+    margin: 20px 0;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    border: 1px solid $light-gray;
+}
+
+.split-groups-container {
+    color: $white;
+}
+
+.split-groups-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+    padding-bottom: 10px;
+    border-bottom: 2px solid rgba($white, 0.15);
+}
+
+.split-groups-header .section-title {
+    font-size: 18px;
+    font-weight: 600;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.split-groups-header .section-title i {
+    color: #008080;
+    font-size: 16px;
+}
+
+.split-groups-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+/* Split Group Cards - Redesigned to match job cards */
+.split-group-card {
+    /* Inherits job-card styling */
+    margin-bottom: 8px;
+}
+
+.split-group-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px;
+    background: rgba(#008080, 85%);
+    border-radius: 4px;
+    margin-bottom: 8px;
+}
+
+.split-group-info {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    flex: 1;
+}
+
+.group-title-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.group-badge {
+    background: rgba($white, 0.2);
+    color: $white;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.group-title {
+    font-size: 16px;
+    font-weight: 600;
+    color: $white;
+}
+
+.group-meta-row {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.group-client,
+.group-job-count {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    color: rgba($white, 0.9);
+    font-weight: 500;
+}
+
+.group-client i,
+.group-job-count i {
+    font-size: 12px;
+    opacity: 0.8;
+}
+
+.group-actions {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+}
+
+.group-jobs {
+    padding: 0 12px 8px 12px;
+}
+
+.jobs-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 8px;
+}
+
+.group-job-item {
+    background: rgba($white, 0.15);
+    border: 1px solid rgba($white, 0.2);
+    padding: 8px 12px;
+    border-radius: 4px;
+    font-size: 13px;
+    color: $white;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    transition: all 0.2s ease;
+}
+
+.group-job-item:hover {
+    background: rgba($white, 0.25);
+    border-color: rgba($white, 0.3);
+}
+
+.job-name {
+    font-weight: 500;
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.btn-remove-job {
+    background: rgba($red, 0.8);
+    color: $white;
+    border: none;
+    border-radius: 50%;
+    width: 18px;
+    height: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 10px;
+    transition: all 0.2s ease;
+    flex-shrink: 0;
+}
+
+.btn-remove-job:hover {
+    background: $red;
+    transform: scale(1.1);
+}
+
+.split-validation {
+    margin-top: 16px;
+    padding: 12px;
+    border-radius: 4px;
+}
+
+/* Split Preview Tabs - added to regular preview modal */
+.split-preview-tabs {
+    display: flex;
+    background: $ultra-light-gray;
+    border-bottom: 1px solid $light-gray;
+}
+
+.split-tab {
+    padding: 12px 20px;
+    background: transparent;
+    border: none;
+    color: rgba($white, 0.8);
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 500;
+    border-bottom: 3px solid transparent;
+    transition: all 0.2s;
+    flex: 1;
+    text-align: center;
+}
+
+.split-tab:hover {
+    background: rgba($white, 0.1);
+    color: $white;
+}
+
+.split-tab.active {
+    color: $white;
+    border-bottom-color: $blue;
+    background: rgba($blue, 0.2);
+}
+
+/* Client Search Dropdown Styles */
+.client-search-container {
+    position: relative;
+}
+
+.client-search-input {
+    width: 100%;
+    padding: 8px 12px;
+    border: 1px solid $light-gray;
+    border-radius: 4px;
+    background: $white;
+    color: $black;
+    font-size: 14px;
+}
+
+.client-search-input:focus {
+    outline: none;
+    border-color: $blue;
+    box-shadow: 0 0 0 2px rgba($blue, 0.2);
+}
+
+.client-dropdown {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: $white;
+    border: 1px solid $light-gray;
+    border-top: none;
+    border-radius: 0 0 4px 4px;
+    max-height: 200px;
+    overflow-y: auto;
+    z-index: 1000;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.client-option {
+    padding: 10px 12px;
+    cursor: pointer;
+    color: $black;
+    border-bottom: 1px solid #f0f0f0;
+    transition: background-color 0.2s;
+}
+
+.client-option:hover {
+    background-color: #f8f9fa;
+}
+
+.client-option.selected {
+    background-color: rgba($blue, 0.1);
+    color: $blue;
+    font-weight: 500;
+}
+
+.client-option:last-child {
+    border-bottom: none;
+}
+
+.no-clients {
+    padding: 10px 12px;
+    color: #666;
+    font-style: italic;
+    text-align: center;
+}
+
+.selected-client {
+    margin-top: 8px;
+    padding: 8px 12px;
+    background: rgba($green, 0.1);
+    border: 1px solid rgba($green, 0.3);
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    color: $green;
+}
+
+.btn-clear-client {
+    background: none;
+    border: none;
+    color: $red;
+    cursor: pointer;
+    padding: 2px 4px;
+    border-radius: 2px;
+    font-size: 12px;
+}
+
+.btn-clear-client:hover {
+    background: rgba($red, 0.1);
+}
+
+.pdf-error {
+    text-align: center;
+    padding: 40px;
+    color: $red;
+    font-size: 16px;
+}
+
+/* Split Mode Indicator */
+.split-mode-indicator {
+    background: rgba(0, 128, 128, 0.2);
+    color: #008080;
+    padding: 8px 16px;
+    border-radius: 4px;
+    margin-top: 8px;
+    font-size: 14px;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    border: 1px solid rgba(0, 128, 128, 0.3);
+}
+
+/* Redesigned Actions Section */
+.actions-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: nowrap;
+}
+
+.action-group {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.action-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 12px;
+    transition: all 0.2s ease;
+    color: white;
+}
+
+.action-btn.edit {
+    background: #3182ce;
+}
+
+.action-btn.edit:hover {
+    background: darken(#3182ce, 10%);
+}
+
+.action-btn.save {
+    background: #38a169;
+}
+
+.action-btn.save:hover {
+    background: darken(#38a169, 10%);
+}
+
+.action-btn.cancel {
+    background: #e53e3e;
+}
+
+.action-btn.cancel:hover {
+    background: darken(#e53e3e, 10%);
+}
+
+.action-btn.materials {
+    background: #6b7280;
+}
+
+.action-btn.materials:hover {
+    background: darken(#6b7280, 10%);
+}
+
+.action-btn.merge {
+    background: rgba(128, 0, 128, 0.6);
+}
+
+.action-btn.merge:hover {
+    background: rgba(128, 0, 128, 0.8);
+}
+
+.action-btn.merge.selected {
+    background: rgba(128, 0, 128, 1);
+    box-shadow: 0 0 0 2px rgba(128, 0, 128, 0.3);
+}
+
+.mode-actions {
+    display: flex;
+    align-items: center;
+}
+
+/* Compact Split Assignment */
+.split-assignment-compact {
+    display: flex;
+    align-items: center;
+    position: relative;
+}
+
+/* Custom Split Dropdown */
+.custom-split-dropdown {
+    position: relative;
+    display: inline-block;
+}
+
+.split-dropdown-trigger {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 45px;
+    height: 28px;
+    padding: 4px 6px;
+    border: 1px solid #d1d5db;
+    border-radius: 4px;
+    background: white;
+    color: #374151;
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.split-dropdown-trigger:hover {
+    border-color: #9ca3af;
+    background: #f9fafb;
+}
+
+.split-dropdown-trigger.assigned {
+    border-color: #008080;
+    background: rgba(0, 128, 128, 0.1);
+    color: #008080;
+}
+
+.split-dropdown-trigger .dropdown-text {
+    flex: 1;
+    text-align: center;
+}
+
+.split-dropdown-trigger .dropdown-arrow {
+    font-size: 8px;
+    margin-left: 2px;
+    transition: transform 0.2s ease;
+}
+
+.custom-split-dropdown.open .dropdown-arrow {
+    transform: rotate(180deg);
+}
+
+.split-dropdown-menu {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    min-width: 180px;
+    background: white;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    z-index: 1000;
+    overflow: hidden;
+    margin-top: 2px;
+}
+
+.dropdown-option {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+    border-bottom: 1px solid #f3f4f6;
+}
+
+.dropdown-option:last-child {
+    border-bottom: none;
+}
+
+.dropdown-option:hover {
+    background: #f3f4f6;
+}
+
+.dropdown-option.active {
+    background: rgba(0, 128, 128, 0.1);
+    color: #008080;
+}
+
+.dropdown-option.unassign {
+    color: #6b7280;
+    font-style: italic;
+}
+
+.dropdown-option.unassign:hover {
+    background: #fef2f2;
+    color: #dc2626;
+}
+
+.option-badge {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 20px;
+    border-radius: 4px;
+    font-size: 10px;
+    font-weight: 700;
+    color: white;
+    background: #6b7280;
+    flex-shrink: 0;
+}
+
+.dropdown-option.unassign .option-badge {
+    background: #9ca3af;
+    color: #6b7280;
+}
+
+.option-text {
+    font-size: 12px;
+    font-weight: 500;
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.split-select-mini {
+    padding: 4px 6px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    background: white;
+    color: #333;
+    font-size: 11px;
+    font-weight: 600;
+    width: 40px;
+    text-align: center;
+    cursor: pointer;
+}
+
+.split-select-mini:focus {
+    outline: none;
+    border-color: #008080;
+    box-shadow: 0 0 0 2px rgba(0, 128, 128, 0.2);
+    width: 120px; /* Expand when focused */
+    text-align: left;
+}
+
+.split-select-mini:focus option {
+    padding: 4px 8px;
+}
+
+/* Legacy styles for backward compatibility */
+.split-assignment {
+    display: inline-flex;
+    align-items: center;
+}
+
+.split-group-select {
+    padding: 4px 8px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    background: white;
+    color: #333;
+    font-size: 12px;
+    min-width: 120px;
+    max-width: 200px;
+}
+
+.split-group-select.compact {
+    min-width: 100px;
+    width: auto;
+}
+
+.split-group-select:focus {
+    outline: none;
+    border-color: #008080;
+    box-shadow: 0 0 0 2px rgba(0, 128, 128, 0.2);
+    min-width: 180px;
+}
+
+/* Split Groups Styles */
+.no-split-groups {
+    text-align: center;
+    padding: 40px 20px;
+    color: rgba($white, 0.8);
+    font-style: italic;
+}
+
+.empty-group {
+    color: rgba($white, 0.7);
+    padding: 16px;
+    text-align: center;
+    background: rgba($white, 0.05);
+    border-radius: 4px;
+    border: 2px dashed rgba($white, 0.2);
+    margin: 0 12px 8px 12px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+}
+
+.empty-group i {
+    font-size: 24px;
+    opacity: 0.5;
+}
+
+.empty-group span {
+    font-size: 14px;
+    font-style: italic;
+}
+
+.validation-success {
+    background: rgba(green, 0.6);
+    color: white;
+    padding: 12px 16px;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 500;
+    border: 1px solid rgba($green, 0.3);
+}
+
+.validation-warning {
+    background: rgba(#ffda03, 0.6);
+    color: black;
+    padding: 12px 16px;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 500;
+    border: 1px solid rgba($orange, 0.3);
 }
 </style>

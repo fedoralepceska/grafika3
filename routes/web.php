@@ -111,6 +111,7 @@ Route::middleware(['auth', 'verified'])->group(function() {
     Route::get('/orders/{id}/pdf', [InvoiceController::class, 'generateInvoicePdf'])->name('invoice.generateInvoicePdf');
     Route::get('/invoice/available-articles', [InvoiceController::class, 'getAvailableArticles'])->name('invoices.getAvailableArticles');
     Route::get('/invoice/{id}', [InvoiceController::class, 'getGeneratedInvoice'])->name('invoices.getGeneratedInvoice');
+    Route::match(['GET', 'POST'], '/invoice/{id}/pdf', [InvoiceController::class, 'getFakturaPdf'])->name('invoices.getFakturaPdf');
     Route::put('/invoice/{id}/update-comment', [InvoiceController::class, 'updateInvoiceComment'])->name('invoices.updateInvoiceComment');
     Route::put('/invoice/{id}/merge-groups', [InvoiceController::class, 'updateMergeGroups'])->name('invoices.updateMergeGroups');
     Route::put('/invoice/{id}/payment-deadline', [InvoiceController::class, 'updatePaymentDeadline'])->name('invoices.updatePaymentDeadline');
