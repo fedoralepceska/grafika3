@@ -56,8 +56,7 @@
                         <div class="invoice-info-minimal">
                             <div class="info-item">
                                 <span class="info-label">Invoice ID</span>
-                                <span class="info-value">{{ previewInvoiceId }}{{ previewInvoiceId ? '' : '...'
-                                }}</span>
+                                <span class="info-value">{{ previewInvoiceId || 'Loading...' }}</span>
                             </div>
                             <div class="info-item">
                                 <span class="info-label">Date Created</span>
@@ -104,7 +103,11 @@
                         </div>
                     </div>
                 </div>
-                <div class="orders-container" v-for="(inv, index) in invoiceData" :key="index">
+                <div v-if="!isComponentReady" class="loading-container">
+                    <div class="loading-spinner"></div>
+                    <p>Loading invoice data...</p>
+                </div>
+                <div v-else class="orders-container" v-for="(inv, index) in invoiceData" :key="index">
                     <div class="order-separator">
                         <div class="separator-line"></div>
                         <span class="separator-text">Order {{ index }}</span>
@@ -979,6 +982,10 @@ export default {
                 return hasTitle && hasQuantity && hasSalePrice;
             });
         },
+        // Check if component is ready (has data and invoice ID)
+        isComponentReady() {
+            return this.invoiceData && Object.keys(this.invoiceData).length > 0 && this.previewInvoiceId;
+        },
         canGenerateOrPreview() {
             if (this.splitMode) {
                 return this.splitGroups.length > 0 && this.getUnassignedJobs().length === 0;
@@ -1004,7 +1011,8 @@ export default {
             return this.newServiceName.trim() && 
                    this.newServiceQuantity > 0 && 
                    this.newServicePrice >= 0;
-        }
+        },
+
     },
     data() {
         return {
@@ -1065,12 +1073,173 @@ export default {
             newServicePrice: 0,
             newServiceVatRate: 18,
             isEditingService: {},
-            editServiceForms: {}
+            editServiceForms: {},
+            // Track original values for override detection
+            originalOrderTitles: {},
+            originalJobNames: {},
+            originalJobQuantities: {}
         }
     },
     methods: {
         isSelected(id) {
             return (this.selectedJobIds || []).includes(id);
+        },
+        // Helper function to extract primitive value from Proxy objects
+        extractPrimitiveValue(value) {
+            if (!value || typeof value !== 'object') {
+                return value;
+            }
+            
+            // Try different methods to get primitive value
+            if (value.valueOf && typeof value.valueOf() !== 'object') {
+                return value.valueOf();
+            }
+            if (value.toString && typeof value.toString() === 'string') {
+                const str = value.toString();
+                // Check if it's a number
+                if (!isNaN(str) && !isNaN(parseFloat(str))) {
+                    return parseFloat(str);
+                }
+                return str;
+            }
+            if (value.id !== undefined) {
+                return value.id;
+            }
+            
+            return value;
+        },
+        // Helper methods to get original values
+        getOriginalOrderTitle(orderId) {
+            const id = this.extractPrimitiveValue(orderId);
+            return this.originalOrderTitles[id] || null;
+        },
+        getOriginalJobName(jobId) {
+            const id = this.extractPrimitiveValue(jobId);
+            return this.originalJobNames[id] || null;
+        },
+        getOriginalJobQuantity(jobId) {
+            const id = this.extractPrimitiveValue(jobId);
+            return this.originalJobQuantities[id] !== undefined ? this.originalJobQuantities[id] : null;
+        },
+        // Initialize original values on component mount
+        initializeOriginalValues() {
+            console.log('initializeOriginalValues method called');
+            console.log('this.invoiceData:', this.invoiceData);
+            console.log('this.originalOrderTitles:', this.originalOrderTitles);
+            
+            // Only initialize if we haven't already stored original values
+            if (Object.keys(this.originalOrderTitles).length > 0) {
+                console.log('Original values already initialized, skipping...');
+                return;
+            }
+            
+            if (this.invoiceData) {
+                const invoices = Array.isArray(this.invoiceData) ? this.invoiceData : Object.values(this.invoiceData);
+                console.log('Processing invoices:', invoices);
+                
+                invoices.forEach(invoice => {
+                    console.log('Processing invoice:', invoice);
+                    if (invoice.id && invoice.invoice_title) {
+                        this.originalOrderTitles[invoice.id] = invoice.invoice_title;
+                        console.log('Stored original order title:', invoice.id, invoice.invoice_title);
+                    }
+                    if (invoice.jobs && Array.isArray(invoice.jobs)) {
+                        invoice.jobs.forEach(job => {
+                            if (job.id) {
+                                this.originalJobNames[job.id] = job.name;
+                                this.originalJobQuantities[job.id] = job.quantity;
+                                console.log('Stored original job:', job.id, job.name, job.quantity);
+                            }
+                        });
+                    }
+                });
+                
+                console.log('Final original values:', {
+                    orderTitles: this.originalOrderTitles,
+                    jobNames: this.originalJobNames,
+                    jobQuantities: this.originalJobQuantities
+                });
+            } else {
+                console.log('No invoiceData available yet');
+            }
+        },
+        // Collect overrides for faktura display
+        collectFakturaOverrides() {
+            const overrides = {
+                order_titles: {},
+                job_names: {},
+                job_quantities: {}
+            };
+
+            // Collect order title overrides
+            if (this.invoiceData) {
+                const invoices = Array.isArray(this.invoiceData) ? this.invoiceData : Object.values(this.invoiceData);
+                invoices.forEach(invoice => {
+                    if (invoice.id && invoice.invoice_title) {
+                        // Check if title was edited (compare with original)
+                        const originalTitle = this.getOriginalOrderTitle(invoice.id);
+                        if (originalTitle && invoice.invoice_title !== originalTitle) {
+                            overrides.order_titles[invoice.id] = invoice.invoice_title;
+                            console.log('Order title override detected:', {
+                                orderId: invoice.id,
+                                original: originalTitle,
+                                override: invoice.invoice_title
+                            });
+                        }
+                    }
+                });
+            }
+
+            // Collect job name and quantity overrides
+            if (this.invoiceData) {
+                const invoices = Array.isArray(this.invoiceData) ? this.invoiceData : Object.values(this.invoiceData);
+                invoices.forEach(invoice => {
+                    if (invoice.jobs && Array.isArray(invoice.jobs)) {
+                        invoice.jobs.forEach(job => {
+                            if (job.id) {
+                                // Check if job name was edited
+                                const originalJobName = this.getOriginalJobName(job.id);
+                                if (originalJobName && job.name !== originalJobName) {
+                                    overrides.job_names[job.id] = job.name;
+                                    console.log('Job name override detected:', {
+                                        jobId: job.id,
+                                        original: originalJobName,
+                                        override: job.name
+                                    });
+                                }
+
+                                // Check if job quantity was edited
+                                const originalJobQuantity = this.getOriginalJobQuantity(job.id);
+                                if (originalJobQuantity !== null && job.quantity !== originalJobQuantity) {
+                                    overrides.job_quantities[job.id] = job.quantity;
+                                    console.log('Job quantity override detected:', {
+                                        jobId: job.id,
+                                        original: originalJobQuantity,
+                                        override: job.quantity
+                                    });
+                                }
+                            }
+                        });
+                    }
+                });
+            }
+
+            console.log('Collected faktura overrides:', overrides);
+            console.log('Override details:', {
+                orderTitlesCount: Object.keys(overrides.order_titles).length,
+                jobNamesCount: Object.keys(overrides.job_names).length,
+                jobQuantitiesCount: Object.keys(overrides.job_quantities).length,
+                orderTitles: overrides.order_titles,
+                jobNames: overrides.job_names,
+                jobQuantities: overrides.job_quantities
+            });
+            
+            // Return with the field names that the backend expects
+            return {
+                order_title_overrides: overrides.order_titles,
+                job_name_overrides: overrides.job_names,
+                job_quantity_overrides: overrides.job_quantities
+            };
         },
         // Initialize units for all jobs
         initializeJobUnits() {
@@ -1341,30 +1510,47 @@ export default {
                 // Store unit locally (frontend-only field)
                 const localUnit = job.unit;
                 
-                // Persist supported fields to backend JobController@update
-                const response = await axios.put(`/jobs/${job.id}`, {
-                    name: job.name,
-                    quantity: job.quantity,
-                    salePrice: job.salePrice
+                // For faktura generation, we don't want to persist changes to the original job
+                // Instead, we'll store the changes locally and they'll be sent as overrides
+                // Only persist salePrice changes to the original job (as this affects pricing)
+                if (job.salePrice !== this.originalJobSnapshots[job.id]?.salePrice) {
+                    // Store local changes before API call
+                    const localName = job.name;
+                    const localQuantity = job.quantity;
+                    
+                    const response = await axios.put(`/jobs/${job.id}`, {
+                        salePrice: job.salePrice
+                    });
+                    
+                    if (response?.data?.job) {
+                        // Update only the salePrice from backend response
+                        job.salePrice = response.data.job.salePrice;
+                        
+                        // Restore local changes that should not be persisted to database
+                        job.name = localName;
+                        job.quantity = localQuantity;
+                        
+                        // Don't call onJobUpdated as it would overwrite our local changes
+                        // this.onJobUpdated?.(response.data.job);
+                    }
+                }
+                
+                // Keep the frontend-only unit field
+                job.unit = localUnit;
+                
+                // Debug: Check if overrides are being detected
+                console.log('Job saved locally:', {
+                    jobId: job.id,
+                    originalName: this.getOriginalJobName(job.id),
+                    newName: job.name,
+                    nameWillBeOverride: job.name !== this.getOriginalJobName(job.id),
+                    originalQuantity: this.getOriginalJobQuantity(job.id),
+                    newQuantity: job.quantity,
+                    quantityWillBeOverride: job.quantity !== this.getOriginalJobQuantity(job.id)
                 });
                 
-                if (response?.data?.job) {
-                    // Update only the fields that came from server, preserve frontend-only fields
-                    job.name = response.data.job.name;
-                    job.quantity = response.data.job.quantity;
-                    job.salePrice = response.data.job.salePrice;
-                    if (response.data.job.computed_total_area_m2 !== undefined) {
-                        job.computed_total_area_m2 = response.data.job.computed_total_area_m2;
-                    }
-                    // Keep the frontend-only unit field
-                    job.unit = localUnit;
-                    this.onJobUpdated?.(response.data.job);
-                    this.$toast?.success?.('Job updated');
-                } else {
-                    // Even if no job data returned, keep the unit
-                    job.unit = localUnit;
-                    this.$toast?.success?.('Job updated');
-                }
+                this.$toast?.success?.('Job changes saved for faktura (name/quantity changes will only appear in the generated invoice)');
+                
                 this.editingJobId = null;
                 delete this.originalJobSnapshots[job.id];
             } catch (e) {
@@ -1378,9 +1564,12 @@ export default {
         },
         async fetchNextInvoiceId() {
             try {
+                console.log('Fetching next invoice ID...');
                 const res = await axios.get('/invoices/next-id');
                 this.previewInvoiceId = res?.data?.next_id ?? null;
-            } catch (_) {
+                console.log('Next invoice ID fetched:', this.previewInvoiceId);
+            } catch (error) {
+                console.error('Error fetching next invoice ID:', error);
                 this.previewInvoiceId = null;
             }
         },
@@ -1491,15 +1680,23 @@ export default {
                 return;
             }
             try {
-                const response = await axios.put(`/orders/${invoiceData.id}/title`, { invoice_title: this.titleEdits[invoiceData.id] });
-                if (response.data.invoice) {
-                    invoiceData.invoice_title = this.titleEdits[invoiceData.id];
-                    this.$toast?.success?.('Title updated');
-                }
+                // For faktura generation, we don't want to persist title changes to the original order
+                // Instead, we'll store the changes locally and they'll be sent as overrides
+                invoiceData.invoice_title = this.titleEdits[invoiceData.id];
+                
+                // Debug: Check if override is being detected
+                console.log('Title saved locally:', {
+                    orderId: invoiceData.id,
+                    original: this.getOriginalOrderTitle(invoiceData.id),
+                    new: invoiceData.invoice_title,
+                    willBeOverride: invoiceData.invoice_title !== this.getOriginalOrderTitle(invoiceData.id)
+                });
+                
+                this.$toast?.success?.('Title changes saved for faktura (will only appear in the generated invoice)');
                 this.cancelEditTitle(invoiceData);
             } catch (e) {
                 console.error(e);
-                this.$toast?.error?.('Failed to update title');
+                this.$toast?.error?.('Failed to save title changes');
                 this.cancelEditTitle(invoiceData);
             }
         },
@@ -1745,7 +1942,8 @@ export default {
                     additional_services: this.additionalServices,
                     created_at: this.previewDate,
                     merge_groups: this.mergeGroups,
-                    job_units: jobsWithUnits
+                    job_units: jobsWithUnits,
+                    ...this.collectFakturaOverrides()
                 };
                 
                 // Only include override if it's different from the client's default
@@ -1844,7 +2042,8 @@ export default {
                     created_at: this.previewDate,
                     merge_groups: this.mergeGroups,
                     job_units: jobsWithUnits,
-                    return_meta: true
+                    return_meta: true,
+                    ...this.collectFakturaOverrides()
                 };
                 
                 // Only include override if it's different from the client's default
@@ -2092,7 +2291,8 @@ export default {
                     additional_services: this.additionalServices,
                     created_at: this.previewDate,
                     job_units: jobsWithUnits,
-                    return_meta: true
+                    return_meta: true,
+                    ...this.collectFakturaOverrides()
                 };
 
                 if (this.paymentDeadline !== this.defaultPaymentDeadline) {
@@ -2159,7 +2359,8 @@ export default {
                     trade_items: tradePayload,
                     additional_services: this.additionalServices,
                     created_at: this.previewDate,
-                    job_units: jobsWithUnits
+                    job_units: jobsWithUnits,
+                    ...this.collectFakturaOverrides()
                 };
 
                 if (this.paymentDeadline !== this.defaultPaymentDeadline) {
@@ -2343,10 +2544,19 @@ export default {
 
     },
     mounted() {
+        console.log('Component mounted, checking methods...');
+        console.log('this.initializeOriginalValues:', typeof this.initializeOriginalValues);
+        
         this.loadTradeArticles();
         this.fetchNextInvoiceId();
         this.loadDefaultPaymentDeadline();
-        this.initializeJobUnits();
+        
+        // Use $nextTick to ensure invoiceData is loaded
+        this.$nextTick(() => {
+            console.log('$nextTick callback executing...');
+            this.initializeJobUnits();
+            // Don't call initializeOriginalValues here - let the watcher handle it
+        });
 
         // Watch for changes in selected article to auto-fill price
         this.$watch('selectedArticle', (newArticle) => {
@@ -2354,6 +2564,16 @@ export default {
                 this.tradeItemPrice = newArticle.selling_price;
             }
         });
+        
+        // Watch for invoiceData changes to reinitialize when data loads
+        this.$watch('invoiceData', () => {
+            if (this.invoiceData) {
+                this.$nextTick(() => {
+                    this.initializeJobUnits();
+                    this.initializeOriginalValues();
+                });
+            }
+        }, { immediate: true, deep: true });
     },
 };
 </script>
@@ -2885,6 +3105,36 @@ table th {
 
 .btn.orange:hover:not(:disabled) {
     background-color: darken($orange, 10%);
+}
+
+/* Loading styles */
+.loading-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 40px;
+    color: $white;
+    
+    .loading-spinner {
+        width: 40px;
+        height: 40px;
+        border: 4px solid rgba($white, 0.3);
+        border-top: 4px solid $white;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+        margin-bottom: 16px;
+    }
+    
+    p {
+        font-size: 16px;
+        margin: 0;
+    }
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
 }
 
 /* Modern Invoice Styles ported from Finance/Invoice.vue */

@@ -420,6 +420,13 @@
             if ($item['type'] === 'job') {
                 $unit = (float) ($item['job']['salePrice'] ?? 0);
                 $qty = (float) ($item['job']['quantity'] ?? 0);
+                
+                // Apply job quantity override if available
+                $jobId = $item['job']['id'] ?? null;
+                if ($jobId && isset($fakturaOverrides['job_quantities'][$jobId])) {
+                    $qty = (float) $fakturaOverrides['job_quantities'][$jobId];
+                }
+                
                 $lineNet = $unit * $qty;
                 $taxRate = (float) ($item['taxRate'] ?? 0);
                 $lineVat = $lineNet * ($taxRate / 100);
@@ -474,6 +481,13 @@
                         <td style="font-size: 10pt; padding: 6px; text-align: center; white-space: nowrap;">{{ $item['row_number'] }}.</td>
                         @php
                             $jobName = $item['job']['name'] ?? '';
+                            $jobId = $item['job']['id'] ?? null;
+                            
+                            // Apply job name override if available
+                            if ($jobId && isset($fakturaOverrides['job_names'][$jobId])) {
+                                $jobName = $fakturaOverrides['job_names'][$jobId];
+                            }
+                            
                             // For merged jobs: keep only the first order's title, and hide order id
                             $isMerged = (bool) ($item['job']['merged'] ?? false);
                             if ($isMerged) {
@@ -491,8 +505,19 @@
                                     }
                                 }
                                 $orderName = $earliestTitle;
+                                
+                                // Apply order title override if available
+                                if ($earliestId && isset($fakturaOverrides['order_titles'][$earliestId])) {
+                                    $orderName = $fakturaOverrides['order_titles'][$earliestId];
+                                }
                             } else {
                                 $orderName = $item['invoice_title'] ?? '';
+                                $orderId = $item['invoice_id'] ?? null;
+                                
+                                // Apply order title override if available
+                                if ($orderId && isset($fakturaOverrides['order_titles'][$orderId])) {
+                                    $orderName = $fakturaOverrides['order_titles'][$orderId];
+                                }
                             }
                         @endphp
                         <td style="font-size: 10pt; padding: 6px; text-align: left;">
@@ -538,9 +563,16 @@
                             } 
                         @endphp
                         <td style="font-size: 10pt; padding: 6px; text-align: center; background-color: #E7F1F2;">{{ $unitDisplay }}</td>
-                        <td style="font-size: 10pt; padding: 6px; text-align: center; background-color: #E7F1F2;">{{ $fmtQty($item['job']['quantity'] ?? 0) }}</td>
+                        @php
+                            $jobQuantity = $item['job']['quantity'] ?? 0;
+                            // Apply job quantity override if available
+                            if ($jobId && isset($fakturaOverrides['job_quantities'][$jobId])) {
+                                $jobQuantity = $fakturaOverrides['job_quantities'][$jobId];
+                            }
+                        @endphp
+                        <td style="font-size: 10pt; padding: 6px; text-align: center; background-color: #E7F1F2;">{{ $fmtQty($jobQuantity) }}</td>
                         <td style="font-size: 10pt; padding: 6px; text-align: right; background-color: #E7F1F2;">{{ number_format((float) ($item['job']['salePrice'] ?? 0), 2) }}</td>
-                        <td style="font-size: 10pt; padding: 6px; text-align: right; background-color: #E7F1F2;">{{ number_format(((float) ($item['job']['salePrice'] ?? 0)) * ((float) ($item['job']['quantity'] ?? 0)), 2) }}</td>
+                        <td style="font-size: 10pt; padding: 6px; text-align: right; background-color: #E7F1F2;">{{ number_format(((float) ($item['job']['salePrice'] ?? 0)) * ((float) $jobQuantity), 2) }}</td>
                     </tr>
                 @elseif($item['type'] === 'trade_item')
                     <tr style="border-bottom: 2px solid #cccccc; font-weight: 700 ; font-family: 'Calibri'">
@@ -573,7 +605,15 @@
                 $vatBreakdown = [5 => 0.0, 10 => 0.0, 18 => 0.0];
                 foreach ($allItems as $item) {
                     if ($item['type'] === 'job') {
-                        $lineNet = ((float) ($item['job']['salePrice'] ?? 0)) * ((float) ($item['job']['quantity'] ?? 0));
+                        $qty = (float) ($item['job']['quantity'] ?? 0);
+                        
+                        // Apply job quantity override if available
+                        $jobId = $item['job']['id'] ?? null;
+                        if ($jobId && isset($fakturaOverrides['job_quantities'][$jobId])) {
+                            $qty = (float) $fakturaOverrides['job_quantities'][$jobId];
+                        }
+                        
+                        $lineNet = ((float) ($item['job']['salePrice'] ?? 0)) * $qty;
                         // Determine rate from job articles (same logic as row display)
                         $rates = [];
                         if (isset($item['job']['articles']) && is_array($item['job']['articles'])) {

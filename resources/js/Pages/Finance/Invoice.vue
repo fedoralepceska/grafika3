@@ -137,7 +137,7 @@
                                             </button>
                                         </div>
                                         <div v-else class="invoice-title" @click="startEditTitle(invoiceData)">
-                                          {{ invoiceData.invoice_title }}
+                                          {{ getDisplayOrderTitle(invoiceData.id, invoiceData.invoice_title) }}
                                             <i v-if="isEditMode" class="fas fa-edit edit-icon"></i>
                                         </div>
                                     </div>
@@ -182,14 +182,14 @@
                                                     <input class="inline-input" v-model="job.name" />
                                                 </template>
                                                 <template v-else>
-                                                    #{{ jobIndex + 1 }} {{ job.name }}
+                                                    #{{ jobIndex + 1 }} {{ getDisplayJobName(job.id, job.name) }}
                                                 </template>
                                             </div>
                                             <div class="value-cell">
                                                 <template v-if="isEditMode && editingJobId === job.id">
                                                     <input class="inline-input" type="number" min="0" v-model.number="job.quantity" />
                                                 </template>
-                                                <template v-else>{{ job.quantity }}</template>
+                                                <template v-else>{{ getDisplayJobQuantity(job.id, job.quantity) }}</template>
                                             </div>
                                             <div class="value-cell">
                                                 <select class="inline-input unit-select" :value="job.unit || 'ком'" @input="updateJobUnit(job, $event.target.value)">
@@ -967,7 +967,17 @@ export default {
             newServicePrice: 0,
             newServiceVatRate: 18,
             isEditingService: {},
-            editServiceForms: {}
+            editServiceForms: {},
+            // Track original values for override detection
+            originalOrderTitles: {},
+            originalJobNames: {},
+            originalJobQuantities: {},
+            // Track current overrides
+            currentOverrides: {
+                order_titles: {},
+                job_names: {},
+                job_quantities: {}
+            }
         }
     },
     mounted() {
@@ -976,6 +986,7 @@ export default {
         this.originalMergeGroups = JSON.parse(JSON.stringify(this.faktura.merge_groups || []));
         this.loadTradeArticles();
         this.initializeJobUnits();
+        this.initializeOverrides();
     },
     methods: {
         // Helper method to get the faktura date consistently
@@ -1251,7 +1262,8 @@ export default {
             if (!this.isEditMode) return;
             
             this.editingTitle[invoiceData.id] = true;
-            this.titleEdits[invoiceData.id] = invoiceData.invoice_title;
+            // Use the display value (which includes overrides) instead of original
+            this.titleEdits[invoiceData.id] = this.getDisplayOrderTitle(invoiceData.id, invoiceData.invoice_title);
             
             // Focus the input in the next tick
             this.$nextTick(() => {
@@ -1269,27 +1281,78 @@ export default {
             }
 
             try {
-                const response = await axios.put(
-                    `/invoice/${invoiceData.fakturaId}/invoice/${invoiceData.id}/title`,
-                    { invoice_title: this.titleEdits[invoiceData.id] }
-                );
-
-                if (response.data.invoice) {
-                    invoiceData.invoice_title = this.titleEdits[invoiceData.id];
-                    this.toast.success('Invoice title updated successfully');
+                // Store the override instead of updating the original data
+                this.currentOverrides.order_titles[invoiceData.id] = this.titleEdits[invoiceData.id];
+                
+                // Save overrides to faktura
+                const saved = await this.saveOverrides();
+                if (saved) {
+                    this.cancelEditTitle(invoiceData);
                 }
-
-                this.cancelEditTitle(invoiceData);
-
             } catch (error) {
-                console.error('Error updating title:', error);
-                this.toast.error('Failed to update invoice title');
+                console.error('Error saving title override:', error);
+                this.toast.error('Failed to save title changes');
                 this.cancelEditTitle(invoiceData);
             }
         },
         cancelEditTitle(invoiceData) {
             this.editingTitle[invoiceData.id] = false;
             delete this.titleEdits[invoiceData.id];
+        },
+        // Override management methods
+        initializeOverrides() {
+            // Load existing overrides from faktura
+            if (this.faktura?.faktura_overrides) {
+                this.currentOverrides = { ...this.faktura.faktura_overrides };
+            }
+            
+            // Initialize original values
+            if (this.invoice) {
+                const invoices = Array.isArray(this.invoice) ? this.invoice : Object.values(this.invoice);
+                invoices.forEach(invoice => {
+                    if (invoice.id && invoice.invoice_title) {
+                        this.originalOrderTitles[invoice.id] = invoice.invoice_title;
+                    }
+                    if (invoice.jobs && Array.isArray(invoice.jobs)) {
+                        invoice.jobs.forEach(job => {
+                            if (job.id) {
+                                this.originalJobNames[job.id] = job.name;
+                                this.originalJobQuantities[job.id] = job.quantity;
+                            }
+                        });
+                    }
+                });
+            }
+        },
+        // Get display value for order title (override if exists, otherwise original)
+        getDisplayOrderTitle(orderId, originalTitle) {
+            return this.currentOverrides.order_titles[orderId] || originalTitle;
+        },
+        // Get display value for job name (override if exists, otherwise original)
+        getDisplayJobName(jobId, originalName) {
+            return this.currentOverrides.job_names[jobId] || originalName;
+        },
+        // Get display value for job quantity (override if exists, otherwise original)
+        getDisplayJobQuantity(jobId, originalQuantity) {
+            return this.currentOverrides.job_quantities[jobId] !== undefined ? 
+                   this.currentOverrides.job_quantities[jobId] : originalQuantity;
+        },
+        // Save overrides to faktura
+        async saveOverrides() {
+            try {
+                const response = await axios.put(`/faktura/${this.fakturaId}/overrides`, {
+                    faktura_overrides: this.currentOverrides
+                });
+                
+                if (response.data.success) {
+                    this.toast.success('Changes saved successfully');
+                    return true;
+                }
+            } catch (error) {
+                console.error('Error saving overrides:', error);
+                this.toast.error('Failed to save changes');
+                return false;
+            }
         },
         startEditDate() {
             if (!this.isEditMode) return;
@@ -1717,7 +1780,12 @@ export default {
         },
         startEditingJob(job) {
             this.editingJobId = job.id;
-            // snapshot original values for cancel
+            
+            // Update job object with display values (which include overrides) for editing
+            job.name = this.getDisplayJobName(job.id, job.name);
+            job.quantity = this.getDisplayJobQuantity(job.id, job.quantity);
+            
+            // snapshot current display values (which include overrides) for cancel
             this.$set ? this.$set(this.originalJobSnapshots, job.id, {
                 name: job.name,
                 quantity: job.quantity,
@@ -1746,24 +1814,42 @@ export default {
         },
         async saveEditingJob(job) {
             try {
-                // Persist supported fields to backend JobController@update
-                const response = await axios.put(`/jobs/${job.id}`, {
-                    name: job.name,
-                    quantity: job.quantity,
-                    salePrice: job.salePrice
-                });
-                if (response?.data?.job) {
-                    // Replace local job with server copy and notify
-                    Object.assign(job, response.data.job);
-                    this.onJobUpdated?.(response.data.job);
-                    this.toast?.success?.('Job updated');
-                } else {
-                    this.toast?.success?.('Job updated');
+                // Store unit locally (frontend-only field)
+                const localUnit = job.unit;
+                
+                // For faktura editing, we don't want to persist changes to the original job
+                // Instead, we'll store the changes as overrides
+                // Only persist salePrice changes to the original job (as this affects pricing)
+                if (job.salePrice !== this.originalJobSnapshots[job.id]?.salePrice) {
+                    const response = await axios.put(`/jobs/${job.id}`, {
+                        salePrice: job.salePrice
+                    });
+                    
+                    if (response?.data?.job) {
+                        job.salePrice = response.data.job.salePrice;
+                        this.onJobUpdated?.(response.data.job);
+                    }
                 }
-                this.editingJobId = null;
-                delete this.originalJobSnapshots[job.id];
+                
+                // Store name and quantity changes as overrides
+                if (job.name !== this.originalJobSnapshots[job.id]?.name) {
+                    this.currentOverrides.job_names[job.id] = job.name;
+                }
+                if (job.quantity !== this.originalJobSnapshots[job.id]?.quantity) {
+                    this.currentOverrides.job_quantities[job.id] = job.quantity;
+                }
+                
+                // Save overrides to faktura
+                const saved = await this.saveOverrides();
+                if (saved) {
+                    // Keep the frontend-only unit field
+                    job.unit = localUnit;
+                    this.editingJobId = null;
+                    delete this.originalJobSnapshots[job.id];
+                }
             } catch (e) {
-                this.toast?.error?.('Failed to update job');
+                console.error('Error saving job changes:', e);
+                this.toast?.error?.('Failed to save job changes');
             }
         },
         toggleMaterials(jobId) {
@@ -2005,7 +2091,11 @@ export default {
                     created_at: createdAt,
                     merge_groups: this.faktura?.merge_groups || [],
                     job_units: jobsWithUnits,
-                    payment_deadline_override: this.displayPaymentDeadline
+                    payment_deadline_override: this.displayPaymentDeadline,
+                    // Include current overrides for print
+                    order_title_overrides: this.currentOverrides.order_titles || {},
+                    job_name_overrides: this.currentOverrides.job_names || {},
+                    job_quantity_overrides: this.currentOverrides.job_quantities || {}
                 }, { responseType: 'blob' });
 
                 // Open blob in new tab

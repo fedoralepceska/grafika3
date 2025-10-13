@@ -1355,10 +1355,17 @@ class InvoiceController extends Controller
                 return response()->json(['invoices' => $transformedInvoices], 200);
             }
 
+            // Get faktura overrides if faktura exists
+            $fakturaOverrides = [];
+            if ($isAlreadyGenerated && $firstInvoice->faktura) {
+                $fakturaOverrides = $firstInvoice->faktura->faktura_overrides ?? [];
+            }
+            
             $pdf = PDF::loadView('invoices.outgoing_invoice_v2', [
                 'invoices' => $transformedInvoices,
                 'additionalServices' => is_array($additionalServices) ? $additionalServices : [],
                 'jobUnits' => $jobUnits,
+                'fakturaOverrides' => $fakturaOverrides,
                 'isHtml5ParserEnabled' => true,
                 'isRemoteEnabled' => true,
                 'isFontSubsettingEnabled' => true,
@@ -1455,6 +1462,19 @@ class InvoiceController extends Controller
         $mergeGroups = $request->input('merge_groups', []);
         $splitGroups = $request->input('split_groups', []);
         $jobUnits = $request->input('job_units', []);
+        
+        // Capture overrides for faktura display
+        $fakturaOverrides = [
+            'order_titles' => $request->input('order_title_overrides', []),
+            'job_names' => $request->input('job_name_overrides', []),
+            'job_quantities' => $request->input('job_quantity_overrides', [])
+        ];
+        
+        // Debug logging
+        \Log::info('GenerateInvoice - Received faktura overrides', [
+            'overrides' => $fakturaOverrides,
+            'request_data' => $request->only(['order_title_overrides', 'job_name_overrides', 'job_quantity_overrides'])
+        ]);
 
         // Check if this is a split invoice request
         if (!empty($splitGroups) && is_array($splitGroups)) {
@@ -1493,7 +1513,19 @@ class InvoiceController extends Controller
                 'isInvoiced' => 1,
                 'comment' => $comment,
                 'created_by' => auth()->id(),
-                'payment_deadline_override' => is_numeric($paymentDeadlineOverride) ? (int)$paymentDeadlineOverride : null
+                'payment_deadline_override' => is_numeric($paymentDeadlineOverride) ? (int)$paymentDeadlineOverride : null,
+                'faktura_overrides' => $fakturaOverrides
+            ]);
+            
+            // Debug logging for faktura creation
+            \Log::info('GenerateInvoice - Faktura created with overrides', [
+                'faktura_id' => $faktura->id,
+                'faktura_overrides' => $faktura->faktura_overrides,
+                'overrides_count' => [
+                    'order_titles' => count($fakturaOverrides['order_titles'] ?? []),
+                    'job_names' => count($fakturaOverrides['job_names'] ?? []),
+                    'job_quantities' => count($fakturaOverrides['job_quantities'] ?? [])
+                ]
             ]);
 
             // Persist merge groups if provided (lightweight JSON structure)
@@ -1719,6 +1751,7 @@ class InvoiceController extends Controller
                 'invoices' => $transformedInvoices,
                 'additionalServices' => is_array($additionalServices) ? $additionalServices : [],
                 'jobUnits' => $jobUnits,
+                'fakturaOverrides' => $fakturaOverrides,
                 'isHtml5ParserEnabled' => true,
                 'isRemoteEnabled' => true,
                 'isFontSubsettingEnabled' => true,
@@ -1750,6 +1783,33 @@ class InvoiceController extends Controller
         }
     }
 
+    public function updateFakturaOverrides(Request $request, $fakturaId)
+    {
+        try {
+            $faktura = Faktura::findOrFail($fakturaId);
+            $overrides = $request->input('faktura_overrides', []);
+            
+            $faktura->faktura_overrides = $overrides;
+            $faktura->save();
+            
+            return response()->json([
+                'success' => true,
+                'message' => 'Faktura overrides updated successfully'
+            ]);
+            
+        } catch (\Exception $e) {
+            \Log::error('Error updating faktura overrides', [
+                'faktura_id' => $fakturaId,
+                'error' => $e->getMessage()
+            ]);
+            
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to update faktura overrides'
+            ], 500);
+        }
+    }
+
     private function generateSplitInvoices(Request $request, array $splitGroups)
     {
         $comment = $request->input('comment');
@@ -1757,6 +1817,13 @@ class InvoiceController extends Controller
         $createdAtInput = $request->input('created_at');
         $paymentDeadlineOverride = $request->input('payment_deadline_override');
         $mergeGroups = $request->input('merge_groups', []);
+        
+        // Capture overrides for faktura display
+        $fakturaOverrides = [
+            'order_titles' => $request->input('order_title_overrides', []),
+            'job_names' => $request->input('job_name_overrides', []),
+            'job_quantities' => $request->input('job_quantity_overrides', [])
+        ];
 
         try {
             DB::beginTransaction();
@@ -1817,7 +1884,8 @@ class InvoiceController extends Controller
                     'payment_deadline_override' => is_numeric($paymentDeadlineOverride) ? (int)$paymentDeadlineOverride : null,
                     'is_split_invoice' => true,
                     'split_group_identifier' => 'group_' . ($index + 1),
-                    'parent_order_id' => $parentOrderId
+                    'parent_order_id' => $parentOrderId,
+                    'faktura_overrides' => $fakturaOverrides
                 ]);
 
                 // Apply custom created_at if provided
@@ -1995,6 +2063,7 @@ class InvoiceController extends Controller
             'invoices' => [$invoiceData],
             'additionalServices' => ($faktura->additionalServices ?? collect())->toArray(),
             'jobUnits' => $jobUnits,
+            'fakturaOverrides' => $faktura->faktura_overrides ?? [],
             'isHtml5ParserEnabled' => true,
             'isRemoteEnabled' => true,
             'isFontSubsettingEnabled' => true,
@@ -2443,6 +2512,13 @@ class InvoiceController extends Controller
             $splitGroups = $request->input('split_groups', []);
             $paymentDeadlineOverride = $request->input('payment_deadline_override');
             $jobUnits = $request->input('job_units', []);
+            
+            // Capture overrides for faktura display
+            $fakturaOverrides = [
+                'order_titles' => $request->input('order_title_overrides', []),
+                'job_names' => $request->input('job_name_overrides', []),
+                'job_quantities' => $request->input('job_quantity_overrides', [])
+            ];
 
             // Check if this is a split preview request
             if (!empty($splitGroups) && is_array($splitGroups)) {
@@ -2662,6 +2738,7 @@ class InvoiceController extends Controller
                 'invoices' => $transformedInvoices,
                 'additionalServices' => is_array($additionalServices) ? $additionalServices : [],
                 'jobUnits' => $jobUnits,
+                'fakturaOverrides' => $fakturaOverrides,
                 'isHtml5ParserEnabled' => true,
                 'isRemoteEnabled' => true,
                 'isFontSubsettingEnabled' => true,
@@ -3032,6 +3109,7 @@ class InvoiceController extends Controller
                 'invoices' => $transformedInvoices,
                 'additionalServices' => is_array($additionalServices) ? $additionalServices : [],
                 'jobUnits' => $jobUnits,
+                'fakturaOverrides' => $fakturaOverrides,
                     'isHtml5ParserEnabled' => true,
                     'isRemoteEnabled' => true,
                     'isFontSubsettingEnabled' => true,

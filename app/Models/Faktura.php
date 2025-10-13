@@ -15,11 +15,13 @@ class Faktura extends Model
         'payment_deadline_override',
         'is_split_invoice',
         'split_group_identifier',
-        'parent_order_id'
+        'parent_order_id',
+        'faktura_overrides'
     ];
     protected $casts = [
         'merge_groups' => 'array',
         'is_split_invoice' => 'boolean',
+        'faktura_overrides' => 'array',
     ];
 
     /**
@@ -62,5 +64,98 @@ class Faktura extends Model
     public function additionalServices()
     {
         return $this->hasMany(AdditionalService::class);
+    }
+
+    /**
+     * Get override for a specific order title
+     */
+    public function getOrderTitleOverride($orderId)
+    {
+        $overrides = $this->faktura_overrides ?? [];
+        return $overrides['order_titles'][$orderId] ?? null;
+    }
+
+    /**
+     * Get override for a specific job name
+     */
+    public function getJobNameOverride($jobId)
+    {
+        $overrides = $this->faktura_overrides ?? [];
+        return $overrides['job_names'][$jobId] ?? null;
+    }
+
+    /**
+     * Get override for a specific job quantity
+     */
+    public function getJobQuantityOverride($jobId)
+    {
+        $overrides = $this->faktura_overrides ?? [];
+        return $overrides['job_quantities'][$jobId] ?? null;
+    }
+
+    /**
+     * Set override for order title
+     */
+    public function setOrderTitleOverride($orderId, $title)
+    {
+        $overrides = $this->faktura_overrides ?? [];
+        if (!isset($overrides['order_titles'])) {
+            $overrides['order_titles'] = [];
+        }
+        $overrides['order_titles'][$orderId] = $title;
+        $this->faktura_overrides = $overrides;
+    }
+
+    /**
+     * Set override for job name
+     */
+    public function setJobNameOverride($jobId, $name)
+    {
+        $overrides = $this->faktura_overrides ?? [];
+        if (!isset($overrides['job_names'])) {
+            $overrides['job_names'] = [];
+        }
+        $overrides['job_names'][$jobId] = $name;
+        $this->faktura_overrides = $overrides;
+    }
+
+    /**
+     * Set override for job quantity
+     */
+    public function setJobQuantityOverride($jobId, $quantity)
+    {
+        $overrides = $this->faktura_overrides ?? [];
+        if (!isset($overrides['job_quantities'])) {
+            $overrides['job_quantities'] = [];
+        }
+        $overrides['job_quantities'][$jobId] = $quantity;
+        $this->faktura_overrides = $overrides;
+    }
+
+    /**
+     * Get display value for order title (override if exists, otherwise original)
+     */
+    public function getDisplayOrderTitle($orderId, $originalTitle)
+    {
+        $override = $this->getOrderTitleOverride($orderId);
+        return $override ?? $originalTitle;
+    }
+
+    /**
+     * Get display value for job name (override if exists, otherwise original)
+     */
+    public function getDisplayJobName($jobId, $originalName)
+    {
+        $override = $this->getJobNameOverride($jobId);
+        return $override ?? $originalName;
+    }
+
+    /**
+     * Get display value for job quantity (override if exists, otherwise original)
+     */
+    public function getDisplayJobQuantity($jobId, $originalQuantity)
+    {
+        $override = $this->getJobQuantityOverride($jobId);
+        return $override ?? $originalQuantity;
     }
 }
