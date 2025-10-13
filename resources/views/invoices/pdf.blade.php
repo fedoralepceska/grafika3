@@ -411,157 +411,126 @@
         {{-- Multiple files with thumbnails --}}
         @if ($dimensionsBreakdown && is_array($dimensionsBreakdown) && count($dimensionsBreakdown) > 0)
             {{-- Use dimensions breakdown data --}}
+            @php
+                // Get all thumbnails once for the entire job
+                $allThumbnails = [];
+                $thumbnailDir = public_path("jobfiles/thumbnails/{$job->id}");
+                if (is_dir($thumbnailDir)) {
+                    $thumbnailFiles = glob($thumbnailDir . '/*.png');
+                    sort($thumbnailFiles); // Ensure consistent ordering
+                    foreach ($thumbnailFiles as $thumbnailFile) {
+                        if (file_exists($thumbnailFile)) {
+                            $allThumbnails[] = base64_encode(file_get_contents($thumbnailFile));
+                        }
+                    }
+                }
+                
+                // Fallback to local thumbnails if public path fails
+                if (empty($allThumbnails)) {
+                    foreach ($localThumbnails as $localThumbnail) {
+                        if (file_exists($localThumbnail)) {
+                            $allThumbnails[] = base64_encode(file_get_contents($localThumbnail));
+                        }
+                    }
+                }
+            @endphp
+            
             @foreach ($dimensionsBreakdown as $index => $fileData)
                 @php
-                    // Get all available thumbnails for this file
-                    $thumbnails = [];
-                    
-                    // Check if we have page dimensions to determine thumbnail paths
+                    // Get dimensions for this specific file
+                    $pageDimensions = '';
                     if (isset($fileData['page_dimensions']) && is_array($fileData['page_dimensions']) && count($fileData['page_dimensions']) > 0) {
-                        // Try to find thumbnail files in public directory
-                        $thumbnailDir = public_path("jobfiles/thumbnails/{$job->id}");
-                        if (is_dir($thumbnailDir)) {
-                            $thumbnailFiles = glob($thumbnailDir . '/*.png');
-                            foreach ($thumbnailFiles as $thumbnailFile) {
-                                if (file_exists($thumbnailFile)) {
-                                    $thumbnails[] = base64_encode(file_get_contents($thumbnailFile));
-                                }
-                            }
+                        // Use the first page dimensions for this file
+                        $pageDim = $fileData['page_dimensions'][0];
+                        if (isset($pageDim['width_mm']) && isset($pageDim['height_mm'])) {
+                            $pageDimensions = number_format($pageDim['width_mm'], 1) . 'x' . number_format($pageDim['height_mm'], 1) . ' mm';
                         }
                     }
                     
-                    // Fallback to local thumbnails if public path fails
-                    if (empty($thumbnails) && isset($localThumbnails[$index]) && file_exists($localThumbnails[$index])) {
-                        $thumbnails[] = base64_encode(file_get_contents($localThumbnails[$index]));
-                    }
+                    // Get the corresponding thumbnail for this file index
+                    $thumbnailBase64 = isset($allThumbnails[$index]) ? $allThumbnails[$index] : null;
                 @endphp
                 
-                @if (!empty($thumbnails))
-                    @php
-                        $artboardCounter = 1;
-                    @endphp
-                    @foreach ($thumbnails as $thumbnailIndex => $thumbnailBase64)
-                        @php
-                            // Get dimensions for this specific page
-                            $pageDimensions = '';
-                            if (isset($fileData['page_dimensions']) && is_array($fileData['page_dimensions']) && isset($fileData['page_dimensions'][$thumbnailIndex])) {
-                                $pageDim = $fileData['page_dimensions'][$thumbnailIndex];
-                                if (isset($pageDim['width_mm']) && isset($pageDim['height_mm'])) {
-                                    $pageDimensions = number_format($pageDim['width_mm'], 1) . 'x' . number_format($pageDim['height_mm'], 1) . ' mm';
-                                }
-                            }
-                        @endphp
-                        <div class="artboard-block">
-                            <div  class="bolder tahoma" style="margin-top: 5px; font-size: 9.5pt; color: #3f3f3f;">
-                                ART BOARD {{ $artboardCounter }}@if($pageDimensions) - {{ $pageDimensions }}@endif<span class="opensans bolder" style="color: #333333; font-size: 10pt" >:</span>
-                            </div>
-                            <div class="image-box" style="text-align: center; height: 370px; overflow: hidden; display: flex; align-items: center; justify-content: center;">
-                                <img src="data:image/png;base64,{{ $thumbnailBase64 }}" alt="Job Image {{ $artboardCounter }}" style="max-width: 100%; max-height: 360px; object-fit: contain; vertical-align: middle;">
-                            </div>
-                            
-                            {{-- Add control table after each art board --}}
-                            <table style="width: 100%; text-align: center; letter-spacing: 0.5px; margin-top: 15px;">
-                                <tr style="font-size: 11.5px; text-transform: uppercase">
-                                    <td class="tahoma" style="padding: 15px;">Печатење и контрола</td>
-                                    <td class="tahoma" style="padding: 15px;">Доработка и контрола</td>
-                                    <td class="tahoma" style="padding: 15px;">Монтажа и контрола</td>
-                                </tr>
-                                <tr style="">
-                                    <td style="padding: 15px 15px 0 15px; border-bottom: 1px solid #d7d7d7;"></td>
-                                    <td style="padding: 15px 15px 0 15px; border-bottom: 1px solid #d7d7d7;"></td>
-                                    <td style="padding: 15px 15px 0 15px; border-bottom: 1px solid #d7d7d7;"></td>
-                                </tr>
-                            </table>
+                @if ($thumbnailBase64)
+                    <div class="artboard-block">
+                        <div class="bolder tahoma" style="margin-top: 5px; font-size: 9.5pt; color: #3f3f3f;">
+                            ART BOARD {{ $index + 1 }}@if($pageDimensions) - {{ $pageDimensions }}@endif<span class="opensans bolder" style="color: #333333; font-size: 10pt">:</span>
+                        </div>
+                        <div class="image-box" style="text-align: center; height: 370px; overflow: hidden; display: flex; align-items: center; justify-content: center;">
+                            <img src="data:image/png;base64,{{ $thumbnailBase64 }}" alt="Job Image {{ $index + 1 }}" style="max-width: 100%; max-height: 360px; object-fit: contain; vertical-align: middle;">
                         </div>
                         
-                        {{-- Add page break only if this is the last artboard in the job --}}
-                        @php
-                            $isLastArtboard = $loop->last && !$job->cutting_file_image;
-                        @endphp
-                        @if ($isLastArtboard)
-                            {{-- No page break here since the job loop will handle it --}}
-                        @endif
-                        @php
-                            $artboardCounter++;
-                        @endphp
-                    @endforeach
-                    
+                        {{-- Add control table after each art board --}}
+                        <table style="width: 100%; text-align: center; letter-spacing: 0.5px; margin-top: 15px;">
+                            <tr style="font-size: 11.5px; text-transform: uppercase">
+                                <td class="tahoma" style="padding: 15px;">Печатење и контрола</td>
+                                <td class="tahoma" style="padding: 15px;">Доработка и контрола</td>
+                                <td class="tahoma" style="padding: 15px;">Монтажа и контрола</td>
+                            </tr>
+                            <tr style="">
+                                <td style="padding: 15px 15px 0 15px; border-bottom: 1px solid #d7d7d7;"></td>
+                                <td style="padding: 15px 15px 0 15px; border-bottom: 1px solid #d7d7d7;"></td>
+                                <td style="padding: 15px 15px 0 15px; border-bottom: 1px solid #d7d7d7;"></td>
+                            </tr>
+                        </table>
+                    </div>
                 @endif
             @endforeach
         @else
             {{-- Fallback to original thumbnail loop --}}
-            @foreach ($originalFiles as $index => $filePath)
-                @php
-                    // Get all available thumbnails for this file
-                    $thumbnails = [];
-                    
-                    // Try to find thumbnail files in public directory
-                    $thumbnailDir = public_path("jobfiles/thumbnails/{$job->id}");
-                    if (is_dir($thumbnailDir)) {
-                        $thumbnailFiles = glob($thumbnailDir . '/*.png');
-                        foreach ($thumbnailFiles as $thumbnailFile) {
-                            if (file_exists($thumbnailFile)) {
-                                $thumbnails[] = base64_encode(file_get_contents($thumbnailFile));
-                            }
+            @php
+                // Get all thumbnails once for the entire job
+                $allThumbnails = [];
+                $thumbnailDir = public_path("jobfiles/thumbnails/{$job->id}");
+                if (is_dir($thumbnailDir)) {
+                    $thumbnailFiles = glob($thumbnailDir . '/*.png');
+                    sort($thumbnailFiles); // Ensure consistent ordering
+                    foreach ($thumbnailFiles as $thumbnailFile) {
+                        if (file_exists($thumbnailFile)) {
+                            $allThumbnails[] = base64_encode(file_get_contents($thumbnailFile));
                         }
                     }
-                    
-                    // Fallback to local thumbnails if available
-                    if (empty($thumbnails) && isset($localThumbnails[$index]) && file_exists($localThumbnails[$index])) {
-                        $thumbnails[] = base64_encode(file_get_contents($localThumbnails[$index]));
+                }
+                
+                // Fallback to local thumbnails if available
+                if (empty($allThumbnails)) {
+                    foreach ($localThumbnails as $localThumbnail) {
+                        if (file_exists($localThumbnail)) {
+                            $allThumbnails[] = base64_encode(file_get_contents($localThumbnail));
+                        }
                     }
+                }
+            @endphp
+            
+            @foreach ($originalFiles as $index => $filePath)
+                @php
+                    // Get the corresponding thumbnail for this file index
+                    $thumbnailBase64 = isset($allThumbnails[$index]) ? $allThumbnails[$index] : null;
                 @endphp
                 
-                @if (!empty($thumbnails))
-                    @php
-                        $artboardCounter = 1;
-                    @endphp
-                    @foreach ($thumbnails as $thumbnailIndex => $thumbnailBase64)
-                        @php
-                            // Get dimensions for this specific page
-                            $pageDimensions = '';
-                            if (isset($fileData['page_dimensions']) && is_array($fileData['page_dimensions']) && isset($fileData['page_dimensions'][$thumbnailIndex])) {
-                                $pageDim = $fileData['page_dimensions'][$thumbnailIndex];
-                                if (isset($pageDim['width_mm']) && isset($pageDim['height_mm'])) {
-                                    $pageDimensions = number_format($pageDim['width_mm'], 1) . 'x' . number_format($pageDim['height_mm'], 1) . ' mm';
-                                }
-                            }
-                        @endphp
-                        <div class="artboard-block">
-                            <div  class="bolder tahoma" style="margin-top: 10px; font-size: 9.5pt; color: #3f3f3f">
-                                ART BOARD {{ $artboardCounter }}@if($pageDimensions) - {{ $pageDimensions }}@endif<span class="opensans bolder" style="color: #333333; font-size: 10pt" >:</span>
-                            </div>
-                            <div class="image-box" style="text-align: center; max-height: 370px; overflow: hidden; display: flex; align-items: center; justify-content: center;">
-                                <img src="data:image/png;base64,{{ $thumbnailBase64 }}" alt="Job Image {{ $artboardCounter }}" style="max-width: 100%; max-height: 360px; object-fit: contain; vertical-align: middle;">
-                            </div>
-                            
-                            {{-- Add control table after each art board --}}
-                            <table style="width: 100%; text-align: center; letter-spacing: 0.5px; margin-top: 15px;">
-                                <tr style="font-size: 11.5px; text-transform: uppercase">
-                                    <td class="tahoma" style="padding: 15px;">Печатење и контрола</td>
-                                    <td class="tahoma" style="padding: 15px;">Доработка и контрола</td>
-                                    <td class="tahoma" style="padding: 15px;">Монтажа и контрола</td>
-                                </tr>
-                                <tr>
-                                    <td style="padding: 15px 15px 0 15px; border-bottom: 1px solid #d7d7d7;"></td>
-                                    <td style="padding: 15px 15px 0 15px; border-bottom: 1px solid #d7d7d7;"></td>
-                                    <td style="padding: 15px 15px 0 15px; border-bottom: 1px solid #d7d7d7;"></td>
-                                </tr>
-                            </table>
+                @if ($thumbnailBase64)
+                    <div class="artboard-block">
+                        <div class="bolder tahoma" style="margin-top: 10px; font-size: 9.5pt; color: #3f3f3f">
+                            ART BOARD {{ $index + 1 }}<span class="opensans bolder" style="color: #333333; font-size: 10pt">:</span>
+                        </div>
+                        <div class="image-box" style="text-align: center; max-height: 370px; overflow: hidden; display: flex; align-items: center; justify-content: center;">
+                            <img src="data:image/png;base64,{{ $thumbnailBase64 }}" alt="Job Image {{ $index + 1 }}" style="max-width: 100%; max-height: 360px; object-fit: contain; vertical-align: middle;">
                         </div>
                         
-                        {{-- Add page break only if this is the last artboard in the job --}}
-                        @php
-                            $isLastArtboard = $loop->last && !$job->cutting_file_image;
-                        @endphp
-                        @if ($isLastArtboard)
-                            {{-- No page break here since the job loop will handle it --}}
-                        @endif
-                        @php
-                            $artboardCounter++;
-                        @endphp
-                    @endforeach
-                    
+                        {{-- Add control table after each art board --}}
+                        <table style="width: 100%; text-align: center; letter-spacing: 0.5px; margin-top: 15px;">
+                            <tr style="font-size: 11.5px; text-transform: uppercase">
+                                <td class="tahoma" style="padding: 15px;">Печатење и контрола</td>
+                                <td class="tahoma" style="padding: 15px;">Доработка и контрола</td>
+                                <td class="tahoma" style="padding: 15px;">Монтажа и контрола</td>
+                            </tr>
+                            <tr>
+                                <td style="padding: 15px 15px 0 15px; border-bottom: 1px solid #d7d7d7;"></td>
+                                <td style="padding: 15px 15px 0 15px; border-bottom: 1px solid #d7d7d7;"></td>
+                                <td style="padding: 15px 15px 0 15px; border-bottom: 1px solid #d7d7d7;"></td>
+                            </tr>
+                        </table>
+                    </div>
                 @endif
             @endforeach
         @endif
