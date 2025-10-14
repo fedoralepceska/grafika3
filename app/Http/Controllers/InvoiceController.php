@@ -1249,9 +1249,10 @@ class InvoiceController extends Controller
                 });
             }
 
-            // Apply sort order
+            // Apply sort order: prioritize recently updated (splits/regenerations), then by id
             $sortOrder = $request->input('sortOrder', 'desc');
-            $query->orderBy('created_at', $sortOrder);
+            $query->orderBy('updated_at', $sortOrder)
+                  ->orderBy('id', $sortOrder);
 
             // Apply pagination with configurable results per page
             $perPage = (int) $request->input('per_page', 10);
@@ -1566,6 +1567,12 @@ class InvoiceController extends Controller
             foreach ($invoices as $invoice) {
                 $invoice->faktura_id = $faktura->id;
                 $invoice->save();
+                
+                // Also link all jobs in this invoice to the faktura
+                foreach ($invoice->jobs as $job) {
+                    $job->faktura_id = $faktura->id;
+                    $job->save();
+                }
             }
 
             // Update job units directly on job model if provided
@@ -1806,6 +1813,224 @@ class InvoiceController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to update faktura overrides'
+            ], 500);
+        }
+    }
+
+    public function regenerateSplitInvoices(Request $request, $fakturaId)
+    {
+        $splitGroups = $request->input('split_groups', []);
+        $comment = $request->input('comment', '');
+        $tradeItems = $request->input('trade_items', []);
+        $additionalServices = $request->input('additional_services', []);
+
+        \Log::info('Split regeneration request', [
+            'faktura_id' => $fakturaId,
+            'split_groups' => $splitGroups,
+            'comment' => $comment
+        ]);
+
+        // Validate input
+        if (empty($splitGroups) || !is_array($splitGroups)) {
+            return response()->json(['error' => 'No split groups provided'], 400);
+        }
+
+        // Get the existing faktura
+        $originalFaktura = Faktura::with(['jobs.client', 'tradeItems', 'additionalServices'])->findOrFail($fakturaId);
+
+        try {
+            DB::beginTransaction();
+
+            $generatedInvoices = [];
+
+            // Get the original invoice ID for parent_order_id reference
+            $originalInvoice = Invoice::where('faktura_id', $fakturaId)->first();
+            $parentOrderId = $originalInvoice ? $originalInvoice->id : null;
+
+            foreach ($splitGroups as $index => $splitGroup) {
+                $jobIds = $splitGroup['job_ids'] ?? [];
+                $clientOverride = $splitGroup['client'] ?? null;
+
+                if (empty($jobIds)) {
+                    continue; // Skip empty groups
+                }
+
+                // Get jobs for this split group - they should be currently linked to the original faktura
+                $jobs = Job::with(['client.contacts', 'client.clientCardStatement'])
+                    ->whereIn('id', $jobIds)
+                    ->where('faktura_id', $fakturaId) // Jobs should be linked to the original faktura
+                    ->get();
+
+                \Log::info('Split regeneration job lookup', [
+                    'group_index' => $index,
+                    'job_ids' => $jobIds,
+                    'faktura_id' => $fakturaId,
+                    'found_jobs_count' => $jobs->count(),
+                    'found_job_ids' => $jobs->pluck('id')->toArray()
+                ]);
+
+                if ($jobs->isEmpty()) {
+                    \Log::warning('No jobs found for split regeneration', [
+                        'index' => $index, 
+                        'job_ids' => $jobIds,
+                        'faktura_id' => $fakturaId,
+                        'all_jobs_in_faktura' => Job::where('faktura_id', $fakturaId)->pluck('id')->toArray()
+                    ]);
+                    continue;
+                }
+
+                // Get client information for this split group
+                $client = $jobs->first()->client;
+                
+                \Log::info('Split regeneration client info', [
+                    'group_index' => $index,
+                    'client_override' => $clientOverride,
+                    'client_from_job' => $client ? $client->toArray() : null,
+                    'client_id' => $client ? $client->id : null
+                ]);
+                
+                // If client override is specified, try to find that client
+                if ($clientOverride && $clientOverride !== ($client ? $client->name : '')) {
+                    $overrideClient = \App\Models\Client::where('name', $clientOverride)->first();
+                    if ($overrideClient) {
+                        $client = $overrideClient;
+                        \Log::info('Client override applied', [
+                            'original_client_id' => $client ? $client->id : null,
+                            'override_client_id' => $overrideClient->id,
+                            'override_client_name' => $overrideClient->name
+                        ]);
+                    }
+                }
+                
+                $primaryContact = $client ? $client->contacts()->first() : null;
+
+                // Create new Faktura for this split group
+                $newFaktura = Faktura::create([
+                    'isInvoiced' => 1,
+                    'comment' => $comment,
+                    'created_by' => auth()->id(),
+                    'payment_deadline_override' => $originalFaktura->payment_deadline_override,
+                    'is_split_invoice' => true,
+                    'split_group_identifier' => 'regenerated_group_' . ($index + 1),
+                    'parent_order_id' => $parentOrderId, // Keep same order number for both split fakturas
+                    'faktura_overrides' => $originalFaktura->faktura_overrides,
+                    'created_at' => $originalFaktura->created_at // Keep original date
+                ]);
+
+                // Update jobs to link them to the new faktura
+                foreach ($jobs as $job) {
+                    $updateData = ['faktura_id' => $newFaktura->id];
+                    
+                    // If client override is specified, update the job's client_id
+                    if ($clientOverride && $client && $client->id !== $job->client_id) {
+                        $updateData['client_id'] = $client->id;
+                    }
+
+                    $job->update($updateData);
+                }
+
+                // Copy trade items if any
+                if (!empty($tradeItems)) {
+                    foreach ($tradeItems as $tradeItem) {
+                        FakturaTradeItem::create([
+                            'faktura_id' => $newFaktura->id,
+                            'article_id' => $tradeItem['article_id'],
+                            'quantity' => $tradeItem['quantity'],
+                            'unit_price' => $tradeItem['unit_price'],
+                            'total_price' => $tradeItem['total_price'],
+                            'vat_rate' => $tradeItem['vat_rate'],
+                            'vat_amount' => $tradeItem['vat_amount'],
+                        ]);
+                    }
+                }
+
+                // Copy additional services if any
+                if (!empty($additionalServices)) {
+                    foreach ($additionalServices as $service) {
+                        \App\Models\AdditionalService::create([
+                            'faktura_id' => $newFaktura->id,
+                            'name' => $service['name'],
+                            'quantity' => $service['quantity'],
+                            'unit_price' => $service['unit_price'],
+                            'total_price' => $service['total_price'],
+                            'vat_rate' => $service['vat_rate'],
+                            'vat_amount' => $service['vat_amount'],
+                        ]);
+                    }
+                }
+
+                // Skip contact creation - use existing client's contact information
+                // The client already has contact information, no need to create a new contact record
+                \Log::info('Skipping contact creation - using existing client contact info', [
+                    'faktura_id' => $newFaktura->id,
+                    'client_id' => $client->id,
+                    'client_name' => $client->name,
+                    'existing_contact_count' => $client->contacts()->count()
+                ]);
+
+                // Do not create a new Invoice (order) and do not change job.invoice_id.
+                // Keep jobs associated with the original order; only reassign faktura_id.
+                $generatedInvoices[] = $newFaktura->id;
+
+                \Log::info('Created split faktura without creating a new order', [
+                    'faktura_id' => $newFaktura->id,
+                    'client_id' => $client->id,
+                    'job_count' => $jobs->count(),
+                    'parent_order_id' => $parentOrderId
+                ]);
+            }
+
+            // Check if ALL jobs from the original faktura are being moved to split groups
+            $allJobsInOriginalFaktura = Job::where('faktura_id', $fakturaId)->pluck('id')->toArray();
+            $allJobsBeingMoved = collect($splitGroups)->flatMap(function($group) {
+                return $group['job_ids'] ?? [];
+            })->toArray();
+            
+            $jobsRemainingInOriginal = array_diff($allJobsInOriginalFaktura, $allJobsBeingMoved);
+            
+            \Log::info('Job movement analysis', [
+                'faktura_id' => $fakturaId,
+                'all_jobs_in_original' => $allJobsInOriginalFaktura,
+                'all_jobs_being_moved' => $allJobsBeingMoved,
+                'jobs_remaining_in_original' => $jobsRemainingInOriginal,
+                'will_unlink_original_invoice' => empty($jobsRemainingInOriginal)
+            ]);
+
+            // Never unlink or recreate orders. Always keep the original Invoice (order) linked.
+            \Log::info('Preserving original order link after split regeneration', [
+                'faktura_id' => $fakturaId,
+                'jobs_remaining_in_original' => $jobsRemainingInOriginal,
+                'generated_invoices' => $generatedInvoices
+            ]);
+
+            // Update original faktura to mark it as split parent and ensure it has parent_order_id set
+            $originalFaktura->update([
+                'is_split_invoice' => true,
+                'split_group_identifier' => 'original_split_parent',
+                'parent_order_id' => $parentOrderId, // ensure split parent has parent order set for printing
+                'comment' => $comment
+            ]);
+
+            DB::commit();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Split invoices regenerated successfully',
+                'generated_invoices' => $generatedInvoices,
+                'original_faktura_id' => $fakturaId
+            ]);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            \Log::error('Error regenerating split invoices', [
+                'faktura_id' => $fakturaId,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to regenerate split invoices: ' . $e->getMessage()
             ], 500);
         }
     }
@@ -2218,7 +2443,10 @@ class InvoiceController extends Controller
                     'invoice_title' => $invoice->invoice_title,
                     'client' => $invoice->client->name,
                     'client_data' => $invoice->client,
-                    'jobs' => $invoice->jobs,
+                    // For split fakturas, show only jobs assigned to this faktura; otherwise include all jobs
+                    'jobs' => $faktura->is_split_invoice
+                        ? $invoice->jobs->where('faktura_id', $faktura->id)->values()
+                        : $invoice->jobs,
                     'user' => $invoice->user->name,
                     'start_date' => $invoice->start_date,
                     'end_date' => $invoice->end_date,
@@ -2233,8 +2461,8 @@ class InvoiceController extends Controller
 
             $invoiceData = $invoiceData->concat($regularInvoices);
 
-            // Add split invoice data if this is a split invoice
-            if ($faktura->is_split_invoice && $faktura->jobs->isNotEmpty()) {
+            // Add split invoice data only for generated split fakturas (not the original parent)
+            if ($faktura->is_split_invoice && $faktura->split_group_identifier !== 'original_split_parent' && $faktura->jobs->isNotEmpty()) {
                 $parentOrder = $faktura->parentOrder;
                 $splitJobs = $faktura->jobs;
                 
@@ -2465,9 +2693,10 @@ class InvoiceController extends Controller
                 });
             }
 
-            // Apply sort order
+            // Apply sort order: prioritize recently updated (splits/regenerations), then by id
             $sortOrder = $request->input('sortOrder', 'desc');
-            $query->orderBy('created_at', $sortOrder);
+            $query->orderBy('updated_at', $sortOrder)
+                  ->orderBy('id', $sortOrder);
 
             // Apply pagination with configurable results per page on initial page
             $perPage = (int) $request->input('per_page', 10);

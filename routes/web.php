@@ -140,6 +140,7 @@ Route::middleware(['auth', 'verified'])->group(function() {
     Route::put('/invoice/{fakturaId}/detach-orders', [InvoiceController::class, 'detachOrders'])->name('invoices.detachOrders');
     Route::put('/invoice/{invoiceId}/job/{jobId}/unit', [InvoiceController::class, 'updateJobUnit'])->name('invoices.updateJobUnit');
     Route::put('/faktura/{fakturaId}/overrides', [InvoiceController::class, 'updateFakturaOverrides'])->name('faktura.updateOverrides');
+    Route::post('/invoice/{fakturaId}/regenerate-split', [InvoiceController::class, 'regenerateSplitInvoices'])->name('invoices.regenerateSplit');
     // Utility: next faktura id for pre-generation display
     Route::get('/invoices/next-id', [InvoiceController::class, 'getNextFakturaId'])->name('invoices.nextId');
 

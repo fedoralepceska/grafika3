@@ -225,20 +225,21 @@ export default {
         },
 
         getOrdersDisplay(faktura) {
-            let orders = [];
+            // Deduplicate order IDs across regular and split-parent references
+            const orderIdSet = new Set();
 
-            // Add regular orders
-            if (faktura.invoices && faktura.invoices.length > 0) {
-                orders = orders.concat(faktura.invoices.map(invoice => '#' + invoice.id));
+            if (Array.isArray(faktura.invoices)) {
+                faktura.invoices.forEach(inv => {
+                    if (inv && inv.id != null) orderIdSet.add(Number(inv.id));
+                });
             }
 
-            // Add split invoice information
             if (faktura.is_split_invoice && faktura.parent_order_id) {
-                const splitInfo = `#${faktura.parent_order_id}`;
-                orders.push(splitInfo);
+                orderIdSet.add(Number(faktura.parent_order_id));
             }
 
-            return orders.length > 0 ? orders.join(', ') : 'No Orders';
+            const ids = Array.from(orderIdSet);
+            return ids.length ? ids.map(id => `#${id}`).join(', ') : 'No Orders';
         },
     },
 };
