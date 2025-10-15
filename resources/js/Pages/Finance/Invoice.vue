@@ -57,7 +57,12 @@
                     <div class="client-info">
                         <div class="client-info-container">
                             <div class="client-label">Client</div>
-                            <div class="client-name">{{ invoice[0]?.client || '' }}</div>
+                            <div class="client-name" style="display:flex;align-items:center;gap:8px;">
+                                {{ faktura?.client?.name || invoice[0]?.client?.name || invoice[0]?.client || '' }}
+                                <button v-if="isEditMode" class="btn btn-edit-small" @click="openFakturaClientChangeModal" title="Change Client">
+                                    Change
+                                </button>
+                            </div>
                         </div>
                         <!-- Invoice meta (ID, Date, Created by) -->
                         <div class="invoice-info-minimal">
@@ -897,7 +902,7 @@
         <div v-if="showClientChangeModal" class="modal-overlay" @click="closeClientChangeModal">
             <div class="modal-content" @click.stop>
                 <div class="modal-header">
-                    <h3>Change Client for Split Group</h3>
+                    <h3>{{ selectedSplitGroup !== null ? 'Change Client for Split Group' : 'Change Client for Faktura' }}</h3>
                     <button @click="closeClientChangeModal" class="close-btn">&times;</button>
                 </div>
                 <div class="modal-body">
@@ -906,10 +911,12 @@
                         <div class="client-search-container">
                             <input v-model="clientSearchQuery" 
                                    @input="filterClients"
+                                   @focus="showClientDropdown = true"
+                                   @blur="onClientInputBlur"
                                    class="form-control client-search-input" 
                                    type="text" 
                                    placeholder="Type to search clients..." />
-                            <div v-if="filteredClients.length > 0" class="client-dropdown">
+                            <div v-if="showClientDropdown && filteredClients.length > 0" class="client-dropdown">
                                 <div v-for="client in filteredClients" 
                                      :key="client.id"
                                      @click="selectClient(client)"
@@ -1097,12 +1104,12 @@ export default {
             return this.splitMode && this.splitGroups.length > 0 && this.splitGroups.some(group => group.job_ids.length > 0);
         },
         filteredClients() {
-            if (!this.clientSearchQuery) {
-                return this.availableClients.slice(0, 10); // Show first 10 clients when no search
-            }
-            return this.availableClients.filter(client => 
-                client.name.toLowerCase().includes(this.clientSearchQuery.toLowerCase())
-            ).slice(0, 10); // Limit to 10 results
+            const q = (this.clientSearchQuery || '').trim().toLowerCase();
+            // Require at least 2 characters to start suggesting
+            if (q.length < 2) return [];
+            return (this.availableClients || [])
+                .filter(client => (client.name || '').toLowerCase().includes(q))
+                .slice(0, 10);
         }
     },
     data() {
@@ -1137,8 +1144,10 @@ export default {
             showClientChangeModal: false,
             selectedSplitGroup: null,
             tempClientName: '',
+            tempClientId: null,
             availableClients: [],
             clientSearchQuery: '',
+            showClientDropdown: false,
             openDropdowns: {}, // Track which dropdowns are open
             // Trade Items edit/add state
             showTradeItemsModal: false,
@@ -2301,6 +2310,8 @@ export default {
                     merge_groups: this.faktura?.merge_groups || [],
                     job_units: jobsWithUnits,
                     payment_deadline_override: this.displayPaymentDeadline,
+                    // Ensure override client is used for print
+                    faktura_client_id: this.faktura?.client?.id || null,
                     // Include current overrides for print
                     order_title_overrides: this.currentOverrides.order_titles || {},
                     job_name_overrides: this.currentOverrides.job_names || {},
@@ -2644,9 +2655,16 @@ export default {
             // This method is called on input, the computed property handles the actual filtering
         },
 
+        onClientInputBlur(e) {
+            // Delay closing to allow click on dropdown option
+            setTimeout(() => { this.showClientDropdown = false; }, 150);
+        },
+
         selectClient(client) {
             this.tempClientName = client.name;
+            this.tempClientId = client.id;
             this.clientSearchQuery = '';
+            this.showClientDropdown = false;
         },
 
         clearClientSelection() {
@@ -2659,7 +2677,41 @@ export default {
                 this.splitGroups[this.selectedSplitGroup].client = this.tempClientName.trim();
                 this.closeClientChangeModal();
                 this.toast?.success?.('Client updated for split group');
+                return;
             }
+
+            // Faktura-level change when not in split group mode
+            if (this.selectedSplitGroup === null && this.tempClientName.trim() && this.faktura?.id) {
+                let id = this.tempClientId;
+                let name = this.tempClientName.trim();
+                if (!id) {
+                    const client = (this.availableClients || []).find(c => c.name === name);
+                    if (client) { id = client.id; name = client.name; }
+                }
+                if (id) {
+                    axios.put(`/fakturas/${this.faktura.id}/client`, { client_id: id })
+                        .then(() => {
+                            if (!this.faktura.client) this.faktura.client = {};
+                            this.faktura.client.id = id;
+                            this.faktura.client.name = name;
+                            this.attachClientName = name;
+                            this.toast?.success?.('Faktura client updated');
+                            this.closeClientChangeModal();
+                        })
+                        .catch(() => this.toast?.error?.('Failed to update faktura client'));
+                } else {
+                    this.toast?.error?.('Please select a valid client from the list');
+                }
+            }
+        },
+
+        openFakturaClientChangeModal() {
+            this.selectedSplitGroup = null;
+            this.tempClientName = this.faktura?.client?.name || this.invoice?.[0]?.client?.name || this.invoice?.[0]?.client || '';
+            this.tempClientId = this.faktura?.client?.id || null;
+            this.clientSearchQuery = '';
+            this.showClientChangeModal = true;
+            this.loadClients();
         },
 
         closeClientChangeModal() {
@@ -3563,12 +3615,12 @@ $orange: #a36a03;
 }
 
 .btn-edit-small {
-    background-color: #3182ce;
+    background-color: $dark-gray;
     color: white;
 }
 
 .btn-edit-small:hover {
-    background-color: darken(#3182ce, 10%);
+    background-color: lighten($dark-gray, 10%);
 }
 
 .btn-save-small {

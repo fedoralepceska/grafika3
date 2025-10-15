@@ -50,7 +50,12 @@
                     <div class="client-info">
                         <div class="client-info-container">
                             <div class="client-label">Client</div>
-                            <div class="client-name">{{ clientName }}</div>
+                            <div class="client-name" style="display:flex;align-items:center;gap:8px;">
+                                {{ fakturaClientName || clientName }}
+                                <button v-if="isEditMode" class="btn btn-edit-small" @click="openFakturaClientChangeModal" title="Change Client">
+                                    Change
+                                </button>
+                            </div>
                         </div>
                         <!-- Pre-invoice meta (ID and Date) -->
                         <div class="invoice-info-minimal">
@@ -58,6 +63,7 @@
                                 <span class="info-label">Invoice ID</span>
                                 <span class="info-value">{{ previewInvoiceId || 'Loading...' }}</span>
                             </div>
+                            
                             <div class="info-item">
                                 <span class="info-label">Date Created</span>
                                 <span class="info-value">
@@ -784,7 +790,7 @@
         <div v-if="showClientChangeModal" class="modal-overlay" @click="closeClientChangeModal">
             <div class="modal-content" @click.stop>
                 <div class="modal-header">
-                    <h3>Change Client for Split Group</h3>
+                    <h3>{{ selectedSplitGroup !== null ? 'Change Client for Split Group' : 'Change Client for Faktura' }}</h3>
                     <button @click="closeClientChangeModal" class="close-btn">&times;</button>
                 </div>
                 <div class="modal-body">
@@ -793,10 +799,12 @@
                         <div class="client-search-container">
                             <input v-model="clientSearchQuery" 
                                    @input="filterClients"
+                                   @focus="showClientDropdown = true"
+                                   @blur="onClientInputBlur"
                                    class="form-control client-search-input" 
                                    type="text" 
                                    placeholder="Type to search clients..." />
-                            <div v-if="filteredClients.length > 0" class="client-dropdown">
+                            <div v-if="showClientDropdown && filteredClients.length > 0" class="client-dropdown">
                                 <div v-for="client in filteredClients" 
                                      :key="client.id"
                                      @click="selectClient(client)"
@@ -993,12 +1001,11 @@ export default {
             return this.hasOrders && this.hasValidMergeGroups;
         },
         filteredClients() {
-            if (!this.clientSearchQuery) {
-                return this.availableClients.slice(0, 10); // Show first 10 clients when no search
-            }
-            return this.availableClients.filter(client => 
-                client.name.toLowerCase().includes(this.clientSearchQuery.toLowerCase())
-            ).slice(0, 10); // Limit to 10 results
+            const q = (this.clientSearchQuery || '').trim().toLowerCase();
+            if (q.length < 2) return [];
+            return (this.availableClients || [])
+                .filter(client => (client.name || '').toLowerCase().includes(q))
+                .slice(0, 10);
         },
         additionalServicesTotal() {
             return this.additionalServices.reduce((total, service) => {
@@ -1077,10 +1084,35 @@ export default {
             // Track original values for override detection
             originalOrderTitles: {},
             originalJobNames: {},
-            originalJobQuantities: {}
+            originalJobQuantities: {},
+            // Faktura-level client override
+            fakturaClientId: null,
+            fakturaClientName: '',
+            fakturaClientDropdown: [],
+            tempClientId: null
         }
     },
     methods: {
+        onClientInputBlur() {
+            setTimeout(() => { this.showClientDropdown = false; }, 150);
+        },
+        async onFakturaClientSearch() {
+            const q = (this.fakturaClientName || '').toLowerCase();
+            if (!this.availableClients.length) {
+                await this.loadClients();
+            }
+            this.fakturaClientDropdown = (this.availableClients || []).filter(c => c.name.toLowerCase().includes(q)).slice(0, 10);
+        },
+        selectFakturaClient(client) {
+            this.fakturaClientId = client.id;
+            this.fakturaClientName = client.name;
+            this.fakturaClientDropdown = [];
+        },
+        clearFakturaClient() {
+            this.fakturaClientId = null;
+            this.fakturaClientName = '';
+            this.fakturaClientDropdown = [];
+        },
         isSelected(id) {
             return (this.selectedJobIds || []).includes(id);
         },
@@ -1943,6 +1975,7 @@ export default {
                     created_at: this.previewDate,
                     merge_groups: this.mergeGroups,
                     job_units: jobsWithUnits,
+                    faktura_client_id: this.fakturaClientId || null,
                     ...this.collectFakturaOverrides()
                 };
                 
@@ -2043,6 +2076,7 @@ export default {
                     merge_groups: this.mergeGroups,
                     job_units: jobsWithUnits,
                     return_meta: true,
+                    faktura_client_id: this.fakturaClientId || null,
                     ...this.collectFakturaOverrides()
                 };
                 
@@ -2173,6 +2207,7 @@ export default {
         changeSplitGroupClient(groupIndex) {
             this.selectedSplitGroup = groupIndex;
             this.tempClientName = this.splitGroups[groupIndex].client;
+            this.tempClientId = null;
             this.clientSearchQuery = '';
             this.showClientChangeModal = true;
             this.loadClients(); // Load clients when modal opens
@@ -2194,6 +2229,7 @@ export default {
 
         selectClient(client) {
             this.tempClientName = client.name;
+            this.tempClientId = client.id;
             this.clientSearchQuery = '';
         },
 
@@ -2207,7 +2243,40 @@ export default {
                 this.splitGroups[this.selectedSplitGroup].client = this.tempClientName.trim();
                 this.closeClientChangeModal();
                 this.$toast?.success?.('Client updated for split group');
+                return;
             }
+            // If no split group selected, treat as faktura-level client change
+            if (this.selectedSplitGroup === null && this.tempClientName.trim()) {
+                // Prefer id captured from selection; if not, resolve by name
+                let id = this.tempClientId;
+                let name = this.tempClientName.trim();
+                if (!id) {
+                    const client = (this.availableClients || []).find(c => c.name === name);
+                    if (client) {
+                        id = client.id;
+                        name = client.name;
+                    }
+                }
+                if (id) {
+                    this.fakturaClientId = id;
+                    this.fakturaClientName = name;
+                    this.$toast?.success?.('Faktura client updated');
+                } else {
+                    this.$toast?.error?.('Please select a valid client from the list');
+                    return;
+                }
+                this.closeClientChangeModal();
+            }
+        },
+
+        // Faktura-level client change opener
+        openFakturaClientChangeModal() {
+            this.selectedSplitGroup = null;
+            this.tempClientName = this.fakturaClientName || this.clientName;
+            this.tempClientId = this.fakturaClientId || null;
+            this.clientSearchQuery = '';
+            this.showClientChangeModal = true;
+            this.loadClients();
         },
 
         closeClientChangeModal() {
@@ -3723,12 +3792,12 @@ table th {
 }
 
 .btn-edit-small {
-    background-color: #3182ce;
+    background-color: $dark-gray;
     color: white;
 }
 
 .btn-edit-small:hover {
-    background-color: darken(#3182ce, 10%);
+    background-color: lighten($dark-gray, 10%);
 }
 
 .btn-save-small {

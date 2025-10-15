@@ -16,7 +16,8 @@ class Faktura extends Model
         'is_split_invoice',
         'split_group_identifier',
         'parent_order_id',
-        'faktura_overrides'
+        'faktura_overrides',
+        'client_id'
     ];
     protected $casts = [
         'merge_groups' => 'array',
@@ -64,6 +65,11 @@ class Faktura extends Model
     public function additionalServices()
     {
         return $this->hasMany(AdditionalService::class);
+    }
+
+    public function client()
+    {
+        return $this->belongsTo(Client::class, 'client_id');
     }
 
     /**

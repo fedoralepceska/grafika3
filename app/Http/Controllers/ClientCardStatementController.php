@@ -112,18 +112,25 @@ class ClientCardStatementController extends Controller
 
         $items = $itemsQuery->get();
 
-        // Fetch relevant fakturas (isInvoiced=true and client_id matches)
+        // Fetch relevant fakturas (isInvoiced=true and client matches), honoring override exclusively
         $fakturasQuery = Faktura::query()
             ->where('isInvoiced', 1)
             ->where(function ($query) use ($cardStatement) {
-                // Include fakturas with regular invoices for this client
-                $query->whereHas('invoices', function ($subQuery) use ($cardStatement) {
-                    $subQuery->where('client_id', $cardStatement->client_id);
-                })
-                // Or include fakturas with split jobs for this client
-                ->orWhereHas('jobs', function ($subQuery) use ($cardStatement) {
-                    $subQuery->where('client_id', $cardStatement->client_id);
-                });
+                $query
+                    // Include fakturas explicitly assigned to this client_id
+                    ->where('client_id', $cardStatement->client_id)
+                    // Or, if faktura has NO override (client_id is null), include when underlying invoices/jobs belong to this client
+                    ->orWhere(function ($q) use ($cardStatement) {
+                        $q->whereNull('client_id')
+                          ->where(function ($sub) use ($cardStatement) {
+                              $sub->whereHas('invoices', function ($subQuery) use ($cardStatement) {
+                                      $subQuery->where('client_id', $cardStatement->client_id);
+                                  })
+                                  ->orWhereHas('jobs', function ($subQuery) use ($cardStatement) {
+                                      $subQuery->where('client_id', $cardStatement->client_id);
+                                  });
+                          });
+                    });
             });
 
         // Fetch relevant incoming fakturas (client_id matches)
@@ -210,12 +217,25 @@ class ClientCardStatementController extends Controller
             $invoiceTotal = 0;
             $documentType = 'Output Invoice';
             
-            // Handle regular invoices
-            $clientInvoices = $faktura->invoices->where('client_id', $cardStatement->client_id);
-            if ($clientInvoices->isNotEmpty()) {
-                foreach ($clientInvoices as $invoice) {
-                    $invoice->load('jobs');
-                    $invoiceTotal += $invoice->jobs->sum('salePrice');
+            // If faktura has explicit client override
+            if (!is_null($faktura->client_id)) {
+                // Only count totals if the override matches this statement's client; otherwise exclude entirely
+                if ((int)$faktura->client_id === (int)$cardStatement->client_id) {
+                    foreach ($faktura->invoices as $invoice) {
+                        $invoice->loadMissing('jobs');
+                        $invoiceTotal += $invoice->jobs->sum('salePrice');
+                    }
+                } else {
+                    $invoiceTotal = 0; // ensure excluded from other clients
+                }
+            } else {
+                // No override: sum only the invoices belonging to this client
+                $clientInvoices = $faktura->invoices->where('client_id', $cardStatement->client_id);
+                if ($clientInvoices->isNotEmpty()) {
+                    foreach ($clientInvoices as $invoice) {
+                        $invoice->loadMissing('jobs');
+                        $invoiceTotal += $invoice->jobs->sum('salePrice');
+                    }
                 }
             }
             

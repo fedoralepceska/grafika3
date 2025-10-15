@@ -206,6 +206,11 @@ export default {
         },
 
         getClientName(faktura) {
+            // Prefer faktura-level override client when present
+            if (faktura.client && faktura.client.name) {
+                return faktura.client.name;
+            }
+
             // For regular invoices, get client from first invoice
             if (faktura.invoices && faktura.invoices.length > 0) {
                 return faktura.invoices[0]?.client?.name || 'Unknown Client';

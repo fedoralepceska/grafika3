@@ -87,6 +87,7 @@ Route::middleware(['auth', 'verified'])->group(function() {
     Route::get('/api/allInvoices/filtered', [InvoiceController::class, 'getFilteredAllInvoices'])->name('api.invoices.filteredAllInvoices');
     Route::post('/generate-invoice',  [InvoiceController::class, 'generateInvoice'])->name('invoices.generateInvoice');
     Route::post('/preview-invoice',  [InvoiceController::class, 'previewInvoice'])->name('invoices.previewInvoice');
+    Route::put('/fakturas/{id}/client', [InvoiceController::class, 'updateFakturaClient'])->name('fakturas.updateClient');
     Route::get('orders/latest', [InvoiceController::class, 'latest'])->name('invoices.latest');
     Route::get('orders/latest-open', [InvoiceController::class, 'latestOpenOrders'])->name('invoices.latestOpen');
     Route::get('orders/completed', [InvoiceController::class, 'completedOrders'])->name('invoices.completed');

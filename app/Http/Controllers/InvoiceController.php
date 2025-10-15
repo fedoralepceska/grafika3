@@ -460,7 +460,8 @@ class InvoiceController extends Controller
             'user:id,name', 
             'client:id,name', 
             'jobs.actions', 
-            'jobs.large_material'
+            'jobs.large_material',
+            'faktura.client'
         ])->findOrFail($id);
 
         // Always append totalPrice for each job
@@ -478,6 +479,17 @@ class InvoiceController extends Controller
             'invoice' => $invoice,
             'canViewPrice' => !auth()->user()->hasRole('Rabotnik')
         ]);
+    }
+
+    public function updateFakturaClient(Request $request, $id)
+    {
+        $request->validate([
+            'client_id' => 'required|integer|exists:clients,id'
+        ]);
+        $faktura = Faktura::findOrFail($id);
+        $faktura->client_id = (int)$request->input('client_id');
+        $faktura->save();
+        return response()->json(['success' => true]);
     }
 
     /**
@@ -1221,7 +1233,9 @@ class InvoiceController extends Controller
                 'jobs.client:id,name', // For split invoices
                 'parentOrder:id,invoice_title', // For split invoices
                 'parentOrder.client:id,name', // For split invoices
-                'tradeItems.article:id,name,code'
+                'tradeItems.article:id,name,code',
+                // Eager-load faktura-level client override for listing
+                'client:id,name'
             ])->where('isInvoiced', 1); // Filter for generated Fakturas (isInvoiced = 1)
 
             // Apply search query if provided
@@ -1234,17 +1248,24 @@ class InvoiceController extends Controller
             if ($request->has('client') && $request->input('client') !== 'All') {
                 $client = $request->input('client');
                 $query->where(function ($query) use ($client) {
-                    // Filter by regular invoices client
-                    $query->whereHas('invoices.client', function ($q) use ($client) {
+                    // Prefer override: faktura.client name
+                    $query->whereHas('client', function ($q) use ($client) {
                         $q->where('name', $client);
                     })
-                    // Or filter by split invoice jobs client
-                    ->orWhereHas('jobs.client', function ($q) use ($client) {
-                        $q->where('name', $client);
-                    })
-                    // Or filter by parent order client for split invoices
-                    ->orWhereHas('parentOrder.client', function ($q) use ($client) {
-                        $q->where('name', $client);
+                    // If no override (client_id null), fall back to invoice/job/parent order client names
+                    ->orWhere(function ($q) use ($client) {
+                        $q->whereNull('client_id')
+                          ->where(function ($sub) use ($client) {
+                              $sub->whereHas('invoices.client', function ($qq) use ($client) {
+                                      $qq->where('name', $client);
+                                  })
+                                  ->orWhereHas('jobs.client', function ($qq) use ($client) {
+                                      $qq->where('name', $client);
+                                  })
+                                  ->orWhereHas('parentOrder.client', function ($qq) use ($client) {
+                                      $qq->where('name', $client);
+                                  });
+                          });
                     });
                 });
             }
@@ -1288,6 +1309,16 @@ class InvoiceController extends Controller
                 $invoices = Invoice::with(['article','client','client.clientCardStatement','faktura.tradeItems.article','jobs'])
                     ->where('faktura_id', $firstInvoice->faktura->id)
                     ->get();
+
+                // If faktura has a client override, reflect it for printing
+                if ($firstInvoice->faktura->client_id) {
+                    $overrideClient = \App\Models\Client::with(['clientCardStatement'])->find($firstInvoice->faktura->client_id);
+                    if ($overrideClient) {
+                        $invoices->each(function ($inv) use ($overrideClient) {
+                            $inv->setRelation('client', $overrideClient);
+                        });
+                    }
+                }
             } else {
                 // Fallback to original behavior if no faktura
                 $invoices = Invoice::with(['article','client','client.clientCardStatement','faktura.tradeItems.article'])->findOrFail($invoiceIds);
@@ -1463,6 +1494,7 @@ class InvoiceController extends Controller
         $mergeGroups = $request->input('merge_groups', []);
         $splitGroups = $request->input('split_groups', []);
         $jobUnits = $request->input('job_units', []);
+        $fakturaClientId = $request->input('faktura_client_id');
         
         // Capture overrides for faktura display
         $fakturaOverrides = [
@@ -1515,7 +1547,8 @@ class InvoiceController extends Controller
                 'comment' => $comment,
                 'created_by' => auth()->id(),
                 'payment_deadline_override' => is_numeric($paymentDeadlineOverride) ? (int)$paymentDeadlineOverride : null,
-                'faktura_overrides' => $fakturaOverrides
+                'faktura_overrides' => $fakturaOverrides,
+                'client_id' => (is_numeric($fakturaClientId) ? (int)$fakturaClientId : null)
             ]);
             
             // Debug logging for faktura creation
@@ -1691,6 +1724,16 @@ class InvoiceController extends Controller
                 }
             }
 
+            // If faktura has a client override, reflect it in mapped data by overriding invoice->client relation
+            if ($faktura && $faktura->client_id) {
+                $overrideClient = \App\Models\Client::with(['clientCardStatement'])->find($faktura->client_id);
+                if ($overrideClient) {
+                    $invoices->each(function ($inv) use ($overrideClient) {
+                        $inv->setRelation('client', $overrideClient);
+                    });
+                }
+            }
+
             $transformedInvoices = $invoices->map(function ($invoice) use ($dns1d, $tradeItems, $comment, $faktura, $mergedJobsByInvoice, $paymentDeadlineOverride) {
                 $barcodeString = $invoice->id . '-' . date('m-Y', strtotime($invoice->end_date));
                 $barcodeImage = base64_encode($dns1d->getBarcodePNG($barcodeString, 'C128'));
@@ -1759,6 +1802,8 @@ class InvoiceController extends Controller
                 'additionalServices' => is_array($additionalServices) ? $additionalServices : [],
                 'jobUnits' => $jobUnits,
                 'fakturaOverrides' => $fakturaOverrides,
+                // downstream views should prefer faktura.client_id if present
+                'overrideClientId' => $faktura->client_id ?? null,
                 'isHtml5ParserEnabled' => true,
                 'isRemoteEnabled' => true,
                 'isFontSubsettingEnabled' => true,
@@ -2419,7 +2464,10 @@ class InvoiceController extends Controller
                 'parentOrder.user',
                 'parentOrder.client',
                 'parentOrder.contact',
-                'tradeItems.article'
+                'tradeItems.article',
+                // Eager-load faktura-level client override if present
+                'client',
+                'client.clientCardStatement'
             ])->findOrFail($id);
             
             // Handle regular invoices (complete orders)
@@ -2437,12 +2485,15 @@ class InvoiceController extends Controller
             $invoiceData = collect();
 
             // Add regular complete orders
-            $regularInvoices = $faktura->invoices->map(function ($invoice) use ($faktura) {
+            $overrideClient = $faktura->client_id ? $faktura->client : null;
+            $regularInvoices = $faktura->invoices->map(function ($invoice) use ($faktura, $overrideClient) {
+                // Prefer faktura-level client override when present
+                $clientModel = $overrideClient ?: $invoice->client;
                 return [
                     'id' => $invoice->id,
                     'invoice_title' => $invoice->invoice_title,
-                    'client' => $invoice->client->name,
-                    'client_data' => $invoice->client,
+                    'client' => $clientModel ? $clientModel->name : ($invoice->client->name ?? ''),
+                    'client_data' => $clientModel ?: $invoice->client,
                     // For split fakturas, show only jobs assigned to this faktura; otherwise include all jobs
                     'jobs' => $faktura->is_split_invoice
                         ? $invoice->jobs->where('faktura_id', $faktura->id)->values()
@@ -2741,6 +2792,7 @@ class InvoiceController extends Controller
             $splitGroups = $request->input('split_groups', []);
             $paymentDeadlineOverride = $request->input('payment_deadline_override');
             $jobUnits = $request->input('job_units', []);
+            $fakturaClientId = $request->input('faktura_client_id');
             
             // Capture overrides for faktura display
             $fakturaOverrides = [
@@ -2762,6 +2814,16 @@ class InvoiceController extends Controller
             // Get the invoices for preview with necessary relationships (same as generateInvoice)
             $invoices = Invoice::with(['jobs.actions', 'contact', 'user', 'client', 'article', 'client.clientCardStatement'])
                 ->find($invoiceIds);
+
+            // If a faktura-level client override is provided, reflect it in preview output
+            if (is_numeric($fakturaClientId)) {
+                $overrideClient = \App\Models\Client::with(['clientCardStatement'])->find((int)$fakturaClientId);
+                if ($overrideClient) {
+                    $invoices->each(function ($inv) use ($overrideClient) {
+                        $inv->setRelation('client', $overrideClient);
+                    });
+                }
+            }
 
             // If merge groups provided, prepare merged jobs view per-invoice for preview
             $mergedJobsByInvoice = [];
@@ -2968,6 +3030,7 @@ class InvoiceController extends Controller
                 'additionalServices' => is_array($additionalServices) ? $additionalServices : [],
                 'jobUnits' => $jobUnits,
                 'fakturaOverrides' => $fakturaOverrides,
+                'overrideClientId' => is_numeric($fakturaClientId) ? (int)$fakturaClientId : null,
                 'isHtml5ParserEnabled' => true,
                 'isRemoteEnabled' => true,
                 'isFontSubsettingEnabled' => true,
