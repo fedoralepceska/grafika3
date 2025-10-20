@@ -1200,8 +1200,12 @@ export default {
     },
     mounted() {
         // Component mounted
+        // Ensure faktura.merge_groups is initialized
+        if (this.faktura && !this.faktura.merge_groups) {
+            this.$set ? this.$set(this.faktura, 'merge_groups', []) : (this.faktura.merge_groups = []);
+        }
         // Initialize original merge groups for change tracking
-        this.originalMergeGroups = JSON.parse(JSON.stringify(this.faktura.merge_groups || []));
+        this.originalMergeGroups = JSON.parse(JSON.stringify(this.faktura?.merge_groups || []));
         this.loadTradeArticles();
         this.initializeJobUnits();
         this.initializeOverrides();
@@ -1338,6 +1342,16 @@ export default {
         createOrAddToMergeGroup() {
             const ids = Array.from(new Set(this.selectedJobIds));
             if (ids.length < 2) return;
+            
+            // Ensure faktura and merge_groups exist
+            if (!this.faktura) {
+                this.toast?.error?.('Cannot merge: faktura data not available');
+                return;
+            }
+            if (!this.faktura.merge_groups) {
+                this.$set ? this.$set(this.faktura, 'merge_groups', []) : (this.faktura.merge_groups = []);
+            }
+            
             // no validation rules: allow merging any selected jobs
             const allJobs = this.getAllJobsFlat();
             const picked = ids.map(id => allJobs.find(j => j.id === id)).filter(Boolean);
@@ -1357,6 +1371,13 @@ export default {
         },
         unmergeSelected() {
             if (!this.selectedJobIds.length) return;
+            
+            // Ensure faktura and merge_groups exist
+            if (!this.faktura || !this.faktura.merge_groups) {
+                this.toast?.error?.('Cannot unmerge: merge groups data not available');
+                return;
+            }
+            
             const set = new Set(this.selectedJobIds);
             this.faktura.merge_groups = this.faktura.merge_groups
                 .map(g => ({...g, job_ids: g.job_ids.filter(id => !set.has(id))}))
@@ -1369,6 +1390,7 @@ export default {
         },
         autofillGroupFieldsIfUniform(groupIdx) {
             if (groupIdx == null || groupIdx < 0) return;
+            if (!this.faktura || !this.faktura.merge_groups) return;
             const group = this.faktura.merge_groups[groupIdx];
             if (!group || !Array.isArray(group.job_ids) || group.job_ids.length < 1) return;
             const allJobs = this.getAllJobsFlat();
@@ -2194,6 +2216,11 @@ export default {
         },
         async saveMergeChanges() {
             try {
+                if (!this.faktura || !this.faktura.merge_groups) {
+                    this.toast?.error?.('Cannot save: merge groups data not available');
+                    return;
+                }
+                
                 const response = await axios.put(`/invoice/${this.invoice[0].fakturaId}/merge-groups`, {
                     merge_groups: this.faktura.merge_groups
                 });
