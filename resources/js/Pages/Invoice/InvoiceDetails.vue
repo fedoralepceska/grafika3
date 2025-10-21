@@ -44,8 +44,26 @@
                         <div class="flex gap-2 ">
                          <div class="invoice-title rounded-t-md bg-white text-black bold p-3 w-fit ">{{ invoice?.invoice_title }}</div>
                          <div class="flex items-end">
-                             <div class="status-badge" :style="{ background: getStatusColor }">
-                                 {{ invoice?.status }}
+                             <div 
+                                 class="status-badge" 
+                                 :style="{ background: getStatusColor }"
+                                 @dblclick="canEditStatus ? showStatusDropdown = true : null"
+                                 :class="{ 'cursor-pointer': canEditStatus }"
+                             >
+                                 <span v-if="!showStatusDropdown">{{ invoice?.status }}</span>
+                                 <select 
+                                     v-else
+                                     v-model="selectedStatus"
+                                     @change="updateStatus"
+                                     @blur="showStatusDropdown = false"
+                                     @keydown.esc="showStatusDropdown = false"
+                                     class="status-dropdown"
+                                     ref="statusSelect"
+                                 >
+                                     <option value="Not started yet">Not started yet</option>
+                                     <option value="In progress">In progress</option>
+                                     <option value="Completed">Completed</option>
+                                 </select>
                              </div>
                          </div>
                          <div class="flex gap-1 items-end">
@@ -399,12 +417,14 @@ import { computed } from 'vue';
 
 export default {
     setup() {
-        const { isRabotnik } = useRoleCheck();
+        const { isRabotnik, isAdmin } = useRoleCheck();
         
         const isRabotnikComputed = computed(() => isRabotnik.value);
+        const isAdminComputed = computed(() => isAdmin.value);
         
         return {
-            isRabotnikComputed
+            isRabotnikComputed,
+            isAdminComputed
         };
     },
     components: {
@@ -439,7 +459,9 @@ export default {
             showDownloadModal: false,
             showCuttingFileModal: false,
             selectedCuttingJob: null,
-            selectedCuttingFileIndex: null
+            selectedCuttingFileIndex: null,
+            showStatusDropdown: false,
+            selectedStatus: this.invoice?.status || 'Not started yet'
         }
     },
     computed: {
@@ -564,6 +586,10 @@ export default {
         },
         shouldShowPrice() {
             return !this.isRabotnikComputed;
+        },
+        
+        canEditStatus() {
+            return this.isAdminComputed;
         },
         
         // Get total area for a job (with breakdown support)
@@ -902,9 +928,40 @@ export default {
             this.showCostBreakdownModal = false;
             this.selectedJob = null;
             this.costBreakdown = {};
+        },
+        
+        async updateStatus() {
+            const toast = useToast();
+            try {
+                const response = await axios.put(`/orders/${this.invoice.id}`, {
+                    status: this.selectedStatus
+                });
+                
+                if (response.status === 200) {
+                    this.invoice.status = this.selectedStatus;
+                    toast.success('Order status updated successfully');
+                }
+                
+                this.showStatusDropdown = false;
+            } catch (error) {
+                console.error('Failed to update status:', error);
+                toast.error('Failed to update order status');
+                this.selectedStatus = this.invoice.status; // Revert on error
+                this.showStatusDropdown = false;
+            }
         }
-
     },
+    watch: {
+        showStatusDropdown(newVal) {
+            if (newVal) {
+                this.$nextTick(() => {
+                    if (this.$refs.statusSelect) {
+                        this.$refs.statusSelect.focus();
+                    }
+                });
+            }
+        }
+    }
 };
 </script>
 
@@ -1437,6 +1494,31 @@ table th {
     min-width: fit-content;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
     color: white;
+}
+
+.status-badge.cursor-pointer {
+    cursor: pointer;
+    user-select: none;
+}
+
+.status-dropdown {
+    background: transparent;
+    border: none;
+    color: white;
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    cursor: pointer;
+    outline: none;
+    padding: 0;
+    width: 100%;
+}
+
+.status-dropdown option {
+    background: #1f2937;
+    color: white;
+    padding: 8px;
 }
 
 /* Cost Breakdown Modal Styles */
