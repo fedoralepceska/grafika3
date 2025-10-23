@@ -411,8 +411,7 @@ select{
     margin-right: 20px;
 }
 .button-container{
-    display: flex;
-    justify-content: end;
+    display: flex-end;
 }
 
 /* Modern Table Styles */

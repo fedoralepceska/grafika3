@@ -210,8 +210,7 @@ export default {
     margin-right: 20px;
 }
 .button-container{
-    display: flex;
-    justify-content: end;
+    display: flex-end;
 }
 .dimension {
     margin-bottom: 10px;

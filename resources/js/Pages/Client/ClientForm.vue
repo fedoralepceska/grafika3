@@ -166,8 +166,7 @@ select[data-v-375938f7], option[data-v-375938f7], input[data-v-375938f7]{
     margin-right: 21px;
 }
 .button-container{
-    display: flex;
-    justify-content: end;
+    display: flex-end;
 }
 
 .addBtn {

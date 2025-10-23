@@ -2494,7 +2494,8 @@ class JobController extends Controller
                 'largeMaterial.article',
                 'smallMaterial.article',
                 'largeMaterialCategory',
-                'smallMaterialCategory'
+                'smallMaterialCategory',
+                'articles'
             ]);
 
             // Add optional search functionality
@@ -2547,6 +2548,12 @@ class JobController extends Controller
                     'copies' => $item->copies,
                     'file' => $item->file,
                     'price' => $item->price,
+                    'articles' => $item->articles->map(function($article) {
+                        return [
+                            'id' => $article->id,
+                            'name' => $article->name
+                        ];
+                    })->toArray(),
                     'actions' => collect($item->actions ?? [])->map(function($action) {
                         return [
                             'action_id' => [

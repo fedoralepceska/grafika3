@@ -229,8 +229,7 @@ select{
 }
 
 .button-container{
-    display: flex;
-    justify-content: end;
+    display: flex-end;
 }
 
 .btn {

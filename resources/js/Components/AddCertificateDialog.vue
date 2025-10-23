@@ -146,8 +146,7 @@ export default {
 
 <style scoped lang="scss">
 .dateStyle{
-    display: flex;
-    justify-content: end;
+    display: flex-end;
     align-items: center;
     color: $white;
     margin-bottom: 5px;

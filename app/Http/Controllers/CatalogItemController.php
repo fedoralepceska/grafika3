@@ -73,7 +73,8 @@ class CatalogItemController extends Controller
             $query = CatalogItem::with([
                 'largeMaterial',
                 'smallMaterial',
-                'subcategories'
+                'subcategories',
+                'articles'
             ]);
 
             // Add search functionality

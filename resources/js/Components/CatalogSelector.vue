@@ -166,42 +166,46 @@
                     <button @click="closeItemDetails" class="close-button">&times;</button>
                 </div>
                 <div class="modal-body">
-                    <div class="detail-section">
+                    <div class="specs-minimal">
                         <h3>Item Specifications</h3>
-                        <div class="detail-row">
-                            <span class="detail-label">Machine Print:</span>
-                            <span class="detail-value">{{ selectedItemDetails.machinePrint }}</span>
+                        <div class="specs-single-column">
+                            <div class="spec-item">
+                                <span class="spec-label">Print Machine:</span>
+                                <span class="spec-value">{{ selectedItemDetails.machinePrint }}</span>
+                            </div>
+                            <div class="spec-item">
+                                <span class="spec-label">Cut Machine:</span>
+                                <span class="spec-value">{{ selectedItemDetails.machineCut }}</span>
+                            </div>
+                            <div class="spec-item">
+                                <span class="spec-label">Category:</span>
+                                <span class="spec-value">{{ formatCategoryName(selectedItemDetails.category) }}</span>
+                            </div>
                         </div>
-                        <div class="detail-row">
-                            <span class="detail-label">Machine Cut:</span>
-                            <span class="detail-value">{{ selectedItemDetails.machineCut }}</span>
-                        </div>
-                        <div class="detail-row">
-                            <span class="detail-label">Material:</span>
-                            <span class="detail-value">{{ selectedItemDetails.material || 'N/A' }}</span>
-                        </div>
-                        <div class="detail-row">
-                            <span class="detail-label">Category:</span>
-                            <span class="detail-value">{{ selectedItemDetails.category }}</span>
-                        </div>
-                        <div class="detail-row">
-                            <span class="detail-label">Quantity:</span>
-                            <span class="detail-value">{{ selectedItemDetails.quantity }}</span>
-                        </div>
-                        <div class="detail-row">
-                            <span class="detail-label">Copies:</span>
-                            <span class="detail-value">{{ selectedItemDetails.copies }}</span>
+                    </div>
+                    <div class="materials-section" v-if="selectedItemDetails.articles && selectedItemDetails.articles.length">
+                        <h3>Materials Used</h3>
+                        <div class="materials-list">
+                            <div
+                                v-for="(article, index) in selectedItemDetails.articles"
+                                :key="index"
+                                class="material-item-left"
+                            >
+                                <span class="material-name">{{ article.name }}</span>
+                            </div>
                         </div>
                     </div>
 
-                    <div class="detail-section" v-if="selectedItemDetails.actions && selectedItemDetails.actions.length">
-                        <h3>Actions</h3>
-                        <div
-                            v-for="(action, index) in selectedItemDetails.actions"
-                            :key="index"
-                            class="action-item"
-                        >
-                            <span>{{ action.action_id.name }}</span>
+                    <div class="actions-minimal" v-if="selectedItemDetails.actions && selectedItemDetails.actions.length">
+                        <h3>Actions Required</h3>
+                        <div class="actions-list">
+                            <div
+                                v-for="(action, index) in selectedItemDetails.actions"
+                                :key="index"
+                                class="action-item-left"
+                            >
+                                <span class="action-name">{{ action.action_id.name }}</span>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -532,6 +536,20 @@ export default {
             // Restore body scrolling
             document.body.style.overflow = 'auto';
         },
+
+        formatCategoryName(category) {
+            if (!category) return 'N/A';
+            
+            // Remove underscores and replace with spaces
+            let formatted = category.replace(/_/g, ' ');
+            
+            // Capitalize first letter of each word
+            formatted = formatted.split(' ')
+                .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+                .join(' ');
+            
+            return formatted;
+        },
     },
 
     mounted() {
@@ -733,6 +751,108 @@ $orange: #a36a03;
     padding: 0.5rem;
     background-color: $gray;
     border-radius: 4px;
+}
+
+/* Minimalistic Left-Aligned Specifications */
+.specs-minimal {
+    margin-bottom: 2rem;
+}
+
+.specs-minimal h3 {
+    color: $white;
+    font-size: 1.3rem;
+    font-weight: bold;
+    margin: 0 0 1rem 0;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid $gray;
+}
+
+.specs-single-column {
+    display: flex;
+    flex-direction: column;
+    gap: 0.8rem;
+}
+
+.spec-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.spec-label {
+    color: $white;
+    font-size: 0.9rem;
+    min-width: 100px;
+    text-align: left;
+    font-weight: 500;
+}
+
+.spec-value {
+    color: $white;
+    font-weight: 600;
+    font-size: 0.95rem;
+}
+
+/* Left-Aligned Materials Section */
+.materials-section {
+    margin-bottom: 2rem;
+}
+
+.materials-section h3 {
+    color: $white;
+    font-size: 1.3rem;
+    font-weight: bold;
+    margin: 0 0 1rem 0;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid $gray;
+}
+
+.materials-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.material-item-left {
+    padding: 0.5rem 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.material-name {
+    color: $white;
+    font-weight: 500;
+    font-size: 0.95rem;
+}
+
+/* Left-Aligned Actions Section */
+.actions-minimal {
+    margin-bottom: 2rem;
+}
+
+.actions-minimal h3 {
+    color: $white;
+    font-size: 1.3rem;
+    font-weight: bold;
+    margin: 0 0 1rem 0;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid $gray;
+}
+
+.actions-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.action-item-left {
+    padding: 0.5rem 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.action-name {
+    color: $white;
+    font-weight: 500;
+    font-size: 0.95rem;
 }
 
 .button-container {

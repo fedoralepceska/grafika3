@@ -509,8 +509,7 @@ $blue: #3b82f6;
 }
 
 .button-container {
-    display: flex;
-    justify-content: end;
+    display: flex-end;
 }
 
 .excel-table {

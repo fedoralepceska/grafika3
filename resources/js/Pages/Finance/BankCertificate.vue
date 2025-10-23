@@ -231,8 +231,7 @@ select{
 }
 
 .button-container{
-    display: flex;
-    justify-content: end;
+    display: flex-end;
 }
 .btn {
     padding: 9px 12px;

@@ -410,8 +410,7 @@ export default {
     width: 80px;
 }
 .dateStyle{
-    display: flex;
-    justify-content: end;
+    display: flex-end;
     align-items: center;
     color: $white;
     margin-bottom: 5px;
