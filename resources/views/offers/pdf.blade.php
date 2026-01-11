@@ -2,7 +2,7 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <title>Понуда #{{ $offer->id }}</title>
+    <title>Понуда #{{ $offer->offer_number }}/{{ $offer->fiscal_year }}</title>
     <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;700&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Tahoma:wght@400;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
@@ -152,7 +152,7 @@
                     <tr style="padding: 0; margin: 0">
                         <td class="tahoma bolder" style="font-size: 9.5pt; line-height: 90%;">ПОНУДА: <span class="opensans">бр.</span></td>
                         <td >
-                            <div class="opensans" style="font-size: 9.5pt; line-height: 90%;"> {{ $offer->id }}/{{ date('Y', strtotime($offer->created_at)) }}</div>
+                            <div class="opensans" style="font-size: 9.5pt; line-height: 90%;"> {{ $offer->offer_number }}/{{ $offer->fiscal_year }}</div>
                             <div class="opensans" style="font-size: 9.5pt; line-height: 90%; margin-bottom: 5px"><span class="tahoma bolder">Дата:</span> {{ date('d/m/Y', strtotime($offer->created_at)) }}</div>
                             <div class="tahoma " style="font-size: 8.5pt; line-height: 90%; ">Понудата важи: <span class="opensans bolder">{{ $offer->validity_days }}</span> дена</div>
                         </td>

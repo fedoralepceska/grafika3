@@ -81,7 +81,7 @@
                     
                     <!-- Order ID -->
                     <div class="order-id-column">
-                        <span class="value">#{{ invoice.id }}</span>
+                        <span class="value">#{{ invoice.order_number }}</span>
                     </div>
                     
                     <!-- Order Details -->
@@ -781,7 +781,10 @@ export default {
         },
         hasNoteForCurrentAction(job) {
             const action = job?.actions?.find(a => a?.name === this.actionId);
-            return action && (action.hasNote === 1 || action.hasNote === true);
+            // Only consider it as having a note if the action has hasNote AND the invoice has an actual comment
+            const invoice = this.invoices?.find(inv => inv.jobs?.some(j => j.id === job.id));
+            const hasActualComment = invoice?.comment && invoice.comment.trim().length > 0;
+            return action && (action.hasNote === 1 || action.hasNote === true) && hasActualComment;
         },
         getActionId(job) {
             const actionIndex = job?.actions?.findIndex(action => action?.name === this?.actionId);

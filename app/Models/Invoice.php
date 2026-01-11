@@ -7,6 +7,7 @@ use App\Http\Controllers\ArticleController;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Facades\DB;
 
 class Invoice extends Model
 {
@@ -31,19 +32,78 @@ class Invoice extends Model
         'additionalArt',
         'LockedNote',
         'article_id',
-        'faktura_id'
+        'faktura_id',
+        'order_number',
+        'fiscal_year',
+        'archived',
+        'archived_at',
     ];
-
-
 
     protected $enumCasts = [
         'status' => InvoiceStatus::class,
+    ];
+
+    protected $casts = [
+        'archived' => 'boolean',
+        'archived_at' => 'datetime',
     ];
 
     protected $dates = [
         'start_date',
         'end_date',
     ];
+
+    /**
+     * Generate the next order number for the current fiscal year
+     */
+    public static function generateOrderNumber(): array
+    {
+        $year = now()->year;
+
+        return DB::transaction(function () use ($year) {
+            $lastOrder = self::where('fiscal_year', $year)
+                ->orderBy('order_number', 'desc')
+                ->lockForUpdate()
+                ->first();
+
+            return [
+                'order_number' => ($lastOrder?->order_number ?? 0) + 1,
+                'fiscal_year' => $year,
+            ];
+        });
+    }
+
+    /**
+     * Get formatted order number for display (e.g., #42)
+     */
+    public function getFormattedOrderNumberAttribute(): string
+    {
+        return "#{$this->order_number}";
+    }
+
+    /**
+     * Get formatted order number with year (e.g., #42/2025)
+     */
+    public function getFullOrderNumberAttribute(): string
+    {
+        return "#{$this->order_number}/{$this->fiscal_year}";
+    }
+
+    /**
+     * Scope for non-archived orders
+     */
+    public function scopeActive($query)
+    {
+        return $query->where('archived', false);
+    }
+
+    /**
+     * Scope for specific fiscal year
+     */
+    public function scopeForFiscalYear($query, int $year)
+    {
+        return $query->where('fiscal_year', $year);
+    }
 
     public function jobs(): \Illuminate\Database\Eloquent\Relations\BelongsToMany
     {

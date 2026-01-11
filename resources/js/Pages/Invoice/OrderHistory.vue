@@ -1,7 +1,7 @@
 <template>
     <div>
         <h3 class="order-history-title uppercase">{{ $t('Order History') }}</h3>
-        <div class="history-subtitle">{{ invoice.invoice_title }} #{{ invoice.id }}</div>
+        <div class="history-subtitle">{{ invoice.invoice_title }} #{{ invoice.order_number }}</div>
         <div class="order-history-content">
             <ul class="order-history-list">
                 <li v-for="log in invoice.history_logs" :key="log.id" class="box">

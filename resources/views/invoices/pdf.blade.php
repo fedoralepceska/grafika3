@@ -119,7 +119,7 @@
                 <td style="width: 360px; text-align: left; margin-top: 5px">
                     <div>
                         <span class="tahoma" style="margin-left: -3px; color: #333333; font-size: 11.5pt;">Работен налог</span><span class="opensans" style="color: #333333;">:
-                        </span> <span class="order tahoma bolder" style="font-size: 19pt">бр<span class="opensans" style="font-size: 27pt">.</span><span class="opensans bolder">{{ $invoice->id }}/{{ date('Y', strtotime($invoice->start_date)) }}</span></span>
+                        </span> <span class="order tahoma bolder" style="font-size: 19pt">бр<span class="opensans" style="font-size: 27pt">.</span><span class="opensans bolder">{{ $invoice->order_number ?? $invoice->id }}/{{ $invoice->fiscal_year ?? date('Y', strtotime($invoice->start_date)) }}</span></span>
                     </div>
                 </td>
                 <td style="text-align: right" >

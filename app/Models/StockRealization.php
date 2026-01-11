@@ -21,6 +21,7 @@ class StockRealization extends Model
         'is_realized',
         'realized_at',
         'realized_by',
+        'fiscal_year',
     ];
 
     protected $casts = [
@@ -29,6 +30,36 @@ class StockRealization extends Model
         'is_realized' => 'boolean',
         'realized_at' => 'datetime',
     ];
+
+    /**
+     * Boot method to auto-set fiscal_year on creation
+     */
+    protected static function boot()
+    {
+        parent::boot();
+
+        static::creating(function ($stockRealization) {
+            if (empty($stockRealization->fiscal_year)) {
+                $stockRealization->fiscal_year = (int) date('Y');
+            }
+        });
+    }
+
+    /**
+     * Scope to filter by fiscal year
+     */
+    public function scopeForFiscalYear($query, int $year)
+    {
+        return $query->where('fiscal_year', $year);
+    }
+
+    /**
+     * Scope to filter only realized stock realizations
+     */
+    public function scopeRealized($query)
+    {
+        return $query->where('is_realized', true);
+    }
 
     public function invoice(): BelongsTo
     {

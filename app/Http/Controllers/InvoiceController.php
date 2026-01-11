@@ -44,8 +44,18 @@ class InvoiceController extends Controller
                 'client:id,name'
             ]);
 
+            // Filter archived orders - hide by default unless showArchived is set
+            if (!$request->input('showArchived')) {
+                $query->active();
+            }
+
             // Apply search filters
             $this->applySearch($query, $request, $request->input('status'));
+
+            // Filter by fiscal year if provided
+            if ($request->has('fiscal_year') && $request->input('fiscal_year')) {
+                $query->where('fiscal_year', (int)$request->input('fiscal_year'));
+            }
 
             // Add start_date and end_date search if available
             if ($request->has('start_date') && $request->has('end_date')) {
@@ -101,6 +111,7 @@ class InvoiceController extends Controller
             $query->where(function ($query) use ($searchQuery) {
                 $query->where('invoice_title', 'LIKE', $searchQuery)
                     ->orWhere('id', 'LIKE', $searchQuery)
+                    ->orWhere('order_number', 'LIKE', $searchQuery)
                     ->orWhereHas('client', function ($subquery) use ($searchQuery) {
                         $subquery->where('name', 'LIKE', $searchQuery);
                     })
@@ -183,6 +194,11 @@ class InvoiceController extends Controller
         $invoice = new Invoice($invoiceData);
         $invoice->status = 'Not started yet';
         $invoice->created_by = Auth::id();
+
+        // Generate order number for fiscal year
+        $orderNumberData = Invoice::generateOrderNumber();
+        $invoice->order_number = $orderNumberData['order_number'];
+        $invoice->fiscal_year = $orderNumberData['fiscal_year'];
 
         $invoice->save();
         event(new InvoiceCreated($invoice));
@@ -736,6 +752,11 @@ class InvoiceController extends Controller
         // Reuse generic search filters but do not apply a status from request here
         $this->applySearch($query, $request, null);
 
+        // Filter by fiscal year if provided
+        if ($request->has('fiscal_year') && $request->input('fiscal_year')) {
+            $query->where('fiscal_year', (int)$request->input('fiscal_year'));
+        }
+
         // Exclude completed orders explicitly
         $query->where('status', '!=', 'Completed');
 
@@ -877,6 +898,11 @@ class InvoiceController extends Controller
         // Reuse generic search filters but pin status to Completed regardless of request
         $this->applySearch($query, $request, null);
 
+        // Filter by fiscal year if provided
+        if ($request->has('fiscal_year') && $request->input('fiscal_year')) {
+            $query->where('fiscal_year', (int)$request->input('fiscal_year'));
+        }
+
         $query->where('status', 'Completed')->orderBy('created_at', 'desc');
 
         $perPage = (int)($request->input('per_page', 5));
@@ -994,8 +1020,11 @@ class InvoiceController extends Controller
             $jobAction->save();
         }
 
-        // Set hasNote only for selected action names (derived from selectedPairs)
-        if (!empty($selectedPairs)) {
+        // Only set hasNote if there's an actual comment AND actions are selected
+        // This prevents orphaned hasNote flags when comment is empty
+        $hasActualComment = !empty($comment) && trim($comment) !== '';
+        
+        if ($hasActualComment && !empty($selectedPairs)) {
             $selectedActionNames = collect($selectedPairs)->pluck('action_name')->unique()->values();
             JobAction::whereIn('id', $jobActionIds)
                 ->whereIn('name', $selectedActionNames)
@@ -1238,10 +1267,12 @@ class InvoiceController extends Controller
                 'client:id,name'
             ])->where('isInvoiced', 1); // Filter for generated Fakturas (isInvoiced = 1)
 
-            // Apply search query if provided
-            if ($request->has('searchQuery')) {
+            // Apply search query if provided - search by faktura_number instead of id
+            if ($request->has('searchQuery') && $request->input('searchQuery')) {
                 $searchQuery = $request->input('searchQuery');
-                $query->where('id', 'like', "%{$searchQuery}%");
+                // Remove # prefix if present for convenience
+                $searchQuery = ltrim($searchQuery, '#');
+                $query->where('faktura_number', 'like', "%{$searchQuery}%");
             }
 
             // Apply filter client if provided
@@ -1331,7 +1362,9 @@ class InvoiceController extends Controller
         $dns1d = new DNS1D();
         // Create a transformed array for PDF generation without modifying the original invoices
         $nextFakturaId = (int) (\App\Models\Faktura::max('id') ?? 0) + 1;
-        $transformedInvoices = $invoices->map(function ($invoice) use ($dns1d, $isAlreadyGenerated, $nextFakturaId, $invoices) {
+        $fiscalYear = (int) date('Y');
+        $nextFakturaNumber = (int) (\App\Models\Faktura::where('fiscal_year', $fiscalYear)->max('faktura_number') ?? 0) + 1;
+        $transformedInvoices = $invoices->map(function ($invoice) use ($dns1d, $isAlreadyGenerated, $nextFakturaId, $nextFakturaNumber, $fiscalYear, $invoices) {
             $barcodeString = $invoice->id . '-' . date('m-Y', strtotime($invoice->end_date));
             $barcodeImage = base64_encode($dns1d->getBarcodePNG($barcodeString, 'C128'));
 
@@ -1373,9 +1406,12 @@ class InvoiceController extends Controller
                     'trade_items' => $tradeItemsArray,
                     // For this flow, use current timestamp as generated_at (pre or post generation)
                     'generated_at' => now()->toDateTimeString(),
-                    // If already generated, include faktura_id; else propose next
+                    // If already generated, include faktura_id and faktura_number; else propose next
                     'faktura_id' => optional($invoice->faktura)->id,
+                    'faktura_number' => optional($invoice->faktura)->faktura_number,
+                    'fiscal_year' => optional($invoice->faktura)->fiscal_year ?? $fiscalYear,
                     'preview_faktura_id' => $isAlreadyGenerated ? null : $nextFakturaId,
+                    'preview_faktura_number' => $isAlreadyGenerated ? null : $nextFakturaNumber,
                 ]
             );
         })->toArray(); // Convert the collection to an array for the PDF
@@ -1464,6 +1500,8 @@ class InvoiceController extends Controller
             $invoiceData = $invoices->reduce(function ($acc, $invoice) {
                 $acc[$invoice->id] = [
                     'id' => $invoice->id,
+                    'order_number' => $invoice->order_number,
+                    'fiscal_year' => $invoice->fiscal_year,
                     'invoice_title' => $invoice->invoice_title,
                     'client' => $invoice->client->name,
                     'jobs' => $invoice->jobs,
@@ -1777,6 +1815,7 @@ class InvoiceController extends Controller
                         // Use Faktura creation time as the official generated time
                         'generated_at' => optional($faktura->created_at)->toDateTimeString(),
                         'faktura_id' => $faktura->id,
+                        'faktura_number' => $faktura->faktura_number,
                         'payment_deadline_override' => is_numeric($paymentDeadlineOverride) ? (int)$paymentDeadlineOverride : null,
                     ]
                 );
@@ -2304,6 +2343,8 @@ class InvoiceController extends Controller
         // Create invoice data structure
         $invoiceData = [
             'id' => $parentOrder->id,
+            'order_number' => $parentOrder->order_number ?? $parentOrder->id,
+            'fiscal_year' => $parentOrder->fiscal_year,
             'invoice_title' => $parentOrder->invoice_title,
             'start_date' => $parentOrder->start_date,
             'end_date' => $parentOrder->end_date,
@@ -2325,6 +2366,7 @@ class InvoiceController extends Controller
             'comment' => $comment,
             'generated_at' => $faktura->created_at->toDateTimeString(),
             'faktura_id' => $faktura->id,
+            'faktura_number' => $faktura->faktura_number,
             'split_group_identifier' => $faktura->split_group_identifier,
             'merge_groups' => $mergeGroups
         ];
@@ -2377,6 +2419,8 @@ class InvoiceController extends Controller
             $invoiceData = $invoices->reduce(function ($acc, $invoice) {
                 $acc[] = [
                     'id' => $invoice->id,
+                    'order_number' => $invoice->order_number ?? $invoice->id,
+                    'fiscal_year' => $invoice->fiscal_year,
                     'invoice_title' => $invoice->invoice_title,
                     'client' => optional($invoice->client)->name,
                     'jobs' => $invoice->jobs,
@@ -2491,6 +2535,8 @@ class InvoiceController extends Controller
                 $clientModel = $overrideClient ?: $invoice->client;
                 return [
                     'id' => $invoice->id,
+                    'order_number' => $invoice->order_number,
+                    'fiscal_year' => $invoice->fiscal_year,
                     'invoice_title' => $invoice->invoice_title,
                     'client' => $clientModel ? $clientModel->name : ($invoice->client->name ?? ''),
                     'client_data' => $clientModel ?: $invoice->client,
@@ -2528,6 +2574,8 @@ class InvoiceController extends Controller
                     
                     $splitInvoiceData = [
                         'id' => $faktura->parent_order_id ?: ('split_' . $faktura->id),
+                        'order_number' => $parentOrder ? $parentOrder->order_number : null,
+                        'fiscal_year' => $parentOrder ? $parentOrder->fiscal_year : null,
                         'invoice_title' => $parentOrder ? $parentOrder->invoice_title : 'Split Invoice',
                         'client' => $clientName,
                         'client_data' => $client,
@@ -2912,8 +2960,28 @@ class InvoiceController extends Controller
 
             // Transform invoices for PDF generation (same as outgoingInvoicePdf)
             $dns1d = new DNS1D();
-            $nextFakturaId = (int) (\App\Models\Faktura::max('id') ?? 0) + 1;
-            $transformedInvoices = $invoices->map(function ($invoice) use ($dns1d, $tradeItems, $comment, $nextFakturaId, $createdAtInput, $mergedJobsByInvoice, $paymentDeadlineOverride) {
+            
+            // Check if invoices already belong to an existing faktura
+            $existingFaktura = null;
+            $firstInvoice = $invoices->first();
+            if ($firstInvoice && $firstInvoice->faktura_id) {
+                $existingFaktura = \App\Models\Faktura::find($firstInvoice->faktura_id);
+            }
+            
+            // Use existing faktura's number if available, otherwise calculate next
+            if ($existingFaktura && $existingFaktura->faktura_number) {
+                $fakturaNumber = $existingFaktura->faktura_number;
+                $fiscalYear = $existingFaktura->fiscal_year ?? (int) date('Y');
+                $fakturaId = $existingFaktura->id;
+                $isExistingFaktura = true;
+            } else {
+                $fakturaId = (int) (\App\Models\Faktura::max('id') ?? 0) + 1;
+                $fiscalYear = (int) date('Y');
+                $fakturaNumber = (int) (\App\Models\Faktura::where('fiscal_year', $fiscalYear)->max('faktura_number') ?? 0) + 1;
+                $isExistingFaktura = false;
+            }
+            
+            $transformedInvoices = $invoices->map(function ($invoice) use ($dns1d, $tradeItems, $comment, $fakturaId, $fakturaNumber, $fiscalYear, $isExistingFaktura, $createdAtInput, $mergedJobsByInvoice, $paymentDeadlineOverride) {
                 // Compose barcode safely (GD may be missing in some environments)
                 $period = $invoice->end_date ? date('m-Y', strtotime($invoice->end_date)) : date('m-Y');
                 $barcodeString = $invoice->id . '-' . $period;
@@ -3009,7 +3077,12 @@ class InvoiceController extends Controller
                         // Use provided preview date if valid, otherwise now
                         // Parse date in UTC to avoid timezone conversion issues
                         'generated_at' => !empty($createdAtInput) ? \Carbon\Carbon::parse($createdAtInput, 'UTC')->startOfDay()->toDateTimeString() : now()->toDateTimeString(),
-                        'preview_faktura_id' => $nextFakturaId,
+                        // For existing fakturas, use actual number; for new ones, use preview number
+                        'faktura_id' => $isExistingFaktura ? $fakturaId : null,
+                        'faktura_number' => $isExistingFaktura ? $fakturaNumber : null,
+                        'preview_faktura_id' => $isExistingFaktura ? null : $fakturaId,
+                        'preview_faktura_number' => $isExistingFaktura ? null : $fakturaNumber,
+                        'fiscal_year' => $fiscalYear,
                         'payment_deadline_override' => is_numeric($paymentDeadlineOverride) ? (int)$paymentDeadlineOverride : null,
                     ]
                 );
@@ -3069,6 +3142,8 @@ class InvoiceController extends Controller
 
             $previewPdfs = [];
             $nextFakturaId = (int) (\App\Models\Faktura::max('id') ?? 0) + 1;
+            $fiscalYear = (int) date('Y');
+            $nextFakturaNumber = (int) (\App\Models\Faktura::where('fiscal_year', $fiscalYear)->max('faktura_number') ?? 0) + 1;
 
             foreach ($splitGroups as $index => $splitGroup) {
                 $jobIds = $splitGroup['job_ids'] ?? [];
@@ -3149,6 +3224,8 @@ class InvoiceController extends Controller
 
                 $mockInvoice = [
                     'id' => $mockInvoiceId,
+                    'order_number' => $mockInvoiceId,
+                    'fiscal_year' => date('Y'),
                     'invoice_title' => $splitGroup['order_title'] ?? $invoiceTitle,
                     'start_date' => $startDate,
                     'end_date' => $endDate,
@@ -3184,6 +3261,8 @@ class InvoiceController extends Controller
                     'comment' => $comment,
                     'generated_at' => !empty($createdAtInput) ? \Carbon\Carbon::parse($createdAtInput, 'UTC')->startOfDay()->toDateTimeString() : now()->toDateTimeString(),
                     'preview_faktura_id' => $nextFakturaId + $index,
+                    'preview_faktura_number' => $nextFakturaNumber + $index,
+                    'fiscal_year' => $fiscalYear,
                     'split_group_identifier' => 'group_' . ($index + 1),
                     'payment_deadline_override' => is_numeric($paymentDeadlineOverride) ? (int)$paymentDeadlineOverride : null,
                 ];
@@ -3391,6 +3470,8 @@ class InvoiceController extends Controller
                             'comment' => $comment,
                             'generated_at' => !empty($createdAtInput) ? \Carbon\Carbon::parse($createdAtInput, 'UTC')->startOfDay()->toDateTimeString() : now()->toDateTimeString(),
                             'preview_faktura_id' => \App\Models\Faktura::max('id') + 1 + $index,
+                            'preview_faktura_number' => (\App\Models\Faktura::where('fiscal_year', date('Y'))->max('faktura_number') ?? 0) + 1 + $index,
+                            'fiscal_year' => (int) date('Y'),
                             'payment_deadline_override' => is_numeric($paymentDeadlineOverride) ? (int)$paymentDeadlineOverride : null,
                         ]
                     );
@@ -3460,11 +3541,18 @@ class InvoiceController extends Controller
         }
     }
 
-    // Returns the next faktura id that would be assigned (for pre-generation display)
+    // Returns the next faktura id and number that would be assigned (for pre-generation display)
     public function getNextFakturaId()
     {
         $next = (int) (\App\Models\Faktura::max('id') ?? 0) + 1;
-        return response()->json(['next_id' => $next]);
+        $fiscalYear = (int) date('Y');
+        $nextNumber = (int) (\App\Models\Faktura::where('fiscal_year', $fiscalYear)->max('faktura_number') ?? 0) + 1;
+        
+        return response()->json([
+            'next_id' => $next,
+            'next_faktura_number' => $nextNumber,
+            'fiscal_year' => $fiscalYear
+        ]);
     }
 
 

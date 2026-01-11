@@ -39,7 +39,7 @@
                             <div class="flex-1">
                                 <input 
                                     v-model="searchQuery" 
-                                    placeholder="Search by offer ID..." 
+                                    placeholder="Search by offer #..." 
                                     class="w-full text-black px-4 py-2 rounded border border-gray-300 focus:outline-none focus:border-blue-500" 
                                     @keyup.enter="searchOffers"
                                     @input="debouncedSearch"
@@ -53,7 +53,15 @@
 
                     <!-- Filters Section -->
                     <div class="filters-section bg-gray-800 p-4 rounded mb-4">
-                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                            <!-- Year Filter -->
+                            <div class="filter-group">
+                                <label class="block text-sm mb-2">Year</label>
+                                <select v-model="fiscalYear" @change="applyFilter" class="w-full text-black px-2 py-1.5 rounded">
+                                    <option v-for="year in availableYears" :key="year" :value="year">{{ year }}</option>
+                                </select>
+                            </div>
+
                             <!-- Client Filter with Dropdown Search -->
                             <div class="filter-group">
                                 <label class="block text-sm mb-2">Client</label>
@@ -120,7 +128,7 @@
                 <table class="w-full">
                     <thead>
                         <tr>
-                            <th>ID</th>
+                            <th>Offer #</th>
                             <th>Client</th>
                             <th>Status</th>
                             <th>Validity Days</th>
@@ -135,7 +143,7 @@
                     </thead>
                     <tbody>
                         <tr v-for="offer in offers.data" :key="offer.id">
-                            <td>{{ offer.id }}</td>
+                            <td>#{{ offer.offer_number }}/{{ offer.fiscal_year }}</td>
                             <td>{{ offer.client }}</td>
                             <td>
                                 <span :class="['status-badge', offer.status]">
@@ -815,6 +823,10 @@ export default {
         offers: Object,
         filters: Object,
         counts: Object,
+        availableYears: Array,
+        currentFiscalYear: Number,
+        clients: Array,
+        validityDaysOptions: Array,
     },
 
     data() {
@@ -848,6 +860,7 @@ export default {
             filterClient: this.filters?.filterClient || '',
             filterValidityDays: this.filters?.filterValidityDays || '',
             sortOrder: this.filters?.sortOrder || 'desc',
+            fiscalYear: this.currentFiscalYear || new Date().getFullYear(),
             
             // New properties for client search dropdown
             clientSearch: '',
@@ -1376,7 +1389,8 @@ export default {
                 searchQuery: this.searchQuery,
                 filterClient: this.filterClient,
                 filterValidityDays: this.filterValidityDays,
-                sortOrder: this.sortOrder
+                sortOrder: this.sortOrder,
+                fiscal_year: this.fiscalYear
             };
 
             // Only include page parameter if not resetting
@@ -1428,6 +1442,7 @@ export default {
             this.sortOrder = 'desc';
             this.clientSearch = '';
             this.selectedClientName = '';
+            // Note: We don't reset fiscalYear - user can change it separately
             this.visitWithFilters(true);
         },
         
@@ -1443,7 +1458,8 @@ export default {
                 searchQuery: this.searchQuery,
                 filterClient: this.filterClient,
                 filterValidityDays: this.filterValidityDays,
-                sortOrder: this.sortOrder
+                sortOrder: this.sortOrder,
+                fiscal_year: this.fiscalYear
             };
             
             // Add filter parameters to the URL

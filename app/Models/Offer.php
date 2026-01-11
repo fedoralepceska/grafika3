@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\DB;
 
 class Offer extends Model
 {
@@ -23,7 +24,9 @@ class Offer extends Model
         'decline_reason',
         'contact_id',
         'production_time',
-        'created_by'
+        'created_by',
+        'offer_number',
+        'fiscal_year',
     ];
 
     protected $casts = [
@@ -34,6 +37,42 @@ class Offer extends Model
         'price2' => 'decimal:2',
         'price3' => 'decimal:2',
     ];
+
+    /**
+     * Generate the next offer number for the current fiscal year
+     */
+    public static function generateOfferNumber(): array
+    {
+        $year = now()->year;
+
+        return DB::transaction(function () use ($year) {
+            $lastOffer = self::where('fiscal_year', $year)
+                ->orderBy('offer_number', 'desc')
+                ->lockForUpdate()
+                ->first();
+
+            return [
+                'offer_number' => ($lastOffer?->offer_number ?? 0) + 1,
+                'fiscal_year' => $year,
+            ];
+        });
+    }
+
+    /**
+     * Get formatted offer number for display (e.g., #42)
+     */
+    public function getFormattedOfferNumberAttribute(): string
+    {
+        return "#{$this->offer_number}";
+    }
+
+    /**
+     * Get formatted offer number with year (e.g., #42/2025)
+     */
+    public function getFullOfferNumberAttribute(): string
+    {
+        return "#{$this->offer_number}/{$this->fiscal_year}";
+    }
 
     public function catalogItems()
     {

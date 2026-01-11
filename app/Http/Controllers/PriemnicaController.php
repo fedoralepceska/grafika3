@@ -27,8 +27,11 @@ class PriemnicaController extends Controller
             ->join('warehouses', 'priemnica.warehouse', '=', 'warehouses.id')
             ->select(
                 'priemnica.id',
+                'priemnica.receipt_number',
+                'priemnica.fiscal_year',
                 'priemnica.client_id',
                 'priemnica.warehouse',
+                'priemnica.comment',
                 'priemnica.created_at',
                 'warehouses.name as warehouse_name'
             );
@@ -49,7 +52,9 @@ class PriemnicaController extends Controller
             $receiptsQuery->whereDate('priemnica.created_at', '<=', $request->to_date);
         }
 
-        $receipts = $receiptsQuery->get();
+        $receipts = $receiptsQuery->orderBy('priemnica.fiscal_year', 'desc')
+            ->orderBy('priemnica.receipt_number', 'desc')
+            ->get();
 
         if ($request->wantsJson()) {
             return response()->json($receipts);
@@ -81,6 +86,8 @@ class PriemnicaController extends Controller
             ->join('warehouses', 'priemnica.warehouse', '=', 'warehouses.id')
             ->select(
                 'priemnica.id',
+                'priemnica.receipt_number',
+                'priemnica.fiscal_year',
                 'priemnica.client_id',
                 'priemnica.warehouse',
                 'priemnica.created_at',

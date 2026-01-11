@@ -3,48 +3,57 @@
         <div class="pl-7 pr-7">
             <Header title="invoice" subtitle="ViewAllInvoices" icon="List.png" link="orders"/>
             <div class="dark-gray p-2 text-white">
-                <div class="form-container p-2 ">
-                    <h2 class="sub-title">
-                        {{ $t('listOfAllOrders') }}
-                    </h2>
-                    <div class="filter-container flex gap-4 pb-10">
-                        <div class="search flex gap-2">
-                            <input v-model="searchQuery" placeholder="Enter order number or order name" class="text-black search-input" @keyup.enter="searchInvoices" />
+                <div class="form-container p-2">
+                    <!-- Header row with title and create button -->
+                    <div class="page-header">
+                        <h2 class="sub-title">{{ $t('listOfAllOrders') }}</h2>
+                        <button @click="navigateToCreateOrder" class="btn create-order">
+                            <i class="fa fa-plus"></i> Create Order
+                        </button>
+                    </div>
+                    
+                    <!-- Filters row -->
+                    <div class="filters-row">
+                        <div class="search-box">
+                            <i class="fa fa-search search-icon"></i>
+                            <input 
+                                v-model="searchQuery" 
+                                placeholder="Search by order #, title, client..." 
+                                class="search-input" 
+                                @keyup.enter="searchInvoices" 
+                            />
                         </div>
-                        <div class="flex gap-2 filters-group">
-                        <div class="status">
-                            <label class="pr-3">Filter orders</label>
-                            <select v-model="filterStatus" class="text-black filter-select" @change="applyFilter">
-                                <option value="All" hidden>Status</option>
-                                <option value="All">All</option>
+                        
+                        <div class="filter-controls">
+                            <select v-model="yearFilter" class="filter-select filter-year" @change="applyFilter">
+                                <option v-for="year in availableYears" :key="year" :value="year">{{ year }}</option>
+                            </select>
+                            
+                            <select v-model="filterStatus" class="filter-select filter-status" @change="applyFilter">
+                                <option value="All">All Status</option>
                                 <option value="Not started yet">Not started yet</option>
                                 <option value="In Progress">In Progress</option>
                                 <option value="Completed">Completed</option>
                             </select>
-                        </div>
-                        <div class="client">
-                            <select v-model="filterClient" class="text-black filter-select" @change="applyFilter">
-                                <option value="All" hidden>Clients</option>
+                            
+                            <select v-model="filterClient" class="filter-select filter-client" @change="applyFilter">
                                 <option value="All">All Clients</option>
                                 <option v-for="client in uniqueClients" :key="client">{{ client.name }}</option>
                             </select>
-                        </div>
-                        <div class="date">
-                            <select v-model="sortOrder" class="text-black filter-select" @change="applyFilter">
-                                <option value="desc" hidden>Date</option>
-                                <option value="desc">Newest to Oldest</option>
-                                <option value="asc">Oldest to Newest</option>
-                            </select>
-                        </div>
                             
-
-                        </div>
-                        <div class="button flex gap-3">
-                            <button @click="navigateToCreateOrder" class="btn create-order">
-                                Create Order <i class="fa fa-plus"></i>
-                            </button>
+                            <select v-model="sortOrder" class="filter-select filter-sort" @change="applyFilter">
+                                <option value="desc">Newest First</option>
+                                <option value="asc">Oldest First</option>
+                            </select>
+                            
+                            <label class="archived-toggle">
+                                <input type="checkbox" v-model="showArchived" @change="applyFilter">
+                                <span class="toggle-slider"></span>
+                                <span class="toggle-label">Archived</span>
+                            </label>
                         </div>
                     </div>
+                    
                     <div v-if="loading" class="loading-container">
                         <div class="loading-spinner">
                             <i class="fa fa-spinner fa-spin"></i>
@@ -76,7 +85,7 @@
                             <div class="flex row-columns pl-2 pt-1" style="line-height: initial">
                                 <div class="info col-order">
                                     <div>Order</div>
-                                    <div class="bold">#{{invoice.id}}</div>
+                                    <div class="bold">#{{invoice.order_number}}</div>
                                 </div>
                                 <div class="info min-w-80 no-wrap col-client">
                                     <div>Customer</div>
@@ -100,7 +109,7 @@
                             </div>
                                 <div v-if="currentInvoiceId" class="job-details-container" :class="{ active: currentInvoiceId === invoice.id }">
                                     <div v-if="currentInvoiceId===invoice.id" class="bgJobs text-white p-2 bold" style="line-height: normal;">
-                                        Jobs for Order #{{invoice.id}} {{invoice.invoice_title}}
+                                        Jobs for Order #{{invoice.order_number}} {{invoice.invoice_title}}
                                     </div>
                                     <div v-if="currentInvoiceId===invoice.id" class="jobInfo border-b" v-for="(job,index) in invoice.jobs">
                                             <div class=" jobInfo flex justify-between gap-1">
@@ -359,7 +368,7 @@
             <div v-if="showDeleteModal" class="files-modal" @click="closeDeleteModal">
                 <div class="files-modal-content centered" @click.stop>
                     <div class="files-modal-header">
-                        <h3>Delete Order #{{ targetInvoice?.id }}</h3>
+                        <h3>Delete Order #{{ targetInvoice?.order_number }}</h3>
                         <button @click="closeDeleteModal" class="close-btn">
                             <i class="fa fa-times"></i>
                         </button>
@@ -438,6 +447,9 @@ export default {
             filterStatus: 'All',
             filterClient: 'All',
             sortOrder: 'desc',
+            showArchived: false,
+            yearFilter: new Date().getFullYear(),
+            availableYears: [],
             localInvoices: [],
             uniqueClients:[],
             currentInvoiceId: null,
@@ -500,6 +512,9 @@ export default {
         }
     },
     mounted() {
+        // Initialize available years
+        this.initializeAvailableYears();
+        
         // Initialize with existing data
         this.localInvoices = this.invoices.data ? this.invoices.data.slice() : [];
         this.fetchUniqueClients();
@@ -524,8 +539,18 @@ export default {
         this.filterStatus = urlParams.get('status') || 'All';
         this.filterClient = urlParams.get('client') || 'All';
         this.sortOrder = urlParams.get('sortOrder') || 'desc';
+        this.showArchived = urlParams.get('showArchived') === '1';
+        this.yearFilter = urlParams.get('fiscal_year') ? parseInt(urlParams.get('fiscal_year')) : new Date().getFullYear();
     },
     methods: {
+        initializeAvailableYears() {
+            const currentYear = new Date().getFullYear();
+            // Generate years from 2025 (system start) to current year + 1
+            this.availableYears = [];
+            for (let year = currentYear + 1; year >= 2025; year--) {
+                this.availableYears.push(year);
+            }
+        },
         canDeleteInvoice(invoice) {
             // Show the button for eligible orders; backend enforces admin + passcode
             const statusOk = (invoice?.status || '').toLowerCase() === 'not started yet';
@@ -694,6 +719,8 @@ export default {
                         status: this.filterStatus,
                         sortOrder: this.sortOrder,
                         client: this.filterClient,
+                        showArchived: this.showArchived ? '1' : '0',
+                        fiscal_year: this.yearFilter,
                     },
                 });
                 
@@ -718,6 +745,12 @@ export default {
                 }
                 if (this.filterClient && this.filterClient !== 'All') {
                     params.push(`client=${encodeURIComponent(this.filterClient)}`);
+                }
+                if (this.showArchived) {
+                    params.push(`showArchived=1`);
+                }
+                if (this.yearFilter) {
+                    params.push(`fiscal_year=${this.yearFilter}`);
                 }
                 
                 if (params.length > 0) {
@@ -1127,6 +1160,8 @@ export default {
                             status: this.filterStatus,
                             sortOrder: this.sortOrder,
                             client: this.filterClient,
+                            showArchived: this.showArchived ? '1' : '0',
+                            fiscal_year: this.yearFilter,
                         },
                     });
                     
@@ -1336,7 +1371,208 @@ export default {
     justify-content: center;
 
 }
-.filter-container{
+
+/* Page Header */
+.page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+.sub-title {
+    font-size: 20px;
+    font-weight: bold;
+    margin: 0;
+    color: $white;
+}
+
+/* Filters Row */
+.filters-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    align-items: center;
+    margin-bottom: 20px;
+    padding: 16px;
+    background-color: rgba(255, 255, 255, 0.05);
+    border-radius: 8px;
+}
+
+.search-box {
+    position: relative;
+    flex: 1;
+    min-width: 200px;
+    max-width: 320px;
+}
+
+.search-icon {
+    position: absolute;
+    left: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #6b7280;
+    font-size: 14px;
+}
+
+.search-input {
+    width: 100%;
+    padding: 10px 12px 10px 36px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 6px;
+    background-color: white;
+    color: #1f2937;
+    font-size: 14px;
+    transition: border-color 0.2s, box-shadow 0.2s;
+    
+    &::placeholder {
+        color: #9ca3af;
+    }
+    
+    &:focus {
+        outline: none;
+        border-color: $blue;
+        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+    }
+}
+
+.filter-controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items: center;
+}
+
+.filter-select {
+    padding: 10px 32px 10px 12px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 6px;
+    background-color: white;
+    color: #1f2937;
+    font-size: 14px;
+    cursor: pointer;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%236b7280'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 8px center;
+    background-size: 16px;
+    transition: border-color 0.2s, box-shadow 0.2s;
+    
+    &:focus {
+        outline: none;
+        border-color: $blue;
+        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+    }
+    
+    &:hover {
+        border-color: rgba(255, 255, 255, 0.4);
+    }
+}
+
+/* Fixed widths for each filter to prevent layout shift */
+.filter-year {
+    width: 90px;
+}
+
+.filter-status {
+    width: 150px;
+}
+
+.filter-client {
+    width: 160px;
+}
+
+.filter-sort {
+    width: 140px;
+}
+
+/* Archived Toggle Styles */
+.archived-toggle {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    user-select: none;
+    padding: 6px 12px;
+    background-color: rgba(255, 255, 255, 0.1);
+    border-radius: 6px;
+    transition: background-color 0.2s;
+    
+    &:hover {
+        background-color: rgba(255, 255, 255, 0.15);
+    }
+    
+    input[type="checkbox"] {
+        display: none;
+    }
+    
+    .toggle-slider {
+        position: relative;
+        width: 36px;
+        height: 20px;
+        background-color: #4a5568;
+        border-radius: 10px;
+        transition: background-color 0.3s ease;
+        
+        &::after {
+            content: '';
+            position: absolute;
+            top: 2px;
+            left: 2px;
+            width: 16px;
+            height: 16px;
+            background-color: white;
+            border-radius: 50%;
+            transition: transform 0.3s ease;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+        }
+    }
+    
+    input[type="checkbox"]:checked + .toggle-slider {
+        background-color: $blue;
+        
+        &::after {
+            transform: translateX(16px);
+        }
+    }
+    
+    .toggle-label {
+        font-size: 14px;
+        color: white;
+        font-weight: 500;
+    }
+}
+
+/* Create Order Button */
+.btn.create-order {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 20px;
+    background-color: $green;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-weight: 600;
+    font-size: 14px;
+    cursor: pointer;
+    transition: background-color 0.2s, transform 0.1s;
+    
+    &:hover {
+        background-color: darken($green, 8%);
+    }
+    
+    &:active {
+        transform: scale(0.98);
+    }
+    
+    i {
+        font-size: 12px;
+    }
+}
+
+/* Legacy styles cleanup */
+.filter-container {
     justify-content: space-between;
     align-items: center;
     flex-wrap: nowrap;
@@ -1351,16 +1587,6 @@ export default {
     flex: 0 1 auto;
     display: flex;
     flex-wrap: nowrap;
-}
-.search-input{
-    width: 100%;
-    min-width: 0; /* allow shrinking in flex */
-    border-radius: 3px;
-}
-.filter-select{
-    width: auto;
-    min-width: 120px;
-    max-width: 240px;
 }
 .jobInfo{
 
@@ -1393,10 +1619,7 @@ export default {
         transform: scale(1.05);
     }
 }
-select{
-    width: auto;
-    min-width: 120px;
-    max-width: 240px;
+select {
     border-radius: 3px;
 }
 .orange{
@@ -1438,14 +1661,6 @@ select{
 .ultra-light-gray{
     background-color: $ultra-light-gray;
 }
-.sub-title{
-    font-size: 20px;
-    font-weight: bold;
-    margin-bottom: 20px;
-    display: flex;
-    align-items: center;
-    color: $white;
-}
 
 .button-container{
     display: flex-end;
@@ -1459,10 +1674,6 @@ select{
 }
 .create-order1{
     background-color: $blue;
-    color: white;
-}
-.create-order{
-    background-color: $green;
     color: white;
 }
 
@@ -2899,6 +3110,42 @@ select{
     .page-count-indicator {
         font-size: 8px;
         padding: 1px 4px;
+    }
+}
+
+/* Responsive adjustments for filters */
+@media (max-width: 1200px) {
+    .filters-row {
+        gap: 10px;
+    }
+    
+    .search-box {
+        max-width: 280px;
+    }
+    
+    .filter-select {
+        min-width: 120px;
+    }
+}
+
+@media (max-width: 900px) {
+    .page-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 12px;
+    }
+    
+    .filters-row {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    
+    .search-box {
+        max-width: 100%;
+    }
+    
+    .filter-controls {
+        justify-content: flex-start;
     }
 }
 </style>

@@ -27,9 +27,14 @@
                             v-model="searchQuery" 
                             @input="debounceSearch"
                             type="text" 
-                            placeholder="Search orders, clients..." 
+                            placeholder="Search by order #, title, client..." 
                             class="search-input"
                         />
+                        <select v-model="yearFilter" @change="fetchOrders" class="status-select">
+                            <option v-for="year in availableYears" :key="year" :value="year">
+                                {{ year }}
+                            </option>
+                        </select>
                         <select v-model="statusFilter" @change="fetchOrders" class="status-select">
                             <option value="">All Status</option>
                             <option value="Not started yet">Not started yet</option>
@@ -63,7 +68,7 @@
                         :class="{ 'order-selected': selectedOrder && selectedOrder.id === order.id }"
                         @click="openOrderDetails(order)"
                     >
-                        <div class="order-id">#{{ order.id }}</div>
+                        <div class="order-id">#{{ order.order_number }}</div>
                         <div class="order-title" :title="order.invoice_title">{{ order.invoice_title }}</div>
                         <div class="client" :title="order.client?.name || 'N/A'">{{ order.client?.name || 'N/A' }}</div>
                         <div class="end-date" :title="formatDate(order.end_date)">{{ formatDate(order.end_date) }}</div>
@@ -121,9 +126,14 @@
                             v-model="completedSearchQuery" 
                             @input="debounceCompletedSearch"
                             type="text" 
-                            placeholder="Search completed orders..." 
+                            placeholder="Search by order #, title, client..." 
                             class="search-input"
                         />
+                        <select v-model="completedYearFilter" @change="fetchCompletedOrders" class="status-select">
+                            <option v-for="year in availableYears" :key="year" :value="year">
+                                {{ year }}
+                            </option>
+                        </select>
                         <select v-model="completedCreatedByFilter" @change="fetchCompletedOrders" class="status-select">
                             <option value="">All Users</option>
                             <option v-for="user in availableUsers" :key="user.id" :value="user.id">
@@ -151,7 +161,7 @@
                         :class="{ 'order-selected': selectedOrder && selectedOrder.id === order.id }"
                         @click="openOrderDetails(order)"
                     >
-                        <div class="order-id">#{{ order.id }}</div>
+                        <div class="order-id">#{{ order.order_number }}</div>
                         <div class="order-title" :title="order.invoice_title">{{ order.invoice_title }}</div>
                         <div class="client" :title="order.client?.name || 'N/A'">{{ order.client?.name || 'N/A' }}</div>
                         <div class="end-date" :title="formatDate(order.end_date)">{{ formatDate(order.end_date) }}</div>
@@ -199,7 +209,7 @@
                 <div class="order-sidebar-inner">
                     <template v-if="selectedOrder">
                         <div class="sidebar-header">
-                            <h3 class="sidebar-title">Order: #{{ selectedOrder.id }}</h3>
+                            <h3 class="sidebar-title">Order: #{{ selectedOrder.order_number }}</h3>
                             <div class="mt-1 mb-1 px-2 rounded-full" :class="getStatusClass(selectedOrder.status)">
                                 {{ selectedOrder.status }}
                             </div>
@@ -440,6 +450,9 @@ export default {
             statusFilter: '',
             createdByFilter: '',
             completedCreatedByFilter: '',
+            yearFilter: new Date().getFullYear(),
+            completedYearFilter: new Date().getFullYear(),
+            availableYears: [],
             availableUsers: [],
             searchTimeout: null,
             completedSearchTimeout: null,
@@ -452,6 +465,7 @@ export default {
         }
     },
     mounted() {
+        this.initializeAvailableYears();
         this.fetchAvailableUsers();
         this.fetchOrders();
         this.fetchCompletedOrders();
@@ -464,6 +478,15 @@ export default {
         document.removeEventListener('keydown', this.handleKeydown);
     },
     methods: {
+        initializeAvailableYears() {
+            const currentYear = new Date().getFullYear();
+            // Generate years from 2025 (system start) to current year + 1
+            this.availableYears = [];
+            for (let year = currentYear + 1; year >= 2025; year--) {
+                this.availableYears.push(year);
+            }
+        },
+
         async fetchOrders() {
             try {
                 const params = {
@@ -479,6 +502,10 @@ export default {
                     params.createdBy = this.createdByFilter;
                 }
 
+                if (this.yearFilter) {
+                    params.fiscal_year = this.yearFilter;
+                }
+
                 // Always exclude completed orders from latest list (handled server-side)
                 const response = await axios.get('/orders/latest-open', { params });
                 this.orders = response.data;
@@ -490,7 +517,6 @@ export default {
         async fetchCompletedOrders() {
             try {
                 const params = {
-                    status: 'Completed',
                     page: this.completedOrders.current_page
                 };
 
@@ -502,7 +528,11 @@ export default {
                     params.createdBy = this.completedCreatedByFilter;
                 }
 
-                const response = await axios.get('/orders', { params });
+                if (this.completedYearFilter) {
+                    params.fiscal_year = this.completedYearFilter;
+                }
+
+                const response = await axios.get('/orders/completed', { params });
                 this.completedOrders = response.data;
             } catch (error) {
                 console.error('Error fetching completed orders:', error);

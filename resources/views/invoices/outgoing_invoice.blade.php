@@ -175,12 +175,16 @@
             {{--                <div class="barcode">--}}
             {{--                    <img src="data:image/png;base64,{{ $invoice->barcodeImage }}" alt="Invoice Barcode">--}}
             {{--                </div>--}}
+                            @php
+                                $fakturaDisplayNumber = $invoice['faktura_number'] ?? $invoice['preview_faktura_number'] ?? $invoice['faktura_id'] ?? $invoice['id'];
+                                $period = date('m-Y', strtotime($invoice['end_date']));
+                            @endphp
                             <div class="o-inf">
-                                    No.     {{ $invoice['id'] . '-' . date('m-Y', strtotime($invoice['end_date'])) }}
+                                    No.     {{ $fakturaDisplayNumber . '-' . $period }}
                             </div>
                             <div class="ispratnica">Испратница Бр:</div>
                             <div class="invoice-number">
-                                Фактура Бр.  {{ $invoice['id'] . '-' . date('m-Y', strtotime($invoice['end_date'])) }}
+                                Фактура Бр.  {{ $fakturaDisplayNumber . '-' . $period }}
                             </div>
                         </td>
                         <td class="client-info right">

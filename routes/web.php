@@ -177,14 +177,16 @@ Route::middleware(['auth', 'verified'])->group(function() {
     // Stock Realization routes
     Route::get('/stock-realizations', [StockRealizationController::class, 'index'])->name('stock-realizations.index');
     Route::get('/stock-realizations/pending', [StockRealizationController::class, 'pending'])->name('stock-realizations.pending');
+    Route::get('/stock-realizations/articles/available', [StockRealizationController::class, 'getAvailableArticles'])->name('stock-realizations.availableArticles');
     Route::get('/stock-realizations/{id}', [StockRealizationController::class, 'show'])->name('stock-realizations.show');
     Route::get('/stock-realizations/{id}/pdf', [StockRealizationController::class, 'generatePDF'])->name('stock-realizations.pdf');
     Route::get('/stock-realizations/{id}/debug', [StockRealizationController::class, 'debugData'])->name('stock-realizations.debug');
     Route::put('/stock-realizations/{id}/jobs/{jobId}', [StockRealizationController::class, 'updateJob'])->name('stock-realizations.updateJob');
     Route::put('/stock-realizations/{id}/jobs/{jobId}/articles/{articleId}', [StockRealizationController::class, 'updateArticle'])->name('stock-realizations.updateArticle');
+    Route::post('/stock-realizations/{id}/jobs/{jobId}/articles', [StockRealizationController::class, 'addArticle'])->name('stock-realizations.addArticle');
+    Route::delete('/stock-realizations/{id}/jobs/{jobId}/articles/{articleId}', [StockRealizationController::class, 'removeArticle'])->name('stock-realizations.removeArticle');
     Route::post('/stock-realizations/{id}/realize', [StockRealizationController::class, 'realize'])->name('stock-realizations.realize');
     Route::post('/stock-realizations/{id}/revert', [StockRealizationController::class, 'revert'])->name('stock-realizations.revert');
-    Route::get('/stock-realizations/articles/available', [StockRealizationController::class, 'getAvailableArticles'])->name('stock-realizations.availableArticles');
 });
 
 //Rotues For Client
@@ -609,5 +611,23 @@ Route::middleware(['auth', 'verified'])->group(function () {
 // Material dropdown API endpoints
 Route::get('/api/materials/large-dropdown', [LargeFormatMaterialController::class, 'largeDropdown']);
 Route::get('/api/materials/small-dropdown', [SmallMaterialController::class, 'smallDropdown']);
+
+//Routes for Year-End Census
+Route::middleware(['auth', 'verified'])->group(function () {
+    Route::get('/year-end-census', [\App\Http\Controllers\YearEndCensusController::class, 'index'])->name('year-end-census');
+    Route::get('/api/year-end-census/orders/{year}', [\App\Http\Controllers\YearEndCensusController::class, 'getOrdersSummary']);
+    Route::post('/api/year-end-census/orders/{year}/archive', [\App\Http\Controllers\YearEndCensusController::class, 'archiveCompletedOrders']);
+    Route::post('/api/year-end-census/orders/{year}/close', [\App\Http\Controllers\YearEndCensusController::class, 'closeYear']);
+    Route::get('/api/year-end-census/orders/{year}/export', [\App\Http\Controllers\YearEndCensusController::class, 'exportYearSummary']);
+    
+    // Invoice routes
+    Route::get('/api/year-end-census/invoices/{year}', [\App\Http\Controllers\YearEndCensusController::class, 'getInvoicesSummary']);
+    Route::get('/api/year-end-census/invoices/{year}/export', [\App\Http\Controllers\YearEndCensusController::class, 'exportInvoicesSummary']);
+    
+    // Materials routes
+    Route::get('/api/year-end-census/materials/{year}', [\App\Http\Controllers\YearEndCensusController::class, 'getMaterialsSummary']);
+    Route::post('/api/year-end-census/materials/{year}/close', [\App\Http\Controllers\YearEndCensusController::class, 'closeMaterialsYear']);
+    Route::get('/api/year-end-census/materials/{year}/export', [\App\Http\Controllers\YearEndCensusController::class, 'exportMaterialsSummary']);
+});
 
 require __DIR__.'/auth.php';

@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\DB;
 
 class Faktura extends Model
 {
@@ -17,13 +18,60 @@ class Faktura extends Model
         'split_group_identifier',
         'parent_order_id',
         'faktura_overrides',
-        'client_id'
+        'client_id',
+        'faktura_number',
+        'fiscal_year',
     ];
     protected $casts = [
         'merge_groups' => 'array',
         'is_split_invoice' => 'boolean',
         'faktura_overrides' => 'array',
     ];
+
+    /**
+     * Boot method to auto-generate faktura_number on creation
+     */
+    protected static function boot()
+    {
+        parent::boot();
+
+        static::creating(function ($faktura) {
+            if (empty($faktura->faktura_number)) {
+                $faktura->generateFakturaNumber();
+            }
+        });
+    }
+
+    /**
+     * Generate the next sequential faktura number for the current fiscal year
+     */
+    public function generateFakturaNumber(): void
+    {
+        $fiscalYear = $this->fiscal_year ?? (int) date('Y');
+        $this->fiscal_year = $fiscalYear;
+
+        $maxNumber = DB::table('faktura')
+            ->where('fiscal_year', $fiscalYear)
+            ->max('faktura_number') ?? 0;
+
+        $this->faktura_number = $maxNumber + 1;
+    }
+
+    /**
+     * Get the formatted faktura number (e.g., "5/2026")
+     */
+    public function getFormattedFakturaNumberAttribute(): string
+    {
+        return $this->faktura_number . '/' . $this->fiscal_year;
+    }
+
+    /**
+     * Scope to filter by fiscal year
+     */
+    public function scopeForFiscalYear($query, int $year)
+    {
+        return $query->where('fiscal_year', $year);
+    }
 
     /**
      * Get the invoices associated with the faktura.

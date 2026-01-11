@@ -60,7 +60,7 @@
                             <thead>
                             <tr>
                                 <th style="width: 45px;">{{$t('Nr')}}</th>
-                                <th style="width: 75px">{{$t('ID')}}</th>
+                                <th style="width: 100px">{{$t('receiptId')}}</th>
                                 <th>{{$t('date')}}<div class="resizer" @mousedown="initResize($event, 1)"></div></th>
                                 <th>{{$t('warehouse')}}<div class="resizer" @mousedown="initResize($event, 2)"></div></th>
                                 <th>{{$t('client')}}<div class="resizer" @mousedown="initResize($event, 3)"></div></th>
@@ -73,7 +73,7 @@
                             <tbody>
                             <tr v-for="(receipt, index) in localReceipts" :key="receipt.id">
                                 <th>{{index + 1}}</th>
-                                <th>{{receipt.id}}</th>
+                                <th>#{{ receipt.receipt_number }}/{{ receipt.fiscal_year }}</th>
                                 <th>{{ new Date(receipt.created_at).toLocaleDateString('en-GB') }}</th>
                                 <th>{{receipt.warehouse_name}}</th>
                                 <th>{{receipt.client.name}}</th>
