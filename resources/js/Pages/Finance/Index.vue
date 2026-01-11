@@ -10,7 +10,7 @@
                     </h2>
                     <div class="filter-container flex gap-4 pb-10">
                         <div class="search flex gap-2">
-                            <input v-model="searchQuery" placeholder="Enter order number or order name"
+                            <input v-model="searchQuery" placeholder="Search by order #, title, client..."
                                 class="text-black search-input" @keyup.enter="searchInvoices" />
                             <button class="btn create-order1" @click="searchInvoices">Search</button>
                         </div>
@@ -65,7 +65,7 @@
                             <div class="flex row-columns pl-2 pt-1" style="line-height: initial">
                                 <div class="info col-order">
                                     <div>Order</div>
-                                    <div class="bold">#{{ invoice.id }}</div>
+                                    <div class="bold">#{{ invoice.order_number }}</div>
                                 </div>
                                 <div class="info min-w-80 no-wrap col-client">
                                     <div>Customer</div>

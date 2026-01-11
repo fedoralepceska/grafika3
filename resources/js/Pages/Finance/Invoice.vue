@@ -9,7 +9,7 @@
             <div class="invoice-container">
                 <div class="invoice-header">
                     <div class="flex flex-col">
-                        <Header title="invoice2" subtitle="invoiceEdit" icon="invoice.png" link="allInvoices"/>
+                        <Header title="invoice2" subtitle="invoiceEdit" icon="invoice.png" link="allInvoices" />
                         <div v-if="splitMode" class="split-mode-indicator">
                             <i class="fas fa-cut"></i>
                             Split Mode Active - Create groups and assign jobs to them
@@ -21,33 +21,38 @@
                                 <button class="btn blue" @click="openCommentModal">
                                     Add Comment <i class="fa-solid fa-comment"></i>
                                 </button>
-                                <button v-if="!splitMode" class="btn generate-invoice" @click="printInvoice" :disabled="!canPrintInvoice">
+                                <button v-if="!splitMode" class="btn generate-invoice" @click="printInvoice"
+                                    :disabled="!canPrintInvoice">
                                     Print Invoice <i class="fa-solid fa-file-invoice-dollar"></i>
                                 </button>
-                                <button v-if="splitMode" class="btn generate-invoice" @click="regenerateSplitInvoices" :disabled="!canRegenerateSplit">
+                                <button v-if="splitMode" class="btn generate-invoice" @click="regenerateSplitInvoices"
+                                    :disabled="!canRegenerateSplit">
                                     Regenerate Split Invoices <i class="fa-solid fa-file-invoice-dollar"></i>
                                 </button>
-                            <button v-if="isEditMode" class="btn blue" @click="openAttachOrdersModal">
-                                Add Orders <i class="fa-solid fa-plus"></i>
-                            </button>
-                            <button v-if="isEditMode" class="btn delete" @click="openDetachOrdersModal">
-                                Remove Orders <i class="fa-solid fa-minus"></i>
-                            </button>
+                                <button v-if="isEditMode" class="btn blue" @click="openAttachOrdersModal">
+                                    Add Orders <i class="fa-solid fa-plus"></i>
+                                </button>
+                                <button v-if="isEditMode" class="btn delete" @click="openDetachOrdersModal">
+                                    Remove Orders <i class="fa-solid fa-minus"></i>
+                                </button>
                             </div>
-                        <div class="buttons flex justify-end pt-3 gap-2">
-                            <button v-if="isEditMode && !splitMode" class="btn btn3" @click="createOrAddToMergeGroup()">
-                                Merge
-                            </button>
-                            <button v-if="isEditMode && !splitMode" class="btn btn4" @click="unmergeSelected()">
-                                Unmerge 
-                            </button>
-                            <button v-if="isEditMode && hasUnsavedMergeChanges" class="btn generate-invoice" @click="saveMergeChanges()">
-                                Save Changes
-                            </button>
-                            <button v-if="isEditMode" class="btn text-white" :class="splitMode ? 'bg-[#dc2626]' : 'bg-[#008080]'" @click="toggleSplitMode()">
-                                {{ splitMode ? 'Exit Split Mode' : 'Split Jobs' }}
-                            </button>
-                        </div>
+                            <div class="buttons flex justify-end pt-3 gap-2">
+                                <button v-if="isEditMode && !splitMode" class="btn btn3"
+                                    @click="createOrAddToMergeGroup()">
+                                    Merge
+                                </button>
+                                <button v-if="isEditMode && !splitMode" class="btn btn4" @click="unmergeSelected()">
+                                    Unmerge
+                                </button>
+                                <button v-if="isEditMode && hasUnsavedMergeChanges" class="btn generate-invoice"
+                                    @click="saveMergeChanges()">
+                                    Save Changes
+                                </button>
+                                <button v-if="isEditMode" class="btn text-white"
+                                    :class="splitMode ? 'bg-[#dc2626]' : 'bg-[#008080]'" @click="toggleSplitMode()">
+                                    {{ splitMode ? 'Exit Split Mode' : 'Split Jobs' }}
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -59,7 +64,8 @@
                             <div class="client-label">Client</div>
                             <div class="client-name" style="display:flex;align-items:center;gap:8px;">
                                 {{ faktura?.client?.name || invoice[0]?.client?.name || invoice[0]?.client || '' }}
-                                <button v-if="isEditMode" class="btn btn-edit-small" @click="openFakturaClientChangeModal" title="Change Client">
+                                <button v-if="isEditMode" class="btn btn-edit-small"
+                                    @click="openFakturaClientChangeModal" title="Change Client">
                                     Change
                                 </button>
                             </div>
@@ -95,14 +101,14 @@
                             </div>
                             <div class="info-item comment" v-if="invoice[0]?.faktura_comment">
                                 <span class="info-label">Comment</span>
-                                <span class="info-value">{{invoice[0]?.faktura_comment}}</span>
+                                <span class="info-value">{{ invoice[0]?.faktura_comment }}</span>
                             </div>
                             <div class="info-item">
                                 <span class="info-label">Payment Deadline (days)</span>
                                 <span class="info-value">
                                     <div v-if="isEditMode && editingPaymentDeadline" class="date-edit-container">
-                                        <input v-model.number="paymentDeadlineEdit" @keyup.enter="savePaymentDeadline" class="date-input"
-                                            type="number" min="0" step="1" />
+                                        <input v-model.number="paymentDeadlineEdit" @keyup.enter="savePaymentDeadline"
+                                            class="date-input" type="number" min="0" step="1" />
                                         <button @click="savePaymentDeadline" class="save-btn" title="Save">
                                             <i class="fas fa-check"></i>
                                         </button>
@@ -124,10 +130,10 @@
                     <div class="section-header">
                         <h3 class="section-title">Orders & Jobs</h3>
                     </div>
-                    
+
                     <div v-for="(invoiceData, index) in invoice" :key="index" class="order-section">
                         <!-- Order Separator (except for first order) -->
-                        <div  class="order-separator">
+                        <div class="order-separator">
                             <div class="separator-line"></div>
                             <span class="separator-text">Order {{ index + 1 }}</span>
                             <div class="separator-line"></div>
@@ -139,29 +145,27 @@
                                 <div class="detail-item title-item">
                                     <span class="label">Title:</span>
                                     <div class="title-content">
-                                        <div v-if="isEditMode && editingTitle[invoiceData.id]" class="title-edit-container">
-                                            <input 
-                                                v-model="titleEdits[invoiceData.id]"
-                                                @keyup.enter="saveTitle(invoiceData)"
-                                                class="title-input"
-                                                type="text"
-                                            />
+                                        <div v-if="isEditMode && editingTitle[invoiceData.id]"
+                                            class="title-edit-container">
+                                            <input v-model="titleEdits[invoiceData.id]"
+                                                @keyup.enter="saveTitle(invoiceData)" class="title-input" type="text" />
                                             <button @click="saveTitle(invoiceData)" class="save-btn" title="Save">
                                                 <i class="fas fa-check"></i>
                                             </button>
-                                            <button @click="cancelEditTitle(invoiceData)" class="cancel-btn" title="Cancel">
+                                            <button @click="cancelEditTitle(invoiceData)" class="cancel-btn"
+                                                title="Cancel">
                                                 <i class="fas fa-times"></i>
                                             </button>
                                         </div>
                                         <div v-else class="invoice-title" @click="startEditTitle(invoiceData)">
-                                          {{ getDisplayOrderTitle(invoiceData.id, invoiceData.invoice_title) }}
+                                            {{ getDisplayOrderTitle(invoiceData.id, invoiceData.invoice_title) }}
                                             <i v-if="isEditMode" class="fas fa-edit edit-icon"></i>
                                         </div>
                                     </div>
                                 </div>
                                 <div class="detail-item">
                                     <span class="label">Order:</span>
-                                    <span>#{{ invoiceData?.id }}</span>
+                                    <span>#{{ invoiceData?.order_number || invoiceData?.id }}</span>
                                 </div>
                                 <div class="detail-item">
                                     <span class="label">{{ $t('startDate') }}:</span>
@@ -204,12 +208,15 @@
                                             </div>
                                             <div class="value-cell">
                                                 <template v-if="isEditMode && editingJobId === job.id">
-                                                    <input class="inline-input" type="number" min="0" v-model.number="job.quantity" />
+                                                    <input class="inline-input" type="number" min="0"
+                                                        v-model.number="job.quantity" />
                                                 </template>
-                                                <template v-else>{{ getDisplayJobQuantity(job.id, job.quantity) }}</template>
+                                                <template v-else>{{ getDisplayJobQuantity(job.id, job.quantity)
+                                                    }}</template>
                                             </div>
                                             <div class="value-cell">
-                                                <select class="inline-input unit-select" :value="job.unit || 'ком'" @input="updateJobUnit(job, $event.target.value)">
+                                                <select class="inline-input unit-select" :value="job.unit || 'ком'"
+                                                    @input="updateJobUnit(job, $event.target.value)">
                                                     <option value="м">м</option>
                                                     <option value="м²">м²</option>
                                                     <option value="кг">кг</option>
@@ -218,64 +225,82 @@
                                             </div>
                                             <div class="value-cell">
                                                 <template v-if="isEditMode && editingJobId === job.id">
-                                                    <input class="inline-input" type="number" min="0" step="0.0001" v-model.number="job.computed_total_area_m2" />
+                                                    <input class="inline-input" type="number" min="0" step="0.0001"
+                                                        v-model.number="job.computed_total_area_m2" />
                                                 </template>
                                                 <template v-else>{{ formatArea(job.computed_total_area_m2) }}</template>
                                             </div>
                                             <div class="value-cell">
                                                 <template v-if="isEditMode && editingJobId === job.id">
-                                                    <input class="inline-input" type="number" min="0" step="0.01" v-model.number="job.salePrice" />
+                                                    <input class="inline-input" type="number" min="0" step="0.01"
+                                                        v-model.number="job.salePrice" />
                                                 </template>
                                                 <template v-else>{{ formatPrice(job.salePrice) }} ден.</template>
                                             </div>
                                             <div class="value-cell actions">
                                                 <template v-if="isEditMode">
                                                     <template v-if="editingJobId !== job.id">
-                                                        <button class="btn-edit-small" @click="startEditingJob(job)" title="Edit" aria-label="Edit">
+                                                        <button class="btn-edit-small" @click="startEditingJob(job)"
+                                                            title="Edit" aria-label="Edit">
                                                             <i class="fas fa-edit"></i>
                                                         </button>
                                                     </template>
                                                     <template v-else>
-                                                        <button class="btn-save-small" @click="saveEditingJob(job)" title="Save" aria-label="Save">
+                                                        <button class="btn-save-small" @click="saveEditingJob(job)"
+                                                            title="Save" aria-label="Save">
                                                             <i class="fas fa-save"></i>
                                                         </button>
-                                                        <button class="btn-cancel-small" @click="cancelEditingJob(job)" title="Cancel" aria-label="Cancel">
+                                                        <button class="btn-cancel-small" @click="cancelEditingJob(job)"
+                                                            title="Cancel" aria-label="Cancel">
                                                             <i class="fas fa-times"></i>
                                                         </button>
                                                     </template>
                                                 </template>
-                                                <button class="btn-edit-small" style="margin-left:6px" @click="toggleMaterials(job.id)" :title="materialsOpen[job.id] ? 'Hide Materials' : 'Show Materials'" :aria-label="materialsOpen[job.id] ? 'Hide Materials' : 'Show Materials'">
-                                                    <i class="fas" :class="materialsOpen[job.id] ? 'fa-eye-slash' : 'fa-eye'"></i>
+                                                <button class="btn-edit-small" style="margin-left:6px"
+                                                    @click="toggleMaterials(job.id)"
+                                                    :title="materialsOpen[job.id] ? 'Hide Materials' : 'Show Materials'"
+                                                    :aria-label="materialsOpen[job.id] ? 'Hide Materials' : 'Show Materials'">
+                                                    <i class="fas"
+                                                        :class="materialsOpen[job.id] ? 'fa-eye-slash' : 'fa-eye'"></i>
                                                 </button>
-                                                <button v-if="!splitMode" class="merge-toggle ml-2" :class="{selected: isSelected(job.id)}" @click="toggleMergeSelection(job.id)" title="Toggle merge" aria-label="Toggle merge">
+                                                <button v-if="!splitMode" class="merge-toggle ml-2"
+                                                    :class="{ selected: isSelected(job.id) }"
+                                                    @click="toggleMergeSelection(job.id)" title="Toggle merge"
+                                                    aria-label="Toggle merge">
                                                     <i class="fa-solid fa-code-merge"></i>
                                                 </button>
-                                                
+
                                                 <!-- Split Mode -->
                                                 <div v-if="splitMode" class="split-assignment-compact">
-                                                    <div class="custom-split-dropdown" :class="{ open: openDropdowns[job.id] }">
-                                                        <button class="split-dropdown-trigger" 
-                                                                @click="toggleDropdown(job.id)"
-                                                                :class="{ assigned: getJobSplitGroup(job.id) !== '' }"
-                                                                title="Assign to split group">
+                                                    <div class="custom-split-dropdown"
+                                                        :class="{ open: openDropdowns[job.id] }">
+                                                        <button class="split-dropdown-trigger"
+                                                            @click="toggleDropdown(job.id)"
+                                                            :class="{ assigned: getJobSplitGroup(job.id) !== '' }"
+                                                            title="Assign to split group">
                                                             <span class="dropdown-text">
-                                                                {{ getJobSplitGroup(job.id) !== '' ? 'Group ' + (parseInt(getJobSplitGroup(job.id)) + 1) : '—' }}
+                                                                {{ getJobSplitGroup(job.id) !== '' ? 'Group ' +
+                                                                    (parseInt(getJobSplitGroup(job.id)) + 1) : '—' }}
                                                             </span>
                                                             <i class="fas fa-chevron-down dropdown-arrow"></i>
                                                         </button>
-                                                            <div class="split-dropdown-menu" v-if="openDropdowns[job.id]">
-                                                            <div class="dropdown-option unassign" 
-                                                                 @click="assignJobToGroup(job.id, ''); closeDropdown(job.id)"
-                                                                 :class="{ active: getJobSplitGroup(job.id) === '' }">
+                                                        <div class="split-dropdown-menu" v-if="openDropdowns[job.id]">
+                                                            <div class="dropdown-option unassign"
+                                                                @click="assignJobToGroup(job.id, ''); closeDropdown(job.id)"
+                                                                :class="{ active: getJobSplitGroup(job.id) === '' }">
                                                                 <span class="option-badge">—</span>
-                                                                <span class="option-text">Keep in Original (Faktura {{ fakturaId }})</span>
+                                                                <span class="option-text">Keep in Original (Faktura {{
+                                                                    fakturaId }})</span>
                                                             </div>
                                                             <div v-for="(group, index) in splitGroups" :key="index"
-                                                                 class="dropdown-option" 
-                                                                 @click="assignJobToGroup(job.id, index.toString()); closeDropdown(job.id)"
-                                                                 :class="{ active: getJobSplitGroup(job.id) === index.toString() }">
-                                                                <span class="option-badge" :style="{ backgroundColor: getGroupColor(index) }">{{ index + 1 }}</span>
-                                                                <span class="option-text">Group {{ index + 1 }} — {{ group.client }}</span>
+                                                                class="dropdown-option"
+                                                                @click="assignJobToGroup(job.id, index.toString()); closeDropdown(job.id)"
+                                                                :class="{ active: getJobSplitGroup(job.id) === index.toString() }">
+                                                                <span class="option-badge"
+                                                                    :style="{ backgroundColor: getGroupColor(index) }">{{
+                                                                        index + 1 }}</span>
+                                                                <span class="option-text">Group {{ index + 1 }} — {{
+                                                                    group.client }}</span>
                                                             </div>
                                                         </div>
                                                     </div>
@@ -286,10 +311,12 @@
                                             <span class="label">{{ $t('material') }}:</span>
                                             <div class="value materials-list">
                                                 <template v-if="job.articles && job.articles.length">
-                                                    <div v-for="(article, aIdx) in job.articles" :key="aIdx" class="material-item">
+                                                    <div v-for="(article, aIdx) in job.articles" :key="aIdx"
+                                                        class="material-item">
                                                         <span class="item-name">{{ article.name }}</span>
                                                         <span class="item-sep"> - </span>
-                                                        <span class="item-qty">{{ article.pivot?.quantity ?? 0 }} {{ getUnitTextFromPivot(article) }}</span>
+                                                        <span class="item-qty">{{ article.pivot?.quantity ?? 0 }} {{
+                                                            getUnitTextFromPivot(article) }}</span>
                                                     </div>
                                                 </template>
                                                 <template v-else-if="job.large_material">
@@ -310,42 +337,37 @@
                                     </div>
                                 </template>
                                 <!-- Render merged containers per order -->
-                                <div v-for="grp in getGroupsForOrder(invoiceData.id)" :key="'grp-'+grp.__idx" class="job-card merged-container" :class="'merged-color-' + (grp.__idx % 6)">
+                                <div v-for="grp in getGroupsForOrder(invoiceData.id)" :key="'grp-' + grp.__idx"
+                                    class="job-card merged-container" :class="'merged-color-' + (grp.__idx % 6)">
                                     <div class="job-header">
-                                        <template v-if="isEditMode && isGroupEditableInOrder(grp.__idx, invoiceData.id) && editingMergedGroupId === grp.__idx">
-                                            <input 
-                                                class="inline-input" 
+                                        <template
+                                            v-if="isEditMode && isGroupEditableInOrder(grp.__idx, invoiceData.id) && editingMergedGroupId === grp.__idx">
+                                            <input class="inline-input"
                                                 :class="{ 'invalid-field': !isMergeGroupFieldValid(grp.__idx, 'title') }"
-                                                placeholder="Group title" 
-                                                v-model="grp.title" />
-                                            <input 
-                                                type="number" 
-                                                min="0" 
-                                                step="0.01" 
-                                                class="inline-input" 
+                                                placeholder="Group title" v-model="grp.title" />
+                                            <input type="number" min="0" step="0.01" class="inline-input"
                                                 :class="{ 'invalid-field': !isMergeGroupFieldValid(grp.__idx, 'quantity') }"
-                                                placeholder="Quantity" 
-                                                v-model.number="grp.quantity" />
-                                            <select class="inline-input unit-select" :value="grp.unit || 'ком'" @input="updateMergeGroupUnit(grp.__idx, $event.target.value)">
+                                                placeholder="Quantity" v-model.number="grp.quantity" />
+                                            <select class="inline-input unit-select" :value="grp.unit || 'ком'"
+                                                @input="updateMergeGroupUnit(grp.__idx, $event.target.value)">
                                                 <option value="м">м</option>
                                                 <option value="м²">м²</option>
                                                 <option value="кг">кг</option>
                                                 <option value="ком">ком</option>
                                             </select>
                                             <div class="value-cell"></div>
-                                            <input 
-                                                type="number" 
-                                                min="0" 
-                                                step="0.01" 
-                                                class="inline-input" 
+                                            <input type="number" min="0" step="0.01" class="inline-input"
                                                 :class="{ 'invalid-field': !isMergeGroupFieldValid(grp.__idx, 'sale_price') }"
-                                                placeholder="Sale Price" 
-                                                v-model.number="grp.sale_price" />
+                                                placeholder="Sale Price" v-model.number="grp.sale_price" />
                                             <div class="value-cell actions">
-                                                <button class="btn-save-small" @click="saveEditingMergedGroup(grp.__idx)" title="Save" aria-label="Save">
+                                                <button class="btn-save-small"
+                                                    @click="saveEditingMergedGroup(grp.__idx)" title="Save"
+                                                    aria-label="Save">
                                                     <i class="fas fa-save"></i>
                                                 </button>
-                                                <button class="btn-cancel-small" @click="cancelEditingMergedGroup(grp.__idx)" title="Cancel" aria-label="Cancel">
+                                                <button class="btn-cancel-small"
+                                                    @click="cancelEditingMergedGroup(grp.__idx)" title="Cancel"
+                                                    aria-label="Cancel">
                                                     <i class="fas fa-times"></i>
                                                 </button>
                                             </div>
@@ -357,17 +379,24 @@
                                             <div class="value-cell"></div>
                                             <div class="value-cell">{{ formatPrice(grp.sale_price || 0) }} ден.</div>
                                             <div class="value-cell actions">
-                                                <template v-if="isEditMode && isGroupEditableInOrder(grp.__idx, invoiceData.id)">
+                                                <template
+                                                    v-if="isEditMode && isGroupEditableInOrder(grp.__idx, invoiceData.id)">
                                                     <template v-if="editingMergedGroupId !== grp.__idx">
-                                                        <button class="btn-edit-small" @click="startEditingMergedGroup(grp.__idx)" title="Edit" aria-label="Edit">
+                                                        <button class="btn-edit-small"
+                                                            @click="startEditingMergedGroup(grp.__idx)" title="Edit"
+                                                            aria-label="Edit">
                                                             <i class="fas fa-edit"></i>
                                                         </button>
                                                     </template>
                                                     <template v-else>
-                                                        <button class="btn-save-small" @click="saveEditingMergedGroup(grp.__idx)" title="Save" aria-label="Save">
+                                                        <button class="btn-save-small"
+                                                            @click="saveEditingMergedGroup(grp.__idx)" title="Save"
+                                                            aria-label="Save">
                                                             <i class="fas fa-save"></i>
                                                         </button>
-                                                        <button class="btn-cancel-small" @click="cancelEditingMergedGroup(grp.__idx)" title="Cancel" aria-label="Cancel">
+                                                        <button class="btn-cancel-small"
+                                                            @click="cancelEditingMergedGroup(grp.__idx)" title="Cancel"
+                                                            aria-label="Cancel">
                                                             <i class="fas fa-times"></i>
                                                         </button>
                                                     </template>
@@ -376,7 +405,8 @@
                                         </template>
                                     </div>
                                     <div class="merged-body">
-                                        <div v-for="gid in jobsInGroupForOrder(invoiceData.id, grp.__idx)" :key="'gid-'+gid" class="job-card inside-merged">
+                                        <div v-for="gid in jobsInGroupForOrder(invoiceData.id, grp.__idx)"
+                                            :key="'gid-' + gid" class="job-card inside-merged">
                                             <div class="job-header">
                                                 <div class="value-cell job-title">{{ displayJobName(gid) }}</div>
                                                 <div class="value-cell">{{ displayJobQty(gid) }}</div>
@@ -384,35 +414,46 @@
                                                 <div class="value-cell">{{ displayJobArea(gid) }}</div>
                                                 <div class="value-cell">{{ displayJobPrice(gid) }} ден.</div>
                                                 <div class="value-cell actions">
-                                                    <button v-if="!splitMode" class="merge-toggle ml-2" :class="{selected: isSelected(gid)}" @click="toggleMergeSelection(gid)" title="Toggle merge" aria-label="Toggle merge">
+                                                    <button v-if="!splitMode" class="merge-toggle ml-2"
+                                                        :class="{ selected: isSelected(gid) }"
+                                                        @click="toggleMergeSelection(gid)" title="Toggle merge"
+                                                        aria-label="Toggle merge">
                                                         <i class="fa-solid fa-code-merge"></i>
                                                     </button>
-                                                    
+
                                                     <!-- Split Mode -->
                                                     <div v-if="splitMode" class="split-assignment-compact">
-                                                        <div class="custom-split-dropdown" :class="{ open: openDropdowns[gid] }">
-                                                            <button class="split-dropdown-trigger" 
-                                                                    @click="toggleDropdown(gid)"
-                                                                    :class="{ assigned: getJobSplitGroup(gid) !== '' }"
-                                                                    title="Assign to split group">
+                                                        <div class="custom-split-dropdown"
+                                                            :class="{ open: openDropdowns[gid] }">
+                                                            <button class="split-dropdown-trigger"
+                                                                @click="toggleDropdown(gid)"
+                                                                :class="{ assigned: getJobSplitGroup(gid) !== '' }"
+                                                                title="Assign to split group">
                                                                 <span class="dropdown-text">
-                                                                    {{ getJobSplitGroup(gid) !== '' ? 'Group ' + (parseInt(getJobSplitGroup(gid)) + 1) : '—' }}
+                                                                    {{ getJobSplitGroup(gid) !== '' ? 'Group ' +
+                                                                        (parseInt(getJobSplitGroup(gid)) + 1) : '—'
+                                                                    }}
                                                                 </span>
                                                                 <i class="fas fa-chevron-down dropdown-arrow"></i>
                                                             </button>
                                                             <div class="split-dropdown-menu" v-if="openDropdowns[gid]">
-                                                                <div class="dropdown-option unassign" 
-                                                                     @click="assignJobToGroup(gid, ''); closeDropdown(gid)"
-                                                                     :class="{ active: getJobSplitGroup(gid) === '' }">
+                                                                <div class="dropdown-option unassign"
+                                                                    @click="assignJobToGroup(gid, ''); closeDropdown(gid)"
+                                                                    :class="{ active: getJobSplitGroup(gid) === '' }">
                                                                     <span class="option-badge">—</span>
-                                                                    <span class="option-text">Keep in Original (Faktura {{ fakturaId }})</span>
+                                                                    <span class="option-text">Keep in Original (Faktura
+                                                                        {{ fakturaId }})</span>
                                                                 </div>
                                                                 <div v-for="(group, index) in splitGroups" :key="index"
-                                                                     class="dropdown-option" 
-                                                                     @click="assignJobToGroup(gid, index.toString()); closeDropdown(gid)"
-                                                                     :class="{ active: getJobSplitGroup(gid) === index.toString() }">
-                                                                    <span class="option-badge" :style="{ backgroundColor: getGroupColor(index) }">{{ index + 1 }}</span>
-                                                                    <span class="option-text">Group {{ index + 1 }} — {{ group.client }}</span>
+                                                                    class="dropdown-option"
+                                                                    @click="assignJobToGroup(gid, index.toString()); closeDropdown(gid)"
+                                                                    :class="{ active: getJobSplitGroup(gid) === index.toString() }">
+                                                                    <span class="option-badge"
+                                                                        :style="{ backgroundColor: getGroupColor(index) }">{{
+                                                                            index +
+                                                                            1 }}</span>
+                                                                    <span class="option-text">Group {{ index + 1 }} — {{
+                                                                        group.client }}</span>
                                                                 </div>
                                                             </div>
                                                         </div>
@@ -464,16 +505,18 @@
                                         </div>
                                     </div>
                                     <div class="group-actions">
-                                        <button class="btn-remove" @click="removeSplitGroup(index)" title="Remove group">
+                                        <button class="btn-remove" @click="removeSplitGroup(index)"
+                                            title="Remove group">
                                             <i class="fas fa-trash"></i>
                                         </button>
                                     </div>
                                 </div>
-                                
+
                                 <div class="group-jobs" v-if="group.job_ids.length > 0">
                                     <div v-for="jobId in group.job_ids" :key="jobId" class="group-job-item">
                                         <span class="job-name">{{ getJobNameById(jobId) }}</span>
-                                        <button class="btn-remove-small" @click="removeJobFromSplitGroup(index, jobId)" title="Remove from group">
+                                        <button class="btn-remove-small" @click="removeJobFromSplitGroup(index, jobId)"
+                                            title="Remove from group">
                                             <i class="fas fa-times"></i>
                                         </button>
                                     </div>
@@ -501,20 +544,25 @@
                             <div class="trade-item-card" v-for="(item, idx) in tradeItems" :key="idx">
                                 <div class="item-header">
                                     <div class="item-title">
-                                        <span class="article-code" v-if="item.article_code">Article Code: {{ item.article_code }}</span>
+                                        <span class="article-code" v-if="item.article_code">Article Code: {{
+                                            item.article_code }}</span>
                                         <span class="article-name">{{ item.article_name }}</span>
                                     </div>
                                     <div class="item-actions" v-if="isEditMode">
-                                        <button v-if="!isEditingTrade[idx]" @click="startEditTrade(idx, item)" class="btn-edit-small" title="Edit Item">
+                                        <button v-if="!isEditingTrade[idx]" @click="startEditTrade(idx, item)"
+                                            class="btn-edit-small" title="Edit Item">
                                             <i class="fas fa-edit"></i>
                                         </button>
-                                        <button v-else @click="saveEditTrade(idx, item)" class="btn-save-small" title="Save Changes">
+                                        <button v-else @click="saveEditTrade(idx, item)" class="btn-save-small"
+                                            title="Save Changes">
                                             <i class="fas fa-save"></i>
                                         </button>
-                                        <button v-if="isEditingTrade[idx]" @click="cancelEditTrade(idx)" class="btn-cancel-small" title="Cancel">
+                                        <button v-if="isEditingTrade[idx]" @click="cancelEditTrade(idx)"
+                                            class="btn-cancel-small" title="Cancel">
                                             <i class="fas fa-times"></i>
                                         </button>
-                                        <button @click="removeTradeItem(idx, item)" class="btn-cancel-small" title="Delete Item">
+                                        <button @click="removeTradeItem(idx, item)" class="btn-cancel-small"
+                                            title="Delete Item">
                                             <i class="fa-solid fa-trash"></i>
                                         </button>
                                     </div>
@@ -524,7 +572,8 @@
                                     <div class="detail-item">
                                         <label>Quantity:</label>
                                         <template v-if="isEditingTrade[idx]">
-                                            <input v-model.number="editTradeForms[idx].quantity" type="number" min="1" class="form-control" />
+                                            <input v-model.number="editTradeForms[idx].quantity" type="number" min="1"
+                                                class="form-control" />
                                         </template>
                                         <span v-else class="detail-value">{{ item.quantity }}</span>
                                     </div>
@@ -532,9 +581,11 @@
                                     <div class="detail-item">
                                         <label>Unit Price:</label>
                                         <template v-if="isEditingTrade[idx]">
-                                            <input v-model.number="editTradeForms[idx].unit_price" type="number" step="0.01" min="0" class="form-control" />
+                                            <input v-model.number="editTradeForms[idx].unit_price" type="number"
+                                                step="0.01" min="0" class="form-control" />
                                         </template>
-                                        <span v-else class="detail-value">{{ formatNumber(item.unit_price) }} ден.</span>
+                                        <span v-else class="detail-value">{{ formatNumber(item.unit_price) }}
+                                            ден.</span>
                                     </div>
 
                                     <div class="detail-item">
@@ -552,7 +603,8 @@
 
                                     <div class="detail-item">
                                         <label>Total Price:</label>
-                                        <span class="detail-value total-price">{{ formatNumber(getItemTotal(idx, item)) }} ден.</span>
+                                        <span class="detail-value total-price">{{ formatNumber(getItemTotal(idx, item))
+                                            }} ден.</span>
                                     </div>
 
                                     <div class="detail-item">
@@ -562,7 +614,9 @@
 
                                     <div class="detail-item">
                                         <label>Total with VAT:</label>
-                                        <span class="detail-value total-final">{{ formatNumber(getItemTotalWithVat(idx, item)) }} ден.</span>
+                                        <span class="detail-value total-final">{{ formatNumber(getItemTotalWithVat(idx,
+                                            item)) }}
+                                            ден.</span>
                                     </div>
                                 </div>
                             </div>
@@ -575,7 +629,8 @@
                 </div>
 
                 <!-- Additional Services Section -->
-                <div class="additional-services-section" v-if="isEditMode || (additionalServices && additionalServices.length > 0)">
+                <div class="additional-services-section"
+                    v-if="isEditMode || (additionalServices && additionalServices.length > 0)">
                     <div class="additional-services-container">
                         <div class="additional-services-header">
                             <h4 class="section-title">Additional Services</h4>
@@ -589,22 +644,27 @@
                         </div>
 
                         <div class="additional-services-list" v-else>
-                            <div class="additional-service-card" v-for="(service, idx) in additionalServices" :key="idx">
+                            <div class="additional-service-card" v-for="(service, idx) in additionalServices"
+                                :key="idx">
                                 <div class="item-header">
                                     <div class="item-title">
                                         <span class="service-name">{{ service.name }}</span>
                                     </div>
                                     <div class="item-actions" v-if="isEditMode">
-                                        <button v-if="!isEditingService[idx]" @click="startEditService(idx, service)" class="btn-edit-small" title="Edit Service">
+                                        <button v-if="!isEditingService[idx]" @click="startEditService(idx, service)"
+                                            class="btn-edit-small" title="Edit Service">
                                             <i class="fas fa-edit"></i>
                                         </button>
-                                        <button v-else @click="saveEditService(idx, service)" class="btn-save-small" title="Save Changes">
+                                        <button v-else @click="saveEditService(idx, service)" class="btn-save-small"
+                                            title="Save Changes">
                                             <i class="fas fa-save"></i>
                                         </button>
-                                        <button v-if="isEditingService[idx]" @click="cancelEditService(idx)" class="btn-cancel-small" title="Cancel">
+                                        <button v-if="isEditingService[idx]" @click="cancelEditService(idx)"
+                                            class="btn-cancel-small" title="Cancel">
                                             <i class="fas fa-times"></i>
                                         </button>
-                                        <button @click="removeAdditionalService(idx, service)" class="btn-cancel-small" title="Delete Service">
+                                        <button @click="removeAdditionalService(idx, service)" class="btn-cancel-small"
+                                            title="Delete Service">
                                             <i class="fa-solid fa-trash"></i>
                                         </button>
                                     </div>
@@ -614,7 +674,8 @@
                                     <div class="detail-item">
                                         <label>Service Name:</label>
                                         <template v-if="isEditingService[idx]">
-                                            <input v-model="editServiceForms[idx].name" type="text" class="form-control" />
+                                            <input v-model="editServiceForms[idx].name" type="text"
+                                                class="form-control" />
                                         </template>
                                         <span v-else class="detail-value">{{ service.name }}</span>
                                     </div>
@@ -622,7 +683,8 @@
                                     <div class="detail-item">
                                         <label>Quantity:</label>
                                         <template v-if="isEditingService[idx]">
-                                            <input v-model.number="editServiceForms[idx].quantity" type="number" min="0" step="0.01" class="form-control" />
+                                            <input v-model.number="editServiceForms[idx].quantity" type="number" min="0"
+                                                step="0.01" class="form-control" />
                                         </template>
                                         <span v-else class="detail-value">{{ service.quantity }}</span>
                                     </div>
@@ -645,15 +707,18 @@
                                     <div class="detail-item">
                                         <label>Unit Price:</label>
                                         <template v-if="isEditingService[idx]">
-                                            <input v-model.number="editServiceForms[idx].sale_price" type="number" step="0.01" min="0" class="form-control" />
+                                            <input v-model.number="editServiceForms[idx].sale_price" type="number"
+                                                step="0.01" min="0" class="form-control" />
                                         </template>
-                                        <span v-else class="detail-value">{{ formatNumber(service.sale_price) }} ден.</span>
+                                        <span v-else class="detail-value">{{ formatNumber(service.sale_price) }}
+                                            ден.</span>
                                     </div>
 
                                     <div class="detail-item">
                                         <label>VAT Rate:</label>
                                         <template v-if="isEditingService[idx]">
-                                            <select v-model.number="editServiceForms[idx].vat_rate" class="form-control">
+                                            <select v-model.number="editServiceForms[idx].vat_rate"
+                                                class="form-control">
                                                 <option :value="0">0%</option>
                                                 <option :value="5">5%</option>
                                                 <option :value="10">10%</option>
@@ -665,24 +730,30 @@
 
                                     <div class="detail-item">
                                         <label>Total Price:</label>
-                                        <span class="detail-value total-price">{{ formatNumber(getServiceTotal(idx, service)) }} ден.</span>
+                                        <span class="detail-value total-price">{{ formatNumber(getServiceTotal(idx,
+                                            service)) }}
+                                            ден.</span>
                                     </div>
 
                                     <div class="detail-item">
                                         <label>VAT Amount:</label>
-                                        <span class="detail-value">{{ formatNumber(getServiceVat(idx, service)) }} ден.</span>
+                                        <span class="detail-value">{{ formatNumber(getServiceVat(idx, service)) }}
+                                            ден.</span>
                                     </div>
 
                                     <div class="detail-item">
                                         <label>Total with VAT:</label>
-                                        <span class="detail-value total-final">{{ formatNumber(getServiceTotalWithVat(idx, service)) }} ден.</span>
+                                        <span class="detail-value total-final">{{
+                                            formatNumber(getServiceTotalWithVat(idx, service)) }}
+                                            ден.</span>
                                     </div>
                                 </div>
                             </div>
                         </div>
 
                         <div class="additional-services-total" v-if="additionalServices.length > 0">
-                            <strong>Additional Services Total: {{ formatNumber(additionalServicesTotal) }} ден (incl. VAT)</strong>
+                            <strong>Additional Services Total: {{ formatNumber(additionalServicesTotal) }} ден (incl.
+                                VAT)</strong>
                         </div>
                     </div>
                 </div>
@@ -722,13 +793,16 @@
                         <select v-model="selectedArticle" class="form-control">
                             <option value="">Choose an article...</option>
                             <option v-for="article in availableTradeArticles" :key="article.id" :value="article">
-                                {{ article.article.name }} ({{ article.article.code }}) - Stock: {{ article.quantity }} - Price: {{ formatNumber(article.selling_price || 0) }} ден
+                                {{ article.article.name }} ({{ article.article.code }}) - Stock: {{ article.quantity }}
+                                - Price:
+                                {{ formatNumber(article.selling_price || 0) }} ден
                             </option>
                         </select>
                     </div>
                     <div class="form-group" v-if="selectedArticle">
                         <label>Quantity:</label>
-                        <input type="number" v-model.number="tradeItemQuantity" :max="selectedArticle.quantity" min="1" class="form-control">
+                        <input type="number" v-model.number="tradeItemQuantity" :max="selectedArticle.quantity" min="1"
+                            class="form-control">
                         <small class="form-help-text">Available: {{ selectedArticle.quantity }}</small>
                     </div>
                     <div class="form-group" v-if="selectedArticle">
@@ -744,11 +818,14 @@
                             <option :value="18">18%</option>
                         </select>
                     </div>
-                    <div class="form-group" v-if="selectedArticle && tradeItemQuantity && (tradeItemPrice || tradeItemPrice===0)">
+                    <div class="form-group"
+                        v-if="selectedArticle && tradeItemQuantity && (tradeItemPrice || tradeItemPrice === 0)">
                         <div class="price-breakdown">
                             <div>Subtotal: {{ formatNumber(tradeItemQuantity * tradeItemPrice) }} ден</div>
-                            <div>VAT ({{ tradeItemVatRate }}%): {{ formatNumber((tradeItemQuantity * tradeItemPrice) * (tradeItemVatRate/100)) }} ден</div>
-                            <div><strong>Total: {{ formatNumber((tradeItemQuantity * tradeItemPrice) * (1 + tradeItemVatRate/100)) }} ден</strong></div>
+                            <div>VAT ({{ tradeItemVatRate }}%): {{ formatNumber((tradeItemQuantity * tradeItemPrice) *
+                                (tradeItemVatRate / 100)) }} ден</div>
+                            <div><strong>Total: {{ formatNumber((tradeItemQuantity * tradeItemPrice) * (1 +
+                                tradeItemVatRate / 100)) }} ден</strong></div>
                         </div>
                     </div>
                 </div>
@@ -766,46 +843,62 @@
                     <button @click="closeAttachOrdersModal" class="close-btn">&times;</button>
                 </div>
                 <div class="modal-body">
-                        <div class="form-group">
-                            <label>Search and select uninvoiced orders<span v-if="attachClientName"> (Client: {{ attachClientName }})</span>:</label>
-                            <input v-model="attachSearch" class="form-control" placeholder="Search by title or #id" />
-                        </div>
+                    <div class="form-group">
+                        <label>Search and select uninvoiced orders<span v-if="attachClientName"> (Client: {{
+                            attachClientName
+                                }})</span>:</label>
+                        <input v-model="attachSearch" class="form-control" placeholder="Search by title or #id" />
+                    </div>
                     <div class="form-group flex" style="gap:8px; align-items:center;">
-                        <button class="btn blue" @click="selectAllAttachVisible" :disabled="filteredAttachableOrders.length===0">Select all visible</button>
-                        <button class="btn delete" @click="clearAttachSelection" :disabled="selectedAttachOrderIds.length===0">Clear selection</button>
+                        <button class="btn blue" @click="selectAllAttachVisible"
+                            :disabled="filteredAttachableOrders.length === 0">Select all visible</button>
+                        <button class="btn delete" @click="clearAttachSelection"
+                            :disabled="selectedAttachOrderIds.length === 0">Clear selection</button>
                     </div>
                     <div class="form-group select-list" style="max-height: 320px; overflow-y: auto;">
                         <div v-if="attachLoading">Loading...</div>
                         <div v-else>
-                            <div v-for="ord in filteredAttachableOrders" :key="ord.id" class="flex items-center gap-2 select-row" :class="{selected: selectedAttachOrderIds.includes(ord.id)}" @click="toggleAttachSelection(ord)" style="padding: 6px 0;">
-                                <input type="checkbox" :checked="selectedAttachOrderIds.includes(ord.id)" @click.stop @change="toggleAttachSelection(ord)" />
-                                <div class="bold">#{{ ord.id }}</div>
-                                <div class="select-title" :title="ord.invoice_title">{{ truncateTitle(ord.invoice_title, 40) }}</div>
+                            <div v-for="ord in filteredAttachableOrders" :key="ord.id"
+                                class="flex items-center gap-2 select-row"
+                                :class="{ selected: selectedAttachOrderIds.includes(ord.id) }"
+                                @click="toggleAttachSelection(ord)" style="padding: 6px 0;">
+                                <input type="checkbox" :checked="selectedAttachOrderIds.includes(ord.id)" @click.stop
+                                    @change="toggleAttachSelection(ord)" />
+                                <div class="bold">#{{ ord.order_number || ord.id }}</div>
+                                <div class="select-title" :title="ord.invoice_title">{{ truncateTitle(ord.invoice_title,
+                                    40) }}
+                                </div>
                                 <div class="ml-auto">{{ ord.client?.name || ord.client }}</div>
-                                <div v-if="selectedAttachOrderIds.includes(ord.id)" class="selected-badge">✓ Selected</div>
+                                <div v-if="selectedAttachOrderIds.includes(ord.id)" class="selected-badge">✓ Selected
+                                </div>
                             </div>
                             <div v-if="filteredAttachableOrders.length === 0">No matching orders.</div>
                         </div>
                     </div>
-                    
+
                     <!-- Pagination Controls -->
-                    <div v-if="attachPagination.lastPage > 1" class="pagination-controls" style="margin-top: 15px; padding: 10px; border-top: 1px solid #ddd; display: flex; justify-content: space-between; align-items: center;">
+                    <div v-if="attachPagination.lastPage > 1" class="pagination-controls"
+                        style="margin-top: 15px; padding: 10px; border-top: 1px solid #ddd; display: flex; justify-content: space-between; align-items: center;">
                         <div class="pagination-info">
                             <span>Page {{ attachPagination.currentPage }} of {{ attachPagination.lastPage }}</span>
                             <span style="margin-left: 10px;">({{ attachPagination.total }} total orders)</span>
                         </div>
                         <div class="pagination-buttons" style="display: flex; gap: 8px;">
-                            <button @click="prevAttachPage" :disabled="attachPagination.currentPage <= 1" class="btn btn-sm">
+                            <button @click="prevAttachPage" :disabled="attachPagination.currentPage <= 1"
+                                class="btn btn-sm">
                                 <i class="fa-solid fa-chevron-left"></i> Previous
                             </button>
-                            <button @click="nextAttachPage" :disabled="attachPagination.currentPage >= attachPagination.lastPage" class="btn btn-sm">
+                            <button @click="nextAttachPage"
+                                :disabled="attachPagination.currentPage >= attachPagination.lastPage"
+                                class="btn btn-sm">
                                 Next <i class="fa-solid fa-chevron-right"></i>
                             </button>
                         </div>
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button @click="confirmAttachOrders" :disabled="selectedAttachOrderIds.length === 0" class="btn green">Attach Selected ({{ selectedAttachOrderIds.length }})</button>
+                    <button @click="confirmAttachOrders" :disabled="selectedAttachOrderIds.length === 0"
+                        class="btn green">Attach Selected ({{ selectedAttachOrderIds.length }})</button>
                     <button @click="closeAttachOrdersModal" class="btn delete">Cancel</button>
                 </div>
             </div>
@@ -823,21 +916,30 @@
                         <input v-model="detachSearch" class="form-control" placeholder="Search by title or #id" />
                     </div>
                     <div class="form-group flex" style="gap:8px; align-items:center;">
-                        <button class="btn blue" @click="selectAllDetachVisible" :disabled="filteredDetachableOrders.length===0">Select all visible</button>
-                        <button class="btn delete" @click="clearDetachSelection" :disabled="selectedDetachOrderIds.length===0">Clear selection</button>
+                        <button class="btn blue" @click="selectAllDetachVisible"
+                            :disabled="filteredDetachableOrders.length === 0">Select all visible</button>
+                        <button class="btn delete" @click="clearDetachSelection"
+                            :disabled="selectedDetachOrderIds.length === 0">Clear selection</button>
                     </div>
                     <div class="form-group select-list" style="max-height: 320px; overflow-y: auto;">
-                        <div v-for="ord in filteredDetachableOrders" :key="ord.id" class="flex items-center gap-2 select-row" :class="{selected: selectedDetachOrderIds.includes(ord.id)}" @click="toggleDetachSelection(ord)" style="padding: 6px 0;">
-                            <input type="checkbox" :checked="selectedDetachOrderIds.includes(ord.id)" @click.stop @change="toggleDetachSelection(ord)" />
-                            <div class="bold">#{{ ord.id }}</div>
-                            <div class="select-title" :title="ord.invoice_title">{{ truncateTitle(ord.invoice_title, 40) }}</div>
+                        <div v-for="ord in filteredDetachableOrders" :key="ord.id"
+                            class="flex items-center gap-2 select-row"
+                            :class="{ selected: selectedDetachOrderIds.includes(ord.id) }"
+                            @click="toggleDetachSelection(ord)" style="padding: 6px 0;">
+                            <input type="checkbox" :checked="selectedDetachOrderIds.includes(ord.id)" @click.stop
+                                @change="toggleDetachSelection(ord)" />
+                            <div class="bold">#{{ ord.order_number || ord.id }}</div>
+                            <div class="select-title" :title="ord.invoice_title">{{ truncateTitle(ord.invoice_title, 40)
+                                }}
+                            </div>
                             <div class="ml-auto">{{ ord.client }}</div>
                         </div>
                         <div v-if="filteredDetachableOrders.length === 0">No matching orders.</div>
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button @click="confirmDetachOrders" :disabled="selectedDetachOrderIds.length === 0" class="btn delete">Remove Selected ({{ selectedDetachOrderIds.length }})</button>
+                    <button @click="confirmDetachOrders" :disabled="selectedDetachOrderIds.length === 0"
+                        class="btn delete">Remove Selected ({{ selectedDetachOrderIds.length }})</button>
                     <button @click="closeDetachOrdersModal" class="btn blue">Cancel</button>
                 </div>
             </div>
@@ -853,11 +955,13 @@
                 <div class="modal-body">
                     <div class="form-group">
                         <label>Service Name:</label>
-                        <input type="text" v-model="newServiceName" class="form-control" placeholder="Enter service name...">
+                        <input type="text" v-model="newServiceName" class="form-control"
+                            placeholder="Enter service name...">
                     </div>
                     <div class="form-group">
                         <label>Quantity:</label>
-                        <input type="number" v-model.number="newServiceQuantity" min="0" step="0.01" class="form-control">
+                        <input type="number" v-model.number="newServiceQuantity" min="0" step="0.01"
+                            class="form-control">
                     </div>
                     <div class="form-group">
                         <label>Unit:</label>
@@ -886,13 +990,17 @@
                     <div class="form-group" v-if="newServiceName && newServiceQuantity && newServicePrice">
                         <div class="price-breakdown">
                             <div>Subtotal: {{ formatNumber(newServiceQuantity * newServicePrice) }} ден</div>
-                            <div>VAT ({{ newServiceVatRate }}%): {{ formatNumber((newServiceQuantity * newServicePrice) * (newServiceVatRate/100)) }} ден</div>
-                            <div><strong>Total: {{ formatNumber((newServiceQuantity * newServicePrice) * (1 + newServiceVatRate/100)) }} ден</strong></div>
+                            <div>VAT ({{ newServiceVatRate }}%): {{ formatNumber((newServiceQuantity * newServicePrice)
+                                *
+                                (newServiceVatRate / 100)) }} ден</div>
+                            <div><strong>Total: {{ formatNumber((newServiceQuantity * newServicePrice) * (1 +
+                                newServiceVatRate / 100)) }} ден</strong></div>
                         </div>
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button @click="addAdditionalService" :disabled="!canAddAdditionalService" class="btn green">Add Service</button>
+                    <button @click="addAdditionalService" :disabled="!canAddAdditionalService" class="btn green">Add
+                        Service</button>
                     <button @click="closeAdditionalServicesModal" class="btn delete">Cancel</button>
                 </div>
             </div>
@@ -902,26 +1010,20 @@
         <div v-if="showClientChangeModal" class="modal-overlay" @click="closeClientChangeModal">
             <div class="modal-content" @click.stop>
                 <div class="modal-header">
-                    <h3>{{ selectedSplitGroup !== null ? 'Change Client for Split Group' : 'Change Client for Faktura' }}</h3>
+                    <h3>{{ selectedSplitGroup !== null ? 'Change Client for Split Group' : 'Change Client for Faktura'
+                        }}</h3>
                     <button @click="closeClientChangeModal" class="close-btn">&times;</button>
                 </div>
                 <div class="modal-body">
                     <div class="form-group">
                         <label>Search and Select Client:</label>
                         <div class="client-search-container">
-                            <input v-model="clientSearchQuery" 
-                                   @input="filterClients"
-                                   @focus="showClientDropdown = true"
-                                   @blur="onClientInputBlur"
-                                   class="form-control client-search-input" 
-                                   type="text" 
-                                   placeholder="Type to search clients..." />
+                            <input v-model="clientSearchQuery" @input="filterClients" @focus="showClientDropdown = true"
+                                @blur="onClientInputBlur" class="form-control client-search-input" type="text"
+                                placeholder="Type to search clients..." />
                             <div v-if="showClientDropdown && filteredClients.length > 0" class="client-dropdown">
-                                <div v-for="client in filteredClients" 
-                                     :key="client.id"
-                                     @click="selectClient(client)"
-                                     class="client-option"
-                                     :class="{ selected: tempClientName === client.name }">
+                                <div v-for="client in filteredClients" :key="client.id" @click="selectClient(client)"
+                                    class="client-option" :class="{ selected: tempClientName === client.name }">
                                     {{ client.name }}
                                 </div>
                             </div>
@@ -951,7 +1053,7 @@
 <script>
 import MainLayout from "@/Layouts/MainLayout.vue";
 import axios from "axios";
-import Toast, {useToast} from "vue-toastification";
+import Toast, { useToast } from "vue-toastification";
 import OrderJobDetails from "@/Pages/Invoice/OrderJobDetails.vue";
 import OrderSpreadsheet from "@/Components/OrderSpreadsheet.vue";
 import Header from "@/Components/Header.vue";
@@ -973,7 +1075,7 @@ export default {
         tradeItems: Array,
         additionalServices: Array,
     },
-    computed:{
+    computed: {
         getStatusColorClass() {
             const invoiceStatus = this.invoiceData.status;
             if (invoiceStatus === "Not started yet") {
@@ -997,15 +1099,17 @@ export default {
             }, 0);
         },
         canAddAdditionalService() {
-            return this.newServiceName && this.newServiceName.trim() && 
-                   this.newServiceQuantity > 0 && 
-                   this.newServicePrice >= 0;
+            return this.newServiceName && this.newServiceName.trim() &&
+                this.newServiceQuantity > 0 &&
+                this.newServicePrice >= 0;
         },
         fakturaId() {
-            // Prefer faktura prop, fallback to first invoice's fakturaId
-            return this.faktura?.id ?? this.invoice?.[0]?.fakturaId ?? '';
+            // Prefer faktura_number, fallback to faktura id, then first invoice's fakturaId
+            return this.faktura?.faktura_number ?? this.faktura?.id ?? this.invoice?.[0]?.fakturaId ?? '';
         },
         fakturaYear() {
+            // Prefer fiscal_year from faktura, fallback to created_at year
+            if (this.faktura?.fiscal_year) return this.faktura.fiscal_year;
             const created = this.faktura?.created_at || this.invoice?.[0]?.created || null;
             if (!created) return '';
             try { return new Date(created).toLocaleDateString('en-US', { year: 'numeric' }); } catch (_) { return ''; }
@@ -1014,8 +1118,8 @@ export default {
         fakturaCreatedDateFormatted() {
             const created = this.faktura?.created_at || null;
             if (!created) return '';
-            
-            try { 
+
+            try {
                 // Use the same approach as AllInvoices.vue for consistency
                 return new Date(created).toLocaleDateString('en-US', { year: 'numeric', month: '2-digit', day: '2-digit' });
             } catch (_) { return ''; }
@@ -1029,12 +1133,12 @@ export default {
             console.log('displayPaymentDeadline - faktura:', this.faktura);
             console.log('displayPaymentDeadline - override value:', this.faktura?.payment_deadline_override);
             console.log('displayPaymentDeadline - override type:', typeof this.faktura?.payment_deadline_override);
-            
+
             if (this.faktura?.payment_deadline_override !== null && this.faktura?.payment_deadline_override !== undefined) {
                 console.log('Using override:', this.faktura.payment_deadline_override);
                 return this.faktura.payment_deadline_override;
             }
-            
+
             const clientDeadline = this.invoice?.[0]?.client?.client_card_statement?.payment_deadline;
             console.log('Using client default:', clientDeadline);
             console.log('Client card statement:', this.invoice?.[0]?.client?.client_card_statement);
@@ -1052,27 +1156,27 @@ export default {
             const client = this.attachClientName || (this.invoice?.[0]?.client?.name || this.invoice?.[0]?.client || '');
             const byClient = client ? base.filter(o => (o.client?.name || o.client || '') === client) : base;
             let filtered = byClient;
-            
+
             // Apply search filter if provided
             if (q) {
                 filtered = byClient.filter(o => String(o.id).includes(q) || (o.invoice_title || '').toLowerCase().includes(q));
             }
-            
+
             // Get selected orders from all pages (not just current page)
             const selectedFromAllPages = this.allSelectedOrders.filter(o => {
                 // Apply same client filter
                 const orderClient = o.client?.name || o.client || '';
                 const clientMatch = !client || orderClient === client;
-                
+
                 // Apply same search filter
                 const searchMatch = !q || String(o.id).includes(q) || (o.invoice_title || '').toLowerCase().includes(q);
-                
+
                 return clientMatch && searchMatch;
             });
-            
+
             // Get non-selected orders from current page
             const nonSelectedOrders = filtered.filter(o => !this.selectedAttachOrderIds.includes(o.id));
-            
+
             // Return selected orders from all pages first, then non-selected orders from current page
             return [...selectedFromAllPages, ...nonSelectedOrders];
         },
@@ -1088,12 +1192,12 @@ export default {
             if (!mergeGroups || mergeGroups.length === 0) {
                 return true; // No merge groups means validation passes
             }
-            
+
             return mergeGroups.every(group => {
                 const hasTitle = group.title && group.title.trim() !== '';
                 const hasQuantity = group.quantity && Number(group.quantity) > 0;
                 const hasSalePrice = group.sale_price && Number(group.sale_price) > 0;
-                
+
                 return hasTitle && hasQuantity && hasSalePrice;
             });
         },
@@ -1219,7 +1323,7 @@ export default {
         getDateForPayload() {
             const created = this.getFakturaDate();
             if (!created) return new Date().toISOString().split('T')[0];
-            
+
             try {
                 // Use the same Date conversion as the display to ensure consistency
                 const date = new Date(created);
@@ -1263,7 +1367,7 @@ export default {
         // Update job unit
         async updateJobUnit(job, newUnit) {
             this.$set ? this.$set(job, 'unit', newUnit) : (job.unit = newUnit);
-            
+
             // Find the invoice that contains this job
             let invoiceId = null;
             for (const invoiceData of (this.invoice || [])) {
@@ -1272,7 +1376,7 @@ export default {
                     break;
                 }
             }
-            
+
             if (invoiceId) {
                 try {
                     await axios.put(`/invoice/${invoiceId}/job/${job.id}/unit`, {
@@ -1327,7 +1431,7 @@ export default {
             const involvedOrderIds = (this.invoice || [])
                 .filter(o => (o.jobs || []).some(j => ids.includes(j.id)))
                 .map(o => o.id)
-                .sort((a,b) => a - b);
+                .sort((a, b) => a - b);
             const firstOwnerId = involvedOrderIds[0];
             return firstOwnerId === orderId;
         },
@@ -1342,7 +1446,7 @@ export default {
         createOrAddToMergeGroup() {
             const ids = Array.from(new Set(this.selectedJobIds));
             if (ids.length < 2) return;
-            
+
             // Ensure faktura and merge_groups exist
             if (!this.faktura) {
                 this.toast?.error?.('Cannot merge: faktura data not available');
@@ -1351,7 +1455,7 @@ export default {
             if (!this.faktura.merge_groups) {
                 this.$set ? this.$set(this.faktura, 'merge_groups', []) : (this.faktura.merge_groups = []);
             }
-            
+
             // no validation rules: allow merging any selected jobs
             const allJobs = this.getAllJobsFlat();
             const picked = ids.map(id => allJobs.find(j => j.id === id)).filter(Boolean);
@@ -1371,16 +1475,16 @@ export default {
         },
         unmergeSelected() {
             if (!this.selectedJobIds.length) return;
-            
+
             // Ensure faktura and merge_groups exist
             if (!this.faktura || !this.faktura.merge_groups) {
                 this.toast?.error?.('Cannot unmerge: merge groups data not available');
                 return;
             }
-            
+
             const set = new Set(this.selectedJobIds);
             this.faktura.merge_groups = this.faktura.merge_groups
-                .map(g => ({...g, job_ids: g.job_ids.filter(id => !set.has(id))}))
+                .map(g => ({ ...g, job_ids: g.job_ids.filter(id => !set.has(id)) }))
                 .filter(g => g.job_ids.length > 1);
             // Re-evaluate autofill for all groups after removal
             this.faktura.merge_groups.forEach((_, idx) => this.autofillGroupFieldsIfUniform(idx));
@@ -1414,7 +1518,7 @@ export default {
                 // If faktura has merge_groups, apply them to display
                 const groups = (this.faktura && this.faktura.merge_groups) ? this.faktura.merge_groups : [];
                 if (!Array.isArray(groups) || groups.length === 0) return jobs;
-                const byId = new Map((jobs || []).map(j => [j.id, {...j}]));
+                const byId = new Map((jobs || []).map(j => [j.id, { ...j }]));
                 // Remove all in groups and add merged representative
                 for (const g of groups) {
                     const ids = Array.isArray(g.job_ids) ? g.job_ids : [];
@@ -1424,11 +1528,11 @@ export default {
                     // Validate same name/price
                     if (!present.every(id => {
                         const jj = byId.get(id);
-                        return jj && jj.name === first.name && Number(jj.salePrice||0) === Number(first.salePrice||0);
+                        return jj && jj.name === first.name && Number(jj.salePrice || 0) === Number(first.salePrice || 0);
                     })) continue;
                     let qty = 0; let area = 0;
-                    for (const id of present) { const jj = byId.get(id); qty += Number(jj.quantity||0); area += Number(jj.computed_total_area_m2||0); byId.delete(id); }
-                    const merged = {...first, quantity: qty, computed_total_area_m2: area, merged: true, merged_job_ids: present};
+                    for (const id of present) { const jj = byId.get(id); qty += Number(jj.quantity || 0); area += Number(jj.computed_total_area_m2 || 0); byId.delete(id); }
+                    const merged = { ...first, quantity: qty, computed_total_area_m2: area, merged: true, merged_job_ids: present };
                     // Use synthetic key to avoid collisions; attaching back using first id is fine
                     byId.set(first.id, merged);
                 }
@@ -1438,10 +1542,10 @@ export default {
         toggleSidebar() {
             this.isSidebarVisible = !this.isSidebarVisible;
         },
-        toggleSpreadsheetMode(){
+        toggleSpreadsheetMode() {
             this.spreadsheetMode = !this.spreadsheetMode;
         },
-        toggleEditMode() {},
+        toggleEditMode() { },
         generatePdf(invoiceId) {
             window.open(`/orders/${invoiceId}/pdf`, '_blank');
         },
@@ -1459,18 +1563,18 @@ export default {
             if (!price && price !== 0) return '0.00';
             return typeof price === 'number' ? price.toFixed(2) : '0.00';
         },
-        
+
         getTradeItemUnitPrice(item) {
             return Number(item.unit_price || 0);
         },
-        
+
         getTradeItemTotalWithVat(item) {
             // Calculate total price from unit_price and quantity
             const totalPrice = Number(item.quantity || 0) * Number(item.unit_price || 0);
-            
+
             // Calculate VAT amount
             const vatAmount = totalPrice * (Number(item.vat_rate || 0) / 100);
-            
+
             // Return total with VAT
             return totalPrice + vatAmount;
         },
@@ -1485,10 +1589,10 @@ export default {
         getMaterialInfo(job) {
             if (job.articles && job.articles.length > 0) {
                 return job.articles.map(article => {
-                    const unit = article.in_square_meters ? 'm²' : 
-                               article.in_pieces ? 'ком.' : 
-                               article.in_kilograms ? 'кг' : 
-                               article.in_meters ? 'м' : 'ед.';
+                    const unit = article.in_square_meters ? 'm²' :
+                        article.in_pieces ? 'ком.' :
+                            article.in_kilograms ? 'кг' :
+                                article.in_meters ? 'м' : 'ед.';
                     return `${article.name} (${article.pivot.quantity} ${unit})`;
                 }).join(', ');
             } else if (job.large_material) {
@@ -1500,11 +1604,11 @@ export default {
         },
         startEditTitle(invoiceData) {
             if (!this.isEditMode) return;
-            
+
             this.editingTitle[invoiceData.id] = true;
             // Use the display value (which includes overrides) instead of original
             this.titleEdits[invoiceData.id] = this.getDisplayOrderTitle(invoiceData.id, invoiceData.invoice_title);
-            
+
             // Focus the input in the next tick
             this.$nextTick(() => {
                 const input = document.querySelector('.title-input');
@@ -1523,7 +1627,7 @@ export default {
             try {
                 // Store the override instead of updating the original data
                 this.currentOverrides.order_titles[invoiceData.id] = this.titleEdits[invoiceData.id];
-                
+
                 // Save overrides to faktura
                 const saved = await this.saveOverrides();
                 if (saved) {
@@ -1545,7 +1649,7 @@ export default {
             if (this.faktura?.faktura_overrides) {
                 this.currentOverrides = { ...this.faktura.faktura_overrides };
             }
-            
+
             // Initialize original values
             if (this.invoice) {
                 const invoices = Array.isArray(this.invoice) ? this.invoice : Object.values(this.invoice);
@@ -1574,8 +1678,8 @@ export default {
         },
         // Get display value for job quantity (override if exists, otherwise original)
         getDisplayJobQuantity(jobId, originalQuantity) {
-            return this.currentOverrides.job_quantities[jobId] !== undefined ? 
-                   this.currentOverrides.job_quantities[jobId] : originalQuantity;
+            return this.currentOverrides.job_quantities[jobId] !== undefined ?
+                this.currentOverrides.job_quantities[jobId] : originalQuantity;
         },
         // Save overrides to faktura
         async saveOverrides() {
@@ -1583,7 +1687,7 @@ export default {
                 const response = await axios.put(`/faktura/${this.fakturaId}/overrides`, {
                     faktura_overrides: this.currentOverrides
                 });
-                
+
                 if (response.data.success) {
                     this.toast.success('Changes saved successfully');
                     return true;
@@ -1596,11 +1700,11 @@ export default {
         },
         startEditDate() {
             if (!this.isEditMode) return;
-            
+
             this.editingDate = true;
             // Use the same date logic for consistency
             this.dateEdit = this.getDateForPayload();
-            
+
             // Focus the input in the next tick
             this.$nextTick(() => {
                 const input = document.querySelector('.date-input');
@@ -1743,14 +1847,14 @@ export default {
         async fetchAttachableOrders(page = 1) {
             try {
                 this.attachLoading = true;
-                const res = await axios.get('/api/notInvoiced/filtered', { 
-                    params: { 
-                        page: page, 
+                const res = await axios.get('/api/notInvoiced/filtered', {
+                    params: {
+                        page: page,
                         per_page: this.attachPagination.perPage,
-                        sortOrder: 'desc' 
-                    } 
+                        sortOrder: 'desc'
+                    }
                 });
-                
+
                 // Handle paginated response
                 if (res.data && res.data.data) {
                     // Laravel pagination response
@@ -1759,7 +1863,7 @@ export default {
                         invoice_title: r.invoice_title || r.title || `Order ${r.id}`,
                         client: r.client || r.client?.name || (r.client_name || ''),
                     }));
-                    
+
                     // Update pagination info
                     this.attachPagination.currentPage = res.data.current_page || 1;
                     this.attachPagination.lastPage = res.data.last_page || 1;
@@ -1828,7 +1932,7 @@ export default {
             if (ids.has(ord.id)) ids.delete(ord.id); else ids.add(ord.id);
             const next = Array.from(ids);
             this.selectedAttachOrderIds = next;
-            
+
             // Update global selected orders array
             if (ids.has(ord.id)) {
                 // Adding order - add to global array if not already there
@@ -1840,7 +1944,7 @@ export default {
                 // Removing order - remove from global array
                 this.allSelectedOrders = this.allSelectedOrders.filter(o => o.id !== ord.id);
             }
-            
+
             if (next.length === 0) {
                 // If last item was deselected, reset client lock and search
                 this.clearAttachSelection();
@@ -1850,7 +1954,7 @@ export default {
             const currentClient = this.attachClientName || (this.invoice?.[0]?.client?.name || this.invoice?.[0]?.client || '');
             const ids = this.filteredAttachableOrders.map(o => o.id);
             this.selectedAttachOrderIds = ids;
-            
+
             // Add visible orders to global selected array
             this.filteredAttachableOrders.forEach(order => {
                 const exists = this.allSelectedOrders.some(o => o.id === order.id);
@@ -1859,9 +1963,9 @@ export default {
                 }
             });
         },
-        clearAttachSelection() { 
-            this.selectedAttachOrderIds = []; 
-            this.attachClientName = ''; 
+        clearAttachSelection() {
+            this.selectedAttachOrderIds = [];
+            this.attachClientName = '';
             this.allSelectedOrders = [];
         },
         async loadAttachPage(page) {
@@ -2020,11 +2124,11 @@ export default {
         },
         startEditingJob(job) {
             this.editingJobId = job.id;
-            
+
             // Update job object with display values (which include overrides) for editing
             job.name = this.getDisplayJobName(job.id, job.name);
             job.quantity = this.getDisplayJobQuantity(job.id, job.quantity);
-            
+
             // snapshot current display values (which include overrides) for cancel
             this.$set ? this.$set(this.originalJobSnapshots, job.id, {
                 name: job.name,
@@ -2056,7 +2160,7 @@ export default {
             try {
                 // Store unit locally (frontend-only field)
                 const localUnit = job.unit;
-                
+
                 // For faktura editing, we don't want to persist changes to the original job
                 // Instead, we'll store the changes as overrides
                 // Only persist salePrice changes to the original job (as this affects pricing)
@@ -2064,13 +2168,13 @@ export default {
                     const response = await axios.put(`/jobs/${job.id}`, {
                         salePrice: job.salePrice
                     });
-                    
+
                     if (response?.data?.job) {
                         job.salePrice = response.data.job.salePrice;
                         this.onJobUpdated?.(response.data.job);
                     }
                 }
-                
+
                 // Store name and quantity changes as overrides
                 if (job.name !== this.originalJobSnapshots[job.id]?.name) {
                     this.currentOverrides.job_names[job.id] = job.name;
@@ -2078,7 +2182,7 @@ export default {
                 if (job.quantity !== this.originalJobSnapshots[job.id]?.quantity) {
                     this.currentOverrides.job_quantities[job.id] = job.quantity;
                 }
-                
+
                 // Save overrides to faktura
                 const saved = await this.saveOverrides();
                 if (saved) {
@@ -2220,7 +2324,7 @@ export default {
                     this.toast?.error?.('Cannot save: merge groups data not available');
                     return;
                 }
-                
+
                 const response = await axios.put(`/invoice/${this.invoice[0].fakturaId}/merge-groups`, {
                     merge_groups: this.faktura.merge_groups
                 });
@@ -2241,7 +2345,7 @@ export default {
             const groups = this.faktura?.merge_groups || [];
             const group = groups[groupIdx];
             if (!group) return false;
-            
+
             switch (fieldName) {
                 case 'title':
                     return group.title && group.title.trim() !== '';
@@ -2258,7 +2362,7 @@ export default {
             try {
                 // Check if this is a split invoice (parent or child)
                 const isSplitInvoice = !!this.faktura?.is_split_invoice;
-                
+
                 if (isSplitInvoice) {
                     // For split invoices, build job units and send as POST request
                     const jobsWithUnits = [];
@@ -2280,10 +2384,10 @@ export default {
                     const response = await axios.post(`/invoice/${this.faktura.id}/pdf`, {
                         job_units: jobsWithUnits,
                         merge_groups: this.faktura?.merge_groups || []
-                    }, { 
-                        responseType: 'blob' 
+                    }, {
+                        responseType: 'blob'
                     });
-                    
+
                     // Open blob in new tab
                     const blob = new Blob([response.data], { type: 'application/pdf' });
                     const url = window.URL.createObjectURL(blob);
@@ -2298,13 +2402,13 @@ export default {
                     toast.error('Cannot print: no orders available');
                     return;
                 }
-                
+
                 // Validate merge groups before printing
                 if (!this.hasValidMergeGroups) {
                     toast.error('Cannot print: Please fill in all required fields (title, quantity, and price) for merged groups');
                     return;
                 }
-                
+
                 // Include job data with units for printing
                 const jobsWithUnits = [];
                 if (this.invoice) {
@@ -2325,9 +2429,9 @@ export default {
                 const tradePayload = this.buildTradeItemsPayload();
                 // Use the same date logic as the display to ensure consistency
                 const createdAt = this.getDateForPayload();
-                
+
                 console.log('Print Invoice - final createdAt being sent:', createdAt);
-                
+
                 const response = await axios.post('/preview-invoice', {
                     orders: orderIds,
                     comment: (this.invoice && this.invoice[0]?.faktura_comment) || '',
@@ -2368,7 +2472,7 @@ export default {
 
         async addAdditionalService() {
             if (!this.canAddAdditionalService) return;
-            
+
             try {
                 if (!this.faktura || !this.faktura.id) {
                     this.toast.error('Cannot add service: missing faktura');
@@ -2384,7 +2488,7 @@ export default {
                 };
 
                 const res = await axios.post(`/invoice/${this.faktura.id}/additional-services`, payload);
-                
+
                 const created = res?.data?.service || {
                     id: Date.now(),
                     ...payload
@@ -2425,7 +2529,7 @@ export default {
             try {
                 const form = this.editServiceForms[index];
                 if (!form) return;
-                
+
                 if (!this.faktura || !this.faktura.id) {
                     this.toast.error('Cannot update service: missing faktura');
                     return;
@@ -2440,13 +2544,13 @@ export default {
                 };
 
                 await axios.put(`/invoice/${this.faktura.id}/additional-services/${service.id}`, payload);
-                
+
                 service.name = payload.name;
                 service.quantity = payload.quantity;
                 service.unit = payload.unit;
                 service.sale_price = payload.sale_price;
                 service.vat_rate = payload.vat_rate;
-                
+
                 this.isEditingService[index] = false;
                 delete this.editServiceForms[index];
                 this.toast.success('Additional service updated');
@@ -2462,7 +2566,7 @@ export default {
                     this.toast.error('Cannot delete service: missing faktura');
                     return;
                 }
-                
+
                 await axios.delete(`/invoice/${this.faktura.id}/additional-services/${service.id}`);
                 this.additionalServices.splice(index, 1);
                 this.toast.success('Additional service deleted');
@@ -2491,7 +2595,7 @@ export default {
             const vat = this.getServiceVat(index, service);
             return total + vat;
         },
-        
+
         // Split mode functionality methods
         // Ensure all split groups have proper structure
         ensureSplitGroupsStructure() {
@@ -2536,10 +2640,10 @@ export default {
         assignJobToGroup(jobId, groupIndex) {
             console.log('assignJobToGroup called:', { jobId, groupIndex });
             console.log('Current splitGroups before assignment:', this.splitGroups);
-            
+
             // Ensure all split groups have proper structure
             this.ensureSplitGroupsStructure();
-            
+
             if (groupIndex === '') {
                 // Remove job from all groups (keep in original)
                 this.splitGroups.forEach(group => {
@@ -2552,7 +2656,7 @@ export default {
 
             const targetGroupIndex = parseInt(groupIndex);
             console.log('Target group index:', targetGroupIndex);
-            
+
             if (targetGroupIndex < 0 || targetGroupIndex >= this.splitGroups.length) {
                 console.log('Invalid target group index');
                 return;
@@ -2569,7 +2673,7 @@ export default {
             const targetGroup = this.splitGroups[targetGroupIndex];
             console.log('Target group:', targetGroup);
             console.log('Target group job_ids:', targetGroup?.job_ids);
-            
+
             if (targetGroup && targetGroup.job_ids && !targetGroup.job_ids.includes(jobId)) {
                 console.log('Adding job to group, job_ids before:', targetGroup.job_ids);
                 targetGroup.job_ids.push(jobId);
@@ -2581,7 +2685,7 @@ export default {
                     alreadyIncludes: targetGroup && targetGroup.job_ids && targetGroup.job_ids.includes(jobId)
                 });
             }
-            
+
             console.log('Final splitGroups after assignment:', this.splitGroups);
         },
 
@@ -2608,7 +2712,7 @@ export default {
 
         getGroupColor(index) {
             const colors = [
-                '#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7', 
+                '#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7',
                 '#DDA0DD', '#98D8C8', '#F7DC6F', '#BB8FCE', '#85C1E9'
             ];
             return colors[index % colors.length];
@@ -2639,7 +2743,7 @@ export default {
             // Get all job IDs from the invoice data (not faktura.jobs)
             const allJobIds = [];
             console.log('Invoice structure:', this.invoice);
-            
+
             if (this.invoice && Array.isArray(this.invoice)) {
                 for (const invoice of this.invoice) {
                     if (invoice && invoice.jobs && Array.isArray(invoice.jobs)) {
@@ -2750,7 +2854,7 @@ export default {
 
         async regenerateSplitInvoices() {
             const toast = useToast();
-            
+
             if (!this.validateSplitGroups()) {
                 return;
             }
@@ -2768,7 +2872,7 @@ export default {
 
                 // Call the backend to regenerate split invoices
                 const response = await axios.post(`/invoice/${this.faktura.id}/regenerate-split`, payload);
-                
+
                 if (response.data.success) {
                     toast.success('Split invoices regenerated successfully');
                     // Redirect to the new split invoices or refresh the page
@@ -2788,13 +2892,13 @@ export default {
             console.log('Validating split groups:', this.splitGroups);
             console.log('Split groups type:', typeof this.splitGroups);
             console.log('Split groups is array:', Array.isArray(this.splitGroups));
-            
+
             // Ensure all split groups have proper structure
             this.ensureSplitGroupsStructure();
-            
+
             // Check if there are any groups with jobs assigned
             const hasJobsInGroups = this.splitGroups.some(group => group && group.job_ids && group.job_ids.length > 0);
-            
+
             if (!hasJobsInGroups) {
                 this.toast?.error?.('Please assign at least one job to a split group');
                 return false;
@@ -2813,20 +2917,20 @@ export default {
             const allJobIds = this.getAllJobIds();
             console.log('All job IDs for validation:', allJobIds);
             console.log('Split groups for flatMap:', this.splitGroups);
-            
+
             // Safety check for splitGroups
             if (!this.splitGroups || !Array.isArray(this.splitGroups)) {
                 console.error('Split groups is not an array:', this.splitGroups);
                 this.toast?.error?.('Split groups data is corrupted');
                 return false;
             }
-            
+
             const assignedJobIds = this.splitGroups.flatMap(g => g && g.job_ids ? g.job_ids : []);
             console.log('Assigned job IDs:', assignedJobIds);
-            
+
             const unassignedJobs = allJobIds.filter(id => !assignedJobIds.includes(id));
             console.log('Unassigned jobs:', unassignedJobs);
-            
+
             if (unassignedJobs.length === 0) {
                 this.toast?.error?.('At least one job must remain with the original faktura. Please unassign some jobs from groups.');
                 return false;
@@ -2853,12 +2957,29 @@ $blue: #0073a9;
 $red: #9e2c30;
 $orange: #a36a03;
 
-.merged-color-0 { background-color: #3182ce !important; }
-.merged-color-1 { background-color: #51A8B1 !important; }
-.merged-color-2 { background-color: #a36a03 !important; }
-.merged-color-3 { background-color: #d1e93b !important; }
-.merged-color-4 { background-color: #9e2c30 !important; }
-.merged-color-5 { background-color: #81c950 !important; }
+.merged-color-0 {
+    background-color: #3182ce !important;
+}
+
+.merged-color-1 {
+    background-color: #51A8B1 !important;
+}
+
+.merged-color-2 {
+    background-color: #a36a03 !important;
+}
+
+.merged-color-3 {
+    background-color: #d1e93b !important;
+}
+
+.merged-color-4 {
+    background-color: #9e2c30 !important;
+}
+
+.merged-color-5 {
+    background-color: #81c950 !important;
+}
 
 
 // Merge icon toggle
@@ -2875,11 +2996,13 @@ $orange: #a36a03;
     cursor: pointer;
     border-radius: 4px;
 }
+
 .merge-toggle.selected {
     color: #fff;
     background: rgba(128, 0, 128, 1);
     border-radius: 4px;
 }
+
 .merge-toggle:hover {
     color: #fff;
     background: rgba(128, 0, 128, 0.4);
@@ -2887,16 +3010,19 @@ $orange: #a36a03;
 }
 
 .merged-container {
-    border: 1px solid rgba(255,255,255,0.2);
+    border: 1px solid rgba(255, 255, 255, 0.2);
     border-radius: 6px;
     margin-bottom: 8px;
 }
+
 .merged-container .merged-header {
     display: grid;
-    grid-template-columns: 2fr 1fr 0.8fr 1fr 1fr 1fr; /* align with job header: Title, Qty, Unit, Total m², Sale, Actions */
+    grid-template-columns: 2fr 1fr 0.8fr 1fr 1fr 1fr;
+    /* align with job header: Title, Qty, Unit, Total m², Sale, Actions */
     gap: 8px;
     padding: 8px;
 }
+
 .merged-container .merged-body {
     padding: 6px 8px 10px 8px;
 }
@@ -2986,28 +3112,34 @@ $orange: #a36a03;
 
 /* Select list styling for add/remove orders */
 .select-list {
-    border: 1px solid rgba(255,255,255,0.15);
+    border: 1px solid rgba(255, 255, 255, 0.15);
     border-radius: 6px;
-    background: rgba(255,255,255,0.05);
+    background: rgba(255, 255, 255, 0.05);
     padding: 6px 8px;
 }
+
 .select-row {
     padding: 8px 10px !important;
-    border-bottom: 1px dashed rgba(255,255,255,0.1);
+    border-bottom: 1px dashed rgba(255, 255, 255, 0.1);
     border-radius: 4px;
     transition: background-color 0.15s ease, transform 0.05s ease;
 }
+
 .select-row:hover {
-    background: rgba(255,255,255,0.08);
+    background: rgba(255, 255, 255, 0.08);
 }
+
 .select-row.selected {
-    background: rgba(56, 161, 105, 0.25); /* green tint */
-    outline: 1px solid rgba(56,161,105,0.5);
+    background: rgba(56, 161, 105, 0.25);
+    /* green tint */
+    outline: 1px solid rgba(56, 161, 105, 0.5);
 }
+
 .select-row input[type='checkbox'] {
     width: 16px;
     height: 16px;
-    accent-color: #38a169; /* green */
+    accent-color: #38a169;
+    /* green */
 }
 
 .select-title {
@@ -3129,6 +3261,7 @@ $orange: #a36a03;
         flex-wrap: wrap;
     }
 }
+
 .invoice-container {
     margin: 0 auto;
 }
@@ -3138,6 +3271,7 @@ $orange: #a36a03;
     justify-content: space-between;
     align-items: center;
     padding: 10px 0;
+
     @media (max-width: 768px) {
         flex-direction: column;
         gap: 20px;
@@ -3359,13 +3493,13 @@ $orange: #a36a03;
     display: flex;
     align-items: center;
     margin: 10px 0;
-    
+
     .separator-line {
         flex: 1;
         height: 1px;
         background: $white;
     }
-    
+
     .separator-text {
         padding: 0 20px;
         color: $white;
@@ -3377,7 +3511,7 @@ $orange: #a36a03;
 }
 
 .order-header {
-    background: $white; 
+    background: $white;
     border-radius: 3px;
     padding: 5px;
     border: 1px solid rgba($light-gray, 0.3);
@@ -3410,30 +3544,30 @@ $orange: #a36a03;
             }
         }
 
-    .title-edit-container {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        width: 100%;
-        max-width: 350px;
-    }
-
-    .title-input {
-        font-size: 16px;
-        font-weight: bold;
-        color: $black;
-        border: 2px solid $blue;
-        border-radius: 3px;
-        padding: 4px 8px;
-        background: $white;
-        flex: 1;
-
-        &:focus {
-            outline: none;
-            border-color: $light-green;
-            box-shadow: 0 0 0 2px rgba($light-green, 0.3);
+        .title-edit-container {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            max-width: 350px;
         }
-    }
+
+        .title-input {
+            font-size: 16px;
+            font-weight: bold;
+            color: $black;
+            border: 2px solid $blue;
+            border-radius: 3px;
+            padding: 4px 8px;
+            background: $white;
+            flex: 1;
+
+            &:focus {
+                outline: none;
+                border-color: $light-green;
+                box-shadow: 0 0 0 2px rgba($light-green, 0.3);
+            }
+        }
     }
 }
 
@@ -3596,9 +3730,19 @@ $orange: #a36a03;
 }
 
 @keyframes shake {
-    0%, 100% { transform: translateX(0); }
-    25% { transform: translateX(-2px); }
-    75% { transform: translateX(2px); }
+
+    0%,
+    100% {
+        transform: translateX(0);
+    }
+
+    25% {
+        transform: translateX(-2px);
+    }
+
+    75% {
+        transform: translateX(2px);
+    }
 }
 
 .unit-select {
@@ -3609,18 +3753,18 @@ $orange: #a36a03;
     background: transparent;
     border: 1px solid #000000;
     border-radius: 3px;
-    
+
     &:hover {
         background: rgba(255, 255, 255, 0.1);
         border-color: #333333;
     }
-    
+
     &:focus {
         background: #ffffff;
         border-color: #008080;
         box-shadow: 0 0 0 2px rgba(0, 128, 128, 0.2);
     }
-    
+
     option {
         padding: 4px 8px;
         font-size: 12px;
@@ -3686,10 +3830,11 @@ $orange: #a36a03;
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
     gap: 12px;
-    
+
 }
 
-.material-info, .shipping-info {
+.material-info,
+.shipping-info {
     grid-column: 1 / -1;
     display: flex;
     flex-direction: column;
@@ -3936,7 +4081,8 @@ table {
     overflow: hidden;
 }
 
-table th, table td {
+table th,
+table td {
     padding: 12px;
     border: 1px solid #e2e8f0;
     text-align: center;
@@ -3991,7 +4137,9 @@ table tr:hover {
         padding: 0 12px;
     }
 
-    .order-header, .jobs-section, .trade-items-section {
+    .order-header,
+    .jobs-section,
+    .trade-items-section {
         padding: 16px;
     }
 }
@@ -4009,14 +4157,15 @@ table tr:hover {
     display: flex;
     align-items: center;
     gap: 8px;
-    
+
     i {
         font-size: 16px;
     }
 }
 
 .split-assignment-compact {
-    display: inline-flex; /* inline with icons */
+    display: inline-flex;
+    /* inline with icons */
     align-items: center;
     margin-left: 8px;
 }
@@ -4034,19 +4183,20 @@ table tr:hover {
     border-radius: 6px;
     padding: 6px 12px;
     cursor: pointer;
-    display: inline-flex; /* ensures inline flow */
+    display: inline-flex;
+    /* ensures inline flow */
     align-items: center;
     gap: 6px;
     font-size: 12px;
     font-weight: 500;
     min-width: 60px;
     transition: all 0.2s ease;
-    
+
     &:hover {
         border-color: rgba($light-gray, 0.5);
         background: rgba($white, 0.9);
     }
-    
+
     &.assigned {
         border-color: #4ECDC4;
         background: rgba(78, 205, 196, 0.1);
@@ -4072,7 +4222,8 @@ table tr:hover {
     position: absolute;
     top: 100%;
     left: auto;
-    right: 0; /* open to the left by default to avoid viewport overflow */
+    right: 0;
+    /* open to the left by default to avoid viewport overflow */
     background: $white;
     border: 2px solid rgba($light-gray, 0.3);
     border-radius: 6px;
@@ -4082,7 +4233,8 @@ table tr:hover {
     overflow-y: auto;
     width: max-content;
     min-width: 180px;
-    max-width: 90vw; /* constrain to viewport to prevent horizontal scroll */
+    max-width: 90vw;
+    /* constrain to viewport to prevent horizontal scroll */
     white-space: nowrap;
 }
 
@@ -4094,16 +4246,16 @@ table tr:hover {
     gap: 8px;
     font-size: 12px;
     transition: background-color 0.2s ease;
-    
+
     &:hover {
         background: rgba($light-gray, 0.1);
     }
-    
+
     &.active {
         background: rgba(78, 205, 196, 0.1);
         color: #2c3e50;
     }
-    
+
     &.unassign {
         border-bottom: 1px solid rgba($light-gray, 0.2);
     }
@@ -4126,7 +4278,8 @@ table tr:hover {
 /* Unassign option (Keep in Original) shows a black dash on neutral badge */
 .dropdown-option.unassign .option-badge {
     background: transparent;
-    color: #111827; /* black-ish dash */
+    color: #111827;
+    /* black-ish dash */
     border: 1px solid rgba($light-gray, 0.4);
 }
 
@@ -4181,7 +4334,7 @@ table tr:hover {
     align-items: center;
     gap: 6px;
     transition: background-color 0.2s ease;
-    
+
     &:hover {
         background: #45B7D1;
     }
@@ -4262,7 +4415,7 @@ table tr:hover {
 
 .group-client {
     cursor: pointer;
-    
+
     &:hover {
         color: #4ECDC4;
     }
@@ -4289,7 +4442,7 @@ table tr:hover {
     cursor: pointer;
     font-size: 12px;
     transition: background-color 0.2s ease;
-    
+
     &:hover {
         background: #ee5a24;
     }
@@ -4325,16 +4478,16 @@ table tr:hover {
     cursor: pointer;
     font-size: 10px;
     transition: all 0.2s ease;
-    
+
     &:hover {
         background: rgba(255, 107, 107, 0.3);
         color: #ee5a24;
     }
 }
 
-    .job-card {
-        padding: 16px;
-    }
+.job-card {
+    padding: 16px;
+}
 
 /* Client Change Modal Styles */
 .client-search-container {
@@ -4350,11 +4503,11 @@ table tr:hover {
     background: rgba($white, 0.1);
     color: $white;
     font-size: 14px;
-    
+
     &::placeholder {
         color: rgba($white, 0.5);
     }
-    
+
     &:focus {
         outline: none;
         border-color: #4ECDC4;
@@ -4382,11 +4535,11 @@ table tr:hover {
     font-size: 14px;
     color: #2c3e50;
     transition: background-color 0.2s ease;
-    
+
     &:hover {
         background: rgba($light-gray, 0.1);
     }
-    
+
     &.selected {
         background: rgba(78, 205, 196, 0.1);
         color: #2c3e50;
@@ -4424,7 +4577,7 @@ table tr:hover {
     cursor: pointer;
     font-size: 12px;
     transition: all 0.2s ease;
-    
+
     &:hover {
         background: rgba(255, 107, 107, 0.3);
         color: #ee5a24;

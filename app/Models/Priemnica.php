@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\DB;
 
 class Priemnica extends Model
 {
@@ -17,9 +18,57 @@ class Priemnica extends Model
         'article_id',
         'quantity',
         'comment',
+        'receipt_number',
+        'fiscal_year',
     ];
 
-    public function client() {
+    /**
+     * Boot method to auto-generate receipt_number on creation
+     */
+    protected static function boot()
+    {
+        parent::boot();
+
+        static::creating(function ($priemnica) {
+            if (empty($priemnica->receipt_number)) {
+                $priemnica->generateReceiptNumber();
+            }
+        });
+    }
+
+    /**
+     * Generate the next sequential receipt number for the current fiscal year
+     */
+    public function generateReceiptNumber(): void
+    {
+        $fiscalYear = $this->fiscal_year ?? (int) date('Y');
+        $this->fiscal_year = $fiscalYear;
+
+        $maxNumber = DB::table('priemnica')
+            ->where('fiscal_year', $fiscalYear)
+            ->max('receipt_number') ?? 0;
+
+        $this->receipt_number = $maxNumber + 1;
+    }
+
+    /**
+     * Get the formatted receipt number (e.g., "5/2026")
+     */
+    public function getFormattedReceiptNumberAttribute(): string
+    {
+        return $this->receipt_number . '/' . $this->fiscal_year;
+    }
+
+    /**
+     * Scope to filter by fiscal year
+     */
+    public function scopeForFiscalYear($query, int $year)
+    {
+        return $query->where('fiscal_year', $year);
+    }
+
+    public function client()
+    {
         return $this->belongsTo(Client::class, 'client_id');
     }
 

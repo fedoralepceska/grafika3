@@ -24,6 +24,7 @@ class StockRealizationController extends Controller
             $query = StockRealization::with([
                 'client:id,name',
                 'realizedBy:id,name',
+                'invoice:id,order_number,fiscal_year',
                 'jobs.smallMaterial.smallFormatMaterial',
                 'jobs.largeMaterial',
                 'jobs.articles.article:id,name,code,format_type'
@@ -103,6 +104,7 @@ class StockRealizationController extends Controller
             $stockRealization = StockRealization::with([
                 'client:id,name',
                 'realizedBy:id,name',
+                'invoice:id,order_number,fiscal_year',
                 'jobs.smallMaterial.smallFormatMaterial',
                 'jobs.largeMaterial',
                 'jobs.catalogItem',
@@ -217,6 +219,107 @@ class StockRealizationController extends Controller
             DB::rollback();
             Log::error('Stock realization article update error: ' . $e->getMessage());
             return response()->json(['error' => 'Failed to update article'], 500);
+        }
+    }
+
+    /**
+     * Add a new article to a stock realization job
+     */
+    public function addArticle(Request $request, $id, $jobId)
+    {
+        try {
+            DB::beginTransaction();
+
+            $stockRealization = StockRealization::findOrFail($id);
+            
+            // Check if already realized
+            if ($stockRealization->is_realized) {
+                return response()->json(['error' => 'Cannot edit realized stock realization'], 403);
+            }
+
+            $job = StockRealizationJob::where('stock_realization_id', $stockRealization->id)
+                ->findOrFail($jobId);
+
+            $validatedData = $request->validate([
+                'article_id' => 'required|exists:article,id',
+                'quantity' => 'required|numeric|min:0.01',
+                'unit_type' => 'nullable|string|max:50',
+            ]);
+
+            // Check if article already exists for this job - if so, update quantity
+            $existingArticle = StockRealizationArticle::where('stock_realization_job_id', $job->id)
+                ->where('article_id', $validatedData['article_id'])
+                ->first();
+
+            if ($existingArticle) {
+                // Update existing article quantity (add to it)
+                $existingArticle->quantity += $validatedData['quantity'];
+                if ($validatedData['unit_type']) {
+                    $existingArticle->unit_type = $validatedData['unit_type'];
+                }
+                $existingArticle->save();
+                
+                DB::commit();
+                
+                return response()->json([
+                    'message' => 'Article quantity updated successfully',
+                    'article' => $existingArticle->fresh(['article:id,name,code,format_type']),
+                    'updated' => true,
+                ]);
+            }
+
+            $article = $job->articles()->create([
+                'article_id' => $validatedData['article_id'],
+                'quantity' => $validatedData['quantity'],
+                'unit_type' => $validatedData['unit_type'] ?? 'pieces',
+                'source' => 'manual',
+            ]);
+
+            DB::commit();
+
+            return response()->json([
+                'message' => 'Article added successfully',
+                'article' => $article->fresh(['article:id,name,code,format_type'])
+            ]);
+        } catch (\Exception $e) {
+            DB::rollback();
+            Log::error('Stock realization add article error: ' . $e->getMessage() . ' | Trace: ' . $e->getTraceAsString());
+            return response()->json(['error' => 'Failed to add article: ' . $e->getMessage()], 500);
+        }
+    }
+
+    /**
+     * Remove an article from a stock realization job
+     */
+    public function removeArticle(Request $request, $id, $jobId, $articleId)
+    {
+        try {
+            DB::beginTransaction();
+
+            $stockRealization = StockRealization::findOrFail($id);
+            
+            // Check if already realized
+            if ($stockRealization->is_realized) {
+                return response()->json(['error' => 'Cannot edit realized stock realization'], 403);
+            }
+
+            $job = StockRealizationJob::where('stock_realization_id', $stockRealization->id)
+                ->findOrFail($jobId);
+
+            $article = StockRealizationArticle::where('stock_realization_job_id', $job->id)
+                ->findOrFail($articleId);
+
+            $article->delete();
+
+            DB::commit();
+
+            return response()->json([
+                'message' => 'Article removed successfully'
+            ]);
+        } catch (\Exception $e) {
+            DB::rollback();
+            Log::error('Stock realization remove article error: ' . $e->getMessage());
+            return response()->json(['error' => 'Failed to remove article'], 500);
         }
     }
 
@@ -381,15 +484,26 @@ class StockRealizationController extends Controller
     public function getAvailableArticles()
     {
         try {
-            $articles = Article::select('id', 'name', 'code', 'format_type')
+            $articles = Article::select('id', 'name', 'code', 'format_type', 'in_meters', 'in_square_meters', 'in_kilograms', 'in_pieces')
                 ->orderBy('name')
                 ->get()
                 ->map(function ($article) {
+                    // Determine the default unit type based on article flags
+                    $unitType = 'pieces'; // default
+                    if ($article->in_square_meters) {
+                        $unitType = 'm²';
+                    } elseif ($article->in_meters) {
+                        $unitType = 'm';
+                    } elseif ($article->in_kilograms) {
+                        $unitType = 'kg';
+                    }
+                    
                     return [
                         'id' => $article->id,
                         'name' => $article->name,
                         'code' => $article->code,
-                        'format_type' => $article->format_type
+                        'format_type' => $article->format_type,
+                        'unit_type' => $unitType,
                     ];
                 });
 

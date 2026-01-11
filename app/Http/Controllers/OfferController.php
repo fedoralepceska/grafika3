@@ -33,10 +33,18 @@ class OfferController extends Controller
             $query->where('status', $status);
         }
         
-        // Apply search by offer ID only
+        // Filter by fiscal year - default to current year
+        $fiscalYear = $request->input('fiscal_year', date('Y'));
+        if ($fiscalYear) {
+            $query->where('fiscal_year', (int)$fiscalYear);
+        }
+        
+        // Apply search by offer number instead of id
         if ($request->has('searchQuery') && !empty($request->input('searchQuery'))) {
             $searchQuery = $request->input('searchQuery');
-            $query->where('id', 'like', "%{$searchQuery}%");
+            // Remove # prefix if present for convenience
+            $searchQuery = ltrim($searchQuery, '#');
+            $query->where('offer_number', 'like', "%{$searchQuery}%");
         }
         
         // Filter by client
@@ -59,6 +67,8 @@ class OfferController extends Controller
             ->through(function ($offer) {
                 return [
                     'id' => $offer->id,
+                    'offer_number' => $offer->offer_number,
+                    'fiscal_year' => $offer->fiscal_year,
                     'name' => $offer->name,
                     'client' => $offer->client->name,
                     'client_id' => $offer->client_id,
@@ -95,11 +105,11 @@ class OfferController extends Controller
                 ];
             });
 
-        // Get counts for each status for the tabs
+        // Get counts for each status for the tabs (filtered by fiscal year)
         $counts = [
-            'pending' => Offer::where('status', 'pending')->count(),
-            'accepted' => Offer::where('status', 'accepted')->count(),
-            'declined' => Offer::where('status', 'declined')->count(),
+            'pending' => Offer::where('status', 'pending')->where('fiscal_year', (int)$fiscalYear)->count(),
+            'accepted' => Offer::where('status', 'accepted')->where('fiscal_year', (int)$fiscalYear)->count(),
+            'declined' => Offer::where('status', 'declined')->where('fiscal_year', (int)$fiscalYear)->count(),
         ];
         
         // Get all clients for the filter dropdown
@@ -111,13 +121,28 @@ class OfferController extends Controller
             ->orderBy('validity_days')
             ->pluck('validity_days')
             ->toArray();
+        
+        // Get available years for the year filter
+        $availableYears = Offer::select('fiscal_year')
+            ->distinct()
+            ->orderBy('fiscal_year', 'desc')
+            ->pluck('fiscal_year')
+            ->toArray();
+        
+        // Ensure current year is in the list
+        $currentYear = (int)date('Y');
+        if (!in_array($currentYear, $availableYears)) {
+            array_unshift($availableYears, $currentYear);
+        }
 
         return Inertia::render('Offer/Index', [
             'offers' => $offers,
-            'filters' => $request->only(['status', 'searchQuery', 'filterClient', 'filterValidityDays', 'sortOrder']),
+            'filters' => $request->only(['status', 'searchQuery', 'filterClient', 'filterValidityDays', 'sortOrder', 'fiscal_year']),
             'counts' => $counts,
             'clients' => $clients,
-            'validityDaysOptions' => $validityDaysOptions
+            'validityDaysOptions' => $validityDaysOptions,
+            'availableYears' => $availableYears,
+            'currentFiscalYear' => (int)$fiscalYear,
         ]);
     }
 
@@ -168,6 +193,9 @@ class OfferController extends Controller
             'production_time' => 'nullable|string'
         ]);
 
+        // Generate offer number for fiscal year
+        $offerNumberData = Offer::generateOfferNumber();
+
         $offer = Offer::create([
             'name' => $request->name,
             'description' => $request->description,
@@ -181,7 +209,9 @@ class OfferController extends Controller
             'price3' => $request->price3 ?? 0,
             'status' => 'pending',
             'production_time' => $request->production_time,
-            'created_by' => Auth::id()
+            'created_by' => Auth::id(),
+            'offer_number' => $offerNumberData['offer_number'],
+            'fiscal_year' => $offerNumberData['fiscal_year'],
         ]);
 
         // Attach catalog items with their quantities and descriptions
@@ -337,7 +367,7 @@ class OfferController extends Controller
             'chroot' => storage_path('fonts'),
         ]);
 
-        return $pdf->stream('GrafikaPlus-PonudaBr-' . $offer->id . '-' . date('Y') . '.pdf');
+        return $pdf->stream('GrafikaPlus-PonudaBr-' . $offer->offer_number . '-' . $offer->fiscal_year . '.pdf');
     }
 
     public function edit(Offer $offer)

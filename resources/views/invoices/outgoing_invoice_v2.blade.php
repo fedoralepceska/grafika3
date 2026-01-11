@@ -278,15 +278,15 @@
                 @php
                     $period = isset($firstInvoice['generated_at']) ? date('m-Y', strtotime($firstInvoice['generated_at'])) : (isset($firstInvoice['end_date']) ? date('m-Y', strtotime($firstInvoice['end_date'])) : date('m-Y'));
                     $isTrade = $firstInvoice['is_trade'] ?? false;
-                    // Determine display id: prefer faktura_id, then preview_faktura_id, else invoice id
-                    $displayId = $firstInvoice['faktura_id'] ?? ($firstInvoice['preview_faktura_id'] ?? $firstInvoice['id']);
+                    // Determine display number: prefer faktura_number, then preview_faktura_number, then faktura_id, else invoice id
+                    $displayNumber = $firstInvoice['faktura_number'] ?? $firstInvoice['preview_faktura_number'] ?? $firstInvoice['faktura_id'] ?? ($firstInvoice['preview_faktura_id'] ?? $firstInvoice['id']);
                     $prefix = $isTrade ? 'T-' : '';
                 @endphp
                 <div style="font-size: 14pt; font-family: 'Calibri'; font-weight: 700;;">
-                    Фактура Бр. {{ $prefix . $displayId . '-' . $period }}
+                    Фактура Бр. {{ $prefix . $displayNumber . '-' . $period }}
                 </div>
                 <div style="font-size: 10pt; font-family: 'Calibri'; font-weight: 300; margin-bottom: 5px;">
-                    <span>Испратница Бр:  {{ $prefix . $displayId . '-' . $period }}</span>
+                    <span>Испратница Бр:  {{ $prefix . $displayNumber . '-' . $period }}</span>
                 </div>
             </td>
             <td style="border: none; vertical-align: bottom; text-align: right; width: 30%; padding-right: 12px;">
@@ -367,6 +367,7 @@
                         'type' => 'job',
                         'job' => $job,
                         'invoice_id' => $invoice['id'] ?? null,
+                        'order_number' => $invoice['order_number'] ?? $invoice['id'] ?? null,
                         'invoice_title' => $invoice['invoice_title'] ?? '',
                         'taxRate' => $invoice['taxRate'] ?? 0,
                         // row_number assigned later in final order
@@ -526,8 +527,8 @@
                             @endif
                             @if($orderName)
                                 <div class="truncate-cell" style="color:rgb(109, 128, 129); font-size: 8pt; line-height: 0.8;">
-                                    @if(!$isMerged && !empty($item['invoice_id']))
-                                        ({{ $item['invoice_id'] }})
+                                    @if(!$isMerged && !empty($item['order_number']))
+                                        ({{ $item['order_number'] }})
                                     @endif
                                     {{ $orderName }}
                                 </div>

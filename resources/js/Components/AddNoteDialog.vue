@@ -29,8 +29,8 @@
                         />
                         <div class="hint">
                             This note appears on the actions you select below.
-                            <span class="char-count" :class="{ 'char-count--warning': noteComment.length > 200 }">
-                                {{ noteComment.length }}/256 characters
+                            <span class="char-count" :class="{ 'char-count--warning': (noteComment || '').length > 200 }">
+                                {{ (noteComment || '').length }}/256 characters
                             </span>
                         </div>
                     </div>
@@ -106,7 +106,7 @@ export default {
         invoice: Object
     },
     async beforeMount() {
-        this.noteComment = this.invoice.comment;
+        this.noteComment = this.invoice.comment || '';
         await this.generateActionOptions();
     },
     computed: {

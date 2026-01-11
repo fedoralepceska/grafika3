@@ -342,6 +342,11 @@ class MenuService
                         ],
                     ],
                 ],
+                [
+                    'href' => '/year-end-census',
+                    'title' => 'Year-End Census',
+                    'icon' => 'fa-solid fa-calendar-check',
+                ],
             ]);
         }
 

@@ -10,7 +10,7 @@
                     </h2>
                     <div class="filter-container flex gap-4 pb-10">
                         <div class="search flex gap-2">
-                            <input v-model="searchQuery" placeholder="Enter Invoice Id" class="text-black search-input"
+                            <input v-model="searchQuery" placeholder="Search by invoice #..." class="text-black search-input"
                                 @keyup.enter="searchInvoices" />
                             <button class="btn create-order1" @click="searchInvoices">Search</button>
                         </div>
@@ -42,7 +42,7 @@
                         <div :class="['border mb-2 invoice-row', { 'split-invoice-row': faktura.is_split_invoice }]"
                             v-for="faktura in displayFakturas.data" :key="faktura.id">
                             <div class="text-black flex justify-between order-info" style="line-height: normal">
-                                <div class="p-2 bold" style="font-size: 16px">{{ faktura.id }}/{{ new
+                                <div class="p-2 bold" style="font-size: 16px">{{ faktura.faktura_number || faktura.id }}/{{ new
                                     Date(faktura.created_at).toLocaleDateString('en-US', { year: 'numeric' }) }}</div>
                                 <div class="flex items-center gap-2" style="font-size: 12px">
                                     <div v-if="faktura.is_split_invoice" class="split-badge">
@@ -56,7 +56,7 @@
                             <div class="flex row-columns pl-2 pt-1" style="line-height: initial">
                                 <div class="info col-order">
                                     <div>Invoice</div>
-                                    <div class="bold">#{{ faktura.id }}</div>
+                                    <div class="bold">#{{ faktura.faktura_number || faktura.id }}</div>
                                 </div>
                                 <div class="info min-w-80 no-wrap col-client">
                                     <div>Customer</div>
@@ -230,21 +230,25 @@ export default {
         },
 
         getOrdersDisplay(faktura) {
-            // Deduplicate order IDs across regular and split-parent references
-            const orderIdSet = new Set();
+            // Deduplicate orders and display order_number instead of id
+            const ordersMap = new Map();
 
             if (Array.isArray(faktura.invoices)) {
                 faktura.invoices.forEach(inv => {
-                    if (inv && inv.id != null) orderIdSet.add(Number(inv.id));
+                    if (inv && inv.id != null) {
+                        ordersMap.set(Number(inv.id), inv.order_number || inv.id);
+                    }
                 });
             }
 
             if (faktura.is_split_invoice && faktura.parent_order_id) {
-                orderIdSet.add(Number(faktura.parent_order_id));
+                // For split invoices, try to get order_number from parent_order
+                const orderNum = faktura.parent_order?.order_number || faktura.parent_order_id;
+                ordersMap.set(Number(faktura.parent_order_id), orderNum);
             }
 
-            const ids = Array.from(orderIdSet);
-            return ids.length ? ids.map(id => `#${id}`).join(', ') : 'No Orders';
+            const orderNumbers = Array.from(ordersMap.values());
+            return orderNumbers.length ? orderNumbers.map(num => `#${num}`).join(', ') : 'No Orders';
         },
     },
 };

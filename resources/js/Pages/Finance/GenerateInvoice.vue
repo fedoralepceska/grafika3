@@ -143,7 +143,7 @@
                             </div>
                             <div class="detail-item">
                                 <span class="label">Order:</span>
-                                <span>#{{ inv?.id }}</span>
+                                <span>#{{ inv?.order_number || inv?.id }}</span>
                             </div>
                             <div class="detail-item">
                                 <span class="label">{{ $t('startDate') }}:</span>
@@ -1598,7 +1598,10 @@ export default {
             try {
                 console.log('Fetching next invoice ID...');
                 const res = await axios.get('/invoices/next-id');
-                this.previewInvoiceId = res?.data?.next_id ?? null;
+                // Use faktura_number for display, fallback to id
+                this.previewInvoiceId = res?.data?.next_faktura_number 
+                    ? `${res.data.next_faktura_number}/${res.data.fiscal_year}`
+                    : res?.data?.next_id ?? null;
                 console.log('Next invoice ID fetched:', this.previewInvoiceId);
             } catch (error) {
                 console.error('Error fetching next invoice ID:', error);

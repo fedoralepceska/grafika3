@@ -12,7 +12,7 @@
                         <div class="body flex">
                             <div class="left">
                                 <div class="info">
-                                    <p><strong>Order:</strong> #{{ invoice.id }}</p>
+                                    <p><strong>Order:</strong> #{{ invoice.order_number }}</p>
                                     <!-- Add other invoice details here -->
                                 </div>
                                 <div class="info">
@@ -48,7 +48,7 @@
         <aside class="order-sidebar">
             <div v-if="selectedInvoice" class="sidebar-content">
                 <div class="sidebar-header">
-                    <h3 class="sidebar-title">Order: #{{ selectedInvoice.id }}</h3>
+                    <h3 class="sidebar-title">Order: #{{ selectedInvoice.order_number }}</h3>
                     <div class="mt-1 mb-1 px-2 rounded-full" :class="statusClass(selectedInvoice.status)">
                         {{ selectedInvoice.status }}
                     </div>

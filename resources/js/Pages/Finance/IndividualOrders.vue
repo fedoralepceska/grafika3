@@ -98,7 +98,7 @@
                     <div v-if="orders.data">
                         <div class="border mb-1" v-for="order in orders.data" :key="order.id">
                             <div class="bg-white text-black flex justify-between items-center p-2">
-                                <div class="bold">Order #{{order.id}} - {{ Number(order.total_amount).toFixed(2) }} MKD</div>
+                                <div class="bold">Order #{{order.order_number || order.id}} - {{ Number(order.total_amount).toFixed(2) }} MKD</div>
                                 <div class="note-header" @click="openNoteModal(order)">
 									<span v-if="order.notes" class="note-preview" :title="order.notes">{{ order.notes }}</span>
                                     <span :class="order.notes ? 'text-green-500' : 'text-gray-400'" class="text-lg cursor-pointer">📝</span>
@@ -261,7 +261,7 @@
         <div class="dark-gray p-6 rounded-lg max-w-md w-full mx-4 text-white">
             <h3 class="text-lg font-bold mb-4 text-white">Order Notes</h3>
             <div class="mb-4">
-                <label class="block text-sm font-medium text-white mb-2">Order #{{ selectedOrder?.id }}</label>
+                <label class="block text-sm font-medium text-white mb-2">Order #{{ selectedOrder?.order_number || selectedOrder?.id }}</label>
                 <textarea 
                     v-model="noteText" 
                     class="w-full p-3 border border-gray-600 rounded-md h-32 resize-none bg-gray-800 text-white placeholder-gray-400"

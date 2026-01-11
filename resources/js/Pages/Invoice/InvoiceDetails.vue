@@ -82,7 +82,7 @@
                             <div class="invoice-details flex gap-5 relative" >
                                 <div class="info">
                                     <div>Order</div>
-                                    <div class="bold">#{{ invoice?.id }}</div>
+                                    <div class="bold">#{{ invoice?.order_number }}/{{ invoice?.fiscal_year }}</div>
                                 </div>
                                 <div class="info">
                                     <div>Customer</div>

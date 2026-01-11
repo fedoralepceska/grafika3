@@ -42,7 +42,7 @@
                                     <template v-for="(article, articleIndex) in item.articles" :key="articleIndex">
                                         <tr>
                                             <th>{{ index + 1 }}</th>
-                                            <th>{{ article.pivot.priemnica_id }}</th>
+                                            <th>#{{ item.receipt_number }}/{{ item.fiscal_year }}</th>
                                             <th>{{ article.name }}</th>
                                             <th>{{ item.warehouse_name }}</th>
                                         </tr>
