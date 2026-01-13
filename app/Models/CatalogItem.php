@@ -363,9 +363,11 @@ class CatalogItem extends Model
             $actualRequired = 0;
             
             if ($this->by_copies) {
-                // Copies-based: copies × job_square_meters × component_article_quantity_per_sqm
+                // Copies-based: job_square_meters × component_article_quantity_per_sqm
+                // Note: total_area_m2 already represents the total area of all uploaded files,
+                // so we don't multiply by copies again
                 if ($jobSquareMeters > 0) {
-                    $actualRequired = $job->copies * $jobSquareMeters * $catalogQuantity;
+                    $actualRequired = $jobSquareMeters * $catalogQuantity;
                 } else {
                     // Fallback: use copies × catalog standard if no job dimensions
                     $actualRequired = $job->copies * $catalogQuantity;
@@ -400,7 +402,8 @@ class CatalogItem extends Model
      * 
      * Formula for each component article:
      * - Quantity-based: job.quantity × component_article_quantity × article_price
-     * - Copies-based: job.copies × job_square_meters × component_article_quantity_per_sqm × article_price
+     * - Copies-based: job_square_meters × component_article_quantity_per_sqm × article_price
+     *   (total_area_m2 already includes all uploaded files, no need to multiply by copies)
      * 
      * The total job cost is the sum of all component article costs.
      * 
@@ -433,9 +436,11 @@ class CatalogItem extends Model
             $totalCost = 0;
             
             if ($this->by_copies) {
-                // Copies-based: copies × job_square_meters × component_article_quantity_per_sqm × price
+                // Copies-based: job_square_meters × component_article_quantity_per_sqm × price
+                // Note: total_area_m2 already represents the total area of all uploaded files,
+                // so we don't multiply by copies again
                 if ($jobSquareMeters > 0) {
-                    $actualRequired = $job->copies * $jobSquareMeters * $catalogQuantity;
+                    $actualRequired = $jobSquareMeters * $catalogQuantity;
                 } else {
                     // Fallback: use copies × catalog standard if no job dimensions
                     $actualRequired = $job->copies * $catalogQuantity;

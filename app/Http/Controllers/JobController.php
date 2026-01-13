@@ -739,11 +739,13 @@ class JobController extends Controller
             $costPrice = 0;
             $componentBreakdown = [];
             $materialDeduction = [];
+            $pricingMethod = 'quantity'; // default
 
             if ($job->catalog_item_id) {
                 $catalogItem = CatalogItem::with('articles')->find($job->catalog_item_id);
                 if ($catalogItem) {
                     $costPrice = $catalogItem->calculateJobCostPrice($job);
+                    $pricingMethod = $catalogItem->getPricingMethod();
 
                     // Get detailed breakdown for response
                     $costRequirements = $catalogItem->calculateCostRequirements($job);
@@ -755,7 +757,8 @@ class JobController extends Controller
                             'actual_required' => $requirement['actual_required'],
                             'article_price' => $requirement['article_price'],
                             'total_cost' => $requirement['total_cost'],
-                            'unit_type' => $requirement['unit_type']
+                            'unit_type' => $requirement['unit_type'],
+                            'pricing_method' => $requirement['pricing_method']
                         ];
                     }
 
@@ -775,7 +778,8 @@ class JobController extends Controller
                             'quantity_consumed' => $neededQuantity,
                             'stock_before' => $stockBefore,
                             'stock_after' => $stockAfter,
-                            'unit_type' => $requirement['unit_type']
+                            'unit_type' => $requirement['unit_type'],
+                            'pricing_method' => $requirement['pricing_method']
                         ];
                     }
                 }
@@ -791,6 +795,7 @@ class JobController extends Controller
             return response()->json([
                 'price' => $costPrice,
                 'salePrice' => $sellingPrice,
+                'pricing_method' => $pricingMethod,
                 'component_count' => count($componentBreakdown),
                 'component_breakdown' => $componentBreakdown,
                 'material_deduction' => $materialDeduction,

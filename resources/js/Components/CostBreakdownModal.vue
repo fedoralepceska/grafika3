@@ -28,7 +28,7 @@
                         </div>
                         <div class="breakdown-item">
                             <span class="label">Pricing Method:</span>
-                            <span class="value">{{ job?.catalogItem?.by_copies ? 'By Copies' : 'By Quantity' }}</span>
+                            <span class="value">{{ pricingMethodDisplay }}</span>
                         </div>
                     </div>
                 </div>
@@ -38,27 +38,37 @@
                     <div class="pricing-summary">
                         <div class="pricing-item">
                             <span class="pricing-label">Sale Price:</span>
-                            <span class="pricing-value sale-price">{{ ((job?.salePrice || job?.price) && !isNaN(parseFloat(job?.salePrice || job?.price))) ? parseFloat(job?.salePrice || job?.price).toFixed(2) : '0.00' }} ден.</span>
+                            <span class="pricing-value sale-price">{{ ((job?.salePrice || job?.price) &&
+                                !isNaN(parseFloat(job?.salePrice || job?.price))) ? parseFloat(job?.salePrice ||
+                                    job?.price).toFixed(2) : '0.00' }} ден.</span>
                         </div>
                         <div class="pricing-item">
                             <span class="pricing-label">Cost Price:</span>
-                            <span class="pricing-value cost-price">{{ (Number.isFinite(parseFloat((costBreakdown.total_cost ?? job?.price)))) ? parseFloat((costBreakdown.total_cost ?? job?.price)).toFixed(2) : '0.00' }} ден.</span>
+                            <span class="pricing-value cost-price">{{
+                                (Number.isFinite(parseFloat((costBreakdown.total_cost ?? job?.price)))) ?
+                                    parseFloat((costBreakdown.total_cost ?? job?.price)).toFixed(2) : '0.00' }} ден.</span>
                         </div>
-                        <div v-if="job?.salePrice && !isNaN(parseFloat(job.salePrice)) && (parseFloat(job.salePrice) !== parseFloat(job?.price || 0))" class="pricing-item">
+                        <div v-if="job?.salePrice && !isNaN(parseFloat(job.salePrice)) && (parseFloat(job.salePrice) !== parseFloat(job?.price || 0))"
+                            class="pricing-item">
                             <span class="pricing-label">Profit Margin:</span>
-                            <span class="pricing-value profit-margin">{{ (parseFloat(job?.salePrice || 0) - parseFloat(job?.price || 0)).toFixed(2) }} ден.</span>
+                            <span class="pricing-value profit-margin">{{ (parseFloat(job?.salePrice || 0) -
+                                parseFloat(job?.price || 0)).toFixed(2) }} ден.</span>
                         </div>
                     </div>
                 </div>
 
                 <div class="breakdown-section">
                     <h4>Cost Calculation</h4>
-                    <div v-if="Array.isArray(costBreakdown.component_breakdown) && costBreakdown.component_breakdown.length > 0">
+                    <div
+                        v-if="Array.isArray(costBreakdown.component_breakdown) && costBreakdown.component_breakdown.length > 0">
                         <div class="component-breakdown">
-                            <div v-for="(component, index) in (costBreakdown.component_breakdown || [])" :key="index" class="component-item">
+                            <div v-for="(component, index) in (costBreakdown.component_breakdown || [])" :key="index"
+                                class="component-item">
                                 <div class="component-header">
-                                    <span class="component-name">{{ component.article_name || 'Unknown Article' }}</span>
-                                    <span class="component-cost">{{ (parseFloat(component.total_cost) || 0).toFixed(2) }} ден.</span>
+                                    <span class="component-name">{{ component.article_name || 'Unknown Article'
+                                        }}</span>
+                                    <span class="component-cost">{{ (parseFloat(component.total_cost) || 0).toFixed(2)
+                                        }} ден.</span>
                                 </div>
                                 <div class="component-details">
                                     <div class="detail-row">
@@ -67,18 +77,21 @@
                                     </div>
                                     <div class="detail-row">
                                         <span class="detail-label">Actual Required:</span>
-                                        <span class="detail-value">{{ (parseFloat(component.actual_required) || 0).toFixed(4) }} {{ component.unit_type || 'units' }}</span>
+                                        <span class="detail-value">{{ (parseFloat(component.actual_required) ||
+                                            0).toFixed(4) }} {{ component.unit_type || 'units' }}</span>
                                     </div>
                                     <div class="detail-row">
                                         <span class="detail-label">Article Price:</span>
-                                        <span class="detail-value">{{ (parseFloat(component.article_price) || 0).toFixed(2) }} ден.</span>
+                                        <span class="detail-value">{{ (parseFloat(component.article_price) ||
+                                            0).toFixed(2) }} ден.</span>
                                     </div>
                                 </div>
                             </div>
                         </div>
                         <div class="total-cost">
                             <span class="total-label">Total Cost:</span>
-                            <span class="total-value">{{ (parseFloat(costBreakdown.total_cost) || parseFloat(job?.price) || 0).toFixed(2) }} ден.</span>
+                            <span class="total-value">{{ (parseFloat(costBreakdown.total_cost) || parseFloat(job?.price)
+                                || 0).toFixed(2) }} ден.</span>
                         </div>
                     </div>
                     <div class="no-breakdown" v-else>
@@ -93,23 +106,28 @@
                 <div class="breakdown-section">
                     <h4>Formulas Used</h4>
                     <div class="formula-display">
-                        <p v-if="job?.catalogItem?.by_copies">
-                            <strong>Copies-based Pricing:</strong><br>
-                            Copies × Total Area (m²) × Component Article Quantity per m² × Article Price
-                        </p>
-                        <p v-else>
-                            <strong>Quantity-based Pricing:</strong><br>
-                            Quantity × Component Article Quantity × Article Price
-                        </p>
-                        <hr />
-                        <p v-if="job?.catalogItem?.by_copies">
-                            <strong>Material Deduction:</strong><br>
-                            Quantity Consumed = Copies × Total Area (m²) × Article Qty per m²
-                        </p>
-                        <p v-else>
-                            <strong>Material Deduction:</strong><br>
-                            Quantity Consumed = Quantity × Article Qty (per piece or unit)
-                        </p>
+                        <div v-if="isLoading" class="loading-formulas">
+                            <p>Loading formula information...</p>
+                        </div>
+                        <template v-else>
+                            <p v-if="isCopiesBased">
+                                <strong>Copies-based Pricing:</strong><br>
+                                Total Area (m²) × Component Article Quantity per m² × Article Price
+                            </p>
+                            <p v-else>
+                                <strong>Quantity-based Pricing:</strong><br>
+                                Quantity × Component Article Quantity × Article Price
+                            </p>
+                            <hr />
+                            <p v-if="isCopiesBased">
+                                <strong>Material Deduction:</strong><br>
+                                Quantity Consumed = Total Area (m²) × Article Qty per m²
+                            </p>
+                            <p v-else>
+                                <strong>Material Deduction:</strong><br>
+                                Quantity Consumed = Quantity × Article Qty (per piece or unit)
+                            </p>
+                        </template>
                     </div>
                 </div>
             </div>
@@ -130,26 +148,31 @@ export default {
     emits: ['close'],
     data() {
         return {
+            isLoading: true,
             costBreakdown: {
                 total_cost: 0,
+                pricing_method: null,
                 component_breakdown: [],
                 material_deduction: []
             }
         };
+    },
+    computed: {
+        isCopiesBased() {
+            return this.costBreakdown.pricing_method === 'copies';
+        },
+        pricingMethodDisplay() {
+            if (this.isLoading || this.costBreakdown.pricing_method === null) {
+                return 'Loading...';
+            }
+            return this.isCopiesBased ? 'By Copies' : 'By Quantity';
+        }
     },
     watch: {
         visible(val) {
             if (val && this.job && this.job.id) {
                 this.fetchCostBreakdown();
             }
-        },
-        job: {
-            handler(newVal) {
-                if (this.visible && newVal && newVal.id) {
-                    this.fetchCostBreakdown();
-                }
-            },
-            deep: true
         }
     },
     methods: {
@@ -158,6 +181,7 @@ export default {
         },
         async fetchCostBreakdown() {
             const toast = useToast();
+            this.isLoading = true;
             try {
                 const response = await axios.post('/jobs/recalculate-cost', {
                     job_id: this.job.id,
@@ -171,6 +195,7 @@ export default {
 
                 this.costBreakdown = {
                     total_cost: parseFloat(response.data.price) || 0,
+                    pricing_method: response.data.pricing_method || 'quantity',
                     component_breakdown: componentBreakdown,
                     material_deduction: materialDeduction
                 };
@@ -179,9 +204,12 @@ export default {
                 toast.error('Failed to load cost breakdown details');
                 this.costBreakdown = {
                     total_cost: parseFloat(this.job?.price) || 0,
+                    pricing_method: 'quantity',
                     component_breakdown: [],
                     material_deduction: []
                 };
+            } finally {
+                this.isLoading = false;
             }
         }
     }
@@ -212,7 +240,7 @@ export default {
     overflow-y: auto;
     position: relative;
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
-    border: 1px solid rgba(255,255,255,0.15);
+    border: 1px solid rgba(255, 255, 255, 0.15);
 }
 
 .cost-breakdown-close-btn {
@@ -227,50 +255,256 @@ export default {
     border-radius: 50%;
 }
 
-.cost-breakdown-header { text-align: center; margin-bottom: 25px; padding-bottom: 15px; border-bottom: 2px solid $white; }
-.cost-breakdown-header h3 { margin: 0 0 10px 0; color: $white; font-size: 24px; font-weight: bold; }
-.job-name { margin: 0; color: $blue; font-size: 16px; font-style: italic; }
-.cost-breakdown-body { display: flex; flex-direction: column; gap: 25px; }
+.cost-breakdown-header {
+    text-align: center;
+    margin-bottom: 25px;
+    padding-bottom: 15px;
+    border-bottom: 2px solid $white;
+}
 
-.breakdown-section { background: $ultra-light-gray; border-radius: 8px; padding: 20px; border-left: 4px solid $blue; }
-.breakdown-section h4 { margin: 0 0 15px 0; color: $white; font-size: 18px; font-weight: bold; border-bottom: 1px solid rgba(255,255,255,0.15); padding-bottom: 8px; }
-.breakdown-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; }
-.breakdown-item { display: flex; justify-content: space-between; align-items: center; padding: 10px; background: $dark-gray; border-radius: 6px; border: 1px solid rgba(255,255,255,0.1); }
-.breakdown-item .label { font-weight: 600; color: $white; }
-.breakdown-item .value { font-weight: bold; color: $white; }
+.cost-breakdown-header h3 {
+    margin: 0 0 10px 0;
+    color: $white;
+    font-size: 24px;
+    font-weight: bold;
+}
 
-.pricing-summary { display: flex; flex-direction: column; gap: 12px; }
-.pricing-item { display: flex; justify-content: space-between; align-items: center; padding: 12px; background: $dark-gray; border-radius: 6px; border: 1px solid rgba(255,255,255,0.1); }
-.pricing-label { font-weight: 600; color: $white; }
-.pricing-value { font-weight: bold; font-size: 16px; color: $white; }
-.pricing-value.sale-price { color: $light-green; }
-.pricing-value.cost-price { color: #ffd700; }
-.pricing-value.profit-margin { color: #1ba5e4; }
+.job-name {
+    margin: 0;
+    color: $blue;
+    font-size: 16px;
+    font-style: italic;
+}
 
-.component-breakdown { display: flex; flex-direction: column; gap: 15px; }
-.component-item { background: $dark-gray; border-radius: 6px; border: 1px solid rgba(255,255,255,0.1); overflow: hidden; }
-.component-header { display: flex; justify-content: space-between; align-items: center; padding: 12px 15px; background: $blue; color: $white; }
-.component-name { font-weight: bold; }
-.component-cost { font-weight: bold; }
-.component-details { padding: 15px; color: $white; }
-.detail-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
-.detail-label { font-weight: 600; color: $white; }
-.detail-value { font-weight: 500; color: $white; }
-.total-cost { display: flex; justify-content: space-between; align-items: center; padding: 15px; background: rgba(0,0,0,0.25); border-radius: 6px; margin-top: 15px; border: 2px solid $light-green; color: $white; }
-.total-label { font-weight: bold; }
-.total-value { font-weight: bold; }
+.cost-breakdown-body {
+    display: flex;
+    flex-direction: column;
+    gap: 25px;
+}
 
-.no-breakdown, .no-deduction { text-align: center; padding: 20px; color: $light-gray; font-style: italic; }
-.stored-cost { display: flex; justify-content: space-between; align-items: center; padding: 15px; background: rgba(255,255,255,0.05); border-radius: 6px; margin-top: 15px; border: 1px solid rgba(255,255,255,0.1); color: $white; }
+.breakdown-section {
+    background: $ultra-light-gray;
+    border-radius: 8px;
+    padding: 20px;
+    border-left: 4px solid $blue;
+}
 
-.material-breakdown { display: flex; flex-direction: column; gap: 15px; }
-.material-item { background: $dark-gray; border-radius: 6px; border: 1px solid rgba(255,255,255,0.1); overflow: hidden; }
-.material-header { display: flex; justify-content: space-between; align-items: center; padding: 12px 15px; background: #fff3cd; border-bottom: 1px solid rgba(255,255,255,0.1); color: #333; }
-.material-name { font-weight: bold; }
-.material-quantity { font-weight: bold; }
-.material-details { padding: 15px; color: $white; }
+.breakdown-section h4 {
+    margin: 0 0 15px 0;
+    color: $white;
+    font-size: 18px;
+    font-weight: bold;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+    padding-bottom: 8px;
+}
 
-.formula-display { background: $dark-gray; padding: 15px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.1); color: $white; }
-.formula-display p { margin: 0 0 8px 0; line-height: 1.6; }
-.formula-display strong { color: $light-green; }
+.breakdown-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 15px;
+}
+
+.breakdown-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px;
+    background: $dark-gray;
+    border-radius: 6px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.breakdown-item .label {
+    font-weight: 600;
+    color: $white;
+}
+
+.breakdown-item .value {
+    font-weight: bold;
+    color: $white;
+}
+
+.pricing-summary {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.pricing-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px;
+    background: $dark-gray;
+    border-radius: 6px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.pricing-label {
+    font-weight: 600;
+    color: $white;
+}
+
+.pricing-value {
+    font-weight: bold;
+    font-size: 16px;
+    color: $white;
+}
+
+.pricing-value.sale-price {
+    color: $light-green;
+}
+
+.pricing-value.cost-price {
+    color: #ffd700;
+}
+
+.pricing-value.profit-margin {
+    color: #1ba5e4;
+}
+
+.component-breakdown {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.component-item {
+    background: $dark-gray;
+    border-radius: 6px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    overflow: hidden;
+}
+
+.component-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 15px;
+    background: $blue;
+    color: $white;
+}
+
+.component-name {
+    font-weight: bold;
+}
+
+.component-cost {
+    font-weight: bold;
+}
+
+.component-details {
+    padding: 15px;
+    color: $white;
+}
+
+.detail-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+.detail-label {
+    font-weight: 600;
+    color: $white;
+}
+
+.detail-value {
+    font-weight: 500;
+    color: $white;
+}
+
+.total-cost {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 15px;
+    background: rgba(0, 0, 0, 0.25);
+    border-radius: 6px;
+    margin-top: 15px;
+    border: 2px solid $light-green;
+    color: $white;
+}
+
+.total-label {
+    font-weight: bold;
+}
+
+.total-value {
+    font-weight: bold;
+}
+
+.no-breakdown,
+.no-deduction {
+    text-align: center;
+    padding: 20px;
+    color: $light-gray;
+    font-style: italic;
+}
+
+.stored-cost {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 15px;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 6px;
+    margin-top: 15px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: $white;
+}
+
+.material-breakdown {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.material-item {
+    background: $dark-gray;
+    border-radius: 6px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    overflow: hidden;
+}
+
+.material-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 15px;
+    background: #fff3cd;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    color: #333;
+}
+
+.material-name {
+    font-weight: bold;
+}
+
+.material-quantity {
+    font-weight: bold;
+}
+
+.material-details {
+    padding: 15px;
+    color: $white;
+}
+
+.formula-display {
+    background: $dark-gray;
+    padding: 15px;
+    border-radius: 6px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: $white;
+}
+
+.formula-display p {
+    margin: 0 0 8px 0;
+    line-height: 1.6;
+}
+
+.formula-display strong {
+    color: $light-green;
+}
 </style>
