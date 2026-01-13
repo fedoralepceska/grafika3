@@ -16,41 +16,34 @@
                     <h2 class="sub-title">
                         {{ $t('listOfAllStatements') }}
                     </h2>
-                    <div class="filter-container flex gap-4 pb-10">
+                    <div class="filter-container flex items-center gap-4 pb-6 flex-wrap">
                         <div class="search flex gap-2">
-                            <input v-model="searchQuery" placeholder="Enter Statement Id" class="text-black" style="width: 50vh; border-radius: 3px" @keyup.enter="searchInvoices" />
+                            <input v-model="searchQuery" placeholder="Enter Statement Id" class="search-input" @keyup.enter="searchCertificates" />
                             <button class="btn create-order1" @click="searchCertificates">Search</button>
                         </div>
-                        <div class="flex gap-3">
-                            <div class="client">
-                                <label class="pr-3">Filter Statements</label>
-                                <select v-model="filterBank" class="text-black">
-                                    <option value="All" hidden>Bank Accounts</option>
-                                    <option value="All">All Banks</option>
-                                    <option v-for="bankAccount in uniqueBanks" :key="bankAccount">{{ bankAccount }}</option>
-                                </select>
-                            </div>
-                            <div class="date">
-                                <select v-model="sortOrder" class="text-black">
-                                    <option value="desc" hidden>Date</option>
-                                    <option value="desc">Newest to Oldest</option>
-                                    <option value="asc">Oldest to Newest</option>
-                                </select>
-                            </div>
-                            <div class="button flex gap-5">
-                                <div>
-                                    <button @click="applyFilter" class="btn create-order1">Filter</button>
-                                </div>
-                                    <AddCertificateDialog
-                                        :certificate="certificate"
-                                    />
-                            </div>
+                        <div class="flex items-center gap-3 flex-wrap">
+                            <span class="filter-label">Filters:</span>
+                            <select v-model="filterBank" @change="applyFilter" class="filter-select">
+                                <option value="All">All Banks</option>
+                                <option v-for="bankAccount in uniqueBanks" :key="bankAccount">{{ bankAccount }}</option>
+                            </select>
+                            <select v-model="filterYear" @change="applyFilter" class="filter-select">
+                                <option value="All">All Years</option>
+                                <option v-for="year in availableYears" :key="year" :value="year">{{ year }}</option>
+                            </select>
+                            <select v-model="sortOrder" @change="applyFilter" class="filter-select">
+                                <option value="desc">Newest First</option>
+                                <option value="asc">Oldest First</option>
+                            </select>
+                        </div>
+                        <div class="ml-auto">
+                            <AddCertificateDialog :certificate="certificate" />
                         </div>
                     </div>
                     <div v-if="certificates.data">
                         <div class="border mb-1" v-for="certificate in certificates.data" :key="certificate.id">
                             <div class="bg-white text-black flex justify-between">
-                                <div class="p-2 bold">{{certificate.id_per_bank}}/{{ new Date(certificate.created_at).toLocaleDateString('en-US', { year: 'numeric' }) }}</div>
+                                <div class="p-2 bold">{{certificate.id_per_bank}}/{{ certificate.fiscal_year }}</div>
                                 <div class="flex">
                                     <button class="flex items-center p-1" @click="viewCertificate(certificate.id)">
                                         <i class="fa fa-eye bg-gray-300 p-2 rounded" aria-hidden="true"></i>
@@ -93,7 +86,6 @@ import MainLayout from "@/Layouts/MainLayout.vue";
 import Header from "@/Components/Header.vue";
 import Pagination from "@/Components/Pagination.vue"
 import axios from 'axios';
-import {reactive} from "vue";
 import OrderJobDetails from "@/Pages/Invoice/OrderJobDetails.vue";
 import ViewLockDialog from "@/Components/ViewLockDialog.vue";
 import AddCertificateDialog from "@/Components/AddCertificateDialog.vue";
@@ -113,15 +105,34 @@ export default {
         return {
             searchQuery: '',
             filterBank: 'All',
+            filterYear: 'All',
             sortOrder: 'desc',
             uniqueBanks:[],
+            availableYears: [],
             localCertificates: [],
         };
     },
     mounted() {
-        this.fetchUniqueBanks()
+        this.initFiltersFromUrl();
+        this.fetchUniqueBanks();
+        this.fetchAvailableYears();
     },
     methods: {
+        initFiltersFromUrl() {
+            const urlParams = new URLSearchParams(window.location.search);
+            if (urlParams.has('bankAccount')) {
+                this.filterBank = urlParams.get('bankAccount');
+            }
+            if (urlParams.has('fiscalYear')) {
+                this.filterYear = urlParams.get('fiscalYear');
+            }
+            if (urlParams.has('sortOrder')) {
+                this.sortOrder = urlParams.get('sortOrder');
+            }
+            if (urlParams.has('searchQuery')) {
+                this.searchQuery = urlParams.get('searchQuery');
+            }
+        },
         async applyFilter() {
             try {
                 const response = await axios.get('/statements', {
@@ -129,18 +140,26 @@ export default {
                         searchQuery: encodeURIComponent(this.searchQuery),
                         sortOrder: this.sortOrder,
                         bank: this.filterBank,
+                        fiscalYear: this.filterYear,
                     },
                 });
                 this.localCertificates = response.data;
                 let redirectUrl = '/statements';
+                let params = [];
                 if (this.searchQuery) {
-                    redirectUrl += `?searchQuery=${encodeURIComponent(this.searchQuery)}`;
+                    params.push(`searchQuery=${encodeURIComponent(this.searchQuery)}`);
                 }
                 if (this.sortOrder) {
-                    redirectUrl += `${this.searchQuery  ? '&' : '?'}sortOrder=${this.sortOrder}`;
+                    params.push(`sortOrder=${this.sortOrder}`);
                 }
-                if (this.filterBank) {
-                    redirectUrl += `${this.searchQuery || this.sortOrder ? '&' : '?'}bankAccount=${this.filterBank}`;
+                if (this.filterBank && this.filterBank !== 'All') {
+                    params.push(`bankAccount=${this.filterBank}`);
+                }
+                if (this.filterYear && this.filterYear !== 'All') {
+                    params.push(`fiscalYear=${this.filterYear}`);
+                }
+                if (params.length > 0) {
+                    redirectUrl += '?' + params.join('&');
                 }
 
                 this.$inertia.visit(redirectUrl);
@@ -165,6 +184,14 @@ export default {
                 console.error(error);
             }
         },
+        async fetchAvailableYears() {
+            try {
+                const response = await axios.get('/statements/available-years');
+                this.availableYears = response.data;
+            } catch (error) {
+                console.error(error);
+            }
+        },
         viewCertificate(id) {
             this.$inertia.visit(`/statements/${id}`);
         },
@@ -178,37 +205,44 @@ export default {
     display: flex;
     flex-direction: column;
     justify-content: center;
-
 }
 
-.filter-container{
+.filter-container {
     justify-content: space-between;
-}
-select{
-    width: 25vh;
-    border-radius: 3px;
-}
-.blue-text{
-    color: $blue;
-}
-.bold{
-    font-weight: bold;
-}
-.green-text{
-    color: $green;
-}
-.blue{
-    background-color: $blue;
-}
-.green{
-    background-color: $green;
-}
-.green:hover{
-    background-color: green;
-}
-.header{
-    display: flex;
     align-items: center;
+}
+
+.search-input {
+    width: 280px;
+    padding: 8px 12px;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    border-radius: 4px;
+    background: white;
+    color: #333;
+    font-size: 14px;
+    &::placeholder {
+        color: #999;
+    }
+}
+
+.filter-label {
+    font-size: 14px;
+    color: rgba(255, 255, 255, 0.8);
+}
+
+.filter-select {
+    padding: 8px 12px;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    border-radius: 4px;
+    background: white;
+    color: #333;
+    font-size: 14px;
+    min-width: 130px;
+    cursor: pointer;
+}
+
+.bold {
+    font-weight: bold;
 }
 
 .dark-gray {
@@ -218,10 +252,8 @@ select{
     min-height: 20vh;
     min-width: 80vh;
 }
-.ultra-light-gray{
-    background-color: $ultra-light-gray;
-}
-.sub-title{
+
+.sub-title {
     font-size: 20px;
     font-weight: bold;
     margin-bottom: 20px;
@@ -230,31 +262,17 @@ select{
     color: $white;
 }
 
-.button-container{
-    display: flex-end;
-}
 .btn {
     padding: 9px 12px;
     border: none;
     cursor: pointer;
     font-weight: bold;
-    border-radius: 2px;
-}
-.create-order1{
-    background-color: $blue;
-    color: white;
-}
-.job-details-container {
-    max-height: 0;
-    opacity: 0;
-    overflow: hidden;
-    transition: max-height 0.3s ease-in-out, opacity 0.3s ease-in-out;
-    will-change: max-height, opacity;
+    border-radius: 4px;
 }
 
-.job-details-container.active {
-    max-height: 400px;
-    opacity: 1;
+.create-order1 {
+    background-color: $blue;
+    color: white;
 }
 </style>
 

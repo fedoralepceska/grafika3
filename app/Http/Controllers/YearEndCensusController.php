@@ -11,6 +11,7 @@ use App\Models\Article;
 use App\Models\SmallMaterial;
 use App\Models\LargeFormatMaterial;
 use App\Models\OtherMaterial;
+use App\Models\Certificate;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -51,10 +52,17 @@ class YearEndCensusController extends Controller
             ->reverse()
             ->values();
 
+        // Get years from bank statements (certificates)
+        $bankStatementYears = Certificate::selectRaw('DISTINCT fiscal_year')
+            ->whereNotNull('fiscal_year')
+            ->orderBy('fiscal_year', 'desc')
+            ->pluck('fiscal_year');
+
         return Inertia::render('YearEndCensus/Index', [
             'availableYears' => $availableYears,
             'invoiceYears' => $invoiceYears,
             'materialYears' => $materialYears,
+            'bankStatementYears' => $bankStatementYears,
         ]);
     }
 
@@ -605,5 +613,155 @@ class YearEndCensusController extends Controller
         ]);
 
         return $pdf->download("year-end-summary-materials-{$year}.pdf");
+    }
+
+    /**
+     * Get bank statements summary for a fiscal year
+     */
+    public function getBankStatementsSummary(Request $request, int $year)
+    {
+        $statements = Certificate::forFiscalYear($year)
+            ->with('createdBy:id,name')
+            ->orderBy('id_per_bank')
+            ->get();
+
+        $stats = [
+            'total' => $statements->count(),
+            'archived' => $statements->where('archived', true)->count(),
+            'active' => $statements->where('archived', false)->count(),
+        ];
+
+        $statementsData = $statements->map(function ($statement) {
+            return [
+                'id' => $statement->id,
+                'id_per_bank' => $statement->id_per_bank,
+                'fiscal_year' => $statement->fiscal_year,
+                'bank' => $statement->bank,
+                'bankAccount' => $statement->bankAccount,
+                'date' => $statement->date,
+                'created_by' => $statement->createdBy?->name,
+                'archived' => $statement->archived,
+                'archived_at' => $statement->archived_at,
+            ];
+        });
+
+        $closure = FiscalYearClosure::getClosureInfo($year, 'bank_statements');
+
+        return response()->json([
+            'stats' => $stats,
+            'statements' => $statementsData,
+            'closure' => $closure,
+            'isClosed' => $closure !== null,
+        ]);
+    }
+
+    /**
+     * Archive all bank statements for a fiscal year
+     */
+    public function archiveBankStatements(Request $request, int $year)
+    {
+        if (FiscalYearClosure::isYearClosed($year, 'bank_statements')) {
+            return response()->json(['error' => 'Year is already closed'], 422);
+        }
+
+        $count = Certificate::forFiscalYear($year)
+            ->where('archived', false)
+            ->update([
+                'archived' => true,
+                'archived_at' => now(),
+            ]);
+
+        return response()->json([
+            'message' => "Archived {$count} bank statements",
+            'archived_count' => $count,
+        ]);
+    }
+
+    /**
+     * Close the fiscal year for bank statements
+     */
+    public function closeBankStatementsYear(Request $request, int $year)
+    {
+        if (FiscalYearClosure::isYearClosed($year, 'bank_statements')) {
+            return response()->json(['error' => 'Year is already closed'], 422);
+        }
+
+        try {
+            DB::beginTransaction();
+
+            // Archive all statements from this fiscal year
+            $archivedCount = Certificate::forFiscalYear($year)
+                ->where('archived', false)
+                ->update([
+                    'archived' => true,
+                    'archived_at' => now(),
+                ]);
+
+            $stats = [
+                'total' => Certificate::forFiscalYear($year)->count(),
+                'archived_count' => $archivedCount,
+            ];
+
+            // Create closure record
+            $closure = FiscalYearClosure::create([
+                'fiscal_year' => $year,
+                'module' => 'bank_statements',
+                'closed_at' => now(),
+                'closed_by' => auth()->id(),
+                'summary' => $stats,
+            ]);
+
+            DB::commit();
+
+            return response()->json([
+                'message' => "Bank statements fiscal year {$year} closed successfully. {$archivedCount} statements archived.",
+                'closure' => $closure->load('closedByUser'),
+            ]);
+        } catch (\Exception $e) {
+            DB::rollback();
+            Log::error('Bank statements year close error: ' . $e->getMessage());
+            return response()->json(['error' => 'Failed to close bank statements year: ' . $e->getMessage()], 500);
+        }
+    }
+
+    /**
+     * Export bank statements summary PDF for a fiscal year
+     */
+    public function exportBankStatementsSummary(Request $request, int $year)
+    {
+        $statements = Certificate::forFiscalYear($year)
+            ->with('createdBy:id,name')
+            ->orderBy('id_per_bank')
+            ->get();
+
+        $statementsData = $statements->map(function ($statement) {
+            return [
+                'id_per_bank' => $statement->id_per_bank,
+                'fiscal_year' => $statement->fiscal_year,
+                'bank' => $statement->bank,
+                'bankAccount' => $statement->bankAccount,
+                'date' => $statement->date,
+                'created_by' => $statement->createdBy?->name,
+                'archived' => $statement->archived,
+            ];
+        });
+
+        $stats = [
+            'total' => $statements->count(),
+            'archived' => $statements->where('archived', true)->count(),
+        ];
+
+        $closure = FiscalYearClosure::getClosureInfo($year, 'bank_statements');
+
+        $pdf = Pdf::loadView('pdf.year-end-bank-statements-summary', [
+            'year' => $year,
+            'stats' => $stats,
+            'statements' => $statementsData,
+            'closure' => $closure,
+            'exportedBy' => auth()->user()->name,
+            'exportedAt' => now(),
+        ]);
+
+        return $pdf->download("year-end-summary-bank-statements-{$year}.pdf");
     }
 }

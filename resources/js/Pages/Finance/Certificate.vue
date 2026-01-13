@@ -41,7 +41,7 @@
                     <div class="form-container p-2 light-gray">
                         <div class="InvoiceDetails">
                             <div class="invoice-details flex gap-20 relative mb-2" >
-                                <div class="invoice-title bg-white text-black bold p-3 ">{{ certificate.id_per_bank }}/{{new Date(certificate.date).toLocaleDateString('en-US', { year: 'numeric'})}}</div>
+                                <div class="invoice-title bg-white text-black bold p-3 ">{{ certificate.id_per_bank }}/{{ certificate.fiscal_year }}</div>
                                 <div class="info">
                                     <div>Statement</div>
                                     <div class="bold">#{{ certificate?.id_per_bank }}</div>

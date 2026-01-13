@@ -165,6 +165,7 @@ Route::middleware(['auth', 'verified'])->group(function() {
     // finance routes
     Route::get('/statements', [CertificateController::class, 'index'])->name('certificates.index');
     Route::get('/unique-banks', [CertificateController::class, 'getUniqueBanks']);
+    Route::get('/statements/available-years', [CertificateController::class, 'getAvailableYears']);
     Route::get('/statements/{id}', [CertificateController::class, 'getCertificate'])->name('certificates.getCertificate');
     Route::post('/item', [\App\Http\Controllers\ItemController::class, 'store'])->name('item.store');
     Route::get('/items/{id}', [\App\Http\Controllers\ItemController::class, 'getAllByCertificateId'])->name('item.getAllByCertificateId');
@@ -628,6 +629,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/api/year-end-census/materials/{year}', [\App\Http\Controllers\YearEndCensusController::class, 'getMaterialsSummary']);
     Route::post('/api/year-end-census/materials/{year}/close', [\App\Http\Controllers\YearEndCensusController::class, 'closeMaterialsYear']);
     Route::get('/api/year-end-census/materials/{year}/export', [\App\Http\Controllers\YearEndCensusController::class, 'exportMaterialsSummary']);
+    
+    // Bank Statements routes
+    Route::get('/api/year-end-census/bank-statements/{year}', [\App\Http\Controllers\YearEndCensusController::class, 'getBankStatementsSummary']);
+    Route::post('/api/year-end-census/bank-statements/{year}/archive', [\App\Http\Controllers\YearEndCensusController::class, 'archiveBankStatements']);
+    Route::post('/api/year-end-census/bank-statements/{year}/close', [\App\Http\Controllers\YearEndCensusController::class, 'closeBankStatementsYear']);
+    Route::get('/api/year-end-census/bank-statements/{year}/export', [\App\Http\Controllers\YearEndCensusController::class, 'exportBankStatementsSummary']);
 });
 
 require __DIR__.'/auth.php';

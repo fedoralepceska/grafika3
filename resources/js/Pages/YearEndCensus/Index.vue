@@ -14,11 +14,15 @@
                     <button :class="['tab-btn', { active: activeTab === 'materials' }]" @click="activeTab = 'materials'">
                         Materials
                     </button>
+                    <button :class="['tab-btn', { active: activeTab === 'bankStatements' }]" @click="activeTab = 'bankStatements'">
+                        Bank Statements
+                    </button>
                 </div>
 
                 <OrdersTab v-if="activeTab === 'orders'" :available-years="availableYears" />
                 <InvoicesTab v-if="activeTab === 'invoices'" :available-years="invoiceYears" />
                 <MaterialsTab v-if="activeTab === 'materials'" :available-years="materialYears" />
+                <BankStatementsTab v-if="activeTab === 'bankStatements'" :available-years="bankStatementYears" />
             </div>
         </div>
     </MainLayout>
@@ -30,9 +34,10 @@ import Header from "@/Components/Header.vue";
 import OrdersTab from "./OrdersTab.vue";
 import InvoicesTab from "./InvoicesTab.vue";
 import MaterialsTab from "./MaterialsTab.vue";
+import BankStatementsTab from "./BankStatementsTab.vue";
 
 export default {
-    components: { MainLayout, Header, OrdersTab, InvoicesTab, MaterialsTab },
+    components: { MainLayout, Header, OrdersTab, InvoicesTab, MaterialsTab, BankStatementsTab },
     props: {
         availableYears: {
             type: Array,
@@ -43,6 +48,10 @@ export default {
             default: () => []
         },
         materialYears: {
+            type: Array,
+            default: () => []
+        },
+        bankStatementYears: {
             type: Array,
             default: () => []
         }

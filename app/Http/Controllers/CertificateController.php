@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Certificate;
+use App\Models\FiscalYearClosure;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
@@ -14,6 +15,11 @@ class CertificateController extends Controller
         try {
             $query = Certificate::query()->with('createdBy');
 
+            // Filter out archived statements by default
+            if (!$request->has('includeArchived') || !$request->boolean('includeArchived')) {
+                $query->active();
+            }
+
             if ($request->has('searchQuery')) {
                 $searchQuery = $request->input('searchQuery');
                 $query->where('id', 'like', "%{$searchQuery}%");
@@ -22,6 +28,11 @@ class CertificateController extends Controller
             if ($request->has('bankAccount') && $request->input('bankAccount') !== 'All') {
                 $bankAccount = $request->input('bankAccount');
                 $query->where('bankAccount', $bankAccount);
+            }
+
+            // Filter by fiscal year if provided
+            if ($request->has('fiscalYear') && $request->input('fiscalYear') !== 'All') {
+                $query->forFiscalYear((int) $request->input('fiscalYear'));
             }
 
             $sortOrder = $request->input('sortOrder', 'desc');
@@ -87,18 +98,25 @@ class CertificateController extends Controller
             'bankAccount' => 'string',
         ]);
 
-        // Calculate the id_per_bank for this bank
-        $latestIdPerBank = Certificate::where('bank', $validatedData['bank'])
-            ->max('id_per_bank');
+        $year = now()->year;
 
-        $idPerBank = $latestIdPerBank ? $latestIdPerBank + 1 : 1;
+        // Check if fiscal year is closed for bank statements
+        if (FiscalYearClosure::isYearClosed($year, 'bank_statements')) {
+            return response()->json([
+                'error' => 'Cannot create statements for closed fiscal year'
+            ], 422);
+        }
+
+        // Generate id_per_bank for this bank and fiscal year
+        $numberData = Certificate::generateIdPerBank($validatedData['bank']);
 
         // Create a new certificate record
         $certificate = new Certificate();
         $certificate->date = $validatedData['date'];
         $certificate->bank = $validatedData['bank'];
         $certificate->bankAccount = $validatedData['bankAccount'];
-        $certificate->id_per_bank = $idPerBank;
+        $certificate->id_per_bank = $numberData['id_per_bank'];
+        $certificate->fiscal_year = $numberData['fiscal_year'];
         $certificate->created_by = auth()->id();
 
         // Save the certificate
@@ -154,5 +172,18 @@ class CertificateController extends Controller
     {
         $banks = \App\Models\Bank::select('id', 'name', 'address as bankAccount')->get();
         return response()->json($banks);
+    }
+
+    /**
+     * Get available fiscal years for filtering
+     */
+    public function getAvailableYears()
+    {
+        $years = Certificate::selectRaw('DISTINCT fiscal_year')
+            ->whereNotNull('fiscal_year')
+            ->orderBy('fiscal_year', 'desc')
+            ->pluck('fiscal_year');
+
+        return response()->json($years);
     }
 }
