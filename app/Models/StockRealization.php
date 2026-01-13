@@ -61,6 +61,52 @@ class StockRealization extends Model
         return $query->where('is_realized', true);
     }
 
+    /**
+     * Scope to filter only unrealized stock realizations
+     */
+    public function scopeUnrealized($query)
+    {
+        return $query->where('is_realized', false);
+    }
+
+    /**
+     * Check if all stock realizations from previous years are completed
+     * Returns true if can be realized, false otherwise
+     */
+    public function canBeRealized(): bool
+    {
+        // Get all unrealized stock realizations from years before this one
+        $unrealizedFromPreviousYears = self::where('fiscal_year', '<', $this->fiscal_year)
+            ->where('is_realized', false)
+            ->exists();
+
+        return !$unrealizedFromPreviousYears;
+    }
+
+    /**
+     * Get the count of unrealized stock realizations from previous years
+     */
+    public function getUnrealizedPreviousYearsCount(): int
+    {
+        return self::where('fiscal_year', '<', $this->fiscal_year)
+            ->where('is_realized', false)
+            ->count();
+    }
+
+    /**
+     * Get the years that have unrealized stock realizations before this one
+     */
+    public function getUnrealizedPreviousYears(): array
+    {
+        return self::where('fiscal_year', '<', $this->fiscal_year)
+            ->where('is_realized', false)
+            ->distinct()
+            ->pluck('fiscal_year')
+            ->sort()
+            ->values()
+            ->toArray();
+    }
+
     public function invoice(): BelongsTo
     {
         return $this->belongsTo(Invoice::class);

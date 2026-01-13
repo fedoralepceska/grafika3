@@ -85,9 +85,18 @@ class StockRealizationController extends Controller
             $user = auth()->user();
             $canRevert = $user && $user->role && strcasecmp($user->role->name, 'admin') === 0;
 
+            // Get years that have unrealized stock realizations (for disabling buttons)
+            $yearsWithUnrealized = StockRealization::where('is_realized', false)
+                ->distinct()
+                ->pluck('fiscal_year')
+                ->sort()
+                ->values()
+                ->toArray();
+
             return Inertia::render('Finance/StockRealization', [
                 'stockRealizations' => $stockRealizations,
                 'canRevert' => $canRevert,
+                'yearsWithUnrealized' => $yearsWithUnrealized,
             ]);
         } catch (\Exception $e) {
             Log::error('Stock realization index error: ' . $e->getMessage());
@@ -333,6 +342,19 @@ class StockRealizationController extends Controller
 
             if ($stockRealization->is_realized) {
                 return response()->json(['error' => 'Stock realization already completed'], 400);
+            }
+
+            // Check if all previous years' stock realizations are completed
+            if (!$stockRealization->canBeRealized()) {
+                $unrealizedYears = $stockRealization->getUnrealizedPreviousYears();
+                $unrealizedCount = $stockRealization->getUnrealizedPreviousYearsCount();
+                $yearsText = implode(', ', $unrealizedYears);
+                
+                return response()->json([
+                    'error' => "Cannot complete this stock realization. There are {$unrealizedCount} unrealized stock realization(s) from previous year(s): {$yearsText}. Please complete all previous years' stock realizations first.",
+                    'unrealized_years' => $unrealizedYears,
+                    'unrealized_count' => $unrealizedCount,
+                ], 422);
             }
 
             $success = $stockRealization->realize();

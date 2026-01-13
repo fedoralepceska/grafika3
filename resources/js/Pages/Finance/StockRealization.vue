@@ -254,14 +254,17 @@
                                     <div v-if="!stockRealization.is_realized"
                                         class="stock-realization-button-container">
                                         <button class="stock-realization-button" @click="realizeStock(stockRealization)"
-                                            :disabled="realizingStocks[stockRealization.id] || generatingPDF[stockRealization.id] || revertingStocks[stockRealization.id]"
-                                            title="Complete Stock Realization">
+                                            :disabled="realizingStocks[stockRealization.id] || generatingPDF[stockRealization.id] || revertingStocks[stockRealization.id] || !canRealizeStock(stockRealization)"
+                                            :title="getRealizationButtonTitle(stockRealization)">
                                             <i :class="[
-                                                realizingStocks[stockRealization.id] ? 'fa fa-spinner fa-spin' : 'fa fa-check',
+                                                realizingStocks[stockRealization.id] ? 'fa fa-spinner fa-spin' : (canRealizeStock(stockRealization) ? 'fa fa-check' : 'fa fa-lock'),
                                                 'mr-2'
                                             ]" aria-hidden="true"></i>
-                                            {{ realizingStocks[stockRealization.id] ? 'Processing...' : 'Complete Realization' }}
+                                            {{ getRealizationButtonText(stockRealization) }}
                                         </button>
+                                        <div v-if="!canRealizeStock(stockRealization)" class="realization-blocked-hint">
+                                            Complete all {{ getPreviousUnrealizedYears(stockRealization).join(', ') }} realizations first
+                                        </div>
                                     </div>
                                 </div>
                             </transition>
@@ -434,6 +437,10 @@ export default {
             type: Boolean,
             default: false,
         },
+        yearsWithUnrealized: {
+            type: Array,
+            default: () => [],
+        },
     },
     setup(props) {
         const searchQuery = ref('');
@@ -452,6 +459,9 @@ export default {
         const targetStock = ref(null);
         const codeDigits = ref(['', '', '', '']);
         const deleting = ref(false);
+        
+        // Years with unrealized stock realizations (for blocking future year completions)
+        const yearsWithUnrealizedRef = ref(props.yearsWithUnrealized || []);
         
         // Add Article Modal state
         const showAddArticleModal = ref(false);
@@ -499,6 +509,7 @@ export default {
             addingArticle,
             removingArticles,
             materialsToAdd,
+            yearsWithUnrealizedRef,
         };
     },
     mounted() {
@@ -585,6 +596,66 @@ export default {
         viewConnectedOrder(invoiceId) {
             window.open(`/orders/${invoiceId}`, '_blank');
         },
+        /**
+         * Check if a stock realization can be completed
+         * Returns false if there are unrealized stock realizations from previous years
+         */
+        canRealizeStock(stockRealization) {
+            if (!stockRealization.fiscal_year) return true;
+            
+            const previousYears = this.getPreviousUnrealizedYears(stockRealization);
+            return previousYears.length === 0;
+        },
+        /**
+         * Get years before this stock realization's fiscal year that have unrealized items
+         */
+        getPreviousUnrealizedYears(stockRealization) {
+            if (!stockRealization.fiscal_year || !this.yearsWithUnrealizedRef) return [];
+            
+            return this.yearsWithUnrealizedRef.filter(year => year < stockRealization.fiscal_year);
+        },
+        /**
+         * Get the button title based on whether realization is allowed
+         */
+        getRealizationButtonTitle(stockRealization) {
+            if (this.realizingStocks[stockRealization.id]) {
+                return 'Processing...';
+            }
+            if (!this.canRealizeStock(stockRealization)) {
+                const years = this.getPreviousUnrealizedYears(stockRealization);
+                return `Cannot complete: There are unrealized stock realizations from ${years.join(', ')}`;
+            }
+            return 'Complete Stock Realization';
+        },
+        /**
+         * Get the button text based on state
+         */
+        getRealizationButtonText(stockRealization) {
+            if (this.realizingStocks[stockRealization.id]) {
+                return 'Processing...';
+            }
+            if (!this.canRealizeStock(stockRealization)) {
+                return 'Blocked';
+            }
+            return 'Complete Realization';
+        },
+        /**
+         * Update the yearsWithUnrealized list after a realization
+         * Removes a year if all its stock realizations are now completed
+         */
+        updateYearsWithUnrealized(completedFiscalYear) {
+            // Check if there are still unrealized items for this year
+            const stillHasUnrealized = this.filteredStockRealizations.some(
+                sr => sr.fiscal_year === completedFiscalYear && !sr.is_realized
+            );
+            
+            if (!stillHasUnrealized) {
+                // Remove this year from the list
+                this.yearsWithUnrealizedRef = this.yearsWithUnrealizedRef.filter(
+                    year => year !== completedFiscalYear
+                );
+            }
+        },
         async realizeStock(stockRealization) {
             if (this.realizingStocks[stockRealization.id]) return;
 
@@ -601,6 +672,9 @@ export default {
                         this.filteredStockRealizations[index].realized_at = new Date().toISOString();
                         this.filteredStockRealizations[index].realized_by = response.data.stockRealization.realized_by;
                     }
+
+                    // Update the years with unrealized list to potentially enable other buttons
+                    this.updateYearsWithUnrealized(stockRealization.fiscal_year);
 
                     this.toastSuccess('Stock realization completed successfully!');
                 } else {
@@ -1820,7 +1894,8 @@ select {
 /* Stock Realization Button Styling */
 .stock-realization-button-container {
     display: flex;
-    justify-content: flex-end;
+    flex-direction: column;
+    align-items: flex-end;
     margin-top: 1rem;
     padding-top: 0.75rem;
     border-top: 1px solid rgba(255, 255, 255, 0.12);
@@ -1862,6 +1937,13 @@ select {
 
 .stock-realization-button i {
     font-size: 0.875rem;
+}
+
+.realization-blocked-hint {
+    margin-top: 0.5rem;
+    font-size: 0.75rem;
+    color: #f59e0b;
+    text-align: right;
 }
 
 .job-articles {
