@@ -58,11 +58,37 @@ class YearEndCensusController extends Controller
             ->orderBy('fiscal_year', 'desc')
             ->pluck('fiscal_year');
 
+        // Get years for clients - from fakturas, trade invoices, items, incoming fakturas
+        $fakturaYears = Faktura::where('isInvoiced', 1)
+            ->selectRaw('DISTINCT YEAR(created_at) as year')
+            ->pluck('year');
+        
+        $tradeInvoiceYears = \App\Models\TradeInvoice::whereIn('status', ['sent', 'paid'])
+            ->selectRaw('DISTINCT YEAR(invoice_date) as year')
+            ->pluck('year');
+        
+        $itemYears = \App\Models\Item::selectRaw('DISTINCT YEAR(created_at) as year')
+            ->pluck('year');
+        
+        $incomingFakturaYears = \App\Models\IncomingFaktura::selectRaw('DISTINCT YEAR(created_at) as year')
+            ->pluck('year');
+        
+        $clientYears = $fakturaYears
+            ->merge($tradeInvoiceYears)
+            ->merge($itemYears)
+            ->merge($incomingFakturaYears)
+            ->unique()
+            ->filter()
+            ->sort()
+            ->reverse()
+            ->values();
+
         return Inertia::render('YearEndCensus/Index', [
             'availableYears' => $availableYears,
             'invoiceYears' => $invoiceYears,
             'materialYears' => $materialYears,
             'bankStatementYears' => $bankStatementYears,
+            'clientYears' => $clientYears,
         ]);
     }
 
@@ -763,5 +789,242 @@ class YearEndCensusController extends Controller
         ]);
 
         return $pdf->download("year-end-summary-bank-statements-{$year}.pdf");
+    }
+
+    /**
+     * Get clients summary for a fiscal year
+     */
+    public function getClientsSummary(Request $request, int $year)
+    {
+        $service = new \App\Services\ClientYearEndCensusService();
+        $entries = $service->getCensusEntries($year);
+
+        $entriesData = $entries->map(function ($entry) {
+            return [
+                'id' => $entry->id,
+                'client_id' => $entry->client_id,
+                'client_name' => $entry->client->name ?? 'Unknown',
+                'initial_balance' => (float) $entry->initial_balance,
+                'total_output_invoices' => (float) $entry->total_output_invoices,
+                'total_trade_invoices' => (float) $entry->total_trade_invoices,
+                'total_statement_expenses' => (float) $entry->total_statement_expenses,
+                'total_incoming_invoices' => (float) $entry->total_incoming_invoices,
+                'total_statement_income' => (float) $entry->total_statement_income,
+                'calculated_balance' => (float) $entry->calculated_balance,
+                'adjusted_balance' => $entry->adjusted_balance !== null ? (float) $entry->adjusted_balance : null,
+                'final_balance' => $entry->final_balance,
+                'balance_direction' => $entry->balance_direction,
+                'is_adjusted' => $entry->is_adjusted,
+                'status' => $entry->status,
+            ];
+        });
+
+        $stats = [
+            'total_clients' => $entries->count(),
+            'clients_we_owe' => $entries->filter(fn($e) => $e->final_balance >= 0)->count(),
+            'clients_owe_us' => $entries->filter(fn($e) => $e->final_balance < 0)->count(),
+            'total_we_owe' => $entries->filter(fn($e) => $e->final_balance >= 0)->sum('final_balance'),
+            'total_they_owe' => abs($entries->filter(fn($e) => $e->final_balance < 0)->sum('final_balance')),
+            'pending_count' => $entries->where('status', 'pending')->count(),
+            'ready_count' => $entries->where('status', 'ready_to_close')->count(),
+            'closed_count' => $entries->where('status', 'closed')->count(),
+        ];
+
+        $closure = FiscalYearClosure::getClosureInfo($year, 'clients');
+
+        return response()->json([
+            'stats' => $stats,
+            'entries' => $entriesData,
+            'closure' => $closure,
+            'isClosed' => $closure !== null && ($closure->summary['is_fully_closed'] ?? false),
+        ]);
+    }
+
+    /**
+     * Get detailed breakdown for a single client
+     */
+    public function getClientBreakdown(Request $request, int $year, int $clientId)
+    {
+        $service = new \App\Services\ClientYearEndCensusService();
+        $breakdown = $service->getClientBreakdown($clientId, $year);
+
+        $entry = \App\Models\ClientYearEndEntry::where('fiscal_year', $year)
+            ->where('client_id', $clientId)
+            ->first();
+
+        if ($entry) {
+            $breakdown['adjusted_balance'] = $entry->adjusted_balance !== null ? (float) $entry->adjusted_balance : null;
+            $breakdown['final_balance'] = $entry->final_balance;
+            $breakdown['status'] = $entry->status;
+            $breakdown['is_adjusted'] = $entry->is_adjusted;
+        }
+
+        return response()->json($breakdown);
+    }
+
+    /**
+     * Update a client's year-end entry (adjust balance or change status)
+     */
+    public function updateClientEntry(Request $request, int $year, int $clientId)
+    {
+        $entry = \App\Models\ClientYearEndEntry::where('fiscal_year', $year)
+            ->where('client_id', $clientId)
+            ->first();
+
+        if (!$entry) {
+            return response()->json(['error' => 'Entry not found'], 404);
+        }
+
+        if ($entry->status === 'closed') {
+            return response()->json(['error' => 'Cannot modify a closed entry'], 422);
+        }
+
+        $service = new \App\Services\ClientYearEndCensusService();
+
+        try {
+            if ($request->has('adjusted_balance')) {
+                $adjustedBalance = $request->input('adjusted_balance');
+                $entry = $service->adjustBalance($entry, $adjustedBalance);
+            }
+
+            if ($request->has('status')) {
+                $newStatus = $request->input('status');
+                if ($newStatus === 'ready_to_close') {
+                    $entry = $service->markReadyToClose($entry);
+                } elseif ($newStatus === 'pending') {
+                    $entry = $service->revertToPending($entry);
+                }
+            }
+
+            return response()->json([
+                'message' => 'Entry updated successfully',
+                'entry' => [
+                    'id' => $entry->id,
+                    'client_id' => $entry->client_id,
+                    'adjusted_balance' => $entry->adjusted_balance !== null ? (float) $entry->adjusted_balance : null,
+                    'final_balance' => $entry->final_balance,
+                    'status' => $entry->status,
+                    'is_adjusted' => $entry->is_adjusted,
+                ],
+            ]);
+        } catch (\Exception $e) {
+            return response()->json(['error' => $e->getMessage()], 422);
+        }
+    }
+
+    /**
+     * Close the fiscal year for clients
+     */
+    public function closeClientsYear(Request $request, int $year)
+    {
+        $service = new \App\Services\ClientYearEndCensusService();
+        $clientIds = $request->input('client_ids'); // Optional: for partial closure
+
+        try {
+            $closure = $service->closeYear($year, $clientIds);
+
+            return response()->json([
+                'message' => "Client fiscal year {$year} closed successfully.",
+                'closure' => $closure,
+            ]);
+        } catch (\Exception $e) {
+            return response()->json(['error' => $e->getMessage()], 422);
+        }
+    }
+
+    /**
+     * Export clients summary PDF for a fiscal year
+     */
+    public function exportClientsSummary(Request $request, int $year)
+    {
+        $service = new \App\Services\ClientYearEndCensusService();
+        $entries = $service->getCensusEntries($year);
+
+        $entriesData = $entries->map(function ($entry) {
+            return [
+                'client_name' => $entry->client->name ?? 'Unknown',
+                'initial_balance' => (float) $entry->initial_balance,
+                'total_output_invoices' => (float) $entry->total_output_invoices,
+                'total_trade_invoices' => (float) $entry->total_trade_invoices,
+                'total_statement_expenses' => (float) $entry->total_statement_expenses,
+                'total_incoming_invoices' => (float) $entry->total_incoming_invoices,
+                'total_statement_income' => (float) $entry->total_statement_income,
+                'final_balance' => $entry->final_balance,
+                'balance_direction' => $entry->balance_direction,
+                'is_adjusted' => $entry->is_adjusted,
+                'status' => $entry->status,
+            ];
+        });
+
+        $stats = [
+            'total_clients' => $entries->count(),
+            'clients_we_owe' => $entries->filter(fn($e) => $e->final_balance >= 0)->count(),
+            'clients_owe_us' => $entries->filter(fn($e) => $e->final_balance < 0)->count(),
+            'total_we_owe' => $entries->filter(fn($e) => $e->final_balance >= 0)->sum('final_balance'),
+            'total_they_owe' => abs($entries->filter(fn($e) => $e->final_balance < 0)->sum('final_balance')),
+        ];
+
+        $closure = FiscalYearClosure::getClosureInfo($year, 'clients');
+
+        $pdf = Pdf::loadView('pdf.year-end-clients-summary', [
+            'year' => $year,
+            'stats' => $stats,
+            'entries' => $entriesData,
+            'closure' => $closure,
+            'exportedBy' => auth()->user()->name,
+            'exportedAt' => now(),
+        ]);
+
+        return $pdf->download("year-end-summary-clients-{$year}.pdf");
+    }
+
+    /**
+     * Mark all clients as ready to close
+     */
+    public function markAllClientsReady(Request $request, int $year)
+    {
+        $service = new \App\Services\ClientYearEndCensusService();
+
+        try {
+            $count = $service->markAllReady($year);
+
+            return response()->json([
+                'message' => "Marked {$count} clients as ready to close.",
+                'count' => $count,
+            ]);
+        } catch (\Exception $e) {
+            return response()->json(['error' => $e->getMessage()], 422);
+        }
+    }
+
+    /**
+     * Export individual client breakdown PDF
+     */
+    public function exportClientBreakdown(Request $request, int $year, int $clientId)
+    {
+        $service = new \App\Services\ClientYearEndCensusService();
+        $breakdown = $service->getClientBreakdown($clientId, $year);
+
+        $entry = \App\Models\ClientYearEndEntry::where('fiscal_year', $year)
+            ->where('client_id', $clientId)
+            ->with('client')
+            ->first();
+
+        if (!$entry) {
+            return response()->json(['error' => 'Client entry not found'], 404);
+        }
+
+        $clientName = $entry->client->name ?? 'Unknown Client';
+
+        $pdf = Pdf::loadView('pdf.client-breakdown', [
+            'year' => $year,
+            'clientName' => $clientName,
+            'breakdown' => $breakdown,
+            'entry' => $entry,
+            'exportedBy' => auth()->user()->name,
+            'exportedAt' => now(),
+        ]);
+
+        return $pdf->download("client-breakdown-{$clientName}-{$year}.pdf");
     }
 }

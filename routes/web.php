@@ -635,6 +635,15 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('/api/year-end-census/bank-statements/{year}/archive', [\App\Http\Controllers\YearEndCensusController::class, 'archiveBankStatements']);
     Route::post('/api/year-end-census/bank-statements/{year}/close', [\App\Http\Controllers\YearEndCensusController::class, 'closeBankStatementsYear']);
     Route::get('/api/year-end-census/bank-statements/{year}/export', [\App\Http\Controllers\YearEndCensusController::class, 'exportBankStatementsSummary']);
+    
+    // Client Census routes
+    Route::get('/api/year-end-census/clients/{year}', [\App\Http\Controllers\YearEndCensusController::class, 'getClientsSummary']);
+    Route::get('/api/year-end-census/clients/{year}/{clientId}', [\App\Http\Controllers\YearEndCensusController::class, 'getClientBreakdown']);
+    Route::put('/api/year-end-census/clients/{year}/{clientId}', [\App\Http\Controllers\YearEndCensusController::class, 'updateClientEntry']);
+    Route::post('/api/year-end-census/clients/{year}/close', [\App\Http\Controllers\YearEndCensusController::class, 'closeClientsYear']);
+    Route::post('/api/year-end-census/clients/{year}/mark-all-ready', [\App\Http\Controllers\YearEndCensusController::class, 'markAllClientsReady']);
+    Route::get('/api/year-end-census/clients/{year}/export', [\App\Http\Controllers\YearEndCensusController::class, 'exportClientsSummary']);
+    Route::get('/api/year-end-census/clients/{year}/{clientId}/export', [\App\Http\Controllers\YearEndCensusController::class, 'exportClientBreakdown']);
 });
 
 require __DIR__.'/auth.php';

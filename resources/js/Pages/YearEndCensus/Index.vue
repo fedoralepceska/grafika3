@@ -17,12 +17,16 @@
                     <button :class="['tab-btn', { active: activeTab === 'bankStatements' }]" @click="activeTab = 'bankStatements'">
                         Bank Statements
                     </button>
+                    <button :class="['tab-btn', { active: activeTab === 'clients' }]" @click="activeTab = 'clients'">
+                        Clients
+                    </button>
                 </div>
 
                 <OrdersTab v-if="activeTab === 'orders'" :available-years="availableYears" />
                 <InvoicesTab v-if="activeTab === 'invoices'" :available-years="invoiceYears" />
                 <MaterialsTab v-if="activeTab === 'materials'" :available-years="materialYears" />
                 <BankStatementsTab v-if="activeTab === 'bankStatements'" :available-years="bankStatementYears" />
+                <ClientsTab v-if="activeTab === 'clients'" :available-years="clientYears" />
             </div>
         </div>
     </MainLayout>
@@ -35,9 +39,10 @@ import OrdersTab from "./OrdersTab.vue";
 import InvoicesTab from "./InvoicesTab.vue";
 import MaterialsTab from "./MaterialsTab.vue";
 import BankStatementsTab from "./BankStatementsTab.vue";
+import ClientsTab from "./ClientsTab.vue";
 
 export default {
-    components: { MainLayout, Header, OrdersTab, InvoicesTab, MaterialsTab, BankStatementsTab },
+    components: { MainLayout, Header, OrdersTab, InvoicesTab, MaterialsTab, BankStatementsTab, ClientsTab },
     props: {
         availableYears: {
             type: Array,
@@ -52,6 +57,10 @@ export default {
             default: () => []
         },
         bankStatementYears: {
+            type: Array,
+            default: () => []
+        },
+        clientYears: {
             type: Array,
             default: () => []
         }

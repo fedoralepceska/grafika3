@@ -94,9 +94,9 @@ class ClientCardStatementController extends Controller
         // Fetch the client
         $client = $cardStatement->client;
 
-        // Get the date filters from the request
-        $fromDate = $request->query('from_date') ?? now()->startOfYear()->format('Y-m-d');
-        $toDate = $request->query('to_date') ?? now()->format('Y-m-d');
+        // Get the date filters from the request - if not provided, show ALL data (no date restriction)
+        $fromDate = $request->query('from_date');
+        $toDate = $request->query('to_date');
 
         // Fetch items related to the client
         $itemsQuery = Item::query()
@@ -133,12 +133,30 @@ class ClientCardStatementController extends Controller
                     });
             });
 
-        // Fetch relevant incoming fakturas (client_id matches)
-        $incomingFakturasQuery = IncomingFaktura::query()
-            ->where('client_id', $cardStatement->client_id)
-            ->whereYear('created_at', now()->year);
+        if ($fromDate) {
+            $fakturasQuery->whereDate('created_at', '>=', $fromDate);
+        }
 
-        $totalIncomingFromFaktura = $incomingFakturasQuery->get()->sum('amount');
+        if ($toDate) {
+            $fakturasQuery->whereDate('created_at', '<=', $toDate);
+        }
+
+        $fakturas = $fakturasQuery->with(['invoices.jobs', 'jobs'])->get();
+
+        // Fetch relevant incoming fakturas (client_id matches) - apply date filters
+        $incomingFakturasQuery = IncomingFaktura::query()
+            ->where('client_id', $cardStatement->client_id);
+
+        if ($fromDate) {
+            $incomingFakturasQuery->whereDate('created_at', '>=', $fromDate);
+        }
+
+        if ($toDate) {
+            $incomingFakturasQuery->whereDate('created_at', '<=', $toDate);
+        }
+
+        $incomingFakturas = $incomingFakturasQuery->get();
+        $totalIncomingFromFaktura = $incomingFakturas->sum('amount');
 
         // Fetch relevant trade invoices (client_id matches and status is sent or paid)
         $tradeInvoicesQuery = TradeInvoice::query()
@@ -155,33 +173,10 @@ class ClientCardStatementController extends Controller
 
         $tradeInvoices = $tradeInvoicesQuery->get();
 
-        if ($fromDate) {
-            $fakturasQuery->whereDate('created_at', '>=', $fromDate);
-        }
-
-        if ($toDate) {
-            $fakturasQuery->whereDate('created_at', '<=', $toDate);
-        }
-
-        $fakturas = $fakturasQuery->with(['invoices.jobs', 'jobs'])->get();
-
-        $formattedItems = $items->flatMap(function ($item) use ($totalIncomingFromFaktura) {
+        $formattedItems = $items->flatMap(function ($item) {
             $number = sprintf('%03d/%d', $item->id, $item->created_at->format('Y'));
 
             $rows = [];
-
-            if ($totalIncomingFromFaktura > 0) {
-                $rows[] = [
-                    'date' => $item->created_at->format('Y-m-d'),
-                    'document' => 'Incoming Invoice',
-                    'number' => $number,
-                    'incoming_invoice' => $totalIncomingFromFaktura,
-                    'output_invoice' => 0,
-                    'statement_income' => 0,
-                    'statement_expense' => 0,
-                    'comment' => $item->comment,
-                ];
-            }
 
             if ($item->income > 0) {
                 $rows[] = [
@@ -210,6 +205,20 @@ class ClientCardStatementController extends Controller
             }
 
             return $rows;
+        })->toArray();
+
+        // Format incoming invoices separately
+        $formattedIncomingInvoices = $incomingFakturas->map(function ($incomingFaktura) {
+            return [
+                'date' => $incomingFaktura->created_at->format('Y-m-d'),
+                'document' => 'Incoming Invoice',
+                'number' => sprintf('%03d/%d', $incomingFaktura->id, $incomingFaktura->created_at->format('Y')),
+                'incoming_invoice' => $incomingFaktura->amount,
+                'output_invoice' => 0,
+                'statement_income' => 0,
+                'statement_expense' => 0,
+                'comment' => $incomingFaktura->description ?? '',
+            ];
         })->toArray();
 
         // Format data for fakturas
@@ -279,7 +288,7 @@ class ClientCardStatementController extends Controller
             ];
         })->toArray();
 
-        $tableData = array_merge($formattedItems, $formattedFakturas, $formattedTradeInvoices);
+        $tableData = array_merge($formattedItems, $formattedIncomingInvoices, $formattedFakturas, $formattedTradeInvoices);
         usort($tableData, fn ($a, $b) => strtotime($a['date']) <=> strtotime($b['date']));
 
         // Paginate table data
@@ -301,7 +310,7 @@ class ClientCardStatementController extends Controller
         $totalStatementIncome = collect($formattedItems)->sum('statement_income');
 
         // Calculate total incoming invoice
-        $totalIncomingInvoice = collect($formattedItems)->sum('incoming_invoice');
+        $totalIncomingInvoice = collect($formattedIncomingInvoices)->sum('incoming_invoice');
 
         // Calculate total amount owed
         $owes = $totalStatementExpense + $totalOutputInvoice;
