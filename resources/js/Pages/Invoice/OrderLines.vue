@@ -244,6 +244,62 @@
                     </td>
                 </div>
 
+                <!-- JOB NOTES SECTION -->
+                <div>
+                    <td>
+                        <div class="materials-header orange p-1 pl-1 w-[40rem] text-white bg-gray-700" style="cursor: pointer" @click="toggleJobNotes(job.id)">
+                            <span>{{ $t('Job Notes') || 'Job Notes' }}</span>
+                            <button class="materials-toggle-btn" @click.stop="toggleJobNotes(job.id)">
+                                <i class="fa" :class="showJobNotes[job.id] ? 'fa-chevron-up' : 'fa-chevron-down'"></i>
+                            </button>
+                        </div>
+                        <transition name="slide-fade">
+                            <div v-if="showJobNotes[job.id] !== false && jobNotesData[job.id]" class="ultra-light-orange text-white pb-1">
+                                <div class="job-notes-content bg-gray-700 pl-2 pr-2 pt-2 pb-2 w-full">
+                                    <div class="job-note-field mb-3">
+                                        <label class="job-note-label text-sm mb-1 block">{{ $t('Note') || 'Note' }}:</label>
+                                        <textarea 
+                                            v-model="jobNotesData[job.id].comment" 
+                                            class="job-note-textarea w-full p-2 text-gray-900 rounded" 
+                                            :placeholder="$t('Add a note for this job...') || 'Add a note for this job...'"
+                                            maxlength="256"
+                                            rows="3"
+                                            @input="handleJobNoteInput(job.id, $event)"
+                                        />
+                                        <div class="job-note-hint text-xs mt-1">
+                                            <span class="char-count" :class="{ 'char-count--warning': (jobNotesData[job.id]?.comment || '').length > 200 }">
+                                                {{ (jobNotesData[job.id]?.comment || '').length }}/256
+                                            </span>
+                                        </div>
+                                    </div>
+                                    <div class="job-note-actions-field" v-if="job.actions && job.actions.length > 0">
+                                        <label class="job-note-label text-sm mb-1 block">{{ $t('Apply to Actions') || 'Apply to Actions' }}:</label>
+                                        <VueMultiselect
+                                            v-model="jobNotesData[job.id].selectedActions"
+                                            :options="getActionOptionsForJob(job)"
+                                            :multiple="true"
+                                            :close-on-select="false"
+                                            :clear-on-select="false"
+                                            :preserve-search="true"
+                                            placeholder="Select actions..."
+                                            label="name"
+                                            track-by="name"
+                                            class="job-note-multiselect"
+                                            @update:modelValue="emitJobNotesUpdate(job.id)"
+                                        />
+                                        <div class="job-note-hint text-xs mt-1">
+                                            {{ $t('Select which actions this note should appear on') || 'Select which actions this note should appear on' }}
+                                        </div>
+                                    </div>
+                                    <div v-else class="text-xs text-gray-400 mt-2">
+                                        {{ $t('No actions available for this job') || 'No actions available for this job' }}
+                                    </div>
+                                </div>
+                            </div>
+                        </transition>
+                    </td>
+                </div>
+
                 <!-- CALCULATION SETTINGS SECTION -->
                 <div v-if="job.catalog_item_id">
                     <td>
@@ -395,6 +451,7 @@ import { uploadManager } from '@/utils/UploadManager.js';
 import { uploadFileInParts } from '@/utils/r2Multipart.js';
 import FileUploadManager from '@/Components/FileUploadManager.vue';
 import CuttingFileUploadManager from '@/Components/CuttingFileUploadManager.vue';
+import VueMultiselect from 'vue-multiselect';
 
 export default {
     name: "OrderLines",
@@ -403,6 +460,7 @@ export default {
         CostBreakdownModal,
         FileUploadManager,
         CuttingFileUploadManager,
+        VueMultiselect,
     },
     setup() {
         const { isRabotnik } = useRoleCheck();
@@ -412,6 +470,7 @@ export default {
         // Create refs for section state
         const showMaterials = ref({});
         const showActions = ref({});
+        const showJobNotes = ref({});
         
         // Create methods that can access the refs
         const toggleActions = (jobId) => {
@@ -422,12 +481,18 @@ export default {
             showMaterials.value[jobId] = !showMaterials.value[jobId];
         };
         
+        const toggleJobNotes = (jobId) => {
+            showJobNotes.value[jobId] = !showJobNotes.value[jobId];
+        };
+        
         return {
             isRabotnikComputed,
             showMaterials,
             showActions,
+            showJobNotes,
             toggleActions,
-            toggleMaterials
+            toggleMaterials,
+            toggleJobNotes
         };
     },
 
@@ -478,7 +543,9 @@ export default {
             // Upload state tracking to prevent component re-creation
             activeUploads: new Set(), // Track jobs with active uploads
             stableFileCache: {}, // Cache stable file arrays during uploads
-            stableJobCache: {} // Cache stable job objects during uploads
+            stableJobCache: {}, // Cache stable job objects during uploads
+            // Job notes data
+            jobNotesData: {} // Store job notes: { jobId: { comment: '', selectedActions: [] } }
         };
     },
 
@@ -634,6 +701,8 @@ export default {
             if (job.articles && job.articles.length > 0) {
                 this.showMaterials[job.id] = true;
             }
+            // Initialize job notes data
+            this.initializeJobNotes(job.id);
         });
 
         // Load available machines
@@ -666,8 +735,30 @@ export default {
                     const jobIds = newUpdatedJobs.map(job => job.id);
                     this.jobsWithPrices = this.jobsWithPrices.filter(job => jobIds.includes(job.id));
                 }
+                // Initialize job notes for new jobs
+                if (newUpdatedJobs) {
+                    newUpdatedJobs.forEach(job => {
+                        if (job.id) {
+                            this.initializeJobNotes(job.id);
+                        }
+                    });
+                }
             },
             deep: true
+        },
+        jobs: {
+            handler(newJobs) {
+                // Initialize job notes for new jobs
+                if (newJobs) {
+                    newJobs.forEach(job => {
+                        if (job.id) {
+                            this.initializeJobNotes(job.id);
+                        }
+                    });
+                }
+            },
+            deep: true,
+            immediate: true
         },
         jobsToDisplay: {
             handler(newJobs) {
@@ -727,6 +818,74 @@ export default {
                 return job.catalog_item.by_copies ? 'By Copies' : 'By Quantity';
             }
             return 'By Quantity'; // Default fallback
+        },
+
+        // Initialize job notes data for a job
+        initializeJobNotes(jobId) {
+            if (!this.jobNotesData[jobId]) {
+                // Use Vue 3 reactive approach
+                this.jobNotesData = {
+                    ...this.jobNotesData,
+                    [jobId]: {
+                        comment: '',
+                        selectedActions: []
+                    }
+                };
+            }
+        },
+
+        // Get action options for a specific job
+        getActionOptionsForJob(job) {
+            if (!job.actions || job.actions.length === 0) {
+                return [];
+            }
+            return job.actions.map(action => ({
+                name: action.name,
+                id: action.id
+            }));
+        },
+
+        // Handle job note input
+        handleJobNoteInput(jobId, event) {
+            this.initializeJobNotes(jobId);
+            // Ensure we don't exceed 256 characters
+            if (event.target.value.length > 256) {
+                this.jobNotesData[jobId].comment = event.target.value.substring(0, 256);
+            } else {
+                this.jobNotesData[jobId].comment = event.target.value;
+            }
+            // Emit job update with notes
+            this.emitJobNotesUpdate(jobId);
+        },
+
+        // Emit job notes update to parent
+        emitJobNotesUpdate(jobId) {
+            const job = this.jobsToDisplay.find(j => j.id === jobId);
+            if (job && this.jobNotesData[jobId]) {
+                const updatedJob = {
+                    ...job,
+                    jobNote: {
+                        comment: this.jobNotesData[jobId].comment,
+                        selectedActions: this.jobNotesData[jobId].selectedActions.map(a => a.name)
+                    }
+                };
+                this.$emit('job-updated', updatedJob);
+            }
+        },
+
+        // Get all job notes for submission
+        getJobNotesForSubmission() {
+            const notes = {};
+            Object.keys(this.jobNotesData).forEach(jobId => {
+                const noteData = this.jobNotesData[jobId];
+                if (noteData.comment && noteData.comment.trim() && noteData.selectedActions && noteData.selectedActions.length > 0) {
+                    notes[jobId] = {
+                        comment: noteData.comment.trim(),
+                        selected_actions: noteData.selectedActions.map(a => a.name)
+                    };
+                }
+            });
+            return notes;
         },
 
         // Cost breakdown methods
@@ -4131,5 +4290,61 @@ input, select {
     pointer-events: none;
 }
 
+/* Job Notes Styles */
+.job-notes-content {
+    padding: 12px;
+}
+
+.job-note-field {
+    margin-bottom: 12px;
+}
+
+.job-note-label {
+    color: #E5E7EB;
+    font-weight: 500;
+    margin-bottom: 4px;
+}
+
+.job-note-textarea {
+    width: 100%;
+    min-height: 80px;
+    padding: 8px;
+    border: 1px solid #4B5563;
+    border-radius: 4px;
+    background-color: #FFFFFF;
+    color: #1F2937;
+    font-size: 14px;
+    resize: vertical;
+    font-family: inherit;
+}
+
+.job-note-textarea:focus {
+    outline: none;
+    border-color: #F59E0B;
+    box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.1);
+}
+
+.job-note-hint {
+    color: #9CA3AF;
+    margin-top: 4px;
+}
+
+.char-count {
+    color: #9CA3AF;
+}
+
+.char-count--warning {
+    color: #F59E0B;
+}
+
+.job-note-multiselect {
+    background-color: #FFFFFF;
+}
+
+.job-note-actions-field {
+    margin-top: 12px;
+}
+
 </style>
+<style src="vue-multiselect/dist/vue-multiselect.css"></style>
 

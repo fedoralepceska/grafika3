@@ -146,10 +146,13 @@
         </div>
         <div class="divider"></div>
     </div>
-    <div  class="bolder opensans" style="margin-left: 25px; margin-top: 8px; font-size: 10pt; color: #333333">
+    <div  class="bolder opensans" style="margin-left: 25px; margin-top: 4px; font-size: 10pt; color: #333333">
         РАБОТНА СТАВКА БР. <span class="opensans bolder" style="color: #333333; font-size: 10pt" >01</span>
     </div>
-    <div class="job-info" style="margin-left: 15px; margin-top: 20px">
+        <div  class="opensans" style="margin-left: 25px; font-size: 9.5pt; color: #333333">
+        Наслов на работниот налог: <span class="opensans bolder" style="  color: #333333 margin: 0; font-size: 9.5pt;  line-height: 70%;" >{{$invoice->invoice_title}}</span>
+    </div>
+    <div class="job-info" style="margin-left: 15px; margin-top: 10px">
         @php
             // Initialize dimensions breakdown variable for use throughout the job section
             $dimensionsBreakdown = is_string($job->dimensions_breakdown) ? json_decode($job->dimensions_breakdown, true) : $job->dimensions_breakdown;
@@ -323,8 +326,25 @@
             </tr>
             <tr>
                 <td class="tahoma" style="background-color: #F0EFEF; padding-left: 5px; border-bottom: 1px solid #cccccc;">Коментар</td>
-                <td colspan="3" style="line-height: 0.85; letter-spacing: 0%;" >{{ $invoice->comment }}</td>
-
+                <td colspan="3" style="line-height: 0.85; letter-spacing: 0%;">
+                    @php
+                        // Get job-specific notes first
+                        $jobComment = '';
+                        if ($job->notes && $job->notes->count() > 0) {
+                            $jobComments = [];
+                            foreach ($job->notes as $note) {
+                                if (!empty($note->comment)) {
+                                    $jobComments[] = $note->comment;
+                                }
+                            }
+                            $jobComment = implode(' | ', $jobComments);
+                        }
+                        
+                        // Fallback to invoice comment if no job-specific notes
+                        $displayComment = !empty($jobComment) ? $jobComment : $invoice->comment;
+                    @endphp
+                    {{ $displayComment }}
+                </td>
             </tr>
         </table>
     </div>
@@ -731,5 +751,73 @@
         <div style="page-break-after: always;"></div>
     @endif
 @endforeach
+
+{{-- Mockup Section - Only once at the end --}}
+@if ($invoice->mockup && file_exists(public_path('mockups/' . $invoice->mockup)))
+    <div style="page-break-before: always;"></div>
+    {{-- Duplicate header for mockup page --}}
+    <div class="invoice-info">
+        <table style="table-layout: fixed; width: 100%;">
+            <tr style="line-height: 10px; margin-top: -25px">
+                <td style="width: 360px; text-align: left; margin-top: 5px">
+                    <div>
+                        <span class="tahoma" style="margin-left: -3px; color: #333333; font-size: 11.5pt;">Работен налог</span><span class="opensans" style="color: #333333;">:
+                        </span> <span class="order tahoma bolder" style="font-size: 19pt">бр<span class="opensans" style="font-size: 27pt">.</span><span class="opensans bolder">{{ $invoice->order_number ?? $invoice->id }}/{{ $invoice->fiscal_year ?? date('Y', strtotime($invoice->start_date)) }}</span></span>
+                    </div>
+                </td>
+                <td style="text-align: right">
+                    <img src="{{ public_path('logo_blue.png') }}" alt="LOGO" style="height: 30px;">
+                </td>
+            </tr>
+        </table>
+        <div class="divider"></div>
+        <div class="info">
+            <table style="width: 100%; color: #333333; gap: 0">
+                <tr>
+                    <td class="left" style="padding-top:5px; padding-bottom: 10px">
+                        <div style="font-size:9.5pt" class="tahoma">Датум на отварање: <span class="opensans bolder">{{ date('m/d/Y', strtotime($invoice->start_date)) }}</span></div>
+                        <div style="font-size:9.5pt" class="tahoma">Краен рок: <span class="opensans bolder">{{ date('m/d/Y', strtotime($invoice->end_date)) }}</span></div>
+                        <div style="font-size:9.5pt" class="tahoma">Одговорно лице: <span class="opensans bolder">{{$invoice->user->name}}</span></div>
+                    </td>
+                    <td class="right" style="padding-top:5px; padding-bottom: 10px">
+                        <div class="bolder tahoma" style="text-transform: uppercase; font-size: 12px;">Нарачател: <span class="bolder">{{ $invoice->client->name }}</span></div>
+                        <div style="font-size: 13px;">Контакт: <span>{{$invoice->contact->name }}</span></div>
+                        <div style="font-size: 13px">Контакт тел: <span>{{$invoice->contact->phone }}</span> </div>
+                    </td>
+                </tr>
+            </table>
+        </div>
+        <div class="divider"></div>
+    </div>
+    
+    {{-- Mockup Label --}}
+    <div class="bolder tahoma" style="margin-left: 25px; margin-top: 8px; font-size: 10pt; color: #3f3f3f">
+        MOCKUP<span class="opensans bolder" style="color: #333333; font-size: 10pt">:</span>
+    </div>
+    
+    {{-- Mockup Image Container --}}
+    @php
+        $mockupPath = public_path('mockups/' . $invoice->mockup);
+        $mockupBase64 = null;
+        
+        if (file_exists($mockupPath)) {
+            // Encode image as base64 for DomPDF compatibility (same as ART BOARD images)
+            $imageContent = file_get_contents($mockupPath);
+            $imageType = strtolower(pathinfo($mockupPath, PATHINFO_EXTENSION));
+            $mimeType = $imageType === 'jpg' || $imageType === 'jpeg' ? 'image/jpeg' : 'image/png';
+            $mockupBase64 = 'data:' . $mimeType . ';base64,' . base64_encode($imageContent);
+        }
+    @endphp
+    
+    @if ($mockupBase64)
+        <div class="artboard-block" style="margin-top: 10px;">
+            <div class="image-box" style="text-align: center; height: 440px; overflow: hidden; display: flex; align-items: center; justify-content: center;">
+                <img src="{{ $mockupBase64 }}" 
+                     alt="Order Mockup" 
+                     style="max-width: 100%; max-height: 430px; object-fit: contain; vertical-align: middle;">
+            </div>
+        </div>
+    @endif
+@endif
 </body>
 </html>

@@ -1,6 +1,77 @@
 <template>
     <div class="FileBox light-gray">
         <TabsWrapper>
+            <Tab title="Mockup" icon="mdi-image" class="text">
+                <div class="mockup-upload-container">
+                    <!-- Left Side: Upload Area -->
+                    <div class="mockup-upload-section">
+                        <div
+                            class="mockup-drop-zone"
+                            v-if="!uploadingMockup"
+                            @dragover.prevent
+                            @drop="handleMockupDrop"
+                            @click="browseForMockup"
+                        >
+                            <div v-if="!mockupFile && !mockupFileName" class="drop-zone-empty">
+                                <i class="mdi mdi-cloud-upload" style="font-size: 48px; margin-bottom: 10px;"></i>
+                                <p class="drop-zone-text">{{ $t('dragAndDrop') || 'Drag and drop mockup here' }}</p>
+                                <p class="drop-zone-hint">or click to browse</p>
+                            </div>
+                            <div v-else class="drop-zone-filled">
+                                <i class="mdi mdi-file-image" style="font-size: 32px; margin-bottom: 8px;"></i>
+                                <p class="file-name">{{ mockupFile ? mockupFile.name : (mockupFileName || 'Mockup file') }}</p>
+                                <p class="file-size" v-if="mockupFile">{{ formatFileSize(mockupFile.size) }}</p>
+                            </div>
+                            <input
+                                type="file"
+                                accept="image/jpeg,image/jpg,image/png"
+                                @change="handleMockupBrowse"
+                                style="display: none;"
+                                ref="mockupInput"
+                            />
+                        </div>
+                        <div
+                            v-else
+                            class="mockup-uploading"
+                        >
+                            <img src="/images/Loading.gif" alt="Loading" class="loading-gif" style="width: 40px; height: 40px"/>
+                            <p class="uploading-text">Uploading...</p>
+                        </div>
+                        
+                        <!-- Action Buttons -->
+                        <div class="mockup-actions">
+                            <button @click="browseForMockup" class="mockup-btn mockup-btn-primary">
+                                <i class="mdi mdi-folder-open"></i> {{ $t('browse') || 'Browse' }}
+                            </button>
+                            <button 
+                                v-if="mockupFile || mockupFileName" 
+                                @click="removeMockup" 
+                                class="mockup-btn mockup-btn-danger"
+                            >
+                                <i class="mdi mdi-delete"></i> Remove
+                            </button>
+                        </div>
+                        
+                        <div class="mockup-hint">
+                            <i class="mdi mdi-information"></i> Supported: JPG, PNG (Max 5MB)
+                        </div>
+                    </div>
+                    
+                    <!-- Right Side: Small Preview -->
+                    <div class="mockup-preview-section" v-if="mockupPreview || mockupFileName">
+                        <div class="preview-header">
+                            <i class="mdi mdi-eye"></i> Preview
+                        </div>
+                        <div class="mockup-preview-small">
+                            <img 
+                                :src="mockupPreview || (mockupFileName ? `/mockups/${mockupFileName}` : '')" 
+                                alt="Mockup preview" 
+                                class="preview-thumbnail"
+                            />
+                        </div>
+                    </div>
+                </div>
+            </Tab>
             <Tab title="Art" icon="mdi-file-image">
                 <div class="flex pb-1 pt-2 justify-center gap-4">
                     <!-- Drop Area -->
@@ -67,30 +138,12 @@
                     </div>
                 </div>
             </Tab>
-            <Tab title="Notes" icon="mdi-chat" class="text">
-                <span class="text-white">Add your notes here:</span>
-                <textarea 
-                    v-model="localComment" 
-                    @input="handleTextareaInput"
-                    maxlength="256"
-                    class="notes-textarea"
-                ></textarea>
-                <div class="hint">
-                    <span class="char-count" :class="{ 'char-count--warning': localComment.length > 200 }">
-                        {{ localComment.length }}/256 characters
-                    </span>
-                </div>
-            </Tab>
         </TabsWrapper>
     </div>
 </template>
 
----
-
-### Script Adjustments
-
-```javascript
 <script>
+import axios from 'axios';
 import { useToast } from 'vue-toastification';
 import Tab from "@/Components/tabs/Tab.vue";
 import TabsWrapper from "@/Components/tabs/TabsWrapper.vue";
@@ -102,6 +155,7 @@ export default {
     props: {
         invoiceComment: String,
         initialJobs: Array,
+        initialMockup: String,
     },
 
     data() {
@@ -110,6 +164,10 @@ export default {
             showPopover: false,
             localComment: this.invoiceComment,
             uploading: false, // Track uploading state
+            uploadingMockup: false, // Track mockup uploading state
+            mockupFile: null, // Store selected mockup file
+            mockupFileName: this.initialMockup || null, // Store uploaded mockup filename
+            mockupPreview: null, // Store preview URL for mockup
         };
     },
 
@@ -132,7 +190,7 @@ export default {
         },
     },
 
-    emits: ['update:jobs'],
+    emits: ['update:jobs', 'mockupUpdated'],
 
     methods: {
         async createJob(imageFile) {
@@ -228,14 +286,6 @@ export default {
             this.$emit('commentUpdated', this.localComment);
         },
 
-        handleTextareaInput(event) {
-            // Ensure we don't exceed 256 characters
-            if (event.target.value.length > 256) {
-                this.localComment = event.target.value.substring(0, 256);
-            }
-            this.updateComment();
-        },
-
         handleCatalogJobs(catalogJobs) {
             catalogJobs.forEach(job => {
                 this.jobs.push({
@@ -311,6 +361,82 @@ export default {
                 console.error('Error recalculating job cost:', error);
             }
         },
+
+        // Mockup upload methods
+        browseForMockup() {
+            this.$refs.mockupInput.click();
+        },
+
+        handleMockupDrop(event) {
+            event.preventDefault();
+            const files = event.dataTransfer.files;
+            if (files.length > 0) {
+                this.validateAndSetMockup(files[0]);
+            }
+        },
+
+        handleMockupBrowse(event) {
+            const files = event.target.files;
+            if (files.length > 0) {
+                this.validateAndSetMockup(files[0]);
+            }
+        },
+
+        validateAndSetMockup(file) {
+            const toast = useToast();
+            const maxSize = 5 * 1024 * 1024; // 5MB in bytes
+            const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png'];
+
+            // Validate file type
+            if (!allowedTypes.includes(file.type)) {
+                toast.error('Only JPG and PNG images are supported.');
+                return;
+            }
+
+            // Validate file size
+            if (file.size > maxSize) {
+                toast.error('File size must be less than 5MB.');
+                return;
+            }
+
+            this.mockupFile = file;
+            
+            // Create preview URL
+            if (this.mockupPreview) {
+                URL.revokeObjectURL(this.mockupPreview);
+            }
+            this.mockupPreview = URL.createObjectURL(file);
+            
+            this.$emit('mockupUpdated', file);
+        },
+
+        removeMockup() {
+            // Clean up preview URL
+            if (this.mockupPreview) {
+                URL.revokeObjectURL(this.mockupPreview);
+                this.mockupPreview = null;
+            }
+            this.mockupFile = null;
+            this.mockupFileName = null;
+            if (this.$refs.mockupInput) {
+                this.$refs.mockupInput.value = '';
+            }
+            this.$emit('mockupUpdated', null);
+        },
+
+        formatFileSize(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
+        },
+    },
+    beforeUnmount() {
+        // Clean up preview URL when component is destroyed
+        if (this.mockupPreview) {
+            URL.revokeObjectURL(this.mockupPreview);
+        }
     },
 };
 </script>
@@ -440,5 +566,199 @@ export default {
     text-align: center;
     color: $white;
     margin-top: 5px;
+}
+
+/* Mockup Upload Redesign Styles */
+.mockup-upload-container {
+    display: flex;
+    gap: 20px;
+    padding: 20px;
+    min-height: 300px;
+}
+
+.mockup-upload-section {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.mockup-drop-zone {
+    flex: 1;
+    min-height: 200px;
+    border: 2px dashed #6b7280;
+    border-radius: 12px;
+    background-color: rgba(55, 65, 81, 0.5);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    padding: 20px;
+    
+    &:hover {
+        border-color: #9ca3af;
+        background-color: rgba(55, 65, 81, 0.7);
+    }
+}
+
+.drop-zone-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    color: #9ca3af;
+    text-align: center;
+}
+
+.drop-zone-text {
+    font-size: 16px;
+    font-weight: 500;
+    margin: 8px 0 4px 0;
+    color: #e5e7eb;
+}
+
+.drop-zone-hint {
+    font-size: 12px;
+    color: #6b7280;
+    margin: 0;
+}
+
+.drop-zone-filled {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    color: #e5e7eb;
+    text-align: center;
+}
+
+.file-name {
+    font-size: 14px;
+    font-weight: 500;
+    margin: 8px 0 4px 0;
+    color: #e5e7eb;
+    word-break: break-word;
+    max-width: 100%;
+}
+
+.file-size {
+    font-size: 12px;
+    color: #9ca3af;
+    margin: 0;
+}
+
+.mockup-uploading {
+    flex: 1;
+    min-height: 200px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    border-radius: 12px;
+    background-color: rgba(55, 65, 81, 0.5);
+}
+
+.uploading-text {
+    color: #e5e7eb;
+    font-size: 14px;
+}
+
+.mockup-actions {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+}
+
+.mockup-btn {
+    padding: 10px 20px;
+    border: none;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.2s ease;
+    
+    i {
+        font-size: 18px;
+    }
+}
+
+.mockup-btn-primary {
+    background-color: #ffffff;
+    color: #1f2937;
+    
+    &:hover {
+        background-color: #f3f4f6;
+    }
+}
+
+.mockup-btn-danger {
+    background-color: #ef4444;
+    color: #ffffff;
+    
+    &:hover {
+        background-color: #dc2626;
+    }
+}
+
+.mockup-hint {
+    text-align: center;
+    color: #9ca3af;
+    font-size: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    
+    i {
+        font-size: 16px;
+    }
+}
+
+.mockup-preview-section {
+    width: 280px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.preview-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: #e5e7eb;
+    font-size: 14px;
+    font-weight: 600;
+    padding: 8px 12px;
+    background-color: rgba(55, 65, 81, 0.8);
+    border-radius: 6px;
+    
+    i {
+        font-size: 18px;
+    }
+}
+
+.mockup-preview-small {
+    flex: 1;
+    border: 2px solid #4b5563;
+    border-radius: 8px;
+    overflow: hidden;
+    background-color: rgba(55, 65, 81, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 200px;
+    max-height: 200px;
+}
+
+.preview-thumbnail {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+    display: block;
 }
 </style>

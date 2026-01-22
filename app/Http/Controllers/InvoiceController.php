@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\JobAction;
+use App\Models\JobNote;
 use App\Events\InvoiceCreated;
 use App\Models\Article;
 use App\Models\Faktura;
@@ -169,6 +170,25 @@ class InvoiceController extends Controller
             // If locking fails, continue without blocking (fail-open) but log it
             Log::warning('Idempotency lock failed', ['error' => $t->getMessage()]);
         }
+        
+        // Handle jobs array from FormData (may be JSON string)
+        $jobsInput = $request->input('jobs');
+        if (is_string($jobsInput)) {
+            $decodedJobs = json_decode($jobsInput, true);
+            if (json_last_error() === JSON_ERROR_NONE && is_array($decodedJobs)) {
+                $request->merge(['jobs' => $decodedJobs]);
+            }
+        }
+        
+        // Handle jobNotes from FormData (may be JSON string)
+        $jobNotesInput = $request->input('jobNotes');
+        if (is_string($jobNotesInput)) {
+            $decodedJobNotes = json_decode($jobNotesInput, true);
+            if (json_last_error() === JSON_ERROR_NONE && is_array($decodedJobNotes)) {
+                $request->merge(['jobNotes' => $decodedJobNotes]);
+            }
+        }
+        
         $request->validate([
             'invoice_title' => 'required',
             'client_id' => 'required',
@@ -177,6 +197,7 @@ class InvoiceController extends Controller
             'end_date' => 'required|date',
             'comment' => 'string|nullable',
             'jobs' => 'array',
+            'mockup' => 'nullable|image|mimes:jpeg,jpg,png|max:5120', // 5MB max
         ]);
 
         // Check if jobs are provided
@@ -200,6 +221,22 @@ class InvoiceController extends Controller
         $invoice->order_number = $orderNumberData['order_number'];
         $invoice->fiscal_year = $orderNumberData['fiscal_year'];
 
+        // Handle mockup upload
+        if ($request->hasFile('mockup')) {
+            $mockupFile = $request->file('mockup');
+            $mockupFileName = time() . '_' . uniqid() . '.' . $mockupFile->getClientOriginalExtension();
+            
+            // Ensure mockups directory exists
+            $mockupPath = public_path('mockups');
+            if (!file_exists($mockupPath)) {
+                mkdir($mockupPath, 0755, true);
+            }
+            
+            // Move uploaded file to public/mockups directory
+            $mockupFile->move($mockupPath, $mockupFileName);
+            $invoice->mockup = $mockupFileName;
+        }
+
         $invoice->save();
         event(new InvoiceCreated($invoice));
         $jobs = $request->jobs;
@@ -212,6 +249,32 @@ class InvoiceController extends Controller
             
             // Update job's unit directly on the job model
             Job::where('id', $job_id)->update(['unit' => $unit]);
+        }
+
+        // Handle job notes creation
+        $jobNotes = $request->input('jobNotes', []);
+        if (!empty($jobNotes) && is_array($jobNotes)) {
+            foreach ($jobNotes as $jobId => $noteData) {
+                // Validate that the job belongs to this invoice
+                $jobExists = $invoice->jobs()->where('jobs.id', $jobId)->exists();
+                if (!$jobExists) {
+                    continue; // Skip if job doesn't belong to this invoice
+                }
+
+                // Only create note if comment is not empty and actions are selected
+                if (isset($noteData['comment']) && 
+                    !empty(trim($noteData['comment'])) && 
+                    isset($noteData['selected_actions']) && 
+                    is_array($noteData['selected_actions']) && 
+                    !empty($noteData['selected_actions'])) {
+                    
+                    \App\Models\JobNote::create([
+                        'job_id' => $jobId,
+                        'comment' => trim($noteData['comment']),
+                        'selected_actions' => $noteData['selected_actions']
+                    ]);
+                }
+            }
         }
 
         $client = $invoice->client;
@@ -757,6 +820,11 @@ class InvoiceController extends Controller
             $query->where('fiscal_year', (int)$request->input('fiscal_year'));
         }
 
+        // Apply dashboard filter if provided
+        if ($request->has('dashboard_filter') && $request->input('dashboard_filter')) {
+            $this->applyDashboardFilter($query, $request->input('dashboard_filter'));
+        }
+
         // Exclude completed orders explicitly
         $query->where('status', '!=', 'Completed');
 
@@ -877,6 +945,49 @@ class InvoiceController extends Controller
     }
 
     /**
+     * Apply dashboard filter to the query based on the filter type
+     */
+    private function applyDashboardFilter($query, $filterType)
+    {
+        $today = now()->format('Y-m-d');
+        $sevenDaysAgo = now()->subDays(7)->format('Y-m-d');
+        $twoDaysFromNow = now()->addDays(2)->format('Y-m-d');
+
+        switch ($filterType) {
+            case 'not-shipped':
+                // All jobs not shipped - this would need to be based on job status
+                $query->whereHas('jobs', function ($jobQuery) {
+                    $jobQuery->where('status', '!=', 'Shipped');
+                });
+                break;
+                
+            case 'entered-today':
+                // Orders created today
+                $query->whereDate('created_at', $today);
+                break;
+                
+            case 'shipping-today':
+                // Orders with end_date today
+                $query->whereDate('end_date', $today);
+                break;
+                
+            case 'shipping-2-days':
+                // Orders with end_date in 2 days
+                $query->whereDate('end_date', $twoDaysFromNow);
+                break;
+                
+            case 'overdue':
+                // Orders older than 7 days that are not shipped
+                $query->where('created_at', '<', $sevenDaysAgo)
+                      ->where('status', '!=', 'Completed')
+                      ->whereHas('jobs', function ($jobQuery) {
+                          $jobQuery->where('status', '!=', 'Shipped');
+                      });
+                break;
+        }
+    }
+
+    /**
      * Return completed orders only, paginated (separate from latest list).
      */
     public function completedOrders(Request $request)
@@ -991,6 +1102,7 @@ class InvoiceController extends Controller
     {
         $invoiceId = $request->input('id');
         $comment = $request->input('comment');
+        $jobNotes = $request->input('jobNotes', []);
         $invoice = Invoice::find($invoiceId);
 
         if (!$invoice) {
@@ -1031,15 +1143,67 @@ class InvoiceController extends Controller
                 ->update(['hasNote' => 1]);
         }
 
+        // Handle job-specific notes
+        foreach ($jobNotes as $jobId => $jobComment) {
+            if (!empty($jobComment) && trim($jobComment) !== '') {
+                // Get selected actions for this specific job
+                $actionsForJob = collect($selectedPairs)
+                    ->where('job_id', $jobId)
+                    ->pluck('action_name')
+                    ->unique()
+                    ->values()
+                    ->toArray();
+                
+                // Delete existing notes for this job
+                JobNote::where('job_id', $jobId)->delete();
+                
+                // Create new note only if there are selected actions for this job
+                if (!empty($actionsForJob)) {
+                    JobNote::create([
+                        'job_id' => $jobId,
+                        'comment' => $jobComment,
+                        'selected_actions' => $actionsForJob
+                    ]);
+                }
+            } else {
+                // Delete notes if comment is empty
+                JobNote::where('job_id', $jobId)->delete();
+            }
+        }
+
         // Return a response, could be the updated invoice, a success message, etc.
         return response()->json([
             'message' => 'Invoice jobs updated successfully.'
         ]);
     }
 
+    public function getJobNotes($id)
+    {
+        $invoice = Invoice::with(['jobs.notes'])->find($id);
+        
+        if (!$invoice) {
+            return response()->json(['message' => 'Invoice not found'], 404);
+        }
+
+        $jobNotes = [];
+        foreach ($invoice->jobs as $job) {
+            if ($job->notes->isNotEmpty()) {
+                // For now, we'll take the first note per job
+                // Later you might want to handle multiple notes per job
+                $jobNotes[] = [
+                    'job_id' => $job->id,
+                    'comment' => $job->notes->first()->comment,
+                    'selected_actions' => $job->notes->first()->selected_actions
+                ];
+            }
+        }
+
+        return response()->json(['jobNotes' => $jobNotes]);
+    }
+
     public function generateInvoicePdf($invoiceId)
     {
-        $invoice = Invoice::with(['jobs.actions','contact','user'])->findOrFail($invoiceId);
+        $invoice = Invoice::with(['jobs.actions', 'jobs.notes', 'contact', 'user'])->findOrFail($invoiceId);
 
         $tempFiles = [];
         foreach ($invoice->jobs as $job) {

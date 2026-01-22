@@ -225,6 +225,11 @@ class Job extends Model
             ->withTimestamps();
     }
 
+    public function notes()
+    {
+        return $this->hasMany(JobNote::class);
+    }
+
     public function getTotalPriceAttribute(): float|int
     {
         $smallMaterial = SmallMaterial::with('article')->find($this->small_material_id);

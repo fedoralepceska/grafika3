@@ -98,6 +98,7 @@ Route::middleware(['auth', 'verified'])->group(function() {
     Route::delete('/orders/{id}', [InvoiceController::class, 'destroy'])->name('invoices.destroy');
     Route::get('/orders/{id}', [InvoiceController::class, 'show'])->name('invoices.show');
     Route::get('/orders/{id}/details', [InvoiceController::class, 'getOrderDetails'])->name('invoices.getOrderDetails');
+    Route::get('/orders/{id}/job-notes', [InvoiceController::class, 'getJobNotes'])->name('invoices.getJobNotes');
     Route::put('/orders/update-note-flag', [InvoiceController::class, 'updateNoteProperty'])->name('invoices.updateNoteProperty');
     // Pre-generation order edits
     Route::put('/orders/{id}/title', [InvoiceController::class, 'updateOrderTitle'])->name('orders.updateTitle');

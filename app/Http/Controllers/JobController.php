@@ -1004,7 +1004,8 @@ class JobController extends Controller
                 'articles',
                 'articles.categories',
                 'articles.largeFormatMaterial',
-                'articles.smallMaterial'
+                'articles.smallMaterial',
+                'notes' // Add job notes
             ])
                 ->select([
                     'jobs.id', 'jobs.invoice_id', 'jobs.name', 'jobs.status', 'jobs.quantity', 'jobs.copies',

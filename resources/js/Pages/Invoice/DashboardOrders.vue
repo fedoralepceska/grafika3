@@ -22,6 +22,16 @@
             <div class="orders-container">
                 <div class="orders-header">
                     <h2 class="text-xl font-semibold text-white mb-4">Latest Orders</h2>
+                    
+                    <!-- Active Filter Indicator -->
+                    <div v-if="activeFilter" class="active-filter-indicator">
+                        <i class="fa-solid fa-filter"></i>
+                        <span class="filter-text">{{ getFilterDisplayName(activeFilter) }}</span>
+                        <button @click="clearDashboardFilter" class="clear-filter-btn" title="Clear filter">
+                            <i class="fa-solid fa-times"></i>
+                        </button>
+                    </div>
+                    
                     <div class="search-filters">
                         <input 
                             v-model="searchQuery" 
@@ -428,6 +438,13 @@ export default {
         OrderJobDetails,
         OrderJobProgressCompact
     },
+    props: {
+        activeFilter: {
+            type: String,
+            default: null
+        }
+    },
+    emits: ['clear-filter'],
     data() {
         return {
             orders: {
@@ -477,6 +494,15 @@ export default {
         // Remove ESC key listener
         document.removeEventListener('keydown', this.handleKeydown);
     },
+    watch: {
+        activeFilter(newFilter) {
+            // Reset to first page when filter changes
+            this.orders.current_page = 1;
+            this.completedOrders.current_page = 1;
+            this.fetchOrders();
+            this.fetchCompletedOrders();
+        }
+    },
     methods: {
         initializeAvailableYears() {
             const currentYear = new Date().getFullYear();
@@ -504,6 +530,11 @@ export default {
 
                 if (this.yearFilter) {
                     params.fiscal_year = this.yearFilter;
+                }
+
+                // Add dashboard filter
+                if (this.activeFilter) {
+                    params.dashboard_filter = this.activeFilter;
                 }
 
                 // Always exclude completed orders from latest list (handled server-side)
@@ -986,6 +1017,20 @@ export default {
             }
         },
 
+        getFilterDisplayName(filter) {
+            const filterNames = {
+                'not-shipped': 'All jobs not shipped',
+                'entered-today': 'Entered today',
+                'shipping-today': 'Shipping today',
+                'shipping-2-days': 'Shipping in 2 days',
+                'overdue': '> 7 days old: NOT shipped'
+            };
+            return filterNames[filter] || filter;
+        },
+
+        clearDashboardFilter() {
+            this.$emit('clear-filter');
+        }
 
     }
 }
@@ -1037,6 +1082,50 @@ export default {
     @media (max-width: 768px) {
         flex-direction: column;
         align-items: stretch;
+    }
+}
+
+.active-filter-indicator {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    background: rgba(255, 255, 255, 0.95);
+    border: 1px solid rgba(20, 151, 213, 0.2);
+    border-radius: 8px;
+    padding: 0.75rem 1rem;
+    margin-bottom: 1rem;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    
+    i.fa-filter {
+        color: #1497D5;
+        font-size: 0.9rem;
+    }
+    
+    .filter-text {
+        color: #374151;
+        font-size: 0.9rem;
+        font-weight: 500;
+        flex: 1;
+    }
+    
+    .clear-filter-btn {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 24px;
+        height: 24px;
+        background: rgba(239, 68, 68, 0.1);
+        border: 1px solid rgba(239, 68, 68, 0.2);
+        border-radius: 4px;
+        color: #ef4444;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        font-size: 0.75rem;
+        
+        &:hover {
+            background: rgba(239, 68, 68, 0.15);
+            border-color: rgba(239, 68, 68, 0.3);
+        }
     }
 }
 

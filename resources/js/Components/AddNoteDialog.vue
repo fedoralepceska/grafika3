@@ -19,16 +19,16 @@
                 </v-card-title>
                 <v-card-text>
                     <div class="field">
-                        <label class="label">Order comment</label>
+                        <label class="label">Order comment (applies to all jobs)</label>
                         <textarea 
                             v-model="noteComment" 
                             class="textarea" 
-                            placeholder="Write a short note shown on selected actions"
+                            placeholder="Write a short note shown on selected actions across all jobs"
                             maxlength="256"
                             @input="handleTextareaInput"
                         />
                         <div class="hint">
-                            This note appears on the actions you select below.
+                            This note appears on the actions you select below across all jobs.
                             <span class="char-count" :class="{ 'char-count--warning': (noteComment || '').length > 200 }">
                                 {{ (noteComment || '').length }}/256 characters
                             </span>
@@ -47,6 +47,24 @@
                                         <button class="btn-mini" @click.prevent="clearAllForJob(job)">Clear</button>
                                     </div>
                                 </div>
+                                
+                                <!-- Job-specific note field -->
+                                <div class="job-note-section">
+                                    <label class="job-note-label">Job-specific note:</label>
+                                    <textarea 
+                                        v-model="jobNotes[job.id]" 
+                                        class="job-note-textarea" 
+                                        :placeholder="`Note for job #${idx + 1}`"
+                                        maxlength="256"
+                                        @input="handleJobNoteInput(job.id, $event)"
+                                    />
+                                    <div class="job-note-hint">
+                                        <span class="char-count" :class="{ 'char-count--warning': (jobNotes[job.id] || '').length > 200 }">
+                                            {{ (jobNotes[job.id] || '').length }}/256
+                                        </span>
+                                    </div>
+                                </div>
+                                
                                 <div class="job-card__body">
                                     <button
                                         v-for="action in getFilteredActions(job)"
@@ -96,6 +114,7 @@ export default {
         return {
             dialog: false,
             noteComment: '',
+            jobNotes: {}, // Object to store job-specific notes
             selectedPairs: [],
             pairOptions: [],
             jobs: [],
@@ -108,10 +127,17 @@ export default {
     async beforeMount() {
         this.noteComment = this.invoice.comment || '';
         await this.generateActionOptions();
+        await this.loadJobNotes();
     },
     computed: {
         areNotesAdded() {
-            return this.jobs?.some(j => j?.actions?.some(a => !!a?.hasNote));
+            // Check for invoice-level notes
+            const hasInvoiceNotes = this.jobs?.some(j => j?.actions?.some(a => !!a?.hasNote));
+            
+            // Check for job-level notes
+            const hasJobNotes = Object.values(this.jobNotes).some(note => note && note.trim().length > 0);
+            
+            return hasInvoiceNotes || hasJobNotes;
         },
     },
     methods: {
@@ -165,12 +191,55 @@ export default {
                 id: this.invoice.id,
                 selectedPairs: this.selectedPairs.map(p => ({ job_id: p.jobId, action_name: p.actionName })),
                 comment: this.noteComment,
+                jobNotes: this.jobNotes, // Include job-specific notes
             }).then(response => {
                 toast.success('Actions successfully updated!');
             }).catch(error => {
                 toast.error(error);
             });
             this.closeDialog();
+        },
+        async loadJobNotes() {
+            try {
+                const response = await axios.get(`/orders/${this.invoice.id}/job-notes`);
+                const jobNotes = response.data.jobNotes || [];
+                
+                // Initialize jobNotes object
+                this.jobNotes = {};
+                
+                jobNotes.forEach(note => {
+                    this.jobNotes[note.job_id] = note.comment;
+                    
+                    // Pre-select actions for this job note
+                    if (note.selected_actions && note.selected_actions.length > 0) {
+                        note.selected_actions.forEach(actionName => {
+                            const jobIndex = this.jobs.findIndex(j => j.id === note.job_id);
+                            if (jobIndex >= 0) {
+                                const job = this.jobs[jobIndex];
+                                const option = {
+                                    key: `${job.id}-${actionName}`,
+                                    label: `#${jobIndex + 1} ${job.name || 'Job ' + job.id} — ${actionName}`,
+                                    jobId: job.id,
+                                    actionName: actionName,
+                                };
+                                
+                                // Add to selectedPairs if not already there
+                                if (!this.selectedPairs.some(p => p.jobId === job.id && p.actionName === actionName)) {
+                                    this.selectedPairs.push(option);
+                                }
+                            }
+                        });
+                    }
+                });
+            } catch (error) {
+                console.error('Failed to load job notes:', error);
+            }
+        },
+        handleJobNoteInput(jobId, event) {
+            // Ensure we don't exceed 256 characters
+            if (event.target.value.length > 256) {
+                this.jobNotes[jobId] = event.target.value.substring(0, 256);
+            }
         },
         async generateActionOptions() {
             const jobIds = this.invoice.jobs?.map(job => job?.id);
@@ -311,6 +380,38 @@ export default {
     align-items: center;
     padding: 8px 10px;
     border-bottom: 1px solid #374151;
+}
+.job-note-section {
+    padding: 8px 10px;
+    border-bottom: 1px solid #374151;
+    background: #0f172a;
+}
+.job-note-label {
+    color: #94a3b8;
+    font-size: 12px;
+    font-weight: 500;
+    display: block;
+    margin-bottom: 4px;
+}
+.job-note-textarea {
+    width: 100%;
+    min-height: 60px;
+    border-radius: 4px;
+    border: 1px solid #374151;
+    background: #1e293b;
+    color: white;
+    padding: 6px 8px;
+    font-size: 12px;
+    resize: vertical;
+}
+.job-note-hint {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 2px;
+}
+.job-note-hint .char-count {
+    font-size: 10px;
+    color: #64748b;
 }
 .job-title {
     color: white;

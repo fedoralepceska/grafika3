@@ -13,8 +13,36 @@
             </div>
 
             <div class="modal-body">
-                <div class="note-content">
-                    <p>{{ comment }}</p>
+                <div v-if="comment" class="note-section">
+                    <h4 class="note-section-title">
+                        <i class="fa-solid fa-clipboard-list"></i>
+                        Order Note
+                    </h4>
+                    <div class="note-content">
+                        <p>{{ comment }}</p>
+                    </div>
+                </div>
+                
+                <div v-if="jobNotes && jobNotes.length > 0" class="note-section">
+                    <h4 class="note-section-title">
+                        <i class="fa-solid fa-hammer"></i>
+                        Job-Specific Notes
+                    </h4>
+                    <div v-for="jobNote in jobNotes" :key="jobNote.job_id" class="job-note-item">
+                        <div class="job-note-header">
+                            <strong>Job #{{ getJobNumber(jobNote.job_id) }}</strong>
+                            <span v-if="jobNote.selected_actions && jobNote.selected_actions.length > 0" class="actions-list">
+                                ({{ jobNote.selected_actions.join(', ') }})
+                            </span>
+                        </div>
+                        <div class="note-content">
+                            <p>{{ jobNote.comment }}</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div v-if="!comment && (!jobNotes || jobNotes.length === 0)" class="note-content">
+                    <p class="no-notes">No notes available</p>
                 </div>
             </div>
 
@@ -38,6 +66,7 @@ export default {
     props: {
         showModal: Boolean,
         comment: String,
+        jobNotes: Array,
         closeModal: Function,
         acknowledge: Function,
         invoice: Object
@@ -63,10 +92,14 @@ export default {
         acknowledge() {
             // params: showModal, acknowledged
             this.$emit('modal', [false, true]);
-            axios.put(`/orders/${this.invoice.id}`, {
-                comment: null,
-            });
+            // Note: The ActionPage will handle the actual acknowledgment logic
+            // We don't clear the invoice comment here since it might be needed for other actions
         },
+        getJobNumber(jobId) {
+            if (!this.invoice || !this.invoice.jobs) return '?';
+            const jobIndex = this.invoice.jobs.findIndex(job => job.id === jobId);
+            return jobIndex >= 0 ? jobIndex + 1 : '?';
+        }
     }
 };
 </script>
@@ -129,6 +162,45 @@ export default {
     padding: 16px;
 }
 
+.note-section {
+    margin-bottom: 16px;
+}
+
+.note-section:last-child {
+    margin-bottom: 0;
+}
+
+.note-section-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+    font-size: 14px;
+    font-weight: 600;
+    color: #e2e8f0;
+}
+
+.job-note-item {
+    margin-bottom: 12px;
+}
+
+.job-note-item:last-child {
+    margin-bottom: 0;
+}
+
+.job-note-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 4px;
+    font-size: 12px;
+}
+
+.actions-list {
+    color: #94a3b8;
+    font-weight: normal;
+}
+
 .note-content {
     background-color: $light-gray;
     border-radius: 6px;
@@ -136,6 +208,11 @@ export default {
     max-height: 46vh;
     overflow: auto;
     line-height: 1.6;
+}
+
+.no-notes {
+    color: #94a3b8;
+    font-style: italic;
 }
 
 .modal-footer {

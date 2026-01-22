@@ -108,7 +108,9 @@
                                     <div class="bt" @click="toggleJobProcessMode"
                                         :class="{'text-white': !jobProcessMode, 'green-text': jobProcessMode}"
                                     ><i class="fa-solid fa-list-check"></i></div>
-                                    <div class="bt"><i class="fa-regular fa-eye"></i></div>
+                                    <div class="bt" v-if="invoice.mockup" @click="showMockupModal = true" title="View Mockup">
+                                        <i class="fa-regular fa-eye"></i>
+                                    </div>
                                     <AddNoteDialog :invoice="invoice" ref="addNoteDialog" />
                                     <div class="bt"><i class="fa-regular fa-solid fa-file-pdf fa-sm" @click="generatePdf(invoice.id)"></i></div>
                                 </div>
@@ -396,6 +398,22 @@
                  </button>
              </div>
          </div>
+
+         <!-- Mockup Preview Modal -->
+         <div v-if="showMockupModal" class="popover" @click="closeMockupModal" @keydown.esc="closeMockupModal">
+             <div class="popover-content bg-gray-700" @click.stop>
+                 <img 
+                     v-if="invoice.mockup" 
+                     :src="`/mockups/${invoice.mockup}`" 
+                     alt="Order Mockup"
+                     loading="eager"
+                     decoding="async"
+                 />
+                 <button @click="closeMockupModal" class="popover-close">
+                     <i class="fa fa-close"></i>
+                 </button>
+             </div>
+         </div>
      </MainLayout>
 </template>
 
@@ -461,7 +479,8 @@ export default {
             selectedCuttingJob: null,
             selectedCuttingFileIndex: null,
             showStatusDropdown: false,
-            selectedStatus: this.invoice?.status || 'Not started yet'
+            selectedStatus: this.invoice?.status || 'Not started yet',
+            showMockupModal: false
         }
     },
     computed: {
@@ -767,6 +786,8 @@ export default {
                     this.closeImagePopover();
                 } else if (this.showCuttingFileModal) {
                     this.closeCuttingFileModal();
+                } else if (this.showMockupModal) {
+                    this.closeMockupModal();
                 }
             }
         },
@@ -842,6 +863,10 @@ export default {
         },
         getCuttingFileExtension(filePath) {
             return filePath.split('.').pop() || '';
+        },
+        
+        closeMockupModal() {
+            this.showMockupModal = false;
         },
         
         // Calculate total area from dimensions breakdown

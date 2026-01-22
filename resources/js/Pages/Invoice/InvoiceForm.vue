@@ -84,7 +84,7 @@
                 </div>
 
                 <div class="left pl-5">
-                    <DragAndDrop ref="dragAndDrop" :invoiceComment="invoice.comment" :initialJobs="newJobs" @commentUpdated="handleCommentUpdate"/>
+                    <DragAndDrop ref="dragAndDrop" :invoiceComment="invoice.comment" :initialJobs="newJobs" @commentUpdated="handleCommentUpdate" @mockupUpdated="handleMockupUpdate"/>
                 </div>
             </div>
             <div class="wrapper2 p-5 gap-4">
@@ -226,6 +226,7 @@ export default {
             isSubmittingInvoice: false,
             removeRouterBeforeHandler: null,
             removeDomBeforeHandler: null,
+            mockupFile: null, // Store mockup file for upload
         };
     },
     props: {
@@ -262,6 +263,9 @@ export default {
         },
         handleCommentUpdate(updatedComment) {
             this.invoice.comment = updatedComment;
+        },
+        handleMockupUpdate(mockupFile) {
+            this.mockupFile = mockupFile;
         },
         async fetchInvoices() {
             try {
@@ -330,9 +334,38 @@ export default {
                 };
                 this.invoice.jobs.push(finalJob);
             }
+            
+            // Collect job notes from OrderLines component
+            let jobNotes = {};
+            if (this.$refs.orderLines && typeof this.$refs.orderLines.getJobNotesForSubmission === 'function') {
+                jobNotes = this.$refs.orderLines.getJobNotesForSubmission();
+            }
+            this.invoice.jobNotes = jobNotes;
+            
+            // Prepare FormData for file upload
+            const formData = new FormData();
+            
+            // Add all invoice fields to FormData
+            Object.keys(this.invoice).forEach(key => {
+                if (key === 'jobNotes') {
+                    // Handle job notes separately
+                    formData.append('jobNotes', JSON.stringify(jobNotes));
+                } else if (key === 'jobs') {
+                    // Handle jobs array separately - FormData needs JSON string for arrays
+                    formData.append('jobs', JSON.stringify(this.invoice[key]));
+                } else if (this.invoice[key] !== null && this.invoice[key] !== undefined) {
+                    formData.append(key, this.invoice[key]);
+                }
+            });
+            
+            // Add mockup file if present
+            if (this.mockupFile) {
+                formData.append('mockup', this.mockupFile);
+            }
+            
             try {
                 this.isSubmittingInvoice = true;
-                let response = await axios.post('/orders', this.invoice, {
+                let response = await axios.post('/orders', formData, {
                     headers: {
                         'Content-Type': 'multipart/form-data',
                     },

@@ -21,6 +21,7 @@ class Invoice extends Model
         'contact_id',
         'invoice_title',
         'comment',
+        'mockup',
         'status',
         'created_by',
         'perfect',

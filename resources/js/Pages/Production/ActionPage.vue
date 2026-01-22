@@ -156,15 +156,15 @@
                             </tr>
                         </thead>
                         <tbody v-for="(job, jobIndex) in invoice.jobs" :key="jobIndex" :data-job-id="job.id">
-                            <tr v-if="invoice.comment && !acknowledged && hasNoteForCurrentAction(job)" :data-job-id="job.id">
+                            <tr v-if="hasNoteForCurrentAction(job) && !isNoteAcknowledged(job)" :data-job-id="job.id">
                                 <td :colspan="8 + (hasWaitingJobs ? 1 : 0) + (hasNextSteps ? 1 : 0)" class="orange">
                                     <div class="flex items-center justify-center gap-3">
-                                        <button @click="openModal(index)">
+                                        <button @click="openModal(index, job.id)">
                                             <i class="fa-solid fa-arrow-down"></i>
                                             {{ $t('readNotes') }}
                                             <i class="fa-solid fa-arrow-down"></i>
                                         </button>
-                                        <button class="see-notes-btn" @click="openModal(index)">
+                                        <button class="see-notes-btn" @click="openModal(index, job.id)">
                                             <i class="fa-solid fa-note-sticky"></i>
                                             See notes
                                         </button>
@@ -172,7 +172,7 @@
                                 </td>
                             </tr>
                             <tr :class="{
-                                'orange2' :  invoice.comment && !acknowledged && hasNoteForCurrentAction(job)
+                                'orange2' : hasNoteForCurrentAction(job) && !isNoteAcknowledged(job)
                             }" :data-job-id="job.id">
                                 <td class="bg-white !text-black"><strong>#{{jobIndex+1}}</strong></td>
                                 <td class="image-cell">
@@ -380,7 +380,8 @@
                     </table>
                     <CommentModal
                         v-if="showModal && selectedInvoiceIndex !== null"
-                        :comment="invoices[selectedInvoiceIndex].comment"
+                        :comment="getRelevantInvoiceComment(invoices[selectedInvoiceIndex])"
+                        :jobNotes="getJobNotesForCurrentAction(invoices[selectedInvoiceIndex])"
                         :closeModal="closeModal"
                         :invoice="invoices[selectedInvoiceIndex]"
                         :showModal="showModal"
@@ -541,7 +542,6 @@ export default {
             id: null,
             jobViewMode: null,
             showModal: false,
-            acknowledged: false,
             showImagePopover: false,
             timers: {},
             elapsedTimes: {},
@@ -571,6 +571,7 @@ export default {
             modalCurrentPage: 1, // For preview modal page navigation
             acknowledgedNotes: {}, // Track acknowledged notes per job
             selectedInvoiceIndex: null, // Track which invoice's modal is open
+            selectedJobId: null, // Track which specific job triggered the modal
         };
     },
     async created() {
@@ -727,10 +728,74 @@ export default {
                 toast.success('Note acknowledged');
             } catch (e) {}
         },
+        getJobNotesForCurrentAction(invoice) {
+            if (!invoice || !invoice.jobs) return [];
+            
+            const jobNotesForAction = [];
+            
+            // If a specific job is selected, only show notes for that job
+            const jobsToCheck = this.selectedJobId 
+                ? invoice.jobs.filter(job => job.id === this.selectedJobId)
+                : invoice.jobs;
+            
+            jobsToCheck.forEach(job => {
+                if (job.notes && job.notes.length > 0) {
+                    job.notes.forEach(note => {
+                        // Check if this note applies to the current action
+                        if (note.selected_actions && note.selected_actions.includes(this.actionId)) {
+                            jobNotesForAction.push({
+                                job_id: job.id,
+                                comment: note.comment,
+                                selected_actions: note.selected_actions
+                            });
+                        }
+                    });
+                }
+            });
+            
+            return jobNotesForAction;
+        },
+        getRelevantInvoiceComment(invoice) {
+            if (!invoice || !invoice.comment) return '';
+            
+            // If a specific job is selected, only show invoice comment if it applies to that job
+            if (this.selectedJobId) {
+                const selectedJob = invoice.jobs?.find(job => job.id === this.selectedJobId);
+                if (selectedJob) {
+                    // Check if the invoice comment applies to this job's current action
+                    const action = selectedJob.actions?.find(a => a?.name === this.actionId);
+                    if (action && (action.hasNote === 1 || action.hasNote === true)) {
+                        return invoice.comment;
+                    }
+                }
+                return ''; // Don't show invoice comment if it doesn't apply to the selected job
+            }
+            
+            // If no specific job selected, show the invoice comment
+            return invoice.comment;
+        },
         invoiceHasNotes(invoice) {
             try {
                 if (!invoice || !Array.isArray(invoice.jobs)) return false;
-                return invoice.jobs.some(j => Array.isArray(j.actions) && j.actions.some(a => a?.name === this.actionId && (a?.hasNote === 1 || a?.hasNote === true)));
+                
+                // Check for invoice-level notes with hasNote flags
+                const hasInvoiceNotes = invoice.jobs.some(j => 
+                    Array.isArray(j.actions) && 
+                    j.actions.some(a => a?.name === this.actionId && (a?.hasNote === 1 || a?.hasNote === true))
+                );
+                
+                // Check for job-level notes
+                const hasJobNotes = invoice.jobs.some(j => 
+                    j?.notes && j.notes.length > 0 && 
+                    j.notes.some(note => {
+                        const hasActualComment = note.comment && note.comment.trim().length > 0;
+                        const hasSelectedAction = note.selected_actions && 
+                            note.selected_actions.includes(this.actionId);
+                        return hasActualComment && hasSelectedAction;
+                    })
+                );
+                
+                return hasInvoiceNotes || hasJobNotes;
             } catch (e) {
                 return false;
             }
@@ -781,10 +846,25 @@ export default {
         },
         hasNoteForCurrentAction(job) {
             const action = job?.actions?.find(a => a?.name === this.actionId);
-            // Only consider it as having a note if the action has hasNote AND the invoice has an actual comment
             const invoice = this.invoices?.find(inv => inv.jobs?.some(j => j.id === job.id));
-            const hasActualComment = invoice?.comment && invoice.comment.trim().length > 0;
-            return action && (action.hasNote === 1 || action.hasNote === true) && hasActualComment;
+            
+            // First check for invoice-level comment
+            const hasInvoiceComment = invoice?.comment && invoice.comment.trim().length > 0;
+            if (action && (action.hasNote === 1 || action.hasNote === true) && hasInvoiceComment) {
+                return true;
+            }
+            
+            // If no invoice comment, check for job-level notes
+            if (job?.notes && job.notes.length > 0) {
+                return job.notes.some(note => {
+                    const hasActualComment = note.comment && note.comment.trim().length > 0;
+                    const hasSelectedAction = note.selected_actions && 
+                        note.selected_actions.includes(this.actionId);
+                    return hasActualComment && hasSelectedAction;
+                });
+            }
+            
+            return false;
         },
         getActionId(job) {
             const actionIndex = job?.actions?.findIndex(action => action?.name === this?.actionId);
@@ -1609,16 +1689,16 @@ export default {
             
             console.log(`Legacy image failed for job ${job.id}, marked as failed`);
         },
-        openModal(index) {
+        openModal(index, jobId = null) {
             this.showModal = true;
             this.selectedInvoiceIndex = index;
-            this.acknowledged = false; // Reset acknowledgment state when opening modal
+            this.selectedJobId = jobId;
         },
 
         closeModal() {
             this.showModal = false;
             this.selectedInvoiceIndex = null;
-            this.acknowledged = false;
+            this.selectedJobId = null;
         },
 
         acknowledge() {
@@ -1631,12 +1711,18 @@ export default {
         },
         updateModal(values) {
             this.showModal = values[0];
-            this.acknowledged = values[1];
             
-            // If acknowledged, update the acknowledgedNotes for all jobs in the current invoice
+            // If acknowledged, update the acknowledgedNotes for the specific job that triggered the modal
             if (values[1]) {
                 const invoice = this.invoices[this.selectedInvoiceIndex];
-                if (invoice && invoice.jobs) {
+                if (invoice && invoice.jobs && this.selectedJobId) {
+                    // Find the specific job that triggered the modal
+                    const specificJob = invoice.jobs.find(job => job.id === this.selectedJobId);
+                    if (specificJob && this.hasNoteForCurrentAction(specificJob)) {
+                        this.acknowledgeNote(specificJob);
+                    }
+                } else if (invoice && invoice.jobs && !this.selectedJobId) {
+                    // Fallback: if no specific job ID, acknowledge all jobs (for backward compatibility)
                     invoice.jobs.forEach(job => {
                         if (this.hasNoteForCurrentAction(job)) {
                             this.acknowledgeNote(job);
