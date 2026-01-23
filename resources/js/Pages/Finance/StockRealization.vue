@@ -10,8 +10,10 @@
                     </h2>
                     <div class="filter-container flex gap-4 pb-10">
                         <div class="search flex gap-2">
-                            <input v-model="searchQuery" placeholder="Enter order number or order name"
+                            <input v-model="searchOrderIdOrName" placeholder="Order ID or Name"
                                 class="text-black search-input" @keyup.enter="searchStockRealizations" />
+                            <input v-model="searchYear" placeholder="Year" type="number" min="2000" max="2099"
+                                class="text-black search-input year-input" @keyup.enter="searchStockRealizations" />
                             <button class="btn create-order1" @click="searchStockRealizations">Search</button>
                         </div>
                         <div class="flex gap-2 filters-group">
@@ -443,7 +445,8 @@ export default {
         },
     },
     setup(props) {
-        const searchQuery = ref('');
+        const searchOrderIdOrName = ref('');
+        const searchYear = ref('');
         const filterStatus = ref('All');
         const filterClient = ref('All');
         const sortOrder = ref('desc');
@@ -479,7 +482,8 @@ export default {
         const materialsToAdd = ref([]);
 
         return {
-            searchQuery,
+            searchOrderIdOrName,
+            searchYear,
             filterStatus,
             filterClient,
             sortOrder,
@@ -562,11 +566,28 @@ export default {
         async applyFilter() {
             this.loading = true;
             const params = {
-                searchQuery: this.searchQuery,
                 status: this.filterStatus,
                 client: this.filterClient,
                 sortOrder: this.sortOrder,
             };
+            
+            // If both order ID/name and year are provided, combine them
+            if (this.searchOrderIdOrName && this.searchYear) {
+                // Check if order ID/name is numeric (order number)
+                if (/^\d+$/.test(this.searchOrderIdOrName.trim())) {
+                    params.searchQuery = `${this.searchOrderIdOrName.trim()}/${this.searchYear}`;
+                } else {
+                    // It's a text search, send both separately
+                    params.searchQuery = this.searchOrderIdOrName.trim();
+                    params.searchYear = this.searchYear;
+                }
+            } else if (this.searchOrderIdOrName) {
+                // Only order ID/name provided
+                params.searchQuery = this.searchOrderIdOrName.trim();
+            } else if (this.searchYear) {
+                // Only year provided
+                params.searchYear = this.searchYear;
+            }
             this.$inertia.get('/stock-realizations', params, {
                 preserveState: true,
                 preserveScroll: true,
@@ -578,12 +599,27 @@ export default {
         },
         changePage(page) {
             const params = {
-                searchQuery: this.searchQuery,
                 status: this.filterStatus,
                 client: this.filterClient,
                 sortOrder: this.sortOrder,
                 page: page,
             };
+            
+            // If both order ID/name and year are provided, combine them
+            if (this.searchOrderIdOrName && this.searchYear) {
+                // Check if order ID/name is numeric (order number)
+                if (/^\d+$/.test(this.searchOrderIdOrName.trim())) {
+                    params.searchQuery = `${this.searchOrderIdOrName.trim()}/${this.searchYear}`;
+                } else {
+                    // It's a text search, send both separately
+                    params.searchQuery = this.searchOrderIdOrName.trim();
+                    params.searchYear = this.searchYear;
+                }
+            } else if (this.searchOrderIdOrName) {
+                params.searchQuery = this.searchOrderIdOrName.trim();
+            } else if (this.searchYear) {
+                params.searchYear = this.searchYear;
+            }
             this.$inertia.get('/stock-realizations', params, {
                 preserveState: true,
                 preserveScroll: true,
@@ -1491,6 +1527,11 @@ export default {
     width: 50vh;
     max-width: 100%;
     border-radius: 3px;
+}
+
+.year-input {
+    width: 120px;
+    max-width: 100%;
 }
 
 .filter-select {

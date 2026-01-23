@@ -31,14 +31,66 @@ class StockRealizationController extends Controller
             ]);
 
             // Apply search filters
-            if ($request->has('searchQuery')) {
-                $searchQuery = '%' . $request->input('searchQuery') . '%';
-                $query->where(function ($q) use ($searchQuery) {
-                    $q->where('invoice_title', 'LIKE', $searchQuery)
-                      ->orWhere('id', 'LIKE', $searchQuery)
-                      ->orWhereHas('client', function ($clientQuery) use ($searchQuery) {
-                          $clientQuery->where('name', 'LIKE', $searchQuery);
-                      });
+            $hasSearchQuery = $request->has('searchQuery') && trim($request->input('searchQuery')) !== '';
+            $hasSearchYear = $request->has('searchYear') && trim($request->input('searchYear')) !== '';
+            
+            if ($hasSearchQuery && $hasSearchYear) {
+                // Both search query and year provided
+                $searchQuery = trim($request->input('searchQuery'));
+                $fiscalYear = (int) $request->input('searchYear');
+                
+                // Check if search query is numeric (order number)
+                if (preg_match('/^\d+$/', $searchQuery)) {
+                    // It's an order number, search by order_number and fiscal_year
+                    $orderNumber = (int) $searchQuery;
+                    $query->whereHas('invoice', function ($invoiceQuery) use ($orderNumber, $fiscalYear) {
+                        $invoiceQuery->where('order_number', $orderNumber)
+                                     ->where('fiscal_year', $fiscalYear);
+                    });
+                } else {
+                    // It's text, search by text AND filter by year
+                    $searchQuery = '%' . $searchQuery . '%';
+                    $query->where(function ($q) use ($searchQuery, $fiscalYear) {
+                        $q->where(function ($subQ) use ($searchQuery) {
+                            $subQ->where('invoice_title', 'LIKE', $searchQuery)
+                                 ->orWhere('id', 'LIKE', $searchQuery)
+                                 ->orWhereHas('client', function ($clientQuery) use ($searchQuery) {
+                                     $clientQuery->where('name', 'LIKE', $searchQuery);
+                                 });
+                        })->whereHas('invoice', function ($invoiceQuery) use ($fiscalYear) {
+                            $invoiceQuery->where('fiscal_year', $fiscalYear);
+                        });
+                    });
+                }
+            } elseif ($hasSearchQuery) {
+                // Only search query provided
+                $searchQuery = trim($request->input('searchQuery'));
+                
+                // Check if search query matches "number/year" format (e.g., "5/2026")
+                if (preg_match('/^(\d+)\/(\d{4})$/', $searchQuery, $matches)) {
+                    $orderNumber = (int) $matches[1];
+                    $fiscalYear = (int) $matches[2];
+                    
+                    $query->whereHas('invoice', function ($invoiceQuery) use ($orderNumber, $fiscalYear) {
+                        $invoiceQuery->where('order_number', $orderNumber)
+                                     ->where('fiscal_year', $fiscalYear);
+                    });
+                } else {
+                    // Original search behavior for other queries
+                    $searchQuery = '%' . $searchQuery . '%';
+                    $query->where(function ($q) use ($searchQuery) {
+                        $q->where('invoice_title', 'LIKE', $searchQuery)
+                          ->orWhere('id', 'LIKE', $searchQuery)
+                          ->orWhereHas('client', function ($clientQuery) use ($searchQuery) {
+                              $clientQuery->where('name', 'LIKE', $searchQuery);
+                          });
+                    });
+                }
+            } elseif ($hasSearchYear) {
+                // Only year provided
+                $fiscalYear = (int) $request->input('searchYear');
+                $query->whereHas('invoice', function ($invoiceQuery) use ($fiscalYear) {
+                    $invoiceQuery->where('fiscal_year', $fiscalYear);
                 });
             }
 
@@ -430,14 +482,66 @@ class StockRealizationController extends Controller
             ])->where('is_realized', false);
 
             // Apply search and filters similar to index
-            if ($request->has('searchQuery')) {
-                $searchQuery = '%' . $request->input('searchQuery') . '%';
-                $query->where(function ($q) use ($searchQuery) {
-                    $q->where('invoice_title', 'LIKE', $searchQuery)
-                      ->orWhere('id', 'LIKE', $searchQuery)
-                      ->orWhereHas('client', function ($clientQuery) use ($searchQuery) {
-                          $clientQuery->where('name', 'LIKE', $searchQuery);
-                      });
+            $hasSearchQuery = $request->has('searchQuery') && trim($request->input('searchQuery')) !== '';
+            $hasSearchYear = $request->has('searchYear') && trim($request->input('searchYear')) !== '';
+            
+            if ($hasSearchQuery && $hasSearchYear) {
+                // Both search query and year provided
+                $searchQuery = trim($request->input('searchQuery'));
+                $fiscalYear = (int) $request->input('searchYear');
+                
+                // Check if search query is numeric (order number)
+                if (preg_match('/^\d+$/', $searchQuery)) {
+                    // It's an order number, search by order_number and fiscal_year
+                    $orderNumber = (int) $searchQuery;
+                    $query->whereHas('invoice', function ($invoiceQuery) use ($orderNumber, $fiscalYear) {
+                        $invoiceQuery->where('order_number', $orderNumber)
+                                     ->where('fiscal_year', $fiscalYear);
+                    });
+                } else {
+                    // It's text, search by text AND filter by year
+                    $searchQuery = '%' . $searchQuery . '%';
+                    $query->where(function ($q) use ($searchQuery, $fiscalYear) {
+                        $q->where(function ($subQ) use ($searchQuery) {
+                            $subQ->where('invoice_title', 'LIKE', $searchQuery)
+                                 ->orWhere('id', 'LIKE', $searchQuery)
+                                 ->orWhereHas('client', function ($clientQuery) use ($searchQuery) {
+                                     $clientQuery->where('name', 'LIKE', $searchQuery);
+                                 });
+                        })->whereHas('invoice', function ($invoiceQuery) use ($fiscalYear) {
+                            $invoiceQuery->where('fiscal_year', $fiscalYear);
+                        });
+                    });
+                }
+            } elseif ($hasSearchQuery) {
+                // Only search query provided
+                $searchQuery = trim($request->input('searchQuery'));
+                
+                // Check if search query matches "number/year" format (e.g., "5/2026")
+                if (preg_match('/^(\d+)\/(\d{4})$/', $searchQuery, $matches)) {
+                    $orderNumber = (int) $matches[1];
+                    $fiscalYear = (int) $matches[2];
+                    
+                    $query->whereHas('invoice', function ($invoiceQuery) use ($orderNumber, $fiscalYear) {
+                        $invoiceQuery->where('order_number', $orderNumber)
+                                     ->where('fiscal_year', $fiscalYear);
+                    });
+                } else {
+                    // Original search behavior for other queries
+                    $searchQuery = '%' . $searchQuery . '%';
+                    $query->where(function ($q) use ($searchQuery) {
+                        $q->where('invoice_title', 'LIKE', $searchQuery)
+                          ->orWhere('id', 'LIKE', $searchQuery)
+                          ->orWhereHas('client', function ($clientQuery) use ($searchQuery) {
+                              $clientQuery->where('name', 'LIKE', $searchQuery);
+                          });
+                    });
+                }
+            } elseif ($hasSearchYear) {
+                // Only year provided
+                $fiscalYear = (int) $request->input('searchYear');
+                $query->whereHas('invoice', function ($invoiceQuery) use ($fiscalYear) {
+                    $invoiceQuery->where('fiscal_year', $fiscalYear);
                 });
             }
 
