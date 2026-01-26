@@ -147,7 +147,13 @@
         <div class="divider"></div>
     </div>
     <div  class="bolder opensans" style="margin-left: 25px; margin-top: 4px; font-size: 10pt; color: #333333">
-        РАБОТНА СТАВКА БР. <span class="opensans bolder" style="color: #333333; font-size: 10pt" >01</span>
+        РАБОТНА СТАВКА БР. <span class="opensans bolder" style="color: #333333; font-size: 10pt" >
+        @php
+            $totalJobs = $invoice->jobs->count();
+            $currentJob = $loop->iteration;
+            echo "({$currentJob}/{$totalJobs})";
+        @endphp
+        </span>
     </div>
         <div  class="opensans" style="margin-left: 25px; font-size: 9.5pt; color: #333333">
         Наслов на работниот налог: <span class="opensans bolder" style="  color: #333333 margin: 0; font-size: 9.5pt;  line-height: 70%;" >{{$invoice->invoice_title}}</span>
@@ -329,19 +335,25 @@
                 <td colspan="3" style="line-height: 0.85; letter-spacing: 0%;">
                     @php
                         // Get job-specific notes first
-                        $jobComment = '';
+                        $jobComments = [];
                         if ($job->notes && $job->notes->count() > 0) {
-                            $jobComments = [];
                             foreach ($job->notes as $note) {
                                 if (!empty($note->comment)) {
                                     $jobComments[] = $note->comment;
                                 }
                             }
-                            $jobComment = implode(' | ', $jobComments);
                         }
                         
-                        // Fallback to invoice comment if no job-specific notes
-                        $displayComment = !empty($jobComment) ? $jobComment : $invoice->comment;
+                        // Build display comment: job comments first, then order comment last
+                        $displayParts = [];
+                        if (!empty($jobComments)) {
+                            $displayParts[] = implode(' | ', $jobComments);
+                        }
+                        if (!empty($invoice->comment)) {
+                            $displayParts[] = $invoice->comment;
+                        }
+                        
+                        $displayComment = implode(' | ', $displayParts);
                     @endphp
                     {{ $displayComment }}
                 </td>

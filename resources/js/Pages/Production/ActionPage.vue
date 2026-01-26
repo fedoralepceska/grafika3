@@ -113,7 +113,7 @@
                             <i class="fa-solid fa-pause"></i>
                             <span>On Hold</span>
                         </span>
-                        <span v-if="invoiceHasNotes(invoice)" class="badge badge-note" :title="$t('readNotes')">
+                        <span v-if="invoiceHasNotes(invoice)" class="badge badge-note" :title="$t('readNotes')" @click.stop="openAllNotesModal(index)">
                             <i class="fa-regular fa-note-sticky"></i>
                             <span>Note</span>
                         </span>
@@ -380,11 +380,12 @@
                     </table>
                     <CommentModal
                         v-if="showModal && selectedInvoiceIndex !== null"
-                        :comment="getRelevantInvoiceComment(invoices[selectedInvoiceIndex])"
-                        :jobNotes="getJobNotesForCurrentAction(invoices[selectedInvoiceIndex])"
+                        :comment="showAllNotes ? getAllOrderComments(invoices[selectedInvoiceIndex]) : getRelevantInvoiceComment(invoices[selectedInvoiceIndex])"
+                        :jobNotes="showAllNotes ? getAllJobNotes(invoices[selectedInvoiceIndex]) : getJobNotesForCurrentAction(invoices[selectedInvoiceIndex])"
                         :closeModal="closeModal"
                         :invoice="invoices[selectedInvoiceIndex]"
                         :showModal="showModal"
+                        :showAllNotes="showAllNotes"
                         @modal="updateModal"
                     />
                 </div>
@@ -572,6 +573,7 @@ export default {
             acknowledgedNotes: {}, // Track acknowledged notes per job
             selectedInvoiceIndex: null, // Track which invoice's modal is open
             selectedJobId: null, // Track which specific job triggered the modal
+            showAllNotes: false, // Track if we're showing all notes or just current action notes
         };
     },
     async created() {
@@ -773,6 +775,41 @@ export default {
             
             // If no specific job selected, show the invoice comment
             return invoice.comment;
+        },
+        getAllOrderComments(invoice) {
+            // Return all order-level comments (invoice comment)
+            if (!invoice || !invoice.comment || invoice.comment.trim().length === 0) return '';
+            return invoice.comment;
+        },
+        getAllJobNotes(invoice) {
+            // Return all job notes for all jobs, regardless of action
+            if (!invoice || !invoice.jobs) return [];
+            
+            const allJobNotes = [];
+            
+            invoice.jobs.forEach((job, jobIndex) => {
+                if (job.notes && job.notes.length > 0) {
+                    job.notes.forEach(note => {
+                        // Include all notes that have actual comments
+                        if (note.comment && note.comment.trim().length > 0) {
+                            allJobNotes.push({
+                                job_id: job.id,
+                                job_index: jobIndex,
+                                comment: note.comment,
+                                selected_actions: note.selected_actions || []
+                            });
+                        }
+                    });
+                }
+            });
+            
+            // Sort by job index to maintain order
+            return allJobNotes.sort((a, b) => {
+                if (a.job_index !== undefined && b.job_index !== undefined) {
+                    return a.job_index - b.job_index;
+                }
+                return 0;
+            });
         },
         invoiceHasNotes(invoice) {
             try {
@@ -1693,12 +1730,21 @@ export default {
             this.showModal = true;
             this.selectedInvoiceIndex = index;
             this.selectedJobId = jobId;
+            this.showAllNotes = false; // Show only current action notes when opened from job
+        },
+
+        openAllNotesModal(index) {
+            this.showModal = true;
+            this.selectedInvoiceIndex = index;
+            this.selectedJobId = null; // Show all jobs' notes
+            this.showAllNotes = true; // Show all notes/comments
         },
 
         closeModal() {
             this.showModal = false;
             this.selectedInvoiceIndex = null;
             this.selectedJobId = null;
+            this.showAllNotes = false;
         },
 
         acknowledge() {
@@ -3350,6 +3396,12 @@ td {
 
 .badge-note {
     background-color: #2563eb;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+}
+
+.badge-note:hover {
+    background-color: #1d4ed8;
 }
 
 @keyframes rushBadgePulse {
