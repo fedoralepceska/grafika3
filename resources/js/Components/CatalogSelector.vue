@@ -240,6 +240,14 @@
           @submit-answers="handleQuestionsSubmit"
           @close="questionsModalVisible = false"
         />
+
+        <JobCreationWizard
+          :visible="wizardVisible"
+          :catalogItems="selectedItemsData"
+          :clientId="clientId"
+          @jobs-created="handleWizardJobsCreated"
+          @close="wizardVisible = false"
+        />
     </div>
 </template>
 
@@ -249,10 +257,11 @@ import { useToast } from "vue-toastification";
 import TabV2 from "@/Components/tabs/TabV2.vue";
 import TabsWrapperSwitch from "@/Components/tabs/TabsWrapperSwitch.vue";
 import QuestionsModal from './QuestionsModal.vue';
+import JobCreationWizard from './JobCreationWizard.vue';
 
 export default {
     name: "CatalogSelector",
-    components: { TabV2, TabsWrapperSwitch, QuestionsModal },
+    components: { TabV2, TabsWrapperSwitch, QuestionsModal, JobCreationWizard },
     props: {
         clientId: {
             type: [Number, String],
@@ -280,6 +289,7 @@ export default {
             questionsModalAnswers: null,
             isCreatingJobs: false,
             searchTimeout: null, // For debouncing search
+            wizardVisible: false
         }
     },
 
@@ -368,117 +378,20 @@ export default {
                 return;
             }
 
-            // Check if any selected catalog items require questions
-            const catalogItemIds = selectedCatalogItems.map(item => item.id);
-            try {
-                const questionsResponse = await axios.post('/jobs/questions-for-catalog-items', {
-                    catalog_item_ids: catalogItemIds
-                });
-                if (questionsResponse.data.shouldAsk) {
-                    // Show questions modal
-                    this.questionsModalData = {
-                        questionsByCatalogItem: questionsResponse.data.questionsByCatalogItem,
-                        catalogItems: selectedCatalogItems
-                    };
-                    this.questionsModalVisible = true;
-                    return;
-                }
-            } catch (error) {
-                toast.error('Failed to check questions requirement');
-                return;
-            }
-
-            try {
-                const jobs = await Promise.all(selectedCatalogItems.map(async (item) => {
-                    const formattedActions = item.actions.map(action => ({
-                        id: action.action_id.id,
-                        name: action.action_id.name,
-                        status: action.status,
-                        quantity: action.quantity
-                    }));
-
-                    // Use unified IDs from backend (already 'cat_#' for categories)
-                    let largeMaterialData = item.large_material_id || null;
-                    let smallMaterialData = item.small_material_id || null;
-
-                    const response = await axios.post('/jobs', {
-                        fromCatalog: true,
-                        machinePrint: item.machinePrint,
-                        machineCut: item.machineCut,
-                        large_material_id: largeMaterialData,
-                        small_material_id: smallMaterialData,
-                        name: item.name,
-                        quantity: item.quantity || 1, // Default to 1 if not set
-                        copies: item.copies || 1, // Default to 1 if not set
-                        actions: formattedActions,
-                        client_id: this.clientId,
-                        catalog_item_id: item.id
-                    });
-
-                    return response.data.job;
-                }));
-
-                this.$emit('jobs-created', jobs);
-                toast.success('Jobs created from catalog');
-                this.selectedItems = [];
-                this.selectedItemsData = [];
-            } catch (error) {
-                console.error('Error creating jobs:', error.response?.data || error);
-                toast.error(error.response?.data?.error || 'Failed to create jobs');
-            }
+            // Show the wizard
+            this.wizardVisible = true;
         },
 
         async handleQuestionsSubmit(answers) {
-            // answers is now { [catalogItemId]: { [questionId]: answerText } }
+            // This is kept for backward compatibility but shouldn't be used with wizard
             this.questionsModalVisible = false;
-            this.questionsModalAnswers = answers;
-            const toast = useToast();
-            
-            // Use the stored selectedItemsData instead of searching current page data
-            const selectedCatalogItems = this.selectedItemsData;
-            
-            this.isCreatingJobs = true;
-            try {
-                const jobs = await Promise.all(selectedCatalogItems.map(async (item) => {
-                    const formattedActions = item.actions.map(action => ({
-                        id: action.action_id.id,
-                        name: action.action_id.name,
-                        status: action.status,
-                        quantity: action.quantity
-                    }));
-                    // Use unified IDs from backend (already 'cat_#' for categories)
-                    let largeMaterialData = item.large_material_id || null;
-                    let smallMaterialData = item.small_material_id || null;
+        },
 
-                    const payload = {
-                        fromCatalog: true,
-                        machinePrint: item.machinePrint,
-                        machineCut: item.machineCut,
-                        large_material_id: largeMaterialData,
-                        small_material_id: smallMaterialData,
-                        name: item.name,
-                        quantity: item.quantity || 1,
-                        copies: item.copies || 1,
-                        actions: formattedActions,
-                        client_id: this.clientId,
-                        catalog_item_id: item.id
-                    };
-                    if (this.questionsModalAnswers && this.questionsModalAnswers[item.id]) {
-                        payload.question_answers = this.questionsModalAnswers[item.id];
-                    }
-                    const response = await axios.post('/jobs', payload);
-                    return response.data.job;
-                }));
-                this.$emit('jobs-created', jobs);
-                toast.success('Jobs created from catalog');
-                this.selectedItems = [];
-                this.selectedItemsData = [];
-            } catch (error) {
-                console.error('Error creating jobs:', error.response?.data || error);
-                toast.error(error.response?.data?.error || 'Failed to create jobs');
-            } finally {
-                this.isCreatingJobs = false;
-            }
+        handleWizardJobsCreated(jobs) {
+            this.wizardVisible = false;
+            this.$emit('jobs-created', jobs);
+            this.selectedItems = [];
+            this.selectedItemsData = [];
         },
 
         prevPageSmall() {

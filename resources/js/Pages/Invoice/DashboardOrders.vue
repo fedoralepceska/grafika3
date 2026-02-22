@@ -227,6 +227,9 @@
                                 <button @click="viewFullOrder" class="view-full-btn" title="View Full Order">
                                     <i class="fa-solid fa-external-link-alt"></i>
                                 </button>
+                                <button @click="downloadOrderPdf" class="pdf-btn" title="Download PDF">
+                                    <i class="fa-solid fa-file-pdf"></i>
+                                </button>
                                 <button @click="closeOrderDetails" class="close-btn" title="Close (ESC)">
                                     <i class="fa-solid fa-times"></i>
                                 </button>
@@ -539,9 +542,26 @@ export default {
 
                 // Always exclude completed orders from latest list (handled server-side)
                 const response = await axios.get('/orders/latest-open', { params });
-                this.orders = response.data;
+                
+                // Ensure pagination metadata is properly set
+                this.orders = {
+                    ...response.data,
+                    // Fallback values in case pagination metadata is missing
+                    current_page: response.data.current_page || 1,
+                    last_page: response.data.last_page || 1,
+                    total: response.data.total || 0,
+                    per_page: response.data.per_page || 10
+                };
             } catch (error) {
                 console.error('Error fetching orders:', error);
+                // Reset to safe state on error
+                this.orders = {
+                    data: [],
+                    current_page: 1,
+                    last_page: 1,
+                    total: 0,
+                    per_page: 10
+                };
             }
         },
 
@@ -564,9 +584,26 @@ export default {
                 }
 
                 const response = await axios.get('/orders/completed', { params });
-                this.completedOrders = response.data;
+                
+                // Ensure pagination metadata is properly set
+                this.completedOrders = {
+                    ...response.data,
+                    // Fallback values in case pagination metadata is missing
+                    current_page: response.data.current_page || 1,
+                    last_page: response.data.last_page || 1,
+                    total: response.data.total || 0,
+                    per_page: response.data.per_page || 5
+                };
             } catch (error) {
                 console.error('Error fetching completed orders:', error);
+                // Reset to safe state on error
+                this.completedOrders = {
+                    data: [],
+                    current_page: 1,
+                    last_page: 1,
+                    total: 0,
+                    per_page: 5
+                };
             }
         },
 
@@ -911,6 +948,12 @@ export default {
         viewFullOrder() {
             if (this.selectedOrder) {
                 window.open(`/orders/${this.selectedOrder.id}`, '_blank');
+            }
+        },
+
+        downloadOrderPdf() {
+            if (this.selectedOrder) {
+                window.open(`/orders/${this.selectedOrder.id}/pdf`, '_blank');
             }
         },
         
@@ -1536,6 +1579,22 @@ export default {
 
     &:hover {
         background-color: darken($blue, 10%);
+        transform: scale(1.05);
+    }
+}
+
+.pdf-btn {
+    background-color: #dc3545; // Red color for PDF
+    border: none;
+    color: $white;
+    font-size: 1rem;
+    cursor: pointer;
+    padding: 0.2rem;
+    border-radius: 4px;
+    transition: all 0.3s ease;
+
+    &:hover {
+        background-color: darken(#dc3545, 10%);
         transform: scale(1.05);
     }
 }

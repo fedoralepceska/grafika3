@@ -600,6 +600,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
 });
 
 Route::post('/jobs/questions-for-catalog-items', [\App\Http\Controllers\JobController::class, 'getQuestionsForCatalogItems']);
+Route::post('/jobs/category-data-for-catalog-items', [\App\Http\Controllers\JobController::class, 'getCategoryDataForCatalogItems']);
+Route::post('/jobs/wizard-data-for-catalog-items', [\App\Http\Controllers\JobController::class, 'getWizardDataForCatalogItems']);
 Route::post('/jobs/recalculate-cost', [\App\Http\Controllers\JobController::class, 'recalculateJobCost'])->name('jobs.recalculateCost');
 
 // Multipart Upload Routes for Large Files

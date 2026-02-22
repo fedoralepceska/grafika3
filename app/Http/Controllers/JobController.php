@@ -139,6 +139,7 @@ class JobController extends Controller
                 // Step 1.6: Attach articles from catalog item to job
                 if ($catalogItem->articles()->exists()) {
                     $materialRequirements = $catalogItem->calculateMaterialRequirements($tempJob);
+                    $categoryArticleSelections = $request->input('category_article_selections', []);
 
                     foreach ($materialRequirements as $requirement) {
                         $article = $requirement['article'];
@@ -147,14 +148,26 @@ class JobController extends Controller
                         // If this article was selected from a category, we need to get the actual article to use
                         $actualArticle = $article;
                         if ($article->pivot->category_id) {
-                            // Re-resolve the category to get the current first available article
-                            $actualArticle = $catalogItem->getFirstArticleFromCategory(
-                                $article->pivot->category_id,
-                                null,
-                                $requiredQuantity
-                            );
-                            if (!$actualArticle) {
-                                \Log::notice("Stock validation disabled: no available articles in category {$article->pivot->category_id} during job creation/update.");
+                            // Check if user provided a specific article selection for this category
+                            $categoryId = $article->pivot->category_id;
+                            if (isset($categoryArticleSelections[$categoryId])) {
+                                // Use the user-selected article
+                                $selectedArticleId = $categoryArticleSelections[$categoryId];
+                                $actualArticle = \App\Models\Article::find($selectedArticleId);
+                                if (!$actualArticle) {
+                                    throw new \Exception("Selected article {$selectedArticleId} not found for category {$categoryId}");
+                                }
+                            } else {
+                                // Fallback to auto-selection (existing behavior)
+                                $actualArticle = $catalogItem->getFirstArticleFromCategory(
+                                    $article->pivot->category_id,
+                                    null,
+                                    $requiredQuantity
+                                );
+                                if (!$actualArticle) {
+                                    \Log::notice("Stock validation disabled: no available articles in category {$article->pivot->category_id} during job creation/update.");
+                                    $actualArticle = $article; // Use original as fallback
+                                }
                             }
                         }
 
@@ -167,7 +180,9 @@ class JobController extends Controller
                             'job_id' => $job->id,
                             'article_id' => $actualArticle->id,
                             'article_name' => $actualArticle->name,
-                            'quantity' => $requiredQuantity
+                            'quantity' => $requiredQuantity,
+                            'was_category_selection' => isset($article->pivot->category_id),
+                            'category_id' => $article->pivot->category_id ?? null
                         ]);
                     }
                 }
@@ -2720,6 +2735,201 @@ class JobController extends Controller
         return response()->json([
             'shouldAsk' => true,
             'questionsByCatalogItem' => $questionsByCatalogItem,
+        ]);
+    }
+
+    /**
+     * Unified endpoint to get all wizard data (categories + questions) in a single call
+     * This eliminates flickering from multiple client-side API calls
+     */
+    public function getWizardDataForCatalogItems(Request $request)
+    {
+        $catalogItemIds = $request->input('catalog_item_ids', []);
+        $quantity = $request->input('quantity', 1);
+        $copies = $request->input('copies', 1);
+        
+        // Fetch catalog items with all necessary relationships
+        $catalogItems = CatalogItem::with([
+            'articles.categories', 
+            'articles',
+            'questions' => function($query) {
+                $query->where('active', true)->orderBy('order');
+            }
+        ])->whereIn('id', $catalogItemIds)->get();
+        
+        // Process categories data
+        $categoriesData = [];
+        $hasCategories = false;
+        
+        foreach ($catalogItems as $catalogItem) {
+            $itemCategoriesData = [
+                'catalogItem' => $catalogItem,
+                'catalogItemName' => $catalogItem->name,
+                'categories' => []
+            ];
+            
+            // Create temporary job for calculations
+            $tempJob = new Job();
+            $tempJob->quantity = $quantity;
+            $tempJob->copies = $copies;
+            $tempJob->width = 0;
+            $tempJob->height = 0;
+            
+            $materialRequirements = $catalogItem->calculateMaterialRequirements($tempJob);
+            
+            foreach ($materialRequirements as $requirement) {
+                $article = $requirement['article'];
+                $requiredQuantity = $requirement['actual_required'];
+                
+                if ($article->pivot->category_id) {
+                    $hasCategories = true;
+                    $categoryId = $article->pivot->category_id;
+                    
+                    // Get category and its articles
+                    $category = \App\Models\ArticleCategory::with('articles')->find($categoryId);
+                    if ($category) {
+                        // Get all articles in this category with stock information
+                        $articlesWithStock = $category->articles->map(function($categoryArticle) use ($requiredQuantity) {
+                            return [
+                                'id' => $categoryArticle->id,
+                                'name' => $categoryArticle->name,
+                                'unit' => $categoryArticle->unit ?? 'units',
+                                'current_stock' => $categoryArticle->getCurrentStock(),
+                                'has_sufficient_stock' => $categoryArticle->hasStock($requiredQuantity),
+                                'created_at' => $categoryArticle->created_at
+                            ];
+                        })->sortBy('created_at')->values(); // Sort by creation date (FIFO)
+                        
+                        $materialType = 'Unknown';
+                        if ($catalogItem->large_material_category_id == $categoryId) {
+                            $materialType = 'Large Format';
+                        } elseif ($catalogItem->small_material_category_id == $categoryId) {
+                            $materialType = 'Small Format';
+                        }
+                        
+                        $itemCategoriesData['categories'][] = [
+                            'categoryId' => $categoryId,
+                            'categoryName' => $category->name,
+                            'materialType' => $materialType,
+                            'requiredQuantity' => $requiredQuantity,
+                            'articles' => $articlesWithStock
+                        ];
+                    }
+                }
+            }
+            
+            if (!empty($itemCategoriesData['categories'])) {
+                $categoriesData[$catalogItem->id] = $itemCategoriesData;
+            }
+        }
+        
+        // Process questions data
+        $shouldAskQuestions = $catalogItems->where('should_ask_questions', true)->isNotEmpty();
+        $questionsByCatalogItem = [];
+        
+        if ($shouldAskQuestions) {
+            foreach ($catalogItems as $item) {
+                if ($item->should_ask_questions) {
+                    $questionsByCatalogItem[$item->id] = $item->questions->toArray();
+                }
+            }
+        }
+        
+        return response()->json([
+            'hasCategories' => $hasCategories,
+            'categoriesData' => $categoriesData,
+            'hasQuestions' => $shouldAskQuestions,
+            'questionsByCatalogItem' => $questionsByCatalogItem,
+            'catalogItems' => $catalogItems->map(function($item) {
+                return [
+                    'id' => $item->id,
+                    'name' => $item->name
+                ];
+            })
+        ]);
+    }
+
+    /**
+     * Check if catalog items have categories and return category data for user selection
+     */
+    public function getCategoryDataForCatalogItems(Request $request)
+    {
+        $catalogItemIds = $request->input('catalog_item_ids', []);
+        $quantity = $request->input('quantity', 1);
+        $copies = $request->input('copies', 1);
+        
+        $catalogItems = CatalogItem::with(['articles.categories', 'articles'])
+            ->whereIn('id', $catalogItemIds)
+            ->get();
+        
+        $categoriesData = [];
+        $hasCategories = false;
+        
+        foreach ($catalogItems as $catalogItem) {
+            $itemCategoriesData = [
+                'catalogItem' => $catalogItem,
+                'catalogItemName' => $catalogItem->name,
+                'categories' => []
+            ];
+            
+            // Create temporary job for calculations
+            $tempJob = new Job();
+            $tempJob->quantity = $quantity;
+            $tempJob->copies = $copies;
+            $tempJob->width = 0;
+            $tempJob->height = 0;
+            
+            $materialRequirements = $catalogItem->calculateMaterialRequirements($tempJob);
+            
+            foreach ($materialRequirements as $requirement) {
+                $article = $requirement['article'];
+                $requiredQuantity = $requirement['actual_required'];
+                
+                if ($article->pivot->category_id) {
+                    $hasCategories = true;
+                    $categoryId = $article->pivot->category_id;
+                    
+                    // Get category and its articles
+                    $category = \App\Models\ArticleCategory::with('articles')->find($categoryId);
+                    if ($category) {
+                        // Get all articles in this category with stock information
+                        $articlesWithStock = $category->articles->map(function($categoryArticle) use ($requiredQuantity) {
+                            return [
+                                'id' => $categoryArticle->id,
+                                'name' => $categoryArticle->name,
+                                'unit' => $categoryArticle->unit ?? 'units',
+                                'current_stock' => $categoryArticle->getCurrentStock(),
+                                'has_sufficient_stock' => $categoryArticle->hasStock($requiredQuantity),
+                                'created_at' => $categoryArticle->created_at
+                            ];
+                        })->sortBy('created_at')->values(); // Sort by creation date (FIFO)
+                        
+                        $materialType = 'Unknown';
+                        if ($catalogItem->large_material_category_id == $categoryId) {
+                            $materialType = 'Large Format';
+                        } elseif ($catalogItem->small_material_category_id == $categoryId) {
+                            $materialType = 'Small Format';
+                        }
+                        
+                        $itemCategoriesData['categories'][] = [
+                            'categoryId' => $categoryId,
+                            'categoryName' => $category->name,
+                            'materialType' => $materialType,
+                            'requiredQuantity' => $requiredQuantity,
+                            'articles' => $articlesWithStock
+                        ];
+                    }
+                }
+            }
+            
+            if (!empty($itemCategoriesData['categories'])) {
+                $categoriesData[$catalogItem->id] = $itemCategoriesData;
+            }
+        }
+        
+        return response()->json([
+            'hasCategories' => $hasCategories,
+            'categoriesData' => $categoriesData
         ]);
     }
 
