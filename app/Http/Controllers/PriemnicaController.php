@@ -13,6 +13,7 @@ use App\Models\Warehouse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
+use PhpOffice\PhpSpreadsheet\IOFactory;
 
 class PriemnicaController extends Controller
 {
@@ -24,7 +25,7 @@ class PriemnicaController extends Controller
         $receiptsQuery = Priemnica::with(['client', 'articles' => function($query) {
             $query->withPivot('quantity', 'custom_price', 'custom_tax_type');
         }])
-            ->join('warehouses', 'priemnica.warehouse', '=', 'warehouses.id')
+            ->leftJoin('warehouses', 'priemnica.warehouse', '=', 'warehouses.id')
             ->select(
                 'priemnica.id',
                 'priemnica.receipt_number',
@@ -75,6 +76,131 @@ class PriemnicaController extends Controller
         return Inertia::render('Priemnica/Create');
     }
 
+    /**
+     * Parse uploaded receipt Excel file and return headers/sample rows for mapping.
+     */
+    public function parseImportFile(Request $request)
+    {
+        $request->validate([
+            'file' => 'required|file|mimes:xlsx,xls|max:51200', // 50MB
+        ]);
+
+        $spreadsheet = IOFactory::load($request->file('file')->getRealPath());
+        $rows = $spreadsheet->getActiveSheet()->toArray(null, true, true, true);
+        if (empty($rows)) {
+            return response()->json(['headers' => [], 'rows' => [], 'message' => 'File is empty'], 422);
+        }
+
+        $rows = array_values($rows);
+        $headers = array_map(fn($h) => trim((string) $h), array_values($rows[0] ?? []));
+        $sampleRows = array_slice($rows, 1, 10);
+        $sampleRows = array_values(array_map(fn($r) => array_values($r), $sampleRows));
+
+        return response()->json([
+            'headers' => $headers,
+            'rows' => $sampleRows,
+        ]);
+    }
+
+    /**
+     * Preview receipt rows from uploaded Excel file using explicit column mapping.
+     * Quantity mapping is required.
+     */
+    public function previewImport(Request $request)
+    {
+        $request->validate([
+            'file' => 'required|file|mimes:xlsx,xls|max:51200', // 50MB
+            'mapping' => 'required|array',
+            'mapping.quantity_col' => 'required|integer|min:0',
+            'mapping.code_col' => 'nullable|integer|min:0',
+            'mapping.name_col' => 'nullable|integer|min:0',
+            'mapping.price_col' => 'nullable|integer|min:0',
+            'mapping.vat_col' => 'nullable|integer|min:0',
+        ]);
+
+        $mapping = $request->input('mapping', []);
+        $quantityCol = (int) $mapping['quantity_col'];
+        $codeCol = isset($mapping['code_col']) && $mapping['code_col'] !== '' ? (int) $mapping['code_col'] : null;
+        $nameCol = isset($mapping['name_col']) && $mapping['name_col'] !== '' ? (int) $mapping['name_col'] : null;
+        $priceCol = isset($mapping['price_col']) && $mapping['price_col'] !== '' ? (int) $mapping['price_col'] : null;
+        $vatCol = isset($mapping['vat_col']) && $mapping['vat_col'] !== '' ? (int) $mapping['vat_col'] : null;
+
+        if ($codeCol === null && $nameCol === null) {
+            return response()->json(['message' => 'Map at least Code or Name column.'], 422);
+        }
+
+        $spreadsheet = IOFactory::load($request->file('file')->getRealPath());
+        $rows = $spreadsheet->getActiveSheet()->toArray(null, true, true, true);
+        if (empty($rows)) {
+            return response()->json(['rows' => [], 'message' => 'File is empty'], 422);
+        }
+
+        $rows = array_values($rows);
+        $dataRows = array_slice($rows, 1);
+        $nextCode = $this->getNextArticleCode();
+        $preview = [];
+
+        foreach ($dataRows as $row) {
+            $rowArr = array_values($row);
+            $code = $codeCol !== null && isset($rowArr[$codeCol]) ? trim((string) $rowArr[$codeCol]) : '';
+            $name = $nameCol !== null && isset($rowArr[$nameCol]) ? trim((string) $rowArr[$nameCol]) : '';
+
+            if ($code === '' && $name === '') {
+                continue;
+            }
+
+            $quantity = 1;
+            if (isset($rowArr[$quantityCol]) && is_numeric($rowArr[$quantityCol])) {
+                $quantity = max(0.00001, (float) $rowArr[$quantityCol]);
+            }
+
+            $price = 0;
+            if ($priceCol !== null && isset($rowArr[$priceCol]) && is_numeric($rowArr[$priceCol])) {
+                $price = (float) $rowArr[$priceCol];
+            }
+
+            $taxType = '1';
+            if ($vatCol !== null && isset($rowArr[$vatCol])) {
+                $taxType = $this->mapVatToTaxType($rowArr[$vatCol]);
+            }
+
+            $article = null;
+            if ($code !== '') {
+                $article = Article::where('code', $code)->first();
+            }
+            if (! $article && $name !== '') {
+                $article = Article::where('name', $name)->first();
+            }
+
+            $isCreate = ! $article;
+            if ($article) {
+                $code = (string) $article->code;
+                $name = (string) $article->name;
+                $price = is_numeric($price) && $price > 0 ? $price : (float) ($article->purchase_price ?? 0);
+                $taxType = (string) ($article->tax_type ?? $taxType);
+            } else {
+                // Keep original code/name from file for visibility in preview; row will be dropped on create.
+            }
+
+            $preview[] = [
+                'code' => $code,
+                'name' => $name,
+                'quantity' => $quantity,
+                'purchase_price' => $price,
+                'tax_type' => (string) $taxType,
+                'priceWithVAT' => 0,
+                'amount' => 0,
+                'tax' => 0,
+                'total' => 0,
+                'comment' => '',
+                'import_action' => $isCreate ? 'dropped' : 'update',
+                'allow_article_create' => false,
+            ];
+        }
+
+        return response()->json(['rows' => $preview]);
+    }
+
     public function fetchPriemnica(Request $request)
     {
         $warehouseId = $request->query('warehouse');
@@ -83,7 +209,7 @@ class PriemnicaController extends Controller
         $receiptsQuery = Priemnica::with(['client', 'articles' => function($query) {
             $query->withPivot('quantity', 'custom_price', 'custom_tax_type');
         }])
-            ->join('warehouses', 'priemnica.warehouse', '=', 'warehouses.id')
+            ->leftJoin('warehouses', 'priemnica.warehouse', '=', 'warehouses.id')
             ->select(
                 'priemnica.id',
                 'priemnica.receipt_number',
@@ -228,12 +354,22 @@ class PriemnicaController extends Controller
 
         // Add new articles and update materials
         foreach ($data as $row) {
-            // Skip processing if the required fields are missing
-            if (empty($row['code']) || empty($row['name'])) {
+            // Skip processing if required fields are missing
+            if (empty($row['name']) && empty($row['code'])) {
                 continue;
             }
 
-            $article = Article::where('code', $row['code'])->first();
+            $article = null;
+            if (!empty($row['code'])) {
+                $article = Article::where('code', $row['code'])->first();
+            }
+            if (!$article && !empty($row['name'])) {
+                $article = Article::where('name', $row['name'])->first();
+            }
+
+            if (!$article) {
+                continue; // Drop rows that do not match an existing article
+            }
 
             if ($article) {
                 // Check if custom values are different from original article values
@@ -282,20 +418,38 @@ class PriemnicaController extends Controller
     public function store(Request $request)
     {
         $data = $request->json()->all();
+        if (empty($data) || !isset($data[0])) {
+            return response()->json(['message' => 'Receipt payload is empty.'], 422);
+        }
+
+        $firstRow = $data[0];
+        if (empty($firstRow['warehouse']) || empty($firstRow['date'])) {
+            return response()->json(['message' => 'Warehouse and date are required.'], 422);
+        }
+
+        $client = !empty($firstRow['client_id']) ? Client::find($firstRow['client_id']) : null;
+        $warehouseModel = Warehouse::find($firstRow['warehouse']);
+        if (($firstRow['client_id'] ?? null) && !$client) {
+            return response()->json(['message' => 'Selected client is invalid.'], 422);
+        }
+        if (!$warehouseModel) {
+            return response()->json(['message' => 'Selected warehouse is invalid.'], 422);
+        }
+
         $priemnica = new Priemnica();
-        $priemnica->client_id = $data[0]['client_id'];
-        $priemnica->warehouse = $data[0]['warehouse'];
+        $priemnica->client_id = !empty($firstRow['client_id']) ? $firstRow['client_id'] : null;
+        $priemnica->warehouse = $firstRow['warehouse'];
         
         // Set custom date if provided, otherwise use current timestamp
-        if (isset($data[0]['date']) && !empty($data[0]['date'])) {
-            $priemnica->created_at = $data[0]['date'] . ' 00:00:00';
-            $priemnica->updated_at = $data[0]['date'] . ' 00:00:00';
+        if (isset($firstRow['date']) && !empty($firstRow['date'])) {
+            $priemnica->created_at = $firstRow['date'] . ' 00:00:00';
+            $priemnica->updated_at = $firstRow['date'] . ' 00:00:00';
         }
         
         $priemnica->save();
 
         // Check if this is a special warehouse that should skip material updates
-        $warehouse = Warehouse::find($data[0]['warehouse']);
+        $warehouse = $warehouseModel;
         $isSpecialWarehouse = $warehouse && $warehouse->isSpecialWarehouse();
 
         foreach ($data as $row) {
@@ -503,5 +657,46 @@ class PriemnicaController extends Controller
         });
 
         return response()->json($materialSummary);
+    }
+
+    private function findHeaderIndex(array $headers, array $aliases): ?int
+    {
+        foreach ($headers as $idx => $header) {
+            foreach ($aliases as $alias) {
+                if ($header === mb_strtolower($alias)) {
+                    return $idx;
+                }
+            }
+        }
+        return null;
+    }
+
+    private function mapVatToTaxType($value): string
+    {
+        $raw = trim((string) $value);
+        if ($raw === '') {
+            return '1';
+        }
+        if (is_numeric($raw)) {
+            $num = (float) $raw;
+            if ($num == 18 || $num == 1) return '1';
+            if ($num == 5 || $num == 2) return '2';
+            if ($num == 10 || $num == 3) return '3';
+            if ($num == 0) return '0';
+        }
+
+        $normalized = mb_strtolower($raw);
+        if (str_contains($normalized, '18') || str_contains($normalized, 'ddv a')) return '1';
+        if (str_contains($normalized, '5') || str_contains($normalized, 'ddv b')) return '2';
+        if (str_contains($normalized, '10') || str_contains($normalized, 'ddv c')) return '3';
+        if (str_contains($normalized, '0')) return '0';
+
+        return '1';
+    }
+
+    private function getNextArticleCode(): int
+    {
+        $maxCode = Article::selectRaw('MAX(CAST(code AS UNSIGNED)) as max_code')->value('max_code');
+        return $maxCode ? ((int) $maxCode + 1) : 1;
     }
 }

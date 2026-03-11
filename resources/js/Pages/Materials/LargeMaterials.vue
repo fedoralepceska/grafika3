@@ -71,6 +71,9 @@
                                 <button @click="printAllMaterials" class="btn create-order2">
                                     {{ $t('printAllMaterials') }} <i class="fa-solid fa-print"></i>
                                 </button>
+                                <button @click="openResetModal" class="btn reset-qty-btn">
+                                    Reset Quantity to 0 <i class="fa-solid fa-rotate-left"></i>
+                                </button>
                             </div>
                         </div>
                         <div>
@@ -99,6 +102,32 @@
                 </div>
             </div>
         </div>
+        <div v-if="showResetModal" class="modal-backdrop" @click.self="closeResetModal">
+            <div class="modal-card">
+                <h3 class="modal-title">Reset all large materials</h3>
+                <p class="modal-text">Enter 4-digit code to reset all quantities to 0.</p>
+                <div class="code-inputs" @paste.prevent="onCodePaste">
+                    <input
+                        v-for="idx in 4"
+                        :key="idx"
+                        :ref="'codeInput' + (idx - 1)"
+                        type="password"
+                        inputmode="numeric"
+                        maxlength="1"
+                        class="code-box"
+                        :value="codeDigits[idx - 1]"
+                        @input="onCodeInput(idx - 1, $event)"
+                        @keydown="onCodeKeydown(idx - 1, $event)"
+                    />
+                </div>
+                <div class="modal-actions">
+                    <button class="btn modal-cancel" @click="closeResetModal" :disabled="resetting">Cancel</button>
+                    <button class="btn modal-confirm" @click="confirmReset" :disabled="resetting">
+                        {{ resetting ? 'Resetting...' : 'Confirm reset' }}
+                    </button>
+                </div>
+            </div>
+        </div>
     </MainLayout>
 </template>
 
@@ -107,6 +136,7 @@ import MainLayout from "@/Layouts/MainLayout.vue";
 import axios from "axios";
 import Pagination from "@/Components/Pagination.vue"
 import Header from "@/Components/Header.vue";
+import { useToast } from "vue-toastification";
 
 export default {
     components: {
@@ -125,6 +155,9 @@ export default {
             unitFilter: '',
             quantityMin: '',
             quantityMax: '',
+            showResetModal: false,
+            codeDigits: ['', '', '', ''],
+            resetting: false,
         };
     },
     mounted() {
@@ -196,6 +229,93 @@ export default {
         async printAllMaterials() {
             const url = `/materials/large/all-pdf`;
             window.open(url, '_blank');
+        },
+        openResetModal() {
+            this.showResetModal = true;
+            this.codeDigits = ['', '', '', ''];
+            this.$nextTick(() => {
+                const first = this.getCodeInputRef(0);
+                if (first) first.focus();
+            });
+        },
+        closeResetModal(force = false) {
+            if (this.resetting && !force) return;
+            this.showResetModal = false;
+            this.codeDigits = ['', '', '', ''];
+            for (let i = 0; i < 4; i++) {
+                const el = this.getCodeInputRef(i);
+                if (el) el.value = '';
+            }
+        },
+        getCodeInputRef(index) {
+            const ref = this.$refs[`codeInput${index}`];
+            return Array.isArray(ref) ? ref[0] : ref;
+        },
+        onCodeInput(index, event) {
+            const val = (event.target.value || '').replace(/\D/g, '').slice(0, 1);
+            this.codeDigits.splice(index, 1, val);
+            event.target.value = val;
+            if (val && index < 3) {
+                const next = this.getCodeInputRef(index + 1);
+                if (next) next.focus();
+            } else if (!val && index > 0) {
+                const prev = this.getCodeInputRef(index - 1);
+                if (prev) prev.focus();
+            }
+        },
+        onCodeKeydown(index, event) {
+            if (event.key === 'Backspace' && !event.target.value && index > 0) {
+                const prev = this.getCodeInputRef(index - 1);
+                if (prev) prev.focus();
+            }
+            if (event.key === 'ArrowLeft' && index > 0) {
+                const prev = this.getCodeInputRef(index - 1);
+                if (prev) prev.focus();
+                event.preventDefault();
+            }
+            if (event.key === 'ArrowRight' && index < 3) {
+                const next = this.getCodeInputRef(index + 1);
+                if (next) next.focus();
+                event.preventDefault();
+            }
+        },
+        onCodePaste(event) {
+            const text = (event.clipboardData || window.clipboardData).getData('text');
+            const digits = (text || '').replace(/\D/g, '').slice(0, 4).split('');
+            for (let i = 0; i < 4; i++) {
+                const d = digits[i] || '';
+                this.codeDigits.splice(i, 1, d);
+                const input = this.getCodeInputRef(i);
+                if (input) input.value = d;
+            }
+            const nextIndex = Math.min(digits.length, 3);
+            const next = this.getCodeInputRef(nextIndex);
+            if (next) next.focus();
+        },
+        async confirmReset() {
+            if (this.resetting) return;
+            const toast = useToast();
+            const passcode = this.codeDigits.join('');
+            if (!passcode || passcode.length !== 4) {
+                toast.error('Enter 4-digit code.');
+                return;
+            }
+            if (passcode !== '9632') {
+                toast.error('Invalid code.');
+                return;
+            }
+            this.resetting = true;
+            try {
+                await axios.post('/materials/large/reset-quantities', { passcode });
+                await this.fetchLargeMaterials(1);
+                this.closeResetModal(true);
+                toast.success('All large material quantities are reset to 0.');
+            } catch (error) {
+                const msg = error?.response?.data?.error || 'Failed to reset quantities.';
+                toast.error(msg);
+            } finally {
+                this.resetting = false;
+            }
         },
         getUnit(material) {
             if (material) {
@@ -490,6 +610,79 @@ select {
     display: flex;
     gap: 12px;
     justify-content: flex-end;
+}
+
+.reset-qty-btn {
+    background-color: $red;
+    color: white;
+}
+
+.reset-qty-btn:hover {
+    background-color: darkred;
+}
+
+.modal-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.65);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1100;
+}
+
+.modal-card {
+    width: min(460px, 92vw);
+    background: #1f2937;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 10px;
+    padding: 20px;
+    color: #fff;
+}
+
+.modal-title {
+    font-size: 18px;
+    font-weight: 700;
+    margin-bottom: 6px;
+}
+
+.modal-text {
+    opacity: 0.9;
+    margin-bottom: 14px;
+}
+
+.code-inputs {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+    margin-bottom: 16px;
+}
+
+.code-box {
+    width: 42px;
+    height: 42px;
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    text-align: center;
+    font-size: 20px;
+    background: rgba(255, 255, 255, 0.1);
+    color: white;
+}
+
+.modal-actions {
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
+}
+
+.modal-cancel {
+    background: #4b5563;
+    color: white;
+}
+
+.modal-confirm {
+    background: $red;
+    color: white;
 }
 
 /* Responsive Design */

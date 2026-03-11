@@ -317,6 +317,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/materials-small', [SmallMaterialController::class, 'index'])->name('materials-small.index');
     Route::get('/materials/small', [SmallMaterialController::class, 'getSmallMaterials'])->name('materials-small.getSmallMaterials');
     Route::get('/materials/small/all', [SmallMaterialController::class, 'getAllMaterials'])->name('materials-small.getAllMaterials');
+    Route::post('/materials/small/reset-quantities', [SmallMaterialController::class, 'resetAllQuantities'])->name('materials-small.resetQuantities');
     Route::get('/materials/pdf', [SmallMaterialController::class, 'generateSmallMaterialsPdf'])->name('materials.pdf');
     Route::get('/materials/all-pdf', [SmallMaterialController::class, 'generateAllSmallMaterialsPdf'])->name('materials.all-pdf');
     Route::get('/small/materials/create', [SmallMaterialController::class, 'create'])->name('materials.create');
@@ -332,6 +333,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/materials-large', [LargeFormatMaterialController::class, 'index'])->name('materials.index');
     Route::get('/materials/large', [LargeFormatMaterialController::class, 'getLargeMaterials'])->name('largeMaterials.getLargeMaterials');
     Route::get('/materials/large/all', [LargeFormatMaterialController::class, 'getAllMaterials'])->name('largeMaterials.getAllMaterials');
+    Route::post('/materials/large/reset-quantities', [LargeFormatMaterialController::class, 'resetAllQuantities'])->name('largeMaterials.resetQuantities');
     Route::get('/materials/large/pdf', [LargeFormatMaterialController::class, 'generateLargeMaterialsPdf'])->name('materials.large.pdf');
     Route::get('/materials/large/all-pdf', [LargeFormatMaterialController::class, 'generateAllLargeMaterialsPdf'])->name('materials.large.all-pdf');
     Route::get('/largeFormat/materials/create', [LargeFormatMaterialController::class, 'create'])->name('materials.create');
@@ -374,6 +376,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::delete('/articles/{id}', [ArticleController::class, 'destroy'])->name('articles.destroy');
     Route::get('/articles/search', [\App\Http\Controllers\ArticleController::class, 'search'])->name('api.articles.search');
     Route::get('/articles/{id}', [\App\Http\Controllers\ArticleController::class, 'get'])->name('api.articles.get');
+    Route::post('/articles/import/parse', [ArticleController::class, 'parseImportFile'])->name('articles.import.parse');
+    Route::post('/articles/import/preview', [ArticleController::class, 'previewImport'])->name('articles.import.preview');
+    Route::post('/articles/import/execute', [ArticleController::class, 'executeImport'])->name('articles.import.execute');
 });
 
 // Routes For Article Analytics
@@ -396,6 +401,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/api/priemnica', [PriemnicaController::class, 'fetchPriemnica']);
     Route::get('/receipt/create', [\App\Http\Controllers\PriemnicaController::class, 'create'])->name('priemnica.create');
     Route::post('/receipt/create', [\App\Http\Controllers\PriemnicaController::class, 'store'])->name('priemnica.store');
+    Route::post('/receipt/import/parse', [\App\Http\Controllers\PriemnicaController::class, 'parseImportFile'])->name('priemnica.import.parse');
+    Route::post('/receipt/import/preview', [\App\Http\Controllers\PriemnicaController::class, 'previewImport'])->name('priemnica.import.preview');
     Route::get('/receipt/{id}/edit', [\App\Http\Controllers\PriemnicaController::class, 'edit'])->name('priemnica.edit');
     Route::put('/receipt/{id}', [\App\Http\Controllers\PriemnicaController::class, 'update'])->name('priemnica.update');
     Route::get('/api/receipt/{id}', [\App\Http\Controllers\PriemnicaController::class, 'show'])->name('priemnica.show');

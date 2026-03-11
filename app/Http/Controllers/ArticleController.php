@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Article;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
+use PhpOffice\PhpSpreadsheet\IOFactory;
 
 class ArticleController extends Controller
 {
@@ -364,5 +365,241 @@ class ArticleController extends Controller
         }
 
         return $article;
+    }
+
+    /**
+     * Parse uploaded Excel file and return headers + first rows for column mapping.
+     */
+    public function parseImportFile(Request $request)
+    {
+        $request->validate(['file' => 'required|file|mimes:xlsx,xls|max:51200']); // 50MB
+
+        $file = $request->file('file');
+        $spreadsheet = IOFactory::load($file->getRealPath());
+        $sheet = $spreadsheet->getActiveSheet();
+        $rows = $sheet->toArray(null, true, true, true);
+
+        if (empty($rows)) {
+            return response()->json(['headers' => [], 'rows' => [], 'message' => 'File is empty'], 422);
+        }
+
+        // PhpSpreadsheet may use 1-based row keys; get first row by value
+        $rows = array_values($rows);
+        $firstRow = $rows[0] ?? [];
+        $headers = array_map(function ($h) {
+            return trim((string) $h);
+        }, array_values($firstRow));
+        $dataRows = array_slice($rows, 1, 15);
+        $dataRows = array_values(array_map(function ($row) {
+            return array_values(is_array($row) ? $row : []);
+        }, $dataRows));
+
+        return response()->json([
+            'headers' => $headers,
+            'rows' => $dataRows,
+        ]);
+    }
+
+    /**
+     * Preview batch import: apply mapping, detect duplicates, assign next codes.
+     * Request: file + mapping { name_col, purchase_price_col, price_col } (0-based column indices).
+     */
+    public function previewImport(Request $request)
+    {
+        $request->validate([
+            'file' => 'required|file|mimes:xlsx,xls|max:51200', // 50MB
+            'mapping' => 'required|array',
+            'mapping.name_col' => 'required|integer|min:0',
+            'mapping.purchase_price_col' => 'nullable|integer|min:0',
+            'mapping.price_col' => 'nullable|integer|min:0',
+        ]);
+
+        $file = $request->file('file');
+        $mapping = $request->input('mapping');
+        $nameCol = (int) $mapping['name_col'];
+        $purchasePriceCol = isset($mapping['purchase_price_col']) ? (int) $mapping['purchase_price_col'] : null;
+        $priceCol = isset($mapping['price_col']) ? (int) $mapping['price_col'] : null;
+
+        $spreadsheet = IOFactory::load($file->getRealPath());
+        $sheet = $spreadsheet->getActiveSheet();
+        $rows = $sheet->toArray(null, true, true, true);
+        array_shift($rows); // skip header
+
+        $existingNames = Article::pluck('name')->map(function ($n) {
+            return mb_strtolower(trim((string) $n));
+        })->flip();
+
+        $nextCode = $this->getNextArticleCode();
+        $preview = [];
+        $taxType = 1; // DDV A = 18%
+        $unitPcs = true;
+
+        foreach ($rows as $row) {
+            $rowArr = array_values($row);
+            $name = isset($rowArr[$nameCol]) ? trim((string) $rowArr[$nameCol]) : '';
+            if ($name === '') {
+                continue;
+            }
+
+            $purchasePrice = null;
+            if ($purchasePriceCol !== null && isset($rowArr[$purchasePriceCol])) {
+                $val = $rowArr[$purchasePriceCol];
+                $purchasePrice = is_numeric($val) ? (float) $val : null;
+            }
+            $price = null;
+            if ($priceCol !== null && isset($rowArr[$priceCol])) {
+                $val = $rowArr[$priceCol];
+                $price = is_numeric($val) ? (float) $val : null;
+            }
+
+            $nameNorm = mb_strtolower($name);
+            $isDuplicate = $existingNames->has($nameNorm);
+
+            $assignedCode = null;
+            if (! $isDuplicate) {
+                $assignedCode = (string) $nextCode;
+                $nextCode++;
+            }
+
+            $preview[] = [
+                'name' => $name,
+                'purchase_price' => $purchasePrice,
+                'price_1' => $price,
+                'code' => $assignedCode,
+                'tax_type' => $taxType,
+                'tax_label' => 'DDV A (18%)',
+                'unit' => 'pcs',
+                'type' => 'product',
+                'is_duplicate' => $isDuplicate,
+            ];
+        }
+
+        return response()->json(['rows' => $preview]);
+    }
+
+    /**
+     * Execute batch import: create articles for non-duplicate rows.
+     * Optional overrides[]: one per preview row (same order), each with format_type, barcode, comment,
+     * height, width, length, weight, color, factory_price, category_ids.
+     */
+    public function executeImport(Request $request)
+    {
+        $request->validate([
+            'file' => 'required|file|mimes:xlsx,xls|max:51200', // 50MB
+            'mapping' => 'required|array',
+            'mapping.name_col' => 'required|integer|min:0',
+            'mapping.purchase_price_col' => 'nullable|integer|min:0',
+            'mapping.price_col' => 'nullable|integer|min:0',
+            'overrides' => 'nullable|array',
+            'overrides.*.format_type' => 'nullable|string|in:1,2,3',
+            'overrides.*.barcode' => 'nullable|string|max:255',
+            'overrides.*.comment' => 'nullable|string|max:255',
+            'overrides.*.height' => 'nullable|numeric',
+            'overrides.*.width' => 'nullable|numeric',
+            'overrides.*.length' => 'nullable|numeric',
+            'overrides.*.weight' => 'nullable|numeric',
+            'overrides.*.color' => 'nullable|string|max:255',
+            'overrides.*.factory_price' => 'nullable|numeric',
+            'overrides.*.category_ids' => 'nullable|array',
+            'overrides.*.category_ids.*' => 'exists:article_categories,id',
+        ]);
+
+        $file = $request->file('file');
+        $mapping = $request->input('mapping');
+        $overrides = $request->input('overrides', []);
+        $nameCol = (int) $mapping['name_col'];
+        $purchasePriceCol = isset($mapping['purchase_price_col']) ? (int) $mapping['purchase_price_col'] : null;
+        $priceCol = isset($mapping['price_col']) ? (int) $mapping['price_col'] : null;
+
+        $spreadsheet = IOFactory::load($file->getRealPath());
+        $sheet = $spreadsheet->getActiveSheet();
+        $rows = $sheet->toArray(null, true, true, true);
+        array_shift($rows);
+
+        $existingNames = Article::pluck('name')->map(function ($n) {
+            return mb_strtolower(trim((string) $n));
+        })->flip();
+
+        $nextCode = $this->getNextArticleCode();
+        $created = 0;
+        $skipped = 0;
+        $overrideIndex = 0;
+
+        foreach ($rows as $row) {
+            $rowArr = array_values($row);
+            $name = isset($rowArr[$nameCol]) ? trim((string) $rowArr[$nameCol]) : '';
+            if ($name === '') {
+                continue;
+            }
+
+            $nameNorm = mb_strtolower($name);
+            if ($existingNames->has($nameNorm)) {
+                $skipped++;
+                $overrideIndex++;
+                continue;
+            }
+
+            $override = $overrides[$overrideIndex] ?? [];
+            $overrideIndex++;
+
+            $purchasePrice = null;
+            if ($purchasePriceCol !== null && isset($rowArr[$purchasePriceCol])) {
+                $val = $rowArr[$purchasePriceCol];
+                $purchasePrice = is_numeric($val) ? (float) $val : null;
+            }
+            $price = null;
+            if ($priceCol !== null && isset($rowArr[$priceCol])) {
+                $val = $rowArr[$priceCol];
+                $price = is_numeric($val) ? (float) $val : null;
+            }
+
+            $formatType = isset($override['format_type']) ? $override['format_type'] : '2';
+            $article = new Article();
+            $article->code = (string) $nextCode;
+            $article->name = $name;
+            $article->tax_type = 1; // DDV A 18%
+            $article->type = 'product';
+            $article->format_type = $formatType;
+            $article->purchase_price = $purchasePrice;
+            $article->price_1 = $price;
+            $article->factory_price = isset($override['factory_price']) && $override['factory_price'] !== '' && $override['factory_price'] !== null
+                ? (float) $override['factory_price'] : null;
+            $article->in_pieces = true;
+            $article->in_meters = null;
+            $article->in_kilograms = null;
+            $article->in_square_meters = null;
+            $article->barcode = ! empty($override['barcode']) ? $override['barcode'] : null;
+            $article->comment = ! empty($override['comment']) ? $override['comment'] : null;
+            $article->height = isset($override['height']) && $override['height'] !== '' && $override['height'] !== null ? $override['height'] : null;
+            $article->width = isset($override['width']) && $override['width'] !== '' && $override['width'] !== null ? $override['width'] : null;
+            $article->length = isset($override['length']) && $override['length'] !== '' && $override['length'] !== null ? $override['length'] : null;
+            $article->weight = isset($override['weight']) && $override['weight'] !== '' && $override['weight'] !== null ? $override['weight'] : null;
+            $article->color = ! empty($override['color']) ? $override['color'] : null;
+            $article->save();
+
+            if (! empty($override['category_ids']) && is_array($override['category_ids'])) {
+                $article->categories()->sync($override['category_ids']);
+            }
+
+            $existingNames->put($nameNorm, true);
+            $nextCode++;
+            $created++;
+        }
+
+        return response()->json([
+            'message' => 'Batch import completed.',
+            'created' => $created,
+            'skipped' => $skipped,
+        ]);
+    }
+
+    /**
+     * Next numeric code for new articles (max code + 1, or 1 if none).
+     */
+    private function getNextArticleCode(): int
+    {
+        $maxCode = Article::selectRaw('MAX(CAST(code AS UNSIGNED)) as max_code')->value('max_code');
+
+        return $maxCode ? (int) $maxCode + 1 : 1;
     }
 }

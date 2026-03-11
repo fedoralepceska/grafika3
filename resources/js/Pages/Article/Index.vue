@@ -91,23 +91,31 @@
                             </tbody>
                         </table>
                         <div class="button-container mt-2 gap-2">
-                            <div class="button-with-tooltip">
-                                <SecondaryButton class="delete" disabled type="submit" @click="handleDelete">{{ $t('Delete') }}</SecondaryButton>
-                                
+                            <div class="button-left">
+                                <ArticleBatchImportModal @import-done="fetchArticles(1)" />
                             </div>
-                            <div class="button-with-tooltip">
-                                <SecondaryButton 
-                                    v-if="selectedArticles.length === 0"
-                                    class="px-3 blue disabled-edit" 
-                                    disabled>
-                                    {{ $t('Edit') }}
-                                </SecondaryButton>
-                                <ArticleEdit v-else :article="selectedArticles[0]"/>
-                                <div v-if="selectedArticles.length === 0" class="tooltip">
-                                    Please select an article to edit
+                            <div class="button-right">
+                                <div class="button-with-tooltip">
+                                    <SecondaryButton class="article-action-btn delete" disabled type="submit" @click="handleDelete">
+                                        {{ $t('Delete') }}
+                                    </SecondaryButton>
                                 </div>
+                                <div class="button-with-tooltip">
+                                    <SecondaryButton 
+                                        v-if="selectedArticles.length === 0"
+                                        class="article-action-btn blue disabled-edit" 
+                                        disabled>
+                                        {{ $t('Edit') }}
+                                    </SecondaryButton>
+                                    <ArticleEdit v-else :article="selectedArticles[0]"/>
+                                    <div v-if="selectedArticles.length === 0" class="tooltip">
+                                        Please select an article to edit
+                                    </div>
+                                </div>
+                                <PrimaryButton class="article-action-btn" @click="navigateToArticles">
+                                    {{ $t('addArticle') }}
+                                </PrimaryButton>
                             </div>
-                            <PrimaryButton @click="navigateToArticles">{{ $t('addArticle') }}</PrimaryButton>
                         </div>
                         <Pagination :pagination="articles" @pagination-change-page="fetchArticles"/>
                     </div>
@@ -125,6 +133,7 @@ import Pagination from "@/Components/Pagination.vue";
 import axios from "axios";
 import Header from "@/Components/Header.vue";
 import ArticleEdit from "@/Pages/Article/ArticleEdit.vue";
+import ArticleBatchImportModal from "@/Components/ArticleBatchImportModal.vue";
 import { useToast } from "vue-toastification";
 
 export default {
@@ -134,7 +143,8 @@ export default {
         SecondaryButton,
         Pagination,
         Header,
-        ArticleEdit
+        ArticleEdit,
+        ArticleBatchImportModal
     },
     data() {
         return {
@@ -320,7 +330,32 @@ export default {
     margin-right: 20px;
 }
 .button-container{
-    display: flex-end;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-top: 12px;
+    flex-wrap: wrap;
+}
+.button-left{
+    display: flex;
+    align-items: center;
+}
+.button-right{
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+.article-action-btn{
+    min-width: 140px;
+    display: inline-flex;
+    justify-content: center;
+}
+.delete[disabled]{
+    cursor: not-allowed;
+    opacity: 0.6;
+    pointer-events: none;
 }
 .excel-table {
     border-collapse: collapse;

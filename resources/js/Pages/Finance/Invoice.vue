@@ -74,7 +74,7 @@
                         <div class="invoice-info-minimal">
                             <div class="info-item">
                                 <span class="info-label">Invoice ID</span>
-                                <span class="info-value">{{ fakturaId }}/{{ fakturaYear }}</span>
+                                <span class="info-value">{{ fakturaDisplayId }}/{{ fakturaYear }}</span>
                             </div>
                             <div class="info-item">
                                 <span class="info-label">Date Created</span>
@@ -290,7 +290,7 @@
                                                                 :class="{ active: getJobSplitGroup(job.id) === '' }">
                                                                 <span class="option-badge">—</span>
                                                                 <span class="option-text">Keep in Original (Faktura {{
-                                                                    fakturaId }})</span>
+                                                                    fakturaDisplayId }})</span>
                                                             </div>
                                                             <div v-for="(group, index) in splitGroups" :key="index"
                                                                 class="dropdown-option"
@@ -442,7 +442,7 @@
                                                                     :class="{ active: getJobSplitGroup(gid) === '' }">
                                                                     <span class="option-badge">—</span>
                                                                     <span class="option-text">Keep in Original (Faktura
-                                                                        {{ fakturaId }})</span>
+                                                                        {{ fakturaDisplayId }})</span>
                                                                 </div>
                                                                 <div v-for="(group, index) in splitGroups" :key="index"
                                                                     class="dropdown-option"
@@ -1104,8 +1104,12 @@ export default {
                 this.newServicePrice >= 0;
         },
         fakturaId() {
-            // Prefer faktura_number, fallback to faktura id, then first invoice's fakturaId
-            return this.faktura?.faktura_number ?? this.faktura?.id ?? this.invoice?.[0]?.fakturaId ?? '';
+            // Always use DB ID for API calls.
+            return this.faktura?.id ?? this.invoice?.[0]?.fakturaId ?? '';
+        },
+        fakturaDisplayId() {
+            // Use faktura_number for UI display when available.
+            return this.faktura?.faktura_number ?? this.fakturaId;
         },
         fakturaYear() {
             // Prefer fiscal_year from faktura, fallback to created_at year

@@ -10,7 +10,7 @@
             >
                 <template v-slot:activator="{ props }">
                     <div v-bind="props" class="bt">
-                        <SecondaryButton type="submit" class="px-3 blue" @click="openEditForm(article)">{{ $t('Edit') }}</SecondaryButton>
+                        <SecondaryButton type="submit" class="px-3 blue article-action-btn" @click="openEditForm(article)">{{ $t('Edit') }}</SecondaryButton>
                     </div>
                 </template>
                 <v-card class="height background">
@@ -691,6 +691,12 @@ input[type="checkbox"]:checked {
 
 .categories-list::-webkit-scrollbar-thumb:hover {
     background: #a1a1a1;
+}
+
+.article-action-btn{
+    min-width: 140px;
+    display: inline-flex;
+    justify-content: center;
 }
 
 </style>

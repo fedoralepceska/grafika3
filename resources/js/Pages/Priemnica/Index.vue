@@ -76,7 +76,7 @@
                                 <th>#{{ receipt.receipt_number }}/{{ receipt.fiscal_year }}</th>
                                 <th>{{ new Date(receipt.created_at).toLocaleDateString('en-GB') }}</th>
                                 <th>{{receipt.warehouse_name}}</th>
-                                <th>{{receipt.client.name}}</th>
+                                <th>{{ receipt.client?.name || '/' }}</th>
                                 <th>{{ formatNumber(calculateTotalPrice(receipt.articles)) }}</th>
                                 <th>{{ formatNumber(calculateTotalPriceWithVAT(receipt.articles)) }}</th>
                                 <th>{{receipt.comment ? receipt.comment: '/'}}</th>

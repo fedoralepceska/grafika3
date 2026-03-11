@@ -137,6 +137,27 @@ class SmallMaterialController extends Controller
         return $pdf->stream('All_Small_Materials.pdf');
     }
 
+    public function resetAllQuantities(Request $request)
+    {
+        $validated = $request->validate([
+            'passcode' => 'required|string|size:4',
+        ]);
+
+        $expectedPasscode = env('MATERIAL_RESET_PASSCODE', '9632');
+        if (($validated['passcode'] ?? '') !== $expectedPasscode) {
+            return response()->json(['error' => 'Invalid passcode'], 403);
+        }
+
+        $updatedRows = SmallMaterial::query()
+            ->where('quantity', '!=', 0)
+            ->update(['quantity' => 0]);
+
+        return response()->json([
+            'message' => 'All small material quantities reset to 0.',
+            'updated_count' => $updatedRows,
+        ]);
+    }
+
     public function smallDropdown()
     {
         try {
