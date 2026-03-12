@@ -481,12 +481,15 @@
                     <tr style="border-bottom: 2px solid #cccccc; font-weight: 700 ; font-family: 'Calibri'">
                         <td style="font-size: 10pt; padding: 6px; text-align: center; white-space: nowrap;">{{ $item['row_number'] }}.</td>
                         @php
-                            $jobName = $item['job']['name'] ?? '';
+                            $originalJobName = $item['job']['name'] ?? '';
+                            $jobName = $originalJobName;
                             $jobId = $item['job']['id'] ?? null;
+                            $hasJobNameOverride = false;
                             
                             // Apply job name override if available
-                            if ($jobId && isset($fakturaOverrides['job_names'][$jobId])) {
+                            if ($jobId && isset($fakturaOverrides['job_names'][$jobId]) && trim((string)$fakturaOverrides['job_names'][$jobId]) !== '') {
                                 $jobName = $fakturaOverrides['job_names'][$jobId];
+                                $hasJobNameOverride = true;
                             }
                             
                             // For merged jobs: keep only the first order's title, and hide order id
@@ -522,7 +525,7 @@
                             }
                         @endphp
                         <td style="font-size: 10pt; padding: 6px; text-align: left;">
-                            @if($jobName)
+                            @if($hasJobNameOverride)
                                 <div class="truncate-cell">{{ $jobName }}</div>
                             @endif
                             @if($orderName)
@@ -531,6 +534,11 @@
                                         ({{ $item['order_number'] }})
                                     @endif
                                     {{ $orderName }}
+                                </div>
+                            @endif
+                            @if($originalJobName)
+                                <div class="truncate-cell" style="color:rgb(109, 128, 129); font-size: 8pt; line-height: 0.8;">
+                                    {{ $originalJobName }}
                                 </div>
                             @endif
                         </td>

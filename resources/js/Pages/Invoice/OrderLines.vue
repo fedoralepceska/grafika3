@@ -257,6 +257,30 @@
                             <div v-if="showJobNotes[job.id] !== false && jobNotesData[job.id]" class="ultra-light-orange text-white pb-1">
                                 <div class="job-notes-content bg-gray-700 pl-2 pr-2 pt-2 pb-2 w-full">
                                     <div class="job-note-field mb-3">
+                                        <label class="job-note-label text-sm mb-1 block">
+                                            {{ $t('Article Name') || 'Article Name' }}:
+                                        </label>
+                                        <div class="job-override-row">
+                                            <input
+                                                v-model="jobOverrideNames[job.id]"
+                                                class="job-override-input"
+                                                type="text"
+                                                :placeholder="$t('Enter article name for invoice') || 'Enter article name for invoice'"
+                                                maxlength="255"
+                                                @blur="saveFakturaOverrideName(job)"
+                                                @keyup.enter.prevent="saveFakturaOverrideName(job)"
+                                            />
+                                            <button
+                                                class="job-override-copy-btn"
+                                                type="button"
+                                                :disabled="!job.name"
+                                                @click="copyJobNameToFakturaOverride(job)"
+                                            >
+                                                {{ $t('Copy') || 'Copy' }}
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div class="job-note-field mb-3">
                                         <label class="job-note-label text-sm mb-1 block">{{ $t('Note') || 'Note' }}:</label>
                                         <textarea 
                                             v-model="jobNotesData[job.id].comment" 
@@ -545,7 +569,9 @@ export default {
             stableFileCache: {}, // Cache stable file arrays during uploads
             stableJobCache: {}, // Cache stable job objects during uploads
             // Job notes data
-            jobNotesData: {} // Store job notes: { jobId: { comment: '', selectedActions: [] } }
+            jobNotesData: {}, // Store job notes: { jobId: { comment: '', selectedActions: [] } }
+            // Local input state for faktura override name per job
+            jobOverrideNames: {}
         };
     },
 
@@ -703,6 +729,7 @@ export default {
             }
             // Initialize job notes data
             this.initializeJobNotes(job.id);
+            this.initializeJobOverrideName(job);
         });
 
         // Load available machines
@@ -740,6 +767,7 @@ export default {
                     newUpdatedJobs.forEach(job => {
                         if (job.id) {
                             this.initializeJobNotes(job.id);
+                            this.initializeJobOverrideName(job);
                         }
                     });
                 }
@@ -753,6 +781,7 @@ export default {
                     newJobs.forEach(job => {
                         if (job.id) {
                             this.initializeJobNotes(job.id);
+                            this.initializeJobOverrideName(job);
                         }
                     });
                 }
@@ -766,6 +795,7 @@ export default {
                 newJobs.forEach(job => {
                     this.initializeJobStates(job.id);
                     this.initializeCuttingJobStates(job.id);
+                    this.initializeJobOverrideName(job);
                     
                     // Initialize sections to be open by default for new jobs
                     if (job.actions && job.actions.length > 0 && !this.showActions[job.id]) {
@@ -832,6 +862,61 @@ export default {
                     }
                 };
             }
+        },
+
+        initializeJobOverrideName(job) {
+            if (!job || !job.id) return;
+            if (this.jobOverrideNames[job.id] === undefined) {
+                this.jobOverrideNames = {
+                    ...this.jobOverrideNames,
+                    [job.id]: job.faktura_override_name || ''
+                };
+            }
+        },
+
+        async saveFakturaOverrideName(job) {
+            if (!job || !job.id) return;
+
+            const toast = useToast();
+            const trimmedValue = (this.jobOverrideNames[job.id] || '').trim();
+            const currentSavedValue = (job.faktura_override_name || '').trim();
+
+            // Avoid duplicate saves/toasts when nothing changed.
+            if (trimmedValue === currentSavedValue) {
+                return true;
+            }
+
+            try {
+                const response = await axios.put(`/jobs/${job.id}`, {
+                    faktura_override_name: trimmedValue || null
+                });
+
+                if (response?.status === 200 && response?.data?.job) {
+                    const savedValue = response.data.job.faktura_override_name || '';
+                    job.faktura_override_name = savedValue;
+                    this.jobOverrideNames = {
+                        ...this.jobOverrideNames,
+                        [job.id]: savedValue
+                    };
+                    this.$emit('job-updated', response.data.job);
+                    toast.success('Article name saved');
+                    return true;
+                }
+            } catch (error) {
+                console.error('Error saving faktura override name:', error);
+                toast.error('Failed to save faktura override name');
+            }
+
+            return false;
+        },
+
+        async copyJobNameToFakturaOverride(job) {
+            if (!job || !job.name) return;
+            this.jobOverrideNames = {
+                ...this.jobOverrideNames,
+                [job.id]: job.name
+            };
+            await this.saveFakturaOverrideName(job);
         },
 
         // Get action options for a specific job
@@ -4343,6 +4428,45 @@ input, select {
 
 .job-note-actions-field {
     margin-top: 12px;
+}
+
+.job-override-row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.job-override-input {
+    flex: 1;
+    min-height: 38px;
+    padding: 8px;
+    border: 1px solid #4B5563;
+    border-radius: 4px;
+    background-color: #FFFFFF;
+    color: #1F2937;
+    font-size: 14px;
+}
+
+.job-override-input:focus {
+    outline: none;
+    border-color: #F59E0B;
+    box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.1);
+}
+
+.job-override-copy-btn {
+    min-width: 84px;
+    height: 38px;
+    border-radius: 4px;
+    border: 1px solid #f59e0b;
+    background: #f59e0b;
+    color: #111827;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.job-override-copy-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
 }
 
 </style>

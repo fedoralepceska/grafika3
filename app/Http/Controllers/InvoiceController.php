@@ -1641,7 +1641,7 @@ class InvoiceController extends Controller
                     $query->select([
                         'jobs.id', 'jobs.invoice_id', 'jobs.name', 'jobs.status', 'jobs.quantity', 'jobs.copies',
                         'jobs.file', 'jobs.originalFile', 'jobs.cuttingFiles', 'jobs.total_area_m2', 'jobs.dimensions_breakdown',
-                        'jobs.small_material_id', 'jobs.large_material_id', 'jobs.salePrice'
+                        'jobs.small_material_id', 'jobs.large_material_id', 'jobs.salePrice', 'jobs.faktura_override_name'
                     ])->with(['articles' => function ($a) {
                         // Ensure unit flags and tax type are present in payload
                         $a->select('article.id', 'article.name', 'article.code', 'article.tax_type', 'article.in_square_meters', 'article.in_pieces', 'article.in_kilograms', 'article.in_meters');
@@ -1740,6 +1740,8 @@ class InvoiceController extends Controller
                 DB::rollBack();
                 return response()->json(['error' => 'No valid invoices found for generation'], 400);
             }
+
+            $fakturaOverrides = $this->mergeDefaultJobNameOverrides($fakturaOverrides, $invoices);
 
             // Create a new Faktura instance (only after validation passes)
             $paymentDeadlineOverride = $request->input('payment_deadline_override');
@@ -3026,6 +3028,12 @@ class InvoiceController extends Controller
             // Get the invoices for preview with necessary relationships (same as generateInvoice)
             $invoices = Invoice::with(['jobs.actions', 'contact', 'user', 'client', 'article', 'client.clientCardStatement'])
                 ->find($invoiceIds);
+
+            if (!$invoices || $invoices->count() === 0) {
+                return response()->json(['error' => 'No valid invoices found for preview'], 400);
+            }
+
+            $fakturaOverrides = $this->mergeDefaultJobNameOverrides($fakturaOverrides, $invoices);
 
             // If a faktura-level client override is provided, reflect it in preview output
             if (is_numeric($fakturaClientId)) {
@@ -4524,5 +4532,32 @@ class InvoiceController extends Controller
                 'message' => $e->getMessage(),
             ], 500);
         }
+    }
+
+    private function mergeDefaultJobNameOverrides(array $fakturaOverrides, $invoices): array
+    {
+        if (!isset($fakturaOverrides['job_names']) || !is_array($fakturaOverrides['job_names'])) {
+            $fakturaOverrides['job_names'] = [];
+        }
+
+        foreach ($invoices as $invoice) {
+            if (!$invoice->jobs) {
+                continue;
+            }
+
+            foreach ($invoice->jobs as $job) {
+                $defaultOverride = trim((string)($job->faktura_override_name ?? ''));
+                if ($defaultOverride === '') {
+                    continue;
+                }
+
+                $jobId = (string)$job->id;
+                if (!array_key_exists($jobId, $fakturaOverrides['job_names']) || trim((string)$fakturaOverrides['job_names'][$jobId]) === '') {
+                    $fakturaOverrides['job_names'][$jobId] = $defaultOverride;
+                }
+            }
+        }
+
+        return $fakturaOverrides;
     }
 }

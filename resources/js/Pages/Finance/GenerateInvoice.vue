@@ -1180,6 +1180,12 @@ export default {
                             if (job.id) {
                                 this.originalJobNames[job.id] = job.name;
                                 this.originalJobQuantities[job.id] = job.quantity;
+
+                                // Pre-fill the local faktura screen with persisted job override name.
+                                // This is UI-only and keeps originals in originalJobNames for diff/override detection.
+                                if (job.faktura_override_name && String(job.faktura_override_name).trim() !== '') {
+                                    job.name = String(job.faktura_override_name).trim();
+                                }
                                 console.log('Stored original job:', job.id, job.name, job.quantity);
                             }
                         });

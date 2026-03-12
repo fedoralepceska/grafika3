@@ -1528,6 +1528,7 @@ class JobController extends Controller
             // Validate request
             $validatedData = $request->validate([
                 'name' => 'sometimes|string|max:255',
+                'faktura_override_name' => 'sometimes|nullable|string|max:255',
                 'quantity' => 'sometimes|required|numeric',
                 'copies' => 'sometimes|required|numeric',
                 'catalog_item_id' => 'sometimes|nullable|exists:catalog_items,id',
@@ -1647,6 +1648,9 @@ class JobController extends Controller
             // Update other fields from validated data
             if (isset($validatedData['name'])) {
                 $job->name = $validatedData['name'];
+            }
+            if (array_key_exists('faktura_override_name', $validatedData)) {
+                $job->faktura_override_name = $validatedData['faktura_override_name'];
             }
             if (isset($validatedData['quantity'])) {
                 $job->quantity = $validatedData['quantity'];

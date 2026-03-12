@@ -106,6 +106,7 @@ class Job extends Model
         'shippingInfo',
         'status',
         'name',
+        'faktura_override_name',
         'catalog_item_id',
         'client_id',
         'price',
