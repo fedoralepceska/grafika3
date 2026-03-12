@@ -85,7 +85,7 @@
                     <!-- Step 3: Preview table + Execute -->
                     <div v-else class="preview-section">
                         <p class="section-label">
-                            {{ $t('previewImport') || 'Preview' }}: {{ toCreateCount }} {{ $t('toCreate') || 'to create' }}, {{ duplicateCount }} {{ $t('duplicates') || 'duplicates' }}
+                            {{ $t('previewImport') || 'Preview' }}: {{ toCreateCount }} {{ $t('toCreate') || 'to create' }}, {{ duplicateCount }} {{ $t('willSkip') || 'will be skipped' }}
                         </p>
                         <div class="table-wrap">
                             <p v-if="previewRows.length === 0" class="preview-empty-msg">
@@ -112,6 +112,7 @@
                                         <th>{{ $t('fprice') || 'Factory price' }}</th>
                                         <th>{{ $t('Categories') || 'Categories' }}</th>
                                         <th>{{ $t('status') || 'Status' }}</th>
+                                        <th>{{ $t('ACTIONS') }}</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -120,10 +121,10 @@
                                         :key="index"
                                         :class="{ 'row-duplicate': row.is_duplicate }"
                                     >
-                                        <td>{{ row.code || '—' }}</td>
-                                        <td>{{ row.name }}</td>
-                                        <td>{{ formatNum(row.purchase_price) }}</td>
-                                        <td>{{ formatNum(row.price_1) }}</td>
+                                        <td class="cell-edit"><input v-model="row.code" type="text" class="cell-input" disabled /></td>
+                                        <td class="cell-edit"><input v-model="row.name" type="text" class="cell-input" :disabled="row.is_duplicate" /></td>
+                                        <td class="cell-edit"><input v-model="row.purchase_price" type="text" class="cell-input cell-input-num" :disabled="row.is_duplicate" /></td>
+                                        <td class="cell-edit"><input v-model="row.price_1" type="text" class="cell-input cell-input-num" :disabled="row.is_duplicate" /></td>
                                         <td>{{ row.tax_label }}</td>
                                         <td>{{ row.unit }}</td>
                                         <td>{{ row.type }}</td>
@@ -203,8 +204,11 @@
                                             </div>
                                         </td>
                                         <td>
-                                            <span v-if="row.is_duplicate" class="badge duplicate">{{ $t('duplicate') || 'Duplicate' }}</span>
+                                            <span v-if="row.is_duplicate" class="badge duplicate">{{ $t('willSkip') || 'Will be skipped' }}</span>
                                             <span v-else class="badge create">{{ $t('toCreate') || 'To create' }}</span>
+                                        </td>
+                                        <td>
+                                            <button type="button" class="row-delete-btn" @click="removeRow(index)" :title="$t('Delete')">&times;</button>
                                         </td>
                                     </tr>
                                 </tbody>
@@ -263,6 +267,7 @@ export default {
             resultSuccess: false,
             openCategoryDropdown: null,
             openFormatDropdown: null,
+            autoCodeStart: null,
         };
     },
     directives: {
@@ -311,6 +316,7 @@ export default {
             this.rowOverrides = [];
             this.openCategoryDropdown = null;
             this.openFormatDropdown = null;
+            this.autoCodeStart = null;
             this.parseError = null;
             this.resultMessage = null;
             if (this.$refs.fileInput) {
@@ -325,6 +331,7 @@ export default {
             this.previewRows = [];
             this.rowOverrides = [];
             this.mapping = { name_col: '', purchase_price_col: null, price_col: null };
+            this.autoCodeStart = null;
             this.parseError = null;
             if (this.$refs.fileInput) {
                 this.$refs.fileInput.value = '';
@@ -389,7 +396,11 @@ export default {
                 const { data } = await axios.post('/articles/import/preview', form, {
                     headers: { 'Content-Type': 'multipart/form-data', 'Accept': 'application/json' },
                 });
-                this.previewRows = data.rows || [];
+                this.previewRows = (data.rows || []).map((row) => ({
+                    ...row,
+                    __autoCode: !row.is_duplicate && row.code != null && row.code !== '',
+                }));
+                this.autoCodeStart = this.getFirstAutoCodeNumber(this.previewRows);
                 this.rowOverrides = (data.rows || []).map(() => ({
                     format_type: '2',
                     barcode: '',
@@ -448,36 +459,56 @@ export default {
             this.rowOverrides = [];
             this.openCategoryDropdown = null;
             this.openFormatDropdown = null;
+            this.autoCodeStart = null;
             this.resultMessage = null;
         },
+        getFirstAutoCodeNumber(rows) {
+            const firstAuto = (rows || []).find(r => r && r.__autoCode && !r.is_duplicate);
+            if (!firstAuto) return null;
+            const num = Number(firstAuto.code);
+            return Number.isFinite(num) ? Math.trunc(num) : null;
+        },
+        resequenceAutoCodes() {
+            if (!Number.isInteger(this.autoCodeStart)) return;
+            let next = this.autoCodeStart;
+            this.previewRows.forEach((row) => {
+                if (!row || row.is_duplicate || !row.__autoCode) return;
+                row.code = String(next);
+                next += 1;
+            });
+        },
+        removeRow(index) {
+            this.previewRows.splice(index, 1);
+            this.rowOverrides.splice(index, 1);
+            if (this.openCategoryDropdown === index) this.openCategoryDropdown = null;
+            if (this.openFormatDropdown === index) this.openFormatDropdown = null;
+            this.resequenceAutoCodes();
+        },
         async executeImport() {
-            if (!this.file || this.toCreateCount === 0) return;
+            if (this.toCreateCount === 0) return;
             this.executing = true;
             this.resultMessage = null;
             try {
-                const form = new FormData();
-                form.append('file', this.file);
-                form.append('mapping[name_col]', this.mapping.name_col);
-                if (this.mapping.purchase_price_col != null && this.mapping.purchase_price_col !== '') {
-                    form.append('mapping[purchase_price_col]', this.mapping.purchase_price_col);
-                }
-                if (this.mapping.price_col != null && this.mapping.price_col !== '') {
-                    form.append('mapping[price_col]', this.mapping.price_col);
-                }
-                this.rowOverrides.forEach((o, i) => {
-                    form.append(`overrides[${i}][format_type]`, o.format_type || '2');
-                    form.append(`overrides[${i}][barcode]`, o.barcode || '');
-                    form.append(`overrides[${i}][comment]`, o.comment || '');
-                    form.append(`overrides[${i}][height]`, o.height !== undefined && o.height !== null ? String(o.height) : '');
-                    form.append(`overrides[${i}][width]`, o.width !== undefined && o.width !== null ? String(o.width) : '');
-                    form.append(`overrides[${i}][length]`, o.length !== undefined && o.length !== null ? String(o.length) : '');
-                    form.append(`overrides[${i}][weight]`, o.weight !== undefined && o.weight !== null ? String(o.weight) : '');
-                    form.append(`overrides[${i}][color]`, o.color || '');
-                    form.append(`overrides[${i}][factory_price]`, o.factory_price !== undefined && o.factory_price !== null ? String(o.factory_price) : '');
-                    (o.category_ids || []).forEach(id => form.append(`overrides[${i}][category_ids][]`, id));
-                });
-                const { data } = await axios.post('/articles/import/execute', form, {
-                    headers: { 'Content-Type': 'multipart/form-data', 'Accept': 'application/json' },
+                const rows = this.previewRows.map((row, i) => ({
+                    code: row.code,
+                    name: row.name,
+                    purchase_price: row.purchase_price,
+                    price_1: row.price_1,
+                    is_duplicate: !!row.is_duplicate,
+                    format_type: this.rowOverrides[i]?.format_type || '2',
+                    barcode: this.rowOverrides[i]?.barcode || '',
+                    comment: this.rowOverrides[i]?.comment || '',
+                    height: this.rowOverrides[i]?.height ?? '',
+                    width: this.rowOverrides[i]?.width ?? '',
+                    length: this.rowOverrides[i]?.length ?? '',
+                    weight: this.rowOverrides[i]?.weight ?? '',
+                    color: this.rowOverrides[i]?.color || '',
+                    factory_price: this.rowOverrides[i]?.factory_price ?? '',
+                    category_ids: this.rowOverrides[i]?.category_ids || [],
+                }));
+
+                const { data } = await axios.post('/articles/import/execute', { rows }, {
+                    headers: { 'Accept': 'application/json' },
                 });
                 this.resultSuccess = true;
                 this.resultMessage = `${data.message} Created: ${data.created}, Skipped (duplicates): ${data.skipped}.`;
@@ -499,7 +530,9 @@ export default {
         formatNum(val) {
             if (val == null || val === '') return '—';
             const n = Number(val);
-            return isNaN(n) ? val : n.toFixed(2);
+            if (isNaN(n)) return val;
+            const normalized = Math.abs(n) < 0.0000001 ? 0 : n;
+            return normalized.toFixed(2);
         },
     },
 };
@@ -925,6 +958,21 @@ export default {
 .badge.create {
     background: rgba(34, 197, 94, 0.3);
     color: #86efac;
+}
+.row-delete-btn {
+    width: 26px;
+    height: 26px;
+    border: none;
+    border-radius: 999px;
+    background: rgba(239, 68, 68, 0.22);
+    color: #fecaca;
+    font-size: 18px;
+    line-height: 1;
+    cursor: pointer;
+}
+.row-delete-btn:hover {
+    background: rgba(239, 68, 68, 0.36);
+    color: #fff;
 }
 
 .modal-actions {

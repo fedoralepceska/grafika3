@@ -150,13 +150,17 @@ class PriemnicaController extends Controller
             }
 
             $quantity = 1;
-            if (isset($rowArr[$quantityCol]) && is_numeric($rowArr[$quantityCol])) {
-                $quantity = max(0.00001, (float) $rowArr[$quantityCol]);
+            $quantityValue = $this->parseNumericValue($rowArr[$quantityCol] ?? null);
+            if ($quantityValue !== null) {
+                $quantity = max(0.00001, $quantityValue);
             }
 
             $price = 0;
-            if ($priceCol !== null && isset($rowArr[$priceCol]) && is_numeric($rowArr[$priceCol])) {
-                $price = (float) $rowArr[$priceCol];
+            if ($priceCol !== null && isset($rowArr[$priceCol])) {
+                $parsedPrice = $this->parseNumericValue($rowArr[$priceCol]);
+                if ($parsedPrice !== null) {
+                    $price = $parsedPrice;
+                }
             }
 
             $taxType = '1';
@@ -359,6 +363,12 @@ class PriemnicaController extends Controller
                 continue;
             }
 
+            $rowQuantity = $this->parseNumericValue($row['quantity'] ?? null);
+            if ($rowQuantity === null || $rowQuantity <= 0) {
+                continue;
+            }
+            $rowPurchasePrice = $this->parseNumericValue($row['purchase_price'] ?? null);
+
             $article = null;
             if (!empty($row['code'])) {
                 $article = Article::where('code', $row['code'])->first();
@@ -376,8 +386,8 @@ class PriemnicaController extends Controller
                 $customPrice = null;
                 $customTaxType = null;
                 
-                if (isset($row['purchase_price']) && $row['purchase_price'] != $article->purchase_price) {
-                    $customPrice = $row['purchase_price'];
+                if ($rowPurchasePrice !== null && $rowPurchasePrice != $article->purchase_price) {
+                    $customPrice = $rowPurchasePrice;
                 }
                 
                 if (isset($row['tax_type']) && $row['tax_type'] != $article->tax_type) {
@@ -386,7 +396,7 @@ class PriemnicaController extends Controller
                 
                 // Attach new article with quantity and custom values
                 $priemnica->articles()->attach($article->id, [
-                    'quantity' => $row['quantity'],
+                    'quantity' => $rowQuantity,
                     'custom_price' => $customPrice,
                     'custom_tax_type' => $customTaxType
                 ]);
@@ -397,13 +407,13 @@ class PriemnicaController extends Controller
                     TradeWarehouseInventory::addStock(
                         $article->id,
                         $warehouse->id,
-                        $row['quantity'],
+                        $rowQuantity,
                         $customPrice ?? $article->purchase_price,
                         $article->price_1
                     );
                 } elseif (!$isSpecialWarehouse) {
                     // Update regular material inventory
-                    $this->updateMaterialQuantity($article, $row['quantity']);
+                    $this->updateMaterialQuantity($article, $rowQuantity);
                 }
                 // For "магацин 3 основни средства", do nothing
             }
@@ -458,6 +468,12 @@ class PriemnicaController extends Controller
                 continue;
             }
 
+            $rowQuantity = $this->parseNumericValue($row['quantity'] ?? null);
+            if ($rowQuantity === null || $rowQuantity <= 0) {
+                continue;
+            }
+            $rowPurchasePrice = $this->parseNumericValue($row['purchase_price'] ?? null);
+
             $article = Article::where('code', $row['code'])->first();
 
             if ($article) {
@@ -465,8 +481,8 @@ class PriemnicaController extends Controller
                 $customPrice = null;
                 $customTaxType = null;
                 
-                if (isset($row['purchase_price']) && $row['purchase_price'] != $article->purchase_price) {
-                    $customPrice = $row['purchase_price'];
+                if ($rowPurchasePrice !== null && $rowPurchasePrice != $article->purchase_price) {
+                    $customPrice = $rowPurchasePrice;
                 }
                 
                 if (isset($row['tax_type']) && $row['tax_type'] != $article->tax_type) {
@@ -474,7 +490,7 @@ class PriemnicaController extends Controller
                 }
                 
                 $priemnica->articles()->attach($article->id, [
-                    'quantity' => $row['quantity'],
+                    'quantity' => $rowQuantity,
                     'custom_price' => $customPrice,
                     'custom_tax_type' => $customTaxType
                 ]);
@@ -485,7 +501,7 @@ class PriemnicaController extends Controller
                         TradeWarehouseInventory::addStock(
                             $article->id,
                             $warehouse->id,
-                            $row['quantity'],
+                            $rowQuantity,
                             $customPrice ?? $article->purchase_price,
                             $article->price_1
                         );
@@ -512,20 +528,20 @@ class PriemnicaController extends Controller
                     }
                     if ($existingMaterial && isset($data[0])) {
                         // Update existing material quantity
-                        $existingMaterial->quantity += $row['quantity'];
+                        $existingMaterial->quantity += $rowQuantity;
                         $existingMaterial->save();
                     } else {
                         // Create a new material with additional data from $data['quantity']
                         if ($article->format_type === 1) {
-                            $materialData['quantity'] = $row['quantity'];
+                            $materialData['quantity'] = $rowQuantity;
                             SmallMaterial::create($materialData);
                         }
                         else if ($article->format_type === 2) {
-                            $materialData['quantity'] = $row['quantity'];
+                            $materialData['quantity'] = $rowQuantity;
                             LargeFormatMaterial::create($materialData);
                         }
                         else {
-                            $materialData['quantity'] = $row['quantity'];
+                            $materialData['quantity'] = $rowQuantity;
                             OtherMaterial::create($materialData);
                         }
                     }
@@ -692,6 +708,55 @@ class PriemnicaController extends Controller
         if (str_contains($normalized, '0')) return '0';
 
         return '1';
+    }
+
+    /**
+     * Parse formatted numeric strings like "4,000.00" or "4 000,00" into float.
+     */
+    private function parseNumericValue($value): ?float
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        if (is_numeric($value)) {
+            return (float) $value;
+        }
+
+        $raw = trim((string) $value);
+        if ($raw === '') {
+            return null;
+        }
+
+        $normalized = str_replace(["\xc2\xa0", ' '], '', $raw);
+        $hasComma = strpos($normalized, ',') !== false;
+        $hasDot = strpos($normalized, '.') !== false;
+
+        if ($hasComma && $hasDot) {
+            if (strrpos($normalized, ',') > strrpos($normalized, '.')) {
+                $normalized = str_replace('.', '', $normalized);
+                $normalized = str_replace(',', '.', $normalized);
+            } else {
+                $normalized = str_replace(',', '', $normalized);
+            }
+        } elseif ($hasComma) {
+            if (substr_count($normalized, ',') > 1) {
+                $normalized = str_replace(',', '', $normalized);
+            } else {
+                $parts = explode(',', $normalized);
+                $normalized = (count($parts) === 2 && strlen($parts[1]) <= 2)
+                    ? str_replace(',', '.', $normalized)
+                    : str_replace(',', '', $normalized);
+            }
+        } elseif ($hasDot && substr_count($normalized, '.') > 1) {
+            $normalized = str_replace('.', '', $normalized);
+        }
+
+        if (!is_numeric($normalized)) {
+            return null;
+        }
+
+        return (float) $normalized;
     }
 
     private function getNextArticleCode(): int

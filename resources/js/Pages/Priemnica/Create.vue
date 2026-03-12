@@ -138,6 +138,7 @@
                                 <th>{{$t('Total')}}<div class="resizer" @mousedown="initResize($event, 10)"></div></th>
                                 <th>{{$t('importStatus') || 'Import status'}}<div class="resizer" @mousedown="initResize($event, 11)"></div></th>
                                 <th>{{$t('comment')}}<div class="resizer" @mousedown="initResize($event, 12)"></div></th>
+                                <th style="width: 48px">{{$t('ACTIONS')}}</th>
                             </tr>
                             </thead>
                             <tbody>
@@ -147,7 +148,14 @@
                                 </td>
                                 <td>{{ index + 1 }}</td>
                                 <td>
+                                    <input
+                                        v-if="row.import_action"
+                                        v-model="row.code"
+                                        type="text"
+                                        class="table-input"
+                                    >
                                     <ArticleSearchDropdown
+                                        v-else
                                         v-model="row.code"
                                         :placeholder="$t('Code')"
                                         search-type="code"
@@ -155,7 +163,14 @@
                                     />
                                 </td>
                                 <td>
+                                    <input
+                                        v-if="row.import_action"
+                                        v-model="row.name"
+                                        type="text"
+                                        class="table-input"
+                                    >
                                     <ArticleSearchDropdown
+                                        v-else
                                         v-model="row.name"
                                         :placeholder="$t('articleName')"
                                         search-type="name"
@@ -185,6 +200,11 @@
                                     </span>
                                 </td>
                                 <td><input v-model="row.comment" type="text" class="table-input"></td>
+                                <td>
+                                    <button type="button" class="row-delete-btn" @click="removeRow(index)" :title="$t('Delete')">
+                                        &times;
+                                    </button>
+                                </td>
                             </tr>
                             </tbody>
                         </table>
@@ -497,6 +517,14 @@ export default {
             }
             this.onRowSelectionChange();
         },
+        removeRow(index) {
+            this.rows.splice(index, 1);
+            // Re-map selected indexes after deletion
+            this.selectedRowIndexes = this.selectedRowIndexes
+                .filter(i => i !== index)
+                .map(i => (i > index ? i - 1 : i));
+            this.onRowSelectionChange();
+        },
         toggleSelectAllRows() {
             if (this.selectAllRows) {
                 this.selectedRowIndexes = this.rows.map((_, idx) => idx);
@@ -513,7 +541,8 @@ export default {
                 console.warn('formatNumber received NaN:', number);
                 return '0.00';
             }
-            return num.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            const normalized = Math.abs(num) < 0.0000001 ? 0 : num;
+            return normalized.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
         },
         updateRowValues(index) {
             let row = this.rows[index];
@@ -531,6 +560,13 @@ export default {
             row.amount = quantity * price;
             row.tax = row.amount * vatPercentage / 100;
             row.total = row.amount + row.tax;
+
+            // Prevent "-0.00" style rendering caused by floating precision
+            const clampZero = (v) => Math.abs(v) < 0.0000001 ? 0 : v;
+            row.priceWithVAT = clampZero(row.priceWithVAT);
+            row.amount = clampZero(row.amount);
+            row.tax = clampZero(row.tax);
+            row.total = clampZero(row.total);
             
             console.log('Calculated values:', {
                 priceWithVAT: row.priceWithVAT,
@@ -883,6 +919,22 @@ legend {
     color: #fecaca;
 }
 
+.row-delete-btn{
+    width: 28px;
+    height: 28px;
+    border: none;
+    border-radius: 999px;
+    background: rgba(239, 68, 68, 0.22);
+    color: #fecaca;
+    font-size: 18px;
+    line-height: 1;
+    cursor: pointer;
+}
+.row-delete-btn:hover{
+    background: rgba(239, 68, 68, 0.36);
+    color: #fff;
+}
+
 .confirm-overlay {
     position: fixed;
     inset: 0;
@@ -939,6 +991,7 @@ legend {
     th:nth-child(11) { width: 100px; } /* Total */
     th:nth-child(12) { width: 160px; } /* Import Status */
     th:nth-child(13) { width: 150px; } /* Comment */
+    th:nth-child(14) { width: 48px; } /* Actions */
 }
 
 .excel-table th,

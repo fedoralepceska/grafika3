@@ -443,13 +443,11 @@ class ArticleController extends Controller
 
             $purchasePrice = null;
             if ($purchasePriceCol !== null && isset($rowArr[$purchasePriceCol])) {
-                $val = $rowArr[$purchasePriceCol];
-                $purchasePrice = is_numeric($val) ? (float) $val : null;
+                $purchasePrice = $this->parseNumericValue($rowArr[$purchasePriceCol]);
             }
             $price = null;
             if ($priceCol !== null && isset($rowArr[$priceCol])) {
-                $val = $rowArr[$priceCol];
-                $price = is_numeric($val) ? (float) $val : null;
+                $price = $this->parseNumericValue($rowArr[$priceCol]);
             }
 
             $nameNorm = mb_strtolower($name);
@@ -484,6 +482,92 @@ class ArticleController extends Controller
      */
     public function executeImport(Request $request)
     {
+        if ($request->has('rows')) {
+            $request->validate([
+                'rows' => 'required|array',
+                'rows.*.name' => 'nullable|string|max:255',
+                'rows.*.code' => 'nullable|string|max:255',
+                'rows.*.purchase_price' => 'nullable',
+                'rows.*.price_1' => 'nullable',
+                'rows.*.is_duplicate' => 'nullable|boolean',
+                'rows.*.format_type' => 'nullable|string|in:1,2,3',
+                'rows.*.barcode' => 'nullable|string|max:255',
+                'rows.*.comment' => 'nullable|string|max:255',
+                'rows.*.height' => 'nullable',
+                'rows.*.width' => 'nullable',
+                'rows.*.length' => 'nullable',
+                'rows.*.weight' => 'nullable',
+                'rows.*.color' => 'nullable|string|max:255',
+                'rows.*.factory_price' => 'nullable',
+                'rows.*.category_ids' => 'nullable|array',
+                'rows.*.category_ids.*' => 'exists:article_categories,id',
+            ]);
+
+            $rows = $request->input('rows', []);
+            $existingNames = Article::pluck('name')->map(function ($n) {
+                return mb_strtolower(trim((string) $n));
+            })->flip();
+
+            $nextCode = $this->getNextArticleCode();
+            $created = 0;
+            $skipped = 0;
+
+            foreach ($rows as $row) {
+                $name = trim((string) ($row['name'] ?? ''));
+                if ($name === '') {
+                    $skipped++;
+                    continue;
+                }
+
+                $nameNorm = mb_strtolower($name);
+                if ($existingNames->has($nameNorm)) {
+                    $skipped++;
+                    continue;
+                }
+
+                $code = trim((string) ($row['code'] ?? ''));
+                if ($code === '' || Article::where('code', $code)->exists()) {
+                    $code = (string) $nextCode;
+                }
+
+                $article = new Article();
+                $article->code = $code;
+                $article->name = $name;
+                $article->tax_type = 1; // DDV A 18%
+                $article->type = 'product';
+                $article->format_type = $row['format_type'] ?? '2';
+                $article->purchase_price = $this->parseNumericValue($row['purchase_price'] ?? null);
+                $article->price_1 = $this->parseNumericValue($row['price_1'] ?? null);
+                $article->factory_price = $this->parseNumericValue($row['factory_price'] ?? null);
+                $article->in_pieces = true;
+                $article->in_meters = null;
+                $article->in_kilograms = null;
+                $article->in_square_meters = null;
+                $article->barcode = ! empty($row['barcode']) ? $row['barcode'] : null;
+                $article->comment = ! empty($row['comment']) ? $row['comment'] : null;
+                $article->height = $this->parseNumericValue($row['height'] ?? null);
+                $article->width = $this->parseNumericValue($row['width'] ?? null);
+                $article->length = $this->parseNumericValue($row['length'] ?? null);
+                $article->weight = $this->parseNumericValue($row['weight'] ?? null);
+                $article->color = ! empty($row['color']) ? $row['color'] : null;
+                $article->save();
+
+                if (! empty($row['category_ids']) && is_array($row['category_ids'])) {
+                    $article->categories()->sync($row['category_ids']);
+                }
+
+                $existingNames->put($nameNorm, true);
+                $nextCode++;
+                $created++;
+            }
+
+            return response()->json([
+                'message' => 'Batch import completed.',
+                'created' => $created,
+                'skipped' => $skipped,
+            ]);
+        }
+
         $request->validate([
             'file' => 'required|file|mimes:xlsx,xls|max:51200', // 50MB
             'mapping' => 'required|array',
@@ -544,13 +628,11 @@ class ArticleController extends Controller
 
             $purchasePrice = null;
             if ($purchasePriceCol !== null && isset($rowArr[$purchasePriceCol])) {
-                $val = $rowArr[$purchasePriceCol];
-                $purchasePrice = is_numeric($val) ? (float) $val : null;
+                $purchasePrice = $this->parseNumericValue($rowArr[$purchasePriceCol]);
             }
             $price = null;
             if ($priceCol !== null && isset($rowArr[$priceCol])) {
-                $val = $rowArr[$priceCol];
-                $price = is_numeric($val) ? (float) $val : null;
+                $price = $this->parseNumericValue($rowArr[$priceCol]);
             }
 
             $formatType = isset($override['format_type']) ? $override['format_type'] : '2';
@@ -562,18 +644,17 @@ class ArticleController extends Controller
             $article->format_type = $formatType;
             $article->purchase_price = $purchasePrice;
             $article->price_1 = $price;
-            $article->factory_price = isset($override['factory_price']) && $override['factory_price'] !== '' && $override['factory_price'] !== null
-                ? (float) $override['factory_price'] : null;
+            $article->factory_price = $this->parseNumericValue($override['factory_price'] ?? null);
             $article->in_pieces = true;
             $article->in_meters = null;
             $article->in_kilograms = null;
             $article->in_square_meters = null;
             $article->barcode = ! empty($override['barcode']) ? $override['barcode'] : null;
             $article->comment = ! empty($override['comment']) ? $override['comment'] : null;
-            $article->height = isset($override['height']) && $override['height'] !== '' && $override['height'] !== null ? $override['height'] : null;
-            $article->width = isset($override['width']) && $override['width'] !== '' && $override['width'] !== null ? $override['width'] : null;
-            $article->length = isset($override['length']) && $override['length'] !== '' && $override['length'] !== null ? $override['length'] : null;
-            $article->weight = isset($override['weight']) && $override['weight'] !== '' && $override['weight'] !== null ? $override['weight'] : null;
+            $article->height = $this->parseNumericValue($override['height'] ?? null);
+            $article->width = $this->parseNumericValue($override['width'] ?? null);
+            $article->length = $this->parseNumericValue($override['length'] ?? null);
+            $article->weight = $this->parseNumericValue($override['weight'] ?? null);
             $article->color = ! empty($override['color']) ? $override['color'] : null;
             $article->save();
 
@@ -591,6 +672,55 @@ class ArticleController extends Controller
             'created' => $created,
             'skipped' => $skipped,
         ]);
+    }
+
+    /**
+     * Parse formatted numeric strings like "4,000.00" or "4 000,00" into float.
+     */
+    private function parseNumericValue($value): ?float
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        if (is_numeric($value)) {
+            return (float) $value;
+        }
+
+        $raw = trim((string) $value);
+        if ($raw === '') {
+            return null;
+        }
+
+        $normalized = str_replace(["\xc2\xa0", ' '], '', $raw);
+        $hasComma = strpos($normalized, ',') !== false;
+        $hasDot = strpos($normalized, '.') !== false;
+
+        if ($hasComma && $hasDot) {
+            if (strrpos($normalized, ',') > strrpos($normalized, '.')) {
+                $normalized = str_replace('.', '', $normalized);
+                $normalized = str_replace(',', '.', $normalized);
+            } else {
+                $normalized = str_replace(',', '', $normalized);
+            }
+        } elseif ($hasComma) {
+            if (substr_count($normalized, ',') > 1) {
+                $normalized = str_replace(',', '', $normalized);
+            } else {
+                $parts = explode(',', $normalized);
+                $normalized = (count($parts) === 2 && strlen($parts[1]) <= 2)
+                    ? str_replace(',', '.', $normalized)
+                    : str_replace(',', '', $normalized);
+            }
+        } elseif ($hasDot && substr_count($normalized, '.') > 1) {
+            $normalized = str_replace('.', '', $normalized);
+        }
+
+        if (!is_numeric($normalized)) {
+            return null;
+        }
+
+        return (float) $normalized;
     }
 
     /**
