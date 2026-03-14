@@ -14,7 +14,11 @@ class ArticleCategoryController extends Controller
      */
     public function index(Request $request)
     {
-        $query = ArticleCategory::with('articles');
+        $query = ArticleCategory::with([
+            'articles' => function ($articleQuery) {
+                $articleQuery->with(['smallMaterial', 'largeFormatMaterial', 'otherMaterial']);
+            }
+        ]);
         
         // Search by category name
         if ($request->filled('search')) {
@@ -28,6 +32,17 @@ class ArticleCategoryController extends Controller
         
         // Get paginated results
         $categories = $query->paginate(9);
+
+        $categories->getCollection()->transform(function ($category) {
+            $category->articles->transform(function ($article) {
+                $article->stock_info = $article->getStockInfo();
+                $article->stock_level = $article->stock_info['current_stock'] ?? 0;
+
+                return $article;
+            });
+
+            return $category;
+        });
         
         // Add search and filter parameters to pagination links
         $categories->appends([

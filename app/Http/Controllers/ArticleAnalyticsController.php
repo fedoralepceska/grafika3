@@ -5,7 +5,6 @@ namespace App\Http\Controllers;
 use App\Models\Article;
 use App\Models\Job;
 use App\Models\Invoice;
-use App\Models\OtherMaterial;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -19,39 +18,8 @@ class ArticleAnalyticsController extends Controller
     public function getStockInfo(Article $article)
     {
         try {
-            $stockData = [];
-
-            // Check material type and get appropriate stock info
-            if ($article->format_type == 1 && $article->smallMaterial) {
-                // Small material
-                $stockData = [
-                    'type' => 'small_material',
-                    'current_stock' => $article->smallMaterial->quantity ?? 0,
-                    'material_name' => $article->smallMaterial->name ?? $article->name,
-                    'dimensions' => [
-                        'width' => $article->smallMaterial->width ?? $article->width,
-                        'height' => $article->smallMaterial->height ?? $article->height,
-                    ],
-                    'warehouse_location' => 'Small Format Materials Warehouse'
-                ];
-            } elseif ($article->format_type == 2 && $article->largeFormatMaterial) {
-                // Large material
-                $stockData = [
-                    'type' => 'large_material',
-                    'current_stock' => $article->largeFormatMaterial->quantity ?? 0,
-                    'material_name' => $article->largeFormatMaterial->name ?? $article->name,
-                    'price_per_unit' => $article->largeFormatMaterial->price_per_unit ?? null,
-                    'warehouse_location' => 'Large Format Materials Warehouse'
-                ];
-            } else {
-                // Product/service - calculate from inventory movements
-                $stockData = [
-                    'type' => 'product',
-                    'current_stock' => $article->getCurrentStock(),
-                    'material_name' => $article->name,
-                    'warehouse_location' => 'General Warehouse'
-                ];
-            }
+            $article->loadMissing(['smallMaterial', 'largeFormatMaterial', 'otherMaterial']);
+            $stockData = $article->getStockInfo();
 
             return response()->json([
                 'stock' => $stockData,

@@ -53,6 +53,11 @@ class Article extends Model
         return $this->hasOne(SmallMaterial::class, 'article_id');
     }
 
+    public function otherMaterial()
+    {
+        return $this->hasOne(OtherMaterial::class, 'article_id');
+    }
+
     public function priemnicaArticles()
     {
         return $this->belongsToMany(Priemnica::class, 'priemnica_articles')->withPivot('quantity');
@@ -83,8 +88,7 @@ class Article extends Model
         }
         
         if ($this->format_type == 3) {
-            $otherMaterial = OtherMaterial::where('article_id', $this->id)->first();
-            return $otherMaterial ? $otherMaterial->quantity : 0;
+            return $this->otherMaterial->quantity ?? 0;
         }
 
         // For regular product/service articles, calculate from priemnica minus consumption
@@ -92,6 +96,39 @@ class Article extends Model
         $consumed = $this->catalogItemArticles()->sum('catalog_item_articles.quantity');
         
         return max(0, $received - $consumed);
+    }
+
+    public function getStockInfo(): array
+    {
+        if ($this->format_type == 1 && $this->smallMaterial) {
+            return [
+                'type' => 'small_material',
+                'current_stock' => $this->smallMaterial->quantity ?? 0,
+                'material_name' => $this->smallMaterial->name ?? $this->name,
+                'dimensions' => [
+                    'width' => $this->smallMaterial->width ?? $this->width,
+                    'height' => $this->smallMaterial->height ?? $this->height,
+                ],
+                'warehouse_location' => 'Small Format Materials Warehouse',
+            ];
+        }
+
+        if ($this->format_type == 2 && $this->largeFormatMaterial) {
+            return [
+                'type' => 'large_material',
+                'current_stock' => $this->largeFormatMaterial->quantity ?? 0,
+                'material_name' => $this->largeFormatMaterial->name ?? $this->name,
+                'price_per_unit' => $this->largeFormatMaterial->price_per_unit ?? null,
+                'warehouse_location' => 'Large Format Materials Warehouse',
+            ];
+        }
+
+        return [
+            'type' => 'product',
+            'current_stock' => $this->getCurrentStock(),
+            'material_name' => $this->name,
+            'warehouse_location' => 'General Warehouse',
+        ];
     }
 
     /**

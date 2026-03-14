@@ -173,7 +173,10 @@
               >
                 <div class="article-info">
                   <span class="article-name-modal">{{ article.name }}</span>
-                  <span class="article-code-modal">Article Code: {{ article.code }}</span>
+                  <div class="article-meta-modal">
+                    <span class="article-code-modal">Article Code: {{ article.code }}</span>
+                    <span class="article-stock-modal">Stock: {{ article.stock_info?.current_stock ?? article.stock_level ?? 0 }}</span>
+                  </div>
                 </div>
                 <div class="article-actions">
                   <button class="btn btn-sm btn-secondary" @click="viewArticle(article)">
@@ -884,6 +887,22 @@ export default {
           padding: 6px 12px;
           font-size: 12px;
         }
+      }
+
+      .article-meta-modal {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        align-items: center;
+      }
+
+      .article-stock-modal {
+        color: $white;
+        font-size: 12px;
+        background-color: rgba(100, 149, 237, 0.18);
+        padding: 2px 6px;
+        border-radius: 4px;
+        display: inline-block;
       }
     }
   }
