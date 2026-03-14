@@ -14,6 +14,9 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use PhpOffice\PhpSpreadsheet\IOFactory;
+use PhpOffice\PhpSpreadsheet\Spreadsheet;
+use PhpOffice\PhpSpreadsheet\Style\NumberFormat;
+use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 
 class PriemnicaController extends Controller
 {
@@ -305,6 +308,59 @@ class PriemnicaController extends Controller
             'clients' => Client::all(),
             'warehouses' => Warehouse::all(),
         ]);
+    }
+
+    public function exportExcel($id)
+    {
+        $priemnica = Priemnica::with(['articles' => function($query) {
+            $query->withPivot('quantity', 'custom_price', 'custom_tax_type');
+        }])->findOrFail($id);
+
+        $spreadsheet = new Spreadsheet();
+        $sheet = $spreadsheet->getActiveSheet();
+        $sheet->setTitle('Receipt');
+
+        $headers = ['Code', 'Article Name', 'Qty', 'Purchase Price', 'VAT', 'Comment'];
+        $sheet->fromArray($headers, null, 'A1');
+
+        $rowIndex = 2;
+        foreach ($priemnica->articles as $article) {
+            $taxType = (string) ($article->pivot->custom_tax_type ?? $article->tax_type ?? '1');
+            $sheet->fromArray([
+                (string) $article->code,
+                (string) $article->name,
+                (float) ($article->pivot->quantity ?? 0),
+                (float) ($article->pivot->custom_price ?? $article->purchase_price ?? 0),
+                $this->taxTypePercentage($taxType),
+                '',
+            ], null, 'A' . $rowIndex);
+
+            $rowIndex++;
+        }
+
+        $lastDataRow = max(2, $rowIndex - 1);
+        $sheet->getStyle("C2:C{$lastDataRow}")
+            ->getNumberFormat()
+            ->setFormatCode('#,##0.00000');
+        $sheet->getStyle("D2:D{$lastDataRow}")
+            ->getNumberFormat()
+            ->setFormatCode(NumberFormat::FORMAT_NUMBER_00);
+        $sheet->getStyle("E2:E{$lastDataRow}")
+            ->getNumberFormat()
+            ->setFormatCode('0');
+
+        foreach (range('A', 'F') as $column) {
+            $sheet->getColumnDimension($column)->setAutoSize(true);
+        }
+
+        $safeReceiptNumber = preg_replace('/[^A-Za-z0-9_-]/', '_', (string) ($priemnica->formatted_receipt_number ?? $priemnica->id));
+        $fileName = 'receipt_' . $safeReceiptNumber . '.xlsx';
+        $tempPath = tempnam(sys_get_temp_dir(), 'receipt_export_');
+
+        $writer = new Xlsx($spreadsheet);
+        $writer->save($tempPath);
+
+        return response()->download($tempPath, $fileName)->deleteFileAfterSend(true);
     }
 
     /**
@@ -708,6 +764,16 @@ class PriemnicaController extends Controller
         if (str_contains($normalized, '0')) return '0';
 
         return '1';
+    }
+
+    private function taxTypePercentage(string $taxType): int
+    {
+        return match ((string) $taxType) {
+            '1' => 18,
+            '2' => 5,
+            '3' => 10,
+            default => 0,
+        };
     }
 
     /**

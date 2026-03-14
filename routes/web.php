@@ -406,6 +406,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('/receipt/import/parse', [\App\Http\Controllers\PriemnicaController::class, 'parseImportFile'])->name('priemnica.import.parse');
     Route::post('/receipt/import/preview', [\App\Http\Controllers\PriemnicaController::class, 'previewImport'])->name('priemnica.import.preview');
     Route::get('/receipt/{id}/edit', [\App\Http\Controllers\PriemnicaController::class, 'edit'])->name('priemnica.edit');
+    Route::get('/receipt/{id}/export', [\App\Http\Controllers\PriemnicaController::class, 'exportExcel'])->name('priemnica.export');
     Route::put('/receipt/{id}', [\App\Http\Controllers\PriemnicaController::class, 'update'])->name('priemnica.update');
     Route::get('/api/receipt/{id}', [\App\Http\Controllers\PriemnicaController::class, 'show'])->name('priemnica.show');
     Route::get('/api/material-import-summary', [PriemnicaController::class, 'getMaterialImportSummary'])->name('priemnica.materialImportSummary');

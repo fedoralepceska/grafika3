@@ -53,9 +53,12 @@
                     <h2 class="sub-title">
                         {{ $t('receiptDetails') }}
                     </h2>
-                    <div class="button-container mb-2 gap-2">
+                    <div class="button-container action-toolbar mb-3">
                         <SecondaryButton @click="addRow" type="submit" class="white">{{ $t('NewRow') }}</SecondaryButton>
                         <SecondaryButton @click="deleteRow" class="red" type="submit">{{ $t('Delete') }}</SecondaryButton>
+                        <SecondaryButton @click="exportReceiptToExcel" class="teal" type="button">
+                            {{ $t('exportToExcel') || 'Export to Excel' }}
+                        </SecondaryButton>
                     </div>
                     <form @submit.prevent="" class="flex gap-3 justify-center overflow-x-auto">
                         <table class="excel-table">
@@ -377,6 +380,9 @@ export default {
                     toast.error('Failed to update receipt!');
                 });
         },
+        exportReceiptToExcel() {
+            window.open(`/receipt/${this.priemnica.id}/export`, '_blank');
+        },
         cancelEdit() {
             this.$inertia.visit('/receipt');
         },
@@ -463,6 +469,14 @@ legend {
 .red:hover{
     background-color: darkred;
 }
+.teal {
+    background-color: #0f766e;
+    color: white;
+    border: none;
+}
+.teal:hover {
+    background-color: #115e59;
+}
 .white:hover{
     background-color: lightgray;
 }
@@ -510,7 +524,20 @@ legend {
     margin-right: 20px;
 }
 .button-container {
-    display: flex-end;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+.action-toolbar {
+    padding: 8px 10px;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 6px;
+    background: rgba(0, 0, 0, 0.1);
+}
+.action-toolbar :deep(button) {
+    min-width: 150px;
+    justify-content: center;
 }
 .excel-table {
     border-collapse: separate;
@@ -668,5 +695,11 @@ input[type="number"].table-input {
     text-align: right;
     padding-right: 12px;
     font-family: 'Consolas', monospace;
+}
+
+@media (max-width: 768px) {
+    .action-toolbar :deep(button) {
+        min-width: 130px;
+    }
 }
 </style> 
