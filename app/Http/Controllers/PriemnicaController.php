@@ -207,8 +207,8 @@ class PriemnicaController extends Controller
 
     public function fetchPriemnica(Request $request)
     {
-        $warehouseId = $request->query('warehouse');
-        $perPage = $request->query('per_page', 20);
+        $warehouseId = $request->query('warehouse_id') ?? $request->query('warehouse');
+        $perPage = (int) $request->query('per_page', 20);
 
         $receiptsQuery = Priemnica::with(['client', 'articles' => function($query) {
             $query->withPivot('quantity', 'custom_price', 'custom_tax_type');
@@ -228,9 +228,9 @@ class PriemnicaController extends Controller
             $receiptsQuery->where('priemnica.warehouse', $warehouseId);
         }
 
-        $receipts = $receiptsQuery->get();
-
-        $priemnica = $receiptsQuery->paginate($perPage);
+        $priemnica = $receiptsQuery->orderBy('priemnica.fiscal_year', 'desc')
+            ->orderBy('priemnica.receipt_number', 'desc')
+            ->paginate($perPage);
 
         if ($request->wantsJson()) {
             return response()->json($priemnica);

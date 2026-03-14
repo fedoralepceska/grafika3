@@ -18,7 +18,7 @@
                         </h2>
                             <div class="pb-3">
                                 <label class="pr-3">{{ $t('filterWarehouse') }}</label>
-                                <select class="text-black rounded " v-model="selectedWarehouse" @change="fetchPriemnica">
+                                <select class="text-black rounded " v-model="selectedWarehouse" @change="fetchPriemnica(1)">
                                     <option value="All" hidden>{{ $t('warehouse') }}</option>
                                     <option value="All">{{ $t('allWarehouses') }}</option>
                                     <option v-for="warehouse in warehouses" :key="warehouse.id" :value="warehouse.id">
@@ -38,7 +38,7 @@
                                 </tr>
                             </thead>
                             <tbody>
-                                <template v-for="(item, index) in priemnica.data" :key="index">
+                                <template v-for="(item, index) in (priemnica.data || [])" :key="index">
                                     <template v-for="(article, articleIndex) in item.articles" :key="articleIndex">
                                         <tr>
                                             <th>{{ index + 1 }}</th>
@@ -52,7 +52,7 @@
 
 </table>
 
-                        <Pagination :pagination="priemnica" />
+                        <Pagination :pagination="priemnica" @pagination-change-page="fetchPriemnica" />
                     </div>
                 </div>
             </div>
@@ -89,7 +89,7 @@ export default {
             startWidth: 0,
             columnIndex: -1,
             perPage: 20,
-            priemnica: {},
+            priemnica: { data: [], links: [] },
             warehouses:[],
             selectedWarehouse: 'All',
         };
@@ -108,10 +108,14 @@ export default {
                     console.error('Error fetching warehouses:', error);
                 });
         },
-        async fetchPriemnica() {
+        async fetchPriemnica(page = 1) {
             try {
                 const response = await axios.get('/api/priemnica', {
-                    params: { warehouse_id: this.selectedWarehouse }
+                    params: {
+                        warehouse_id: this.selectedWarehouse,
+                        page,
+                        per_page: this.perPage,
+                    }
                 });
                 this.priemnica = response.data;
             } catch (error) {
