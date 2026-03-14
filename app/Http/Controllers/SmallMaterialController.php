@@ -158,6 +158,28 @@ class SmallMaterialController extends Controller
         ]);
     }
 
+    public function updateQuantity(Request $request, SmallMaterial $material)
+    {
+        $validated = $request->validate([
+            'quantity' => 'required|integer|min:0',
+            'passcode' => 'required|string|size:4',
+        ]);
+
+        $expectedPasscode = env('MATERIAL_RESET_PASSCODE', '9632');
+        if (($validated['passcode'] ?? '') !== $expectedPasscode) {
+            return response()->json(['error' => 'Invalid passcode'], 403);
+        }
+
+        $material->update([
+            'quantity' => $validated['quantity'],
+        ]);
+
+        return response()->json([
+            'message' => 'Small material quantity updated successfully.',
+            'material' => $material->fresh(['article']),
+        ]);
+    }
+
     public function smallDropdown()
     {
         try {

@@ -164,6 +164,28 @@ class LargeFormatMaterialController extends Controller
         ]);
     }
 
+    public function updateQuantity(Request $request, LargeFormatMaterial $material)
+    {
+        $validated = $request->validate([
+            'quantity' => 'required|integer|min:0',
+            'passcode' => 'required|string|size:4',
+        ]);
+
+        $expectedPasscode = env('MATERIAL_RESET_PASSCODE', '9632');
+        if (($validated['passcode'] ?? '') !== $expectedPasscode) {
+            return response()->json(['error' => 'Invalid passcode'], 403);
+        }
+
+        $material->update([
+            'quantity' => $validated['quantity'],
+        ]);
+
+        return response()->json([
+            'message' => 'Large material quantity updated successfully.',
+            'material' => $material->fresh(['article']),
+        ]);
+    }
+
     public function largeDropdown()
     {
         try {

@@ -318,6 +318,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/materials/small', [SmallMaterialController::class, 'getSmallMaterials'])->name('materials-small.getSmallMaterials');
     Route::get('/materials/small/all', [SmallMaterialController::class, 'getAllMaterials'])->name('materials-small.getAllMaterials');
     Route::post('/materials/small/reset-quantities', [SmallMaterialController::class, 'resetAllQuantities'])->name('materials-small.resetQuantities');
+    Route::put('/materials/small/{material}/quantity', [SmallMaterialController::class, 'updateQuantity'])->name('materials-small.updateQuantity');
     Route::get('/materials/pdf', [SmallMaterialController::class, 'generateSmallMaterialsPdf'])->name('materials.pdf');
     Route::get('/materials/all-pdf', [SmallMaterialController::class, 'generateAllSmallMaterialsPdf'])->name('materials.all-pdf');
     Route::get('/small/materials/create', [SmallMaterialController::class, 'create'])->name('materials.create');
@@ -334,6 +335,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/materials/large', [LargeFormatMaterialController::class, 'getLargeMaterials'])->name('largeMaterials.getLargeMaterials');
     Route::get('/materials/large/all', [LargeFormatMaterialController::class, 'getAllMaterials'])->name('largeMaterials.getAllMaterials');
     Route::post('/materials/large/reset-quantities', [LargeFormatMaterialController::class, 'resetAllQuantities'])->name('largeMaterials.resetQuantities');
+    Route::put('/materials/large/{material}/quantity', [LargeFormatMaterialController::class, 'updateQuantity'])->name('largeMaterials.updateQuantity');
     Route::get('/materials/large/pdf', [LargeFormatMaterialController::class, 'generateLargeMaterialsPdf'])->name('materials.large.pdf');
     Route::get('/materials/large/all-pdf', [LargeFormatMaterialController::class, 'generateAllLargeMaterialsPdf'])->name('materials.large.all-pdf');
     Route::get('/largeFormat/materials/create', [LargeFormatMaterialController::class, 'create'])->name('materials.create');

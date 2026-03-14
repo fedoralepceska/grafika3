@@ -84,6 +84,7 @@
                                     <th>{{$t('material')}}<div class="resizer" @mousedown="initResize($event, 1)"></div></th>
                                     <th>{{$t('Quantity')}}<div class="resizer" @mousedown="initResize($event, 3)"></div></th>
                                     <th style="width: 80px;">{{$t('Unit')}}<div class="resizer" @mousedown="initResize($event, 2)"></div></th>
+                                    <th style="width: 70px;">Actions</th>
                                 </tr>
                                 </thead>
                                 <tbody>
@@ -93,6 +94,11 @@
                                     <th>{{ m?.quantity }}</th>
                                     <th v-if="m.article">{{ getUnit(m) }}</th>
                                     <th v-else>/</th>
+                                    <th>
+                                        <button class="btn action-btn" @click.stop="openQuantityModal(m)" title="Update quantity" aria-label="Update quantity">
+                                            <i class="fas fa-edit"></i>
+                                        </button>
+                                    </th>
                                 </tr>
                                 </tbody>
                             </table>
@@ -100,6 +106,58 @@
                         </div>
                     </div>
                 </div>
+            </div>
+        </div>
+        <div v-if="showQuantityModal" class="modal-backdrop" @click.self="closeQuantityModal">
+            <div class="modal-card">
+                <template v-if="quantityModalStep === 1">
+                    <h3 class="modal-title">Update quantity</h3>
+                    <p class="modal-text">
+                        Set a new quantity for <strong>{{ targetMaterial?.name || 'this material' }}</strong>.
+                    </p>
+                    <input
+                        ref="quantityInput"
+                        v-model="editedQuantity"
+                        type="number"
+                        min="0"
+                        step="1"
+                        class="quantity-modal-input"
+                        placeholder="Enter new quantity"
+                    />
+                    <div class="modal-actions">
+                        <button class="btn modal-cancel" @click="closeQuantityModal" :disabled="updatingQuantity">Cancel</button>
+                        <button class="btn modal-confirm" @click="goToQuantityCodeStep" :disabled="updatingQuantity">
+                            Continue
+                        </button>
+                    </div>
+                </template>
+                <template v-else>
+                    <h3 class="modal-title">Confirm quantity update</h3>
+                    <p class="modal-text">
+                        New quantity: <strong>{{ editedQuantity }}</strong>
+                    </p>
+                    <p class="modal-text">Enter the 4-digit code to confirm.</p>
+                    <div class="code-inputs" @paste.prevent="onQuantityCodePaste">
+                        <input
+                            v-for="idx in 4"
+                            :key="idx"
+                            :ref="'quantityCodeInput' + (idx - 1)"
+                            type="password"
+                            inputmode="numeric"
+                            maxlength="1"
+                            class="code-box"
+                            :value="quantityCodeDigits[idx - 1]"
+                            @input="onQuantityCodeInput(idx - 1, $event)"
+                            @keydown="onQuantityCodeKeydown(idx - 1, $event)"
+                        />
+                    </div>
+                    <div class="modal-actions">
+                        <button class="btn modal-cancel" @click="goToQuantityInputStep" :disabled="updatingQuantity">Back</button>
+                        <button class="btn modal-confirm" @click="confirmQuantityUpdate" :disabled="updatingQuantity">
+                            {{ updatingQuantity ? 'Updating...' : 'Update quantity' }}
+                        </button>
+                    </div>
+                </template>
             </div>
         </div>
         <div v-if="showResetModal" class="modal-backdrop" @click.self="closeResetModal">
@@ -159,6 +217,12 @@ export default {
             showResetModal: false,
             codeDigits: ['', '', '', ''],
             resetting: false,
+            showQuantityModal: false,
+            quantityCodeDigits: ['', '', '', ''],
+            updatingQuantity: false,
+            targetMaterial: null,
+            editedQuantity: '',
+            quantityModalStep: 1,
         };
     },
     mounted() {
@@ -230,6 +294,135 @@ export default {
         async printAllMaterials() {
             const url = `/materials/all-pdf`;
             window.open(url, '_blank');
+        },
+        openQuantityModal(material) {
+            this.targetMaterial = material;
+            this.editedQuantity = material?.quantity ?? 0;
+            this.quantityCodeDigits = ['', '', '', ''];
+            this.quantityModalStep = 1;
+            this.showQuantityModal = true;
+            this.$nextTick(() => {
+                this.$refs.quantityInput?.focus();
+            });
+        },
+        closeQuantityModal(force = false) {
+            if (this.updatingQuantity && !force) return;
+            this.showQuantityModal = false;
+            this.targetMaterial = null;
+            this.editedQuantity = '';
+            this.quantityCodeDigits = ['', '', '', ''];
+            this.quantityModalStep = 1;
+            for (let i = 0; i < 4; i++) {
+                const el = this.getQuantityCodeInputRef(i);
+                if (el) el.value = '';
+            }
+        },
+        goToQuantityCodeStep() {
+            const toast = useToast();
+            const quantity = Number(this.editedQuantity);
+            if (!Number.isInteger(quantity) || quantity < 0) {
+                toast.error('Enter a valid quantity.');
+                return;
+            }
+
+            this.quantityModalStep = 2;
+            this.$nextTick(() => {
+                const first = this.getQuantityCodeInputRef(0);
+                if (first) first.focus();
+            });
+        },
+        goToQuantityInputStep() {
+            if (this.updatingQuantity) return;
+            this.quantityModalStep = 1;
+            this.quantityCodeDigits = ['', '', '', ''];
+            for (let i = 0; i < 4; i++) {
+                const el = this.getQuantityCodeInputRef(i);
+                if (el) el.value = '';
+            }
+            this.$nextTick(() => {
+                this.$refs.quantityInput?.focus();
+            });
+        },
+        getQuantityCodeInputRef(index) {
+            const ref = this.$refs[`quantityCodeInput${index}`];
+            return Array.isArray(ref) ? ref[0] : ref;
+        },
+        onQuantityCodeInput(index, event) {
+            const val = (event.target.value || '').replace(/\D/g, '').slice(0, 1);
+            this.quantityCodeDigits.splice(index, 1, val);
+            event.target.value = val;
+            if (val && index < 3) {
+                const next = this.getQuantityCodeInputRef(index + 1);
+                if (next) next.focus();
+            } else if (!val && index > 0) {
+                const prev = this.getQuantityCodeInputRef(index - 1);
+                if (prev) prev.focus();
+            }
+        },
+        onQuantityCodeKeydown(index, event) {
+            if (event.key === 'Backspace' && !event.target.value && index > 0) {
+                const prev = this.getQuantityCodeInputRef(index - 1);
+                if (prev) prev.focus();
+            }
+            if (event.key === 'ArrowLeft' && index > 0) {
+                const prev = this.getQuantityCodeInputRef(index - 1);
+                if (prev) prev.focus();
+                event.preventDefault();
+            }
+            if (event.key === 'ArrowRight' && index < 3) {
+                const next = this.getQuantityCodeInputRef(index + 1);
+                if (next) next.focus();
+                event.preventDefault();
+            }
+        },
+        onQuantityCodePaste(event) {
+            const text = (event.clipboardData || window.clipboardData).getData('text');
+            const digits = (text || '').replace(/\D/g, '').slice(0, 4).split('');
+            for (let i = 0; i < 4; i++) {
+                const d = digits[i] || '';
+                this.quantityCodeDigits.splice(i, 1, d);
+                const input = this.getQuantityCodeInputRef(i);
+                if (input) input.value = d;
+            }
+            const nextIndex = Math.min(digits.length, 3);
+            const next = this.getQuantityCodeInputRef(nextIndex);
+            if (next) next.focus();
+        },
+        async confirmQuantityUpdate() {
+            if (!this.targetMaterial || this.updatingQuantity) return;
+
+            const toast = useToast();
+            const quantity = Number(this.editedQuantity);
+            if (!Number.isInteger(quantity) || quantity < 0) {
+                toast.error('Enter a valid quantity.');
+                return;
+            }
+
+            const passcode = this.quantityCodeDigits.join('');
+            if (!passcode || passcode.length !== 4) {
+                toast.error('Enter 4-digit code.');
+                return;
+            }
+            if (passcode !== '9632') {
+                toast.error('Invalid code.');
+                return;
+            }
+
+            this.updatingQuantity = true;
+            try {
+                await axios.put(`/materials/small/${this.targetMaterial.id}/quantity`, {
+                    quantity,
+                    passcode,
+                });
+                await this.fetchSmallMaterials(this.smallMaterials?.current_page || 1);
+                this.closeQuantityModal(true);
+                toast.success('Small material quantity updated.');
+            } catch (error) {
+                const msg = error?.response?.data?.error || 'Failed to update quantity.';
+                toast.error(msg);
+            } finally {
+                this.updatingQuantity = false;
+            }
         },
         openResetModal() {
             this.showResetModal = true;
@@ -626,6 +819,21 @@ select{
     background-color: darkred;
 }
 
+.action-btn {
+    background-color: $blue;
+    color: white;
+    width: 34px;
+    height: 34px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+}
+
+.action-btn:hover {
+    background-color: cornflowerblue;
+}
+
 .modal-backdrop {
     position: fixed;
     inset: 0;
@@ -654,6 +862,16 @@ select{
 .modal-text {
     opacity: 0.9;
     margin-bottom: 14px;
+}
+
+.quantity-modal-input {
+    width: 100%;
+    margin-bottom: 14px;
+    padding: 10px 12px;
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    background: rgba(255, 255, 255, 0.95);
+    color: #111827;
 }
 
 .code-inputs {
