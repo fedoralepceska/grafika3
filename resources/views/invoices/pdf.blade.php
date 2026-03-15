@@ -311,7 +311,7 @@
             </tr>
             <tr>
                 <td class="tahoma" style="background-color: #F0EFEF; padding-left: 5px; border-bottom: 1px solid #cccccc;">Назив</td>
-                <td colspan="3">{{ $job->name }}</td>
+                <td colspan="3">{{ filled($job->faktura_override_name) ? $job->faktura_override_name : $job->name }}</td>
             </tr>
             <tr>
                 <td class="tahoma" style="background-color: #F0EFEF; padding-left: 5px; border-bottom: 1px solid #cccccc;">Работни фајлови</td>
