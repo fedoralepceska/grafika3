@@ -265,7 +265,7 @@ export default {
                 }
             });
             const q = qs.toString();
-            window.history.pushState({}, '', q ? `/statements?${q}` : '/statements');
+            window.history.replaceState({}, '', q ? `/statements?${q}` : '/statements');
         },
         onDateRangeChange() {
             const state = { dateFrom: this.dateFrom, dateTo: this.dateTo };

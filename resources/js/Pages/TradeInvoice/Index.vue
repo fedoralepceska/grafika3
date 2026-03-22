@@ -490,7 +490,7 @@ export default {
                     qs.set(k, String(v));
                 }
             });
-            window.history.pushState({}, '', `/trade-invoices?${qs.toString()}`);
+            window.history.replaceState({}, '', `/trade-invoices?${qs.toString()}`);
         },
         onSearchSubmit() {
             this.searchQuery = (this.searchInput || '').trim();

@@ -310,7 +310,8 @@ export default {
                 });
                 this.localCardStatements = response.data.data;
                 this.paginationState = response.data;
-                window.history.pushState({}, '', this.getRedirectUrl(page));
+                // replaceState: one history entry for the list + filters (Back from detail returns here in one step).
+                window.history.replaceState({}, '', this.getRedirectUrl(page));
             } catch (error) {
                 console.error(error);
             }

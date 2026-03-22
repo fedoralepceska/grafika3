@@ -271,7 +271,7 @@ export default {
                 }
             });
             const q = qs.toString();
-            window.history.pushState({}, '', q ? `/receipt?${q}` : '/receipt');
+            window.history.replaceState({}, '', q ? `/receipt?${q}` : '/receipt');
         },
         onSearchSubmit() {
             this.searchQuery = (this.searchInput || '').trim();

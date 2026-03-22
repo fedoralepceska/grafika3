@@ -292,7 +292,7 @@ export default {
                 });
                 this.localFakturas = response.data;
                 const redirectUrl = `/allInvoices${this.buildHistoryQueryString(page)}`;
-                window.history.pushState({}, '', redirectUrl);
+                window.history.replaceState({}, '', redirectUrl);
             } catch (error) {
                 console.error('Error applying filters:', error);
             } finally {

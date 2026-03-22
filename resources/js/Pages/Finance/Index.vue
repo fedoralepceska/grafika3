@@ -79,7 +79,7 @@
                                 <th class="order-column">Order</th>
                                 <th>Title</th>
                                 <th class="customer-column">Customer</th>
-                                <th>Files</th>
+                                <th class="files-column">Files</th>
                                 <th>End Date</th>
                                 <th>Created By</th>
                                 <th>Status</th>
@@ -121,7 +121,7 @@
                                 <td class="customer-column">
                                     <FinanceClientNameCell :name="invoice.client?.name || ''" variant="secondary" />
                                 </td>
-                                <td>
+                                <td class="files-cell">
                                     <div class="thumbnail-section">
                                         <template v-if="invoice.jobs && invoice.jobs.length > 0">
                                             <div class="invoice-thumbnails-container">
@@ -592,7 +592,7 @@ export default {
                     ? response.data
                     : { data: this.filteredInvoices, links: [] };
 
-                window.history.pushState({}, '', `/notInvoiced${this.buildHistoryQueryString(page)}`);
+                window.history.replaceState({}, '', `/notInvoiced${this.buildHistoryQueryString(page)}`);
             } catch (error) {
                 console.error('Error applying filters:', error);
             } finally {
@@ -1244,41 +1244,75 @@ select {
     }
 }
 
-/* Thumbnail styles */
+/* Thumbnail styles — Files column scrolls horizontally when many attachments */
+.files-column {
+    width: 1%;
+    max-width: 320px;
+}
+
+.files-cell {
+    max-width: 320px;
+    min-width: 0;
+    vertical-align: middle;
+}
+
 .thumbnail-section {
-    min-width: 140px;
-    max-width: 180px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    overflow: visible;
-    flex-shrink: 0;
+    min-width: 0;
+    max-width: 100%;
+    display: block;
+    overflow-x: auto;
+    overflow-y: visible;
+    padding-bottom: 4px;
+    -webkit-overflow-scrolling: touch;
+
+    /* Thin scrollbar (dark UI) */
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 255, 255, 0.28) rgba(255, 255, 255, 0.06);
+
+    &::-webkit-scrollbar {
+        height: 6px;
+    }
+
+    &::-webkit-scrollbar-track {
+        background: rgba(255, 255, 255, 0.06);
+        border-radius: 4px;
+    }
+
+    &::-webkit-scrollbar-thumb {
+        background: rgba(255, 255, 255, 0.28);
+        border-radius: 4px;
+    }
 }
 
 .invoice-thumbnails-container {
     display: flex;
+    flex-direction: row;
+    flex-wrap: nowrap;
     align-items: center;
-    width: 100%;
-    gap: 4px;
+    width: max-content;
+    max-width: none;
+    gap: 6px;
 }
 
 .multiple-thumbnails-row {
     display: flex;
     flex-direction: row;
+    flex-wrap: nowrap;
     gap: 4px;
-    justify-content: center;
+    justify-content: flex-start;
     align-items: center;
-    max-width: 180px;
+    flex: 0 0 auto;
 }
 
 .single-thumbnail-container {
     display: flex;
-    justify-content: center;
+    justify-content: flex-start;
     align-items: center;
-    max-width: 180px;
+    flex: 0 0 auto;
 }
 
 .file-thumbnail-wrapper {
+    flex-shrink: 0;
     position: relative;
     border-radius: 4px;
     overflow: hidden;
@@ -1439,14 +1473,13 @@ select {
 }
 
 @media (max-width: 640px) {
-    .thumbnail-section {
-        min-width: 100px;
-        max-width: 120px;
+    .files-column,
+    .files-cell {
+        max-width: 220px;
     }
 
     .multiple-thumbnails-row {
         gap: 4px;
-        max-width: 100px;
     }
 
     .preview-thumbnail-img {

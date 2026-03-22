@@ -342,7 +342,7 @@ export default {
                     params: this.buildParams(page),
                 });
                 this.localIncoming = data;
-                window.history.pushState({}, '', `/incomingInvoice${this.buildHistoryQuery(page)}`);
+                window.history.replaceState({}, '', `/incomingInvoice${this.buildHistoryQuery(page)}`);
             } catch (e) {
                 console.error(e);
             } finally {

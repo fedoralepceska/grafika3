@@ -280,7 +280,9 @@ export default {
                 }
             });
             const q = qs.toString();
-            window.history.pushState({}, '', q ? `/cardStatement/${this.cardStatement.id}?${q}` : `/cardStatement/${this.cardStatement.id}`);
+            // Use replaceState so filter/pagination URL updates don't add extra history entries
+            // (otherwise Back from this page steps through stale URLs before returning to the list).
+            window.history.replaceState({}, '', q ? `/cardStatement/${this.cardStatement.id}?${q}` : `/cardStatement/${this.cardStatement.id}`);
         },
         fetchTableData(page = 1) {
             const params = this.buildCcsParams(page);
