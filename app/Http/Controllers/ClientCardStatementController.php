@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Client;
 use App\Models\ClientCardStatement;
 use App\Models\Faktura;
 use App\Models\IncomingFaktura;
@@ -23,9 +24,15 @@ class ClientCardStatementController extends Controller
         try {
             $query = ClientCardStatement::with('client');
 
-            if ($request->has('searchQuery')) {
-                $searchQuery = $request->input('searchQuery');
-                $query->where('account', 'like', "%$searchQuery%");
+            if ($request->filled('searchQuery')) {
+                $searchQuery = trim((string) $request->input('searchQuery'));
+                if ($searchQuery !== '') {
+                    $query->where(function ($q) use ($searchQuery) {
+                        $q->where('account', 'like', "%{$searchQuery}%")
+                            ->orWhere('name', 'like', "%{$searchQuery}%")
+                            ->orWhere('bank', 'like', "%{$searchQuery}%");
+                    });
+                }
             }
 
             if ($request->has('sortOrder')) {
@@ -33,19 +40,38 @@ class ClientCardStatementController extends Controller
                 $query->orderBy('created_at', $sortOrder);
             }
 
-            if ($request->has('client')) {
+            if ($request->filled('client_id')) {
+                $query->where('client_id', (int) $request->input('client_id'));
+            } elseif ($request->has('client') && $request->input('client') !== 'All') {
                 $client = $request->input('client');
-                if ($client != 'All') {
-                    $query->where('client_id', $client);
+                $query->where('client_id', $client);
+            }
+
+            if ($request->filled('date_from')) {
+                $query->whereDate('created_at', '>=', $request->input('date_from'));
+            }
+            if ($request->filled('date_to')) {
+                $query->whereDate('created_at', '<=', $request->input('date_to'));
+            }
+            if ($request->filled('fiscal_year')) {
+                $query->whereYear('created_at', (int) $request->input('fiscal_year'));
+            }
+            if ($request->filled('month')) {
+                $month = (int) $request->input('month');
+                if ($month >= 1 && $month <= 12) {
+                    $query->whereMonth('created_at', $month);
                 }
             }
-            $clientCards = $query->latest()->paginate(10);
+            $perPage = (int) $request->input('per_page', 20);
+            $perPage = max(1, min($perPage, 200));
+            $clientCards = $query->paginate($perPage)->withQueryString();
             if ($request->wantsJson()) {
                 return response()->json($clientCards);
             }
 
             return Inertia::render('Finance/CardStatements', [
                 'clientCards' => $clientCards,
+                'clients' => Client::query()->orderBy('name')->get(['id', 'name']),
             ]);
         } catch (\Exception $e) {
             Log::error($e->getMessage());
@@ -291,54 +317,97 @@ class ClientCardStatementController extends Controller
         $tableData = array_merge($formattedItems, $formattedIncomingInvoices, $formattedFakturas, $formattedTradeInvoices);
         usort($tableData, fn ($a, $b) => strtotime($a['date']) <=> strtotime($b['date']));
 
-        // Paginate table data
-        $page = $request->query('page', 1);
-        $perPage = $request->query('per_page', 20);
-        $paginatedTableData = collect($tableData)->slice(($page - 1) * $perPage, $perPage)->values();
-        $pagination = new \Illuminate\Pagination\LengthAwarePaginator($paginatedTableData, count($tableData), $perPage, $page, [
-            'path' => $request->url(),
-            'query' => $request->query(),
-        ]);
+        // Optional row-level filters (search + fiscal year + month on row date)
+        if ($request->filled('searchQuery')) {
+            $needle = mb_strtolower(trim((string) $request->input('searchQuery')));
+            if ($needle !== '') {
+                $tableData = array_values(array_filter($tableData, function ($row) use ($needle) {
+                    $hay = mb_strtolower(
+                        ($row['date'] ?? '').' '.
+                        ($row['document'] ?? '').' '.
+                        ($row['number'] ?? '').' '.
+                        ($row['comment'] ?? '')
+                    );
 
-        // Calculate total statement expense
-        $totalStatementExpense = collect($formattedItems)->sum('statement_expense');
+                    return str_contains($hay, $needle);
+                }));
+            }
+        }
 
-        // Calculate total output invoice amount (including trade invoices)
-        $totalOutputInvoice = collect($formattedFakturas)->sum('output_invoice') + collect($formattedTradeInvoices)->sum('output_invoice');
+        if ($request->filled('fiscal_year')) {
+            $fy = (int) $request->input('fiscal_year');
+            $tableData = array_values(array_filter($tableData, function ($row) use ($fy) {
+                $ts = strtotime($row['date'] ?? '');
+                if ($ts === false) {
+                    return false;
+                }
 
-        // Calculate total statement income
-        $totalStatementIncome = collect($formattedItems)->sum('statement_income');
+                return (int) date('Y', $ts) === $fy;
+            }));
+        }
 
-        // Calculate total incoming invoice
-        $totalIncomingInvoice = collect($formattedIncomingInvoices)->sum('incoming_invoice');
+        if ($request->filled('month')) {
+            $mo = (int) $request->input('month');
+            if ($mo >= 1 && $mo <= 12) {
+                $tableData = array_values(array_filter($tableData, function ($row) use ($mo) {
+                    $ts = strtotime($row['date'] ?? '');
+                    if ($ts === false) {
+                        return false;
+                    }
 
-        // Calculate total amount owed
+                    return (int) date('n', $ts) === $mo;
+                }));
+            }
+        }
+
+        $rows = collect($tableData);
+        $totalStatementIncome = (float) $rows->sum('statement_income');
+        $totalIncomingInvoice = (float) $rows->sum('incoming_invoice');
+        $totalStatementExpense = (float) $rows->sum('statement_expense');
+        $totalOutputInvoice = (float) $rows->sum('output_invoice');
+
         $owes = $totalStatementExpense + $totalOutputInvoice;
-
-        // Calculate total amount requested (income)
         $requests = $totalStatementIncome + $totalIncomingInvoice;
 
-        if ($cardStatement->initial_cash < 0) {
-            $owes += $cardStatement->initial_cash;
-        } else {
-            $requests += $cardStatement->initial_cash;
+        // Opening balance: only when no date range filter (full statement view)
+        $hasDateRange = $fromDate || $toDate;
+        if (! $hasDateRange) {
+            if ($cardStatement->initial_cash < 0) {
+                $owes += $cardStatement->initial_cash;
+            } else {
+                $requests += $cardStatement->initial_cash;
+            }
         }
 
         $totalBalance = $owes > $requests ? $owes - $requests : $requests - $owes;
 
-
+        // Paginate filtered table data
+        $page = (int) $request->query('page', 1);
+        $perPage = (int) $request->query('per_page', 20);
+        $perPage = max(1, min($perPage, 200));
+        $totalRows = count($tableData);
+        $paginatedTableData = collect($tableData)->slice(($page - 1) * $perPage, $perPage)->values();
+        $pagination = new LengthAwarePaginator($paginatedTableData, $totalRows, $perPage, $page, [
+            'path' => $request->url(),
+            'query' => $request->query(),
+        ]);
 
         if ($request->wantsJson()) {
-            return response()->json($pagination);
+            $payload = $pagination->toArray();
+            $payload['owes'] = $owes;
+            $payload['requests'] = $requests;
+            $payload['balance'] = $totalBalance;
+
+            return response()->json($payload);
         }
 
         return Inertia::render('Finance/ClientCardStatement', [
             'cardStatement' => $cardStatement,
-            'client' => $client, // Include client information
+            'client' => $client,
             'tableData' => $pagination,
             'owes' => $owes,
             'requests' => $requests,
-            'balance' => $totalBalance
+            'balance' => $totalBalance,
         ]);
     }
 

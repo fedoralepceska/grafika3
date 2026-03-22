@@ -1,52 +1,54 @@
 <template>
     <MainLayout>
-        <div class="pl-7 pr-7">
+        <div class="receipt-create-page px-4 sm:px-6 lg:px-7">
             <Header title="receipt" subtitle="addNewReceipt" icon="Materials.png" link="receipt"/>
-            <div class="dark-gray p-5">
+            <div class="dark-gray p-5 receipt-create-shell">
                 <div class="form-container p-2 light-gray">
-                    <div class="flex gap-2 upper">
-                        <div class="border p-2 mb-2 mag">
+                    <div class="receipt-top">
+                        <div class="border p-2 mb-2 mag receipt-panel receipt-panel--warehouse">
                             <h2 class="text-white bold">
                                 {{$t('warehouse')}}
                             </h2>
                             <div class="px-4 py-1">
-                                <select v-model="selectedWarehouseId" @change="updateWarehouseDetails" class="text-gray-700 rounded" style="width: 40vh;">
+                                <select v-model="selectedWarehouseId" @change="updateWarehouseDetails" class="text-gray-700 rounded receipt-input">
                                     <option v-for="warehouse in warehouses" :key="warehouse.id" :value="warehouse.id">
                                         {{ warehouse.name }}
                                     </option>
                                 </select>
                             </div>
                             <div class="px-4 pb-1">
-                                <input type="text" v-model="selectedWarehouse.address" class="text-gray-500 rounded" style="width: 40vh;" readonly>
+                                <input type="text" v-model="selectedWarehouse.address" class="text-gray-500 rounded receipt-input" readonly>
                             </div>
                             <div class="px-4 pb-1">
-                                <input type="text" v-model="selectedWarehouse.phone" class="text-gray-500 rounded" style="width: 40vh;" readonly>
+                                <input type="text" v-model="selectedWarehouse.phone" class="text-gray-500 rounded receipt-input" readonly>
                             </div>
                         </div>
-                        <div class="border p-2 mb-2 cl flex gap-16">
-                            <div>
-                                <h2 class="text-white bold">
-                                    {{ $t('client') }}
-                                </h2>
-                                <div class="px-4 py-1">
-                                    <select v-model="selectedClientId" @change="updateClientDetails" class="text-gray-700 rounded" style="width: 72vh;">
-                                        <option v-for="client in clients" :key="client.id" :value="client.id">
-                                            {{ client.name }}
-                                        </option>
-                                    </select>
+                        <div class="border p-2 mb-2 cl receipt-panel receipt-panel--client">
+                            <div class="receipt-client-date-row">
+                                <div class="receipt-client-block">
+                                    <h2 class="text-white bold">
+                                        {{ $t('client') }}
+                                    </h2>
+                                    <div class="px-4 py-1">
+                                        <select v-model="selectedClientId" @change="updateClientDetails" class="text-gray-700 rounded receipt-input">
+                                            <option v-for="client in clients" :key="client.id" :value="client.id">
+                                                {{ client.name }}
+                                            </option>
+                                        </select>
+                                    </div>
+                                    <div class="px-4 pb-1 receipt-inline-fields">
+                                        <input v-model="selectedClient.address" type="text" class="text-gray-500 rounded receipt-input receipt-input--grow" readonly>
+                                        <input v-model="selectedClient.city" type="text" class="text-gray-500 rounded receipt-input receipt-input--grow" readonly>
+                                    </div>
+                                    <div class="px-4 pb-1 receipt-inline-fields">
+                                        <input v-model="selectedClientCardStatement.name" type="text" class="text-gray-500 rounded receipt-input receipt-input--grow" readonly>
+                                        <input v-model="selectedClientCardStatement.phone" type="text" class="text-gray-500 rounded receipt-input receipt-input--grow" readonly>
+                                    </div>
                                 </div>
-                                <div class="px-4 pb-1 gap-1 flex">
-                                    <input v-model="selectedClient.address" type="text" class="text-gray-500 rounded" style="width: 40vh;" readonly>
-                                    <input v-model="selectedClient.city" type="text" class="text-gray-500 rounded" style="width: 31.3vh;" readonly>
+                                <div class="receipt-date-block">
+                                    <h2 class="text-white bold">{{$t('Date')}}</h2>
+                                    <input type="date" class="text-gray-700 rounded receipt-input receipt-input--date" v-model="selectedDate">
                                 </div>
-                                <div class="px-4 pb-1 gap-1 flex">
-                                    <input v-model="selectedClientCardStatement.name" type="text" class="text-gray-500 rounded" style="width: 25vh;" readonly>
-                                    <input v-model="selectedClientCardStatement.phone" type="text" class="text-gray-500 rounded" style="width: 46.3vh;" readonly>
-                                </div>
-                            </div>
-                            <div>
-                                 <h2 class="text-white bold">{{$t('Date')}}</h2>
-                                <input type="date" class="text-gray-700 rounded" style="width: 40vh;" v-model="selectedDate">
                             </div>
                         </div>
                     </div>
@@ -121,7 +123,8 @@
                             </SecondaryButton>
                         </div>
                     </div>
-                    <form @submit.prevent="" class="flex gap-3 justify-center overflow-x-auto">
+                    <div class="receipt-table-wrap">
+                    <form @submit.prevent="" class="receipt-table-form">
                         <table class="excel-table">
                             <thead>
                             <tr>
@@ -209,6 +212,7 @@
                             </tbody>
                         </table>
                     </form>
+                    </div>
                     <div class="button-container mt-10">
                         <PrimaryButton @click="showCreateConfirm = true" type="button">
                             {{ $t('createReceipt') || 'Create Receipt' }}
@@ -696,16 +700,97 @@ $red: #9e2c30;
     background-color: $ultra-light-gray;
     border:transparent;
 }
-.upper{
+/* Add receipt — responsive header (warehouse / client / date) */
+.receipt-create-page {
+    max-width: 100%;
+    overflow-x: hidden;
+    box-sizing: border-box;
+}
+.receipt-create-shell {
+    max-width: 100%;
+    min-width: 0;
+    overflow-x: hidden;
+}
+
+/* Keeps wide table from expanding the page; scroll only inside this strip */
+.receipt-table-wrap {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    overflow-x: auto;
+    overflow-y: visible;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-x: contain;
+    border-radius: 4px;
+}
+.receipt-table-form {
+    display: block;
+    width: 100%;
+    min-width: 0;
+    margin: 0;
+}
+.receipt-top {
     display: flex;
-    justify-content: space-around;
+    flex-wrap: wrap;
+    gap: 12px;
+    align-items: stretch;
+    justify-content: flex-start;
+    width: 100%;
+}
+.receipt-panel {
+    flex: 1 1 min(100%, 420px);
+    min-width: 0;
+    box-sizing: border-box;
+}
+.receipt-panel--warehouse {
+    flex: 1 1 min(100%, 360px);
+    max-width: 100%;
 }
 .mag {
-    width: fit-content;
+    width: 100%;
+    max-width: 100%;
     border-radius: 3px;
 }
 .cl {
     border-radius: 3px;
+}
+.receipt-client-date-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 20px;
+    align-items: flex-start;
+    width: 100%;
+}
+.receipt-client-block {
+    flex: 1 1 260px;
+    min-width: 0;
+}
+.receipt-date-block {
+    flex: 0 1 220px;
+    min-width: 0;
+    box-sizing: border-box;
+}
+.receipt-inline-fields {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+}
+.receipt-input {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+}
+.receipt-input--grow {
+    flex: 1 1 140px;
+    min-width: 0;
+}
+.receipt-input--date {
+    max-width: 100%;
+}
+.receipt-panel--client {
+    flex: 1 1 min(100%, 720px);
 }
 .bold {
     font-weight: bolder;
@@ -756,6 +841,9 @@ legend {
     border-radius: 6px;
     padding: 12px;
     background: rgba(0,0,0,0.12);
+    max-width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
 }
 .import-mapping-title{
     color: #fff;
@@ -765,8 +853,9 @@ legend {
 }
 .import-mapping-grid{
     display: grid;
-    grid-template-columns: repeat(5, minmax(130px, 1fr));
+    grid-template-columns: repeat(5, minmax(0, 1fr));
     gap: 10px;
+    min-width: 0;
 }
 .import-map-item{
     display: flex;
@@ -796,9 +885,21 @@ legend {
     justify-content: left;
     align-items: center;
     min-height: 20vh;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
 }
 .light-gray {
     background-color: $light-gray;
+}
+.form-container {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    min-width: 0;
+    max-width: 100%;
+    box-sizing: border-box;
 }
 .client-form {
     width: 100%;
@@ -1131,16 +1232,39 @@ input[type="number"].table-input {
 
 @media (max-width: 1200px){
     .import-mapping-grid{
-        grid-template-columns: repeat(3, minmax(130px, 1fr));
+        grid-template-columns: repeat(3, minmax(0, 1fr));
     }
 }
 
 @media (max-width: 768px){
     .import-mapping-grid{
-        grid-template-columns: repeat(2, minmax(120px, 1fr));
+        grid-template-columns: repeat(2, minmax(0, 1fr));
     }
     .action-toolbar :deep(button){
-        min-width: 130px;
+        min-width: 0;
+        flex: 1 1 100%;
+        max-width: 100%;
+    }
+    .receipt-top {
+        flex-direction: column;
+    }
+    .receipt-panel--warehouse,
+    .receipt-panel--client {
+        flex: 1 1 100%;
+        max-width: 100%;
+    }
+    .receipt-date-block {
+        flex: 1 1 100%;
+        width: 100%;
+    }
+    .receipt-input--date {
+        width: 100%;
+    }
+}
+
+@media (max-width: 480px){
+    .import-mapping-grid{
+        grid-template-columns: 1fr;
     }
 }
 </style>

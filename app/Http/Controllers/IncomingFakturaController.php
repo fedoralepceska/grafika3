@@ -48,11 +48,29 @@ class IncomingFakturaController extends Controller
                 $query->where('billing_type', $billType);
             }
 
+            if ($request->filled('date_from')) {
+                $query->whereDate('created_at', '>=', $request->input('date_from'));
+            }
+            if ($request->filled('date_to')) {
+                $query->whereDate('created_at', '<=', $request->input('date_to'));
+            }
+            if ($request->filled('fiscal_year')) {
+                $query->whereYear('created_at', (int) $request->input('fiscal_year'));
+            }
+            if ($request->filled('month')) {
+                $month = (int) $request->input('month');
+                if ($month >= 1 && $month <= 12) {
+                    $query->whereMonth('created_at', $month);
+                }
+            }
+
             // Sort by date
             $sortOrder = $request->input('sortOrder', 'desc');
             $query->orderBy('created_at', $sortOrder);
 
-            $incomingInvoice = $query->paginate(10);
+            $perPage = (int) $request->input('per_page', 20);
+            $perPage = max(1, min($perPage, 200));
+            $incomingInvoice = $query->paginate($perPage)->withQueryString();
 
             $incomingInvoice->getCollection()->transform(function ($invoice) {
                 return [

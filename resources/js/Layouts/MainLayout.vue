@@ -143,10 +143,10 @@ const showingNavigationDropdown = ref(false);
         </nav>
         <!-- SIDEBAR START-->
         <div class="flex main-content">
-            <div >
-                <SideMenu  class="md:block w-1/6"/>
+            <div class="main-sidebar-slot">
+                <SideMenu class="md:block w-1/6"/>
             </div>
-            <div class="width">
+            <div class="main-slot width">
                 <slot/>
             </div>
         </div>
@@ -219,13 +219,28 @@ export default {
         transform: translateX(-100%);
         opacity: 0;
     }
-    .width {
-        width: 100%;
-        margin-left: 70px;
-    }
-
+    /* Sidebar is position:fixed; content must not use width:100% + margin or the page gains horizontal scroll */
     .main-content {
         width: 100%;
+        max-width: 100%;
+        min-width: 0;
+        box-sizing: border-box;
+    }
+
+    /* Sidebar menu is position:fixed — don't reserve a second column width or content + margin overflows */
+    .main-sidebar-slot {
+        flex: 0 0 0;
+        width: 0;
+        min-width: 0;
+        overflow: visible;
+    }
+
+    .main-slot.width {
+        flex: 1 1 0%;
+        min-width: 0;
+        max-width: 100%;
+        margin-left: 70px;
+        box-sizing: border-box;
     }
     .counter-container {
         display: flex;

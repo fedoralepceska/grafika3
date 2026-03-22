@@ -81,7 +81,9 @@ class InvoiceController extends Controller
 
             $query->orderBy('created_at', $request->input('sortOrder', 'desc'));
 
-            $invoices = $query->latest()->paginate(10);
+            $perPage = (int) $request->input('per_page', 20);
+            $perPage = max(1, min($perPage, 200));
+            $invoices = $query->latest()->paginate($perPage);
 
             // Load thumbnails for all jobs
             $this->loadThumbnailsForInvoices($invoices->items());
@@ -124,7 +126,9 @@ class InvoiceController extends Controller
         if ($status && $status !== 'All') {
             $query->where('status', $status);
         }
-        if ($request->has('client') && $request->input('client') !== 'All') {
+        if ($request->filled('client_id')) {
+            $query->where('client_id', (int) $request->input('client_id'));
+        } elseif ($request->has('client') && $request->input('client') !== 'All') {
             $client = $request->input('client');
 
             $query->whereHas('client', function ($subquery) use ($client) {
@@ -139,6 +143,30 @@ class InvoiceController extends Controller
             });
         }
     }
+
+    /**
+     * Date range, calendar year, and month on invoice created_at (Not Invoiced list).
+     * fiscal_year param filters by calendar year of created_at (orders have no faktura fiscal year).
+     */
+    protected function applyUninvoicedListFilters($query, Request $request): void
+    {
+        if ($request->filled('date_from')) {
+            $query->whereDate('created_at', '>=', $request->input('date_from'));
+        }
+        if ($request->filled('date_to')) {
+            $query->whereDate('created_at', '<=', $request->input('date_to'));
+        }
+        if ($request->filled('fiscal_year')) {
+            $query->whereYear('created_at', (int) $request->input('fiscal_year'));
+        }
+        if ($request->filled('month')) {
+            $month = (int) $request->input('month');
+            if ($month >= 1 && $month <= 12) {
+                $query->whereMonth('created_at', $month);
+            }
+        }
+    }
+
     public function create()
     {
         return Inertia::render('Invoice/InvoiceForm', [
@@ -1324,9 +1352,13 @@ class InvoiceController extends Controller
                 $q->where('name', 'Физичко лице');
             });
 
+            $this->applyUninvoicedListFilters($query, $request);
+
             $query->orderBy('created_at', $request->input('sortOrder', 'desc'));
 
-            $invoices = $query->latest()->paginate(10);
+            $perPage = (int) $request->input('per_page', 20);
+            $perPage = max(1, min($perPage, 200));
+            $invoices = $query->paginate($perPage)->withQueryString();
 
             if ($request->wantsJson()) {
                 return response()->json($invoices);
@@ -1375,13 +1407,15 @@ class InvoiceController extends Controller
                 $q->where('name', 'Физичко лице');
             });
 
+            $this->applyUninvoicedListFilters($query, $request);
+
             // Apply sort order
             $query->orderBy('created_at', $request->input('sortOrder', 'desc'));
 
             // Get paginated results
-            $perPage = (int) $request->input('per_page', 10);
+            $perPage = (int) $request->input('per_page', 20);
             $perPage = max(1, min($perPage, 200));
-            $invoices = $query->latest()->paginate($perPage);
+            $invoices = $query->paginate($perPage)->withQueryString();
 
             // Load thumbnails for all jobs
             $this->loadThumbnailsForInvoices($invoices->items());
@@ -1416,72 +1450,122 @@ class InvoiceController extends Controller
         }
     }
 
+    /**
+     * Shared eager-load for All Invoices list (Inertia + JSON filter API).
+     */
+    protected function allInvoicesListBaseQuery()
+    {
+        return Faktura::with([
+            'createdBy:id,name',
+            'invoices.client:id,name',
+            'invoices.user:id,name',
+            'jobs.client:id,name',
+            'parentOrder:id,invoice_title',
+            'parentOrder.client:id,name',
+            'tradeItems.article:id,name,code',
+            'client:id,name',
+        ])->where('isInvoiced', 1);
+    }
+
+    /**
+     * Apply search, client, date range, fiscal year, and month filters to the All Invoices query.
+     */
+    protected function applyAllInvoicesListFilters($query, Request $request): void
+    {
+        // Search by faktura number (not DB id)
+        if ($request->filled('searchQuery')) {
+            $searchQuery = ltrim((string) $request->input('searchQuery'), '#');
+            if ($searchQuery !== '') {
+                $query->where('faktura_number', 'like', '%'.$searchQuery.'%');
+            }
+        }
+
+        // Client: prefer stable client_id from UI
+        if ($request->filled('client_id')) {
+            $clientId = (int) $request->input('client_id');
+            $query->where(function ($q) use ($clientId) {
+                $q->whereHas('client', function ($sub) use ($clientId) {
+                    $sub->where('id', $clientId);
+                })
+                    ->orWhere(function ($sub) use ($clientId) {
+                        $sub->whereNull('client_id')
+                            ->where(function ($inner) use ($clientId) {
+                                $inner->whereHas('invoices.client', function ($qq) use ($clientId) {
+                                    $qq->where('id', $clientId);
+                                })
+                                    ->orWhereHas('jobs.client', function ($qq) use ($clientId) {
+                                        $qq->where('id', $clientId);
+                                    })
+                                    ->orWhereHas('parentOrder.client', function ($qq) use ($clientId) {
+                                        $qq->where('id', $clientId);
+                                    });
+                            });
+                    });
+            });
+        } elseif ($request->has('client') && $request->input('client') !== 'All' && $request->input('client') !== '') {
+            $client = $request->input('client');
+            $query->where(function ($query) use ($client) {
+                $query->whereHas('client', function ($q) use ($client) {
+                    $q->where('name', $client);
+                })
+                    ->orWhere(function ($q) use ($client) {
+                        $q->whereNull('client_id')
+                            ->where(function ($sub) use ($client) {
+                                $sub->whereHas('invoices.client', function ($qq) use ($client) {
+                                    $qq->where('name', $client);
+                                })
+                                    ->orWhereHas('jobs.client', function ($qq) use ($client) {
+                                        $qq->where('name', $client);
+                                    })
+                                    ->orWhereHas('parentOrder.client', function ($qq) use ($client) {
+                                        $qq->where('name', $client);
+                                    });
+                            });
+                    });
+            });
+        }
+
+        if ($request->filled('date_from')) {
+            $query->whereDate('created_at', '>=', $request->input('date_from'));
+        }
+        if ($request->filled('date_to')) {
+            $query->whereDate('created_at', '<=', $request->input('date_to'));
+        }
+
+        if ($request->filled('fiscal_year')) {
+            $query->where('fiscal_year', (int) $request->input('fiscal_year'));
+        }
+
+        if ($request->filled('month')) {
+            $month = (int) $request->input('month');
+            if ($month >= 1 && $month <= 12) {
+                $query->whereMonth('created_at', $month);
+            }
+        }
+    }
+
     public function getFilteredAllInvoices(Request $request)
     {
         try {
-            $query = Faktura::with([
-                'createdBy:id,name',
-                'invoices.client:id,name',
-                'invoices.user:id,name',
-                'jobs.client:id,name', // For split invoices
-                'parentOrder:id,invoice_title', // For split invoices
-                'parentOrder.client:id,name', // For split invoices
-                'tradeItems.article:id,name,code',
-                // Eager-load faktura-level client override for listing
-                'client:id,name'
-            ])->where('isInvoiced', 1); // Filter for generated Fakturas (isInvoiced = 1)
-
-            // Apply search query if provided - search by faktura_number instead of id
-            if ($request->has('searchQuery') && $request->input('searchQuery')) {
-                $searchQuery = $request->input('searchQuery');
-                // Remove # prefix if present for convenience
-                $searchQuery = ltrim($searchQuery, '#');
-                $query->where('faktura_number', 'like', "%{$searchQuery}%");
-            }
-
-            // Apply filter client if provided
-            if ($request->has('client') && $request->input('client') !== 'All') {
-                $client = $request->input('client');
-                $query->where(function ($query) use ($client) {
-                    // Prefer override: faktura.client name
-                    $query->whereHas('client', function ($q) use ($client) {
-                        $q->where('name', $client);
-                    })
-                    // If no override (client_id null), fall back to invoice/job/parent order client names
-                    ->orWhere(function ($q) use ($client) {
-                        $q->whereNull('client_id')
-                          ->where(function ($sub) use ($client) {
-                              $sub->whereHas('invoices.client', function ($qq) use ($client) {
-                                      $qq->where('name', $client);
-                                  })
-                                  ->orWhereHas('jobs.client', function ($qq) use ($client) {
-                                      $qq->where('name', $client);
-                                  })
-                                  ->orWhereHas('parentOrder.client', function ($qq) use ($client) {
-                                      $qq->where('name', $client);
-                                  });
-                          });
-                    });
-                });
-            }
+            $query = $this->allInvoicesListBaseQuery();
+            $this->applyAllInvoicesListFilters($query, $request);
 
             // Apply sort order: prioritize recently updated (splits/regenerations), then by id
             $sortOrder = $request->input('sortOrder', 'desc');
             $query->orderBy('updated_at', $sortOrder)
-                  ->orderBy('id', $sortOrder);
+                ->orderBy('id', $sortOrder);
 
             // Apply pagination with configurable results per page
-            $perPage = (int) $request->input('per_page', 10);
+            $perPage = (int) $request->input('per_page', 20);
             $perPage = max(1, min($perPage, 200));
-            $fakturas = $query->paginate($perPage);
+            $fakturas = $query->paginate($perPage)->withQueryString();
 
             // Return JSON response for AJAX calls
             return response()->json($fakturas);
-            
         } catch (\Exception $e) {
             Log::error('Filtered All Invoices Error: ' . $e->getMessage());
             Log::error('Stack trace: ' . $e->getTraceAsString());
-            
+
             return response()->json(['error' => 'Internal Server Error'], 500);
         }
     }
@@ -1496,12 +1580,14 @@ class InvoiceController extends Controller
             return response()->json(['error' => 'No invoices selected'], 400);
         }
 
+        $firstInvoice = null;
+
         // If already generated, fetch ALL invoices that belong to the same faktura
         if ($isAlreadyGenerated) {
-            $firstInvoice = Invoice::with(['faktura'])->findOrFail($invoiceIds[0]);
+            $firstInvoice = Invoice::with(['faktura.createdBy'])->findOrFail($invoiceIds[0]);
             if ($firstInvoice->faktura) {
                 // Get all invoices that belong to this faktura
-                $invoices = Invoice::with(['article','client','client.clientCardStatement','faktura.tradeItems.article','jobs'])
+                $invoices = Invoice::with(['article','client','client.clientCardStatement','faktura.tradeItems.article','faktura.createdBy','jobs'])
                     ->where('faktura_id', $firstInvoice->faktura->id)
                     ->get();
 
@@ -1516,11 +1602,11 @@ class InvoiceController extends Controller
                 }
             } else {
                 // Fallback to original behavior if no faktura
-                $invoices = Invoice::with(['article','client','client.clientCardStatement','faktura.tradeItems.article'])->findOrFail($invoiceIds);
+                $invoices = Invoice::with(['article','client','client.clientCardStatement','faktura.tradeItems.article','faktura.createdBy'])->findOrFail($invoiceIds);
             }
         } else {
             // For preview/generation, use the provided invoice IDs
-            $invoices = Invoice::with(['article','client','client.clientCardStatement','faktura.tradeItems.article'])->findOrFail($invoiceIds);
+            $invoices = Invoice::with(['article','client','client.clientCardStatement','faktura.tradeItems.article','faktura.createdBy'])->findOrFail($invoiceIds);
         }
 
         $dns1d = new DNS1D();
@@ -1589,15 +1675,20 @@ class InvoiceController extends Controller
 
             // Get faktura overrides if faktura exists
             $fakturaOverrides = [];
-            if ($isAlreadyGenerated && $firstInvoice->faktura) {
+            if ($isAlreadyGenerated && $firstInvoice && $firstInvoice->faktura) {
                 $fakturaOverrides = $firstInvoice->faktura->faktura_overrides ?? [];
             }
-            
+
+            $invoiceIssuerName = $this->resolveInvoiceIssuerNameForPdf(
+                ($isAlreadyGenerated && $firstInvoice && $firstInvoice->faktura) ? $firstInvoice->faktura : null
+            );
+
             $pdf = PDF::loadView('invoices.outgoing_invoice_v2', [
                 'invoices' => $transformedInvoices,
                 'additionalServices' => is_array($additionalServices) ? $additionalServices : [],
                 'jobUnits' => $jobUnits,
                 'fakturaOverrides' => $fakturaOverrides,
+                'invoiceIssuerName' => $invoiceIssuerName,
                 'isHtml5ParserEnabled' => true,
                 'isRemoteEnabled' => true,
                 'isFontSubsettingEnabled' => true,
@@ -2002,6 +2093,7 @@ class InvoiceController extends Controller
             }
 
             // Generate PDF using v2 template for preview
+            $faktura->loadMissing('createdBy');
             $pdf = PDF::loadView('invoices.outgoing_invoice_v2', [
                 'invoices' => $transformedInvoices,
                 'additionalServices' => is_array($additionalServices) ? $additionalServices : [],
@@ -2009,6 +2101,7 @@ class InvoiceController extends Controller
                 'fakturaOverrides' => $fakturaOverrides,
                 // downstream views should prefer faktura.client_id if present
                 'overrideClientId' => $faktura->client_id ?? null,
+                'invoiceIssuerName' => $this->resolveInvoiceIssuerNameForPdf($faktura),
                 'isHtml5ParserEnabled' => true,
                 'isRemoteEnabled' => true,
                 'isFontSubsettingEnabled' => true,
@@ -2537,11 +2630,14 @@ class InvoiceController extends Controller
             'merge_groups' => $mergeGroups
         ];
 
+        $faktura->loadMissing('createdBy');
+
         return PDF::loadView('invoices.outgoing_invoice_v2', [
             'invoices' => [$invoiceData],
             'additionalServices' => ($faktura->additionalServices ?? collect())->toArray(),
             'jobUnits' => $jobUnits,
             'fakturaOverrides' => $faktura->faktura_overrides ?? [],
+            'invoiceIssuerName' => $this->resolveInvoiceIssuerNameForPdf($faktura),
             'isHtml5ParserEnabled' => true,
             'isRemoteEnabled' => true,
             'isFontSubsettingEnabled' => true,
@@ -2921,52 +3017,18 @@ class InvoiceController extends Controller
     public function allFaktura(Request $request)
     {
         try {
-
-            
-            $query = Faktura::with([
-                'createdBy:id,name',
-                'invoices.client:id,name',
-                'invoices.user:id,name',
-                'jobs.client:id,name', // For split invoices
-                'parentOrder:id,invoice_title', // For split invoices
-                'parentOrder.client:id,name', // For split invoices
-                'tradeItems.article:id,name,code'
-            ])->where('isInvoiced', 1); // Filter for generated Fakturas (isInvoiced = 1)
-
-            // Apply search query if provided
-            if ($request->has('searchQuery')) {
-                $searchQuery = $request->input('searchQuery');
-                $query->where('id', 'like', "%{$searchQuery}%");
-            }
-
-            // Apply filter client if provided
-            if ($request->has('client') && $request->input('client') !== 'All') {
-                $client = $request->input('client');
-                $query->where(function ($query) use ($client) {
-                    // Filter by regular invoices client
-                    $query->whereHas('invoices.client', function ($q) use ($client) {
-                        $q->where('name', $client);
-                    })
-                    // Or filter by split invoice jobs client
-                    ->orWhereHas('jobs.client', function ($q) use ($client) {
-                        $q->where('name', $client);
-                    })
-                    // Or filter by parent order client for split invoices
-                    ->orWhereHas('parentOrder.client', function ($q) use ($client) {
-                        $q->where('name', $client);
-                    });
-                });
-            }
+            $query = $this->allInvoicesListBaseQuery();
+            $this->applyAllInvoicesListFilters($query, $request);
 
             // Apply sort order: prioritize recently updated (splits/regenerations), then by id
             $sortOrder = $request->input('sortOrder', 'desc');
             $query->orderBy('updated_at', $sortOrder)
-                  ->orderBy('id', $sortOrder);
+                ->orderBy('id', $sortOrder);
 
             // Apply pagination with configurable results per page on initial page
-            $perPage = (int) $request->input('per_page', 10);
+            $perPage = (int) $request->input('per_page', 20);
             $perPage = max(1, min($perPage, 200));
-            $fakturas = $query->paginate($perPage);
+            $fakturas = $query->paginate($perPage)->withQueryString();
 
             // Handle AJAX requests for JSON responses
             if ($request->wantsJson()) {
@@ -3276,6 +3338,7 @@ class InvoiceController extends Controller
                 'jobUnits' => $jobUnits,
                 'fakturaOverrides' => $fakturaOverrides,
                 'overrideClientId' => is_numeric($fakturaClientId) ? (int)$fakturaClientId : null,
+                'invoiceIssuerName' => $this->resolveInvoiceIssuerNameForPdf($existingFaktura),
                 'isHtml5ParserEnabled' => true,
                 'isRemoteEnabled' => true,
                 'isFontSubsettingEnabled' => true,
@@ -3443,6 +3506,7 @@ class InvoiceController extends Controller
                 'invoices' => [$mockInvoice],
                 'additionalServices' => is_array($additionalServices) ? $additionalServices : [],
                 'jobUnits' => $jobUnits,
+                    'invoiceIssuerName' => auth()->user()?->name,
                     'isHtml5ParserEnabled' => true,
                     'isRemoteEnabled' => true,
                     'isFontSubsettingEnabled' => true,
@@ -3655,6 +3719,7 @@ class InvoiceController extends Controller
                 'additionalServices' => is_array($additionalServices) ? $additionalServices : [],
                 'jobUnits' => $jobUnits,
                 'fakturaOverrides' => $fakturaOverrides,
+                    'invoiceIssuerName' => auth()->user()?->name,
                     'isHtml5ParserEnabled' => true,
                     'isRemoteEnabled' => true,
                     'isFontSubsettingEnabled' => true,
@@ -4532,6 +4597,21 @@ class InvoiceController extends Controller
                 'message' => $e->getMessage(),
             ], 500);
         }
+    }
+
+    /**
+     * Name for PDF footer (Овластено лице): stored faktura creator when available, otherwise current user.
+     */
+    private function resolveInvoiceIssuerNameForPdf(?Faktura $faktura = null): ?string
+    {
+        if ($faktura) {
+            $faktura->loadMissing('createdBy');
+            if ($faktura->createdBy && filled((string) $faktura->createdBy->name)) {
+                return $faktura->createdBy->name;
+            }
+        }
+
+        return auth()->user()?->name;
     }
 
     private function mergeDefaultJobNameOverrides(array $fakturaOverrides, $invoices): array

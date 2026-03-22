@@ -2,46 +2,77 @@
     <MainLayout>
         <div class="pl-7 pr-7">
             <Header title="invoice2" subtitle="StockRealization" icon="invoice.png" link="stock-realizations" />
-            <div class="dark-gray p-2 text-white">
-                <RedirectTabs :route="$page.url" />
+            <RedirectTabs :route="$page.url" />
+            <div class="dark-gray p-2 text-white overflow-x-hidden">
                 <div class="form-container p-2">
-                    <h2 class="sub-title">
-                        Stock Realization Management
-                    </h2>
-                    <div class="filter-container flex gap-4 pb-10">
-                        <div class="search flex gap-2">
-                            <input v-model="searchOrderIdOrName" placeholder="Order ID or Name"
-                                class="text-black search-input" @keyup.enter="searchStockRealizations" />
-                            <input v-model="searchYear" placeholder="Year" type="number" min="2000" max="2099"
-                                class="text-black search-input year-input" @keyup.enter="searchStockRealizations" />
-                            <button class="btn create-order1" @click="searchStockRealizations">Search</button>
-                        </div>
-                        <div class="flex gap-2 filters-group">
-                            <div class="status">
-                                <label class="pr-3">Filter by Status</label>
-                                <select v-model="filterStatus" class="text-black filter-select" @change="applyFilter">
-                                    <option value="All" hidden>Status</option>
-                                    <option value="All">All Status</option>
-                                    <option value="Pending">Pending</option>
-                                    <option value="Realized">Realized</option>
-                                </select>
+                    <div class="toolbar-panel">
+                        <div class="toolbar-inline">
+                            <div class="filter-toolbar-sr">
+                                <FinanceCompactSearch
+                                    v-model="searchOrderIdOrName"
+                                    label="Search order"
+                                    placeholder="Order #, title, client…"
+                                    class="sr-field sr-field--search"
+                                    @submit="applyFilter"
+                                />
+                                <div class="filter-col sr-field sr-field--searchyear">
+                                    <label class="toolbar-label">Order year</label>
+                                    <input
+                                        v-model="searchYear"
+                                        type="number"
+                                        min="2000"
+                                        max="2099"
+                                        placeholder="Year"
+                                        class="text-black filter-select-compact sr-year-input"
+                                        @keyup.enter="applyFilter"
+                                    />
+                                </div>
+                                <div class="filter-col sr-field sr-field--sort">
+                                    <label class="toolbar-label">Sort</label>
+                                    <select v-model="sortOrder" class="text-black filter-select-compact" @change="applyFilter">
+                                        <option value="desc">Newest first</option>
+                                        <option value="asc">Oldest first</option>
+                                    </select>
+                                </div>
+                                <div class="filter-col sr-field sr-field--status">
+                                    <label class="toolbar-label">Status</label>
+                                    <select v-model="filterStatus" class="text-black filter-select-compact" @change="applyFilter">
+                                        <option value="All">All status</option>
+                                        <option value="Pending">Pending</option>
+                                        <option value="Realized">Realized</option>
+                                    </select>
+                                </div>
+                                <FinanceClientSearchSelect
+                                    v-model="clientId"
+                                    :clients="clients"
+                                    label="Client"
+                                    class="sr-field sr-field--client"
+                                    @change="applyFilter"
+                                />
+                                <FinanceDateRangeCompact
+                                    class="sr-field sr-field--dates"
+                                    :date-from="dateFrom"
+                                    :date-to="dateTo"
+                                    label="End date"
+                                    @update:date-from="dateFrom = $event"
+                                    @update:date-to="dateTo = $event"
+                                    @change="onDateRangeChange"
+                                />
+                                <FinanceYearMonthSelects
+                                    class="sr-field sr-field--ym"
+                                    :fiscal-year="fiscalYear"
+                                    :month="calendarMonth"
+                                    @update:fiscal-year="fiscalYear = $event"
+                                    @update:month="calendarMonth = $event"
+                                    @change="applyFilter"
+                                />
                             </div>
-                            <div class="client">
-                                <label class="pr-3">Filter by Client</label>
-                                <select v-model="filterClient" class="text-black filter-select" @change="applyFilter">
-                                    <option value="All" hidden>Clients</option>
-                                    <option value="All">All Clients</option>
-                                    <option v-for="client in uniqueClients" :key="client.id" :value="client.name">{{
-                                        client.name }}</option>
-                                </select>
-                            </div>
-                            <div class="date">
-                                <select v-model="sortOrder" class="text-black filter-select" @change="applyFilter">
-                                    <option value="desc" hidden>Date</option>
-                                    <option value="desc">Newest to Oldest</option>
-                                    <option value="asc">Oldest to Newest</option>
-                                </select>
-                            </div>
+                            <FinancePeriodPresets
+                                class="presets-inline-sr"
+                                label=""
+                                @preset="onPeriodPreset"
+                                @clear-dates="onClearDates"
+                            />
                         </div>
                     </div>
 
@@ -51,73 +82,65 @@
                             <span>Loading stock realizations...</span>
                         </div>
                     </div>
-                    <div v-else-if="filteredStockRealizations && filteredStockRealizations.length > 0">
-                        <div :class="['border mb-2 invoice-row', getStatusRowClass(stockRealization.is_realized)]"
-                            v-for="stockRealization in filteredStockRealizations" :key="stockRealization.id">
-                            <div class="flex row-columns pl-2 pt-1 pb-1" style="line-height: initial">
-                                <div class="info col-stock-id">
-                                    <div class="info-label">Stock ID</div>
-                                    <div class="bold">#{{ stockRealization.id }}</div>
-                                </div>
-                                <div class="info col-order-connection">
-                                    <div class="info-label">Connected Order</div>
-                                    <div class="bold order-link"
-                                        @click="viewConnectedOrder(stockRealization.invoice_id)">
-                                        #{{ getOrderNumber(stockRealization) }} - {{ stockRealization.invoice_title }}
-                                    </div>
-                                </div>
-                                <div class="info col-client">
-                                    <div class="info-label">Customer</div>
-                                    <div class="bold ellipsis">{{ stockRealization.client.name }}</div>
-                                </div>
-                                <div class="info col-status">
-                                    <div class="info-label">Status</div>
-                                    <div
-                                        :class="[getStatusColorClass(stockRealization.is_realized), 'bold', 'truncate', 'status-pill']">
-                                        {{ stockRealization.is_realized ? 'Realized' : 'Pending' }}
-                                    </div>
-                                </div>
-                                <div v-if="stockRealization.is_realized && stockRealization.realized_by"
-                                    class="info col-realized-by">
-                                    <div class="info-label">Realized By</div>
-                                    <div class="bold truncate">{{ stockRealization.realized_by.name }}</div>
-                                </div>
-                                <div class="info col-expand">
-                                    <div class="info-label">Actions</div>
-                                    <div class="flex gap-2">
-                                        <button class="flex items-center p-1"
-                                            @click="toggleExpanded(stockRealization.id)"
-                                            :title="expandedRows[stockRealization.id] ? 'Collapse' : 'Expand'">
-                                            <i :class="[
-                                                expandedRows[stockRealization.id] ? 'fa fa-chevron-up' : 'fa fa-chevron-down',
-                                                'bg-gray-300 p-2 rounded'
-                                            ]" aria-hidden="true"></i>
-                                        </button>
-                                        <button class="flex items-center p-1 pdf-button"
-                                            @click="generatePDF(stockRealization)"
-                                            :disabled="generatingPDF[stockRealization.id]"
-                                            :title="generatingPDF[stockRealization.id] ? 'Generating PDF...' : 'Generate PDF Report'">
-                                            <i :class="[
-                                                generatingPDF[stockRealization.id] ? 'fa fa-spinner fa-spin' : 'fa fa-file-pdf-o',
-                                                'bg-red-500 text-white p-2 rounded'
-                                            ]" aria-hidden="true"></i>
-                                        </button>
-                                        <button v-if="stockRealization.is_realized && canRevert"
-                                            class="flex items-center p-1" @click="openRevertModal(stockRealization)"
-                                            :disabled="revertingStocks[stockRealization.id]"
-                                            :title="revertingStocks[stockRealization.id] ? 'Reverting...' : 'Revert Realization'">
-                                            <i :class="[
-                                                revertingStocks[stockRealization.id] ? 'fa fa-spinner fa-spin' : 'fa fa-undo',
-                                                'bg-yellow-500 text-white p-2 rounded'
-                                            ]" aria-hidden="true"></i>
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
+                    <DataTableShell v-else compact variant="grid" class="stock-table">
+                        <template #header>
+                            <tr>
+                                <th class="expand-column"></th>
+                                <th class="stock-id-column">Stock</th>
+                                <th class="order-column">Connected Order</th>
+                                <th class="customer-column">Customer</th>
+                                <th>Status</th>
+                                <th>Realized By</th>
+                                <th class="actions-column actions-header">Actions</th>
+                            </tr>
+                        </template>
 
-                            <!-- Expanded Jobs Table -->
-                            <transition name="expand-collapse" appear>
-                                <div v-if="expandedRows[stockRealization.id]" class="jobs-expanded-section">
+                        <template v-if="filteredStockRealizations && filteredStockRealizations.length > 0">
+                            <template v-for="stockRealization in filteredStockRealizations" :key="stockRealization.id">
+                                <tr :class="['stock-row', getStatusRowClass(stockRealization.is_realized)]">
+                                    <td class="expand-cell">
+                                        <button
+                                            class="expand-toggle"
+                                            @click="toggleExpanded(stockRealization.id)"
+                                            :title="expandedRows[stockRealization.id] ? 'Collapse' : 'Expand'"
+                                        >
+                                            <i :class="expandedRows[stockRealization.id] ? 'fa fa-chevron-up' : 'fa fa-chevron-down'" aria-hidden="true"></i>
+                                        </button>
+                                    </td>
+                                    <td class="stock-primary-cell">
+                                        <div class="cell-primary">#{{ stockRealization.id }}</div>
+                                        <div class="cell-secondary">{{ stockRealization.fiscal_year || 'No year' }}</div>
+                                    </td>
+                                    <td class="order-primary-cell">
+                                        <button class="order-link-button" @click="viewConnectedOrder(stockRealization.invoice_id)">
+                                            <span class="cell-primary">#{{ getOrderNumber(stockRealization) }}</span>
+                                            <span class="cell-secondary">{{ stockRealization.invoice_title }}</span>
+                                        </button>
+                                    </td>
+                                    <td class="customer-column">
+                                        <FinanceClientNameCell :name="stockRealization.client?.name || ''" />
+                                    </td>
+                                    <td>
+                                        <span :class="['status-badge', stockRealization.is_realized ? 'status-badge-realized' : 'status-badge-pending']">
+                                            {{ stockRealization.is_realized ? 'Realized' : 'Pending' }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <div class="cell-secondary">{{ stockRealization.realized_by?.name || '—' }}</div>
+                                    </td>
+                                    <td class="actions-cell">
+                                        <ActionDropdown
+                                            icon-only
+                                            trigger-title="Open stock realization actions"
+                                            :groups="getActionMenuGroups(stockRealization)"
+                                            @select="handleActionMenuSelect(stockRealization, $event)"
+                                        />
+                                    </td>
+                                </tr>
+
+                                <tr v-if="expandedRows[stockRealization.id]" class="detail-row">
+                                    <td colspan="7" class="detail-cell">
+                                        <div class="jobs-expanded-section">
                                     <!-- <div class="jobs-summary">
                                     <span class="jobs-count">{{ stockRealization.jobs?.length || 0 }} Jobs</span>
                                     <span v-if="!stockRealization.is_realized" class="edit-hint">Click values to edit</span>
@@ -252,29 +275,34 @@
                                         </div>
                                     </div>
 
-                                    <!-- Stock Realization Button - Bottom Right Corner -->
-                                    <div v-if="!stockRealization.is_realized"
-                                        class="stock-realization-button-container">
-                                        <button class="stock-realization-button" @click="realizeStock(stockRealization)"
-                                            :disabled="realizingStocks[stockRealization.id] || generatingPDF[stockRealization.id] || revertingStocks[stockRealization.id] || !canRealizeStock(stockRealization)"
-                                            :title="getRealizationButtonTitle(stockRealization)">
-                                            <i :class="[
-                                                realizingStocks[stockRealization.id] ? 'fa fa-spinner fa-spin' : (canRealizeStock(stockRealization) ? 'fa fa-check' : 'fa fa-lock'),
-                                                'mr-2'
-                                            ]" aria-hidden="true"></i>
-                                            {{ getRealizationButtonText(stockRealization) }}
-                                        </button>
-                                        <div v-if="!canRealizeStock(stockRealization)" class="realization-blocked-hint">
-                                            Complete all {{ getPreviousUnrealizedYears(stockRealization).join(', ') }} realizations first
+                                            <!-- Stock Realization Button - Bottom Right Corner -->
+                                            <div v-if="!stockRealization.is_realized"
+                                                class="stock-realization-button-container">
+                                                <button class="stock-realization-button" @click="realizeStock(stockRealization)"
+                                                    :disabled="realizingStocks[stockRealization.id] || generatingPDF[stockRealization.id] || revertingStocks[stockRealization.id] || !canRealizeStock(stockRealization)"
+                                                    :title="getRealizationButtonTitle(stockRealization)">
+                                                    <i :class="[
+                                                        realizingStocks[stockRealization.id] ? 'fa fa-spinner fa-spin' : (canRealizeStock(stockRealization) ? 'fa fa-check' : 'fa fa-lock'),
+                                                        'mr-2'
+                                                    ]" aria-hidden="true"></i>
+                                                    {{ getRealizationButtonText(stockRealization) }}
+                                                </button>
+                                                <div v-if="!canRealizeStock(stockRealization)" class="realization-blocked-hint">
+                                                    Complete all {{ getPreviousUnrealizedYears(stockRealization).join(', ') }} realizations first
+                                                </div>
+                                            </div>
                                         </div>
-                                    </div>
-                                </div>
-                            </transition>
-                        </div>
-                    </div>
-                    <div v-else class="text-center p-8">
-                        <p class="text-gray-400">No stock realizations found.</p>
-                    </div>
+                                    </td>
+                                </tr>
+                            </template>
+                        </template>
+
+                        <tr v-else>
+                            <td colspan="7" class="empty-cell">
+                                No stock realizations found.
+                            </td>
+                        </tr>
+                    </DataTableShell>
                 </div>
                 <Pagination :pagination="stockRealizations" @pagination-change-page="changePage" />
 
@@ -422,9 +450,18 @@ import MainLayout from "@/Layouts/MainLayout.vue";
 import Header from "@/Components/Header.vue";
 import Pagination from "@/Components/Pagination.vue";
 import RedirectTabs from "@/Components/RedirectTabs.vue";
+import DataTableShell from "@/Components/DataTableShell.vue";
+import ActionDropdown from "@/Components/ActionDropdown.vue";
 import axios from 'axios';
 import { reactive, ref } from "vue";
 import { useToast } from 'vue-toastification';
+import FinanceCompactSearch from "@/Components/Finance/FinanceCompactSearch.vue";
+import FinanceClientSearchSelect from "@/Components/Finance/FinanceClientSearchSelect.vue";
+import FinanceDateRangeCompact from "@/Components/Finance/FinanceDateRangeCompact.vue";
+import FinanceYearMonthSelects from "@/Components/Finance/FinanceYearMonthSelects.vue";
+import FinancePeriodPresets from "@/Components/Finance/FinancePeriodPresets.vue";
+import FinanceClientNameCell from "@/Components/Finance/FinanceClientNameCell.vue";
+import { normalizeDateRangeFields } from "@/utils/financeFilters";
 
 export default {
     components: {
@@ -432,6 +469,14 @@ export default {
         Header,
         Pagination,
         RedirectTabs,
+        DataTableShell,
+        ActionDropdown,
+        FinanceCompactSearch,
+        FinanceClientSearchSelect,
+        FinanceDateRangeCompact,
+        FinanceYearMonthSelects,
+        FinancePeriodPresets,
+        FinanceClientNameCell,
     },
     props: {
         stockRealizations: Object,
@@ -443,16 +488,23 @@ export default {
             type: Array,
             default: () => [],
         },
+        clients: {
+            type: Array,
+            default: () => [],
+        },
     },
     setup(props) {
         const searchOrderIdOrName = ref('');
         const searchYear = ref('');
         const filterStatus = ref('All');
-        const filterClient = ref('All');
+        const clientId = ref(null);
         const sortOrder = ref('desc');
+        const dateFrom = ref('');
+        const dateTo = ref('');
+        const fiscalYear = ref('');
+        const calendarMonth = ref('');
         const loading = ref(false);
         const filteredStockRealizations = ref(props.stockRealizations.data || []);
-        const uniqueClients = ref([]);
         const realizingStocks = reactive({});
         const expandedRows = reactive({});
         const updatingJobs = reactive({});
@@ -485,11 +537,14 @@ export default {
             searchOrderIdOrName,
             searchYear,
             filterStatus,
-            filterClient,
+            clientId,
             sortOrder,
+            dateFrom,
+            dateTo,
+            fiscalYear,
+            calendarMonth,
             loading,
             filteredStockRealizations,
-            uniqueClients,
             realizingStocks,
             expandedRows,
             updatingJobs,
@@ -517,8 +572,8 @@ export default {
         };
     },
     mounted() {
+        this.initFromUrl();
         this.filteredStockRealizations = this.stockRealizations.data || [];
-        this.loadUniqueClients();
     },
     watch: {
         stockRealizations: {
@@ -551,75 +606,131 @@ export default {
                 return fallback;
             }
         },
-        async loadUniqueClients() {
-            try {
-                const response = await axios.get('/unique-clients');
-                this.uniqueClients = response.data;
-            } catch (error) {
-                console.error('Error loading unique clients:', error);
-                this.toastError(this.getAxiosErrorMessage(error, 'Failed to load clients'));
+        initFromUrl() {
+            const p = new URLSearchParams(window.location.search);
+            const sq = p.get('searchQuery') || '';
+            if (sq && /^(\d+)\/(\d{4})$/.test(sq.trim())) {
+                const m = sq.trim().match(/^(\d+)\/(\d{4})$/);
+                this.searchOrderIdOrName = m[1];
+                this.searchYear = m[2];
+            } else {
+                this.searchOrderIdOrName = sq;
+                const sy = p.get('searchYear');
+                this.searchYear = sy !== null && sy !== '' ? sy : '';
+            }
+            this.filterStatus = p.get('status') || 'All';
+            this.sortOrder = p.get('sortOrder') || 'desc';
+            const cid = p.get('client_id');
+            if (cid) {
+                const n = parseInt(cid, 10);
+                this.clientId = Number.isNaN(n) ? null : n;
+            } else {
+                const cname = p.get('client');
+                if (cname && cname !== 'All' && this.clients && this.clients.length) {
+                    const match = this.clients.find((cl) => cl.name === cname);
+                    this.clientId = match ? match.id : null;
+                } else {
+                    this.clientId = null;
+                }
+            }
+            this.dateFrom = p.get('date_from') || '';
+            this.dateTo = p.get('date_to') || '';
+            const fy = p.get('fiscal_year');
+            this.fiscalYear = fy !== null && fy !== '' ? parseInt(fy, 10) : '';
+            if (Number.isNaN(this.fiscalYear)) {
+                this.fiscalYear = '';
+            }
+            const mo = p.get('month');
+            this.calendarMonth = mo !== null && mo !== '' ? parseInt(mo, 10) : '';
+            if (Number.isNaN(this.calendarMonth)) {
+                this.calendarMonth = '';
             }
         },
-        async searchStockRealizations() {
-            this.applyFilter();
-        },
-        async applyFilter() {
-            this.loading = true;
+        buildStockFilterParams() {
+            const state = { dateFrom: this.dateFrom, dateTo: this.dateTo };
+            normalizeDateRangeFields(state);
+            this.dateFrom = state.dateFrom;
+            this.dateTo = state.dateTo;
+
             const params = {
                 status: this.filterStatus,
-                client: this.filterClient,
                 sortOrder: this.sortOrder,
             };
-            
-            // If both order ID/name and year are provided, combine them
-            if (this.searchOrderIdOrName && this.searchYear) {
-                // Check if order ID/name is numeric (order number)
-                if (/^\d+$/.test(this.searchOrderIdOrName.trim())) {
-                    params.searchQuery = `${this.searchOrderIdOrName.trim()}/${this.searchYear}`;
-                } else {
-                    // It's a text search, send both separately
-                    params.searchQuery = this.searchOrderIdOrName.trim();
-                    params.searchYear = this.searchYear;
-                }
-            } else if (this.searchOrderIdOrName) {
-                // Only order ID/name provided
-                params.searchQuery = this.searchOrderIdOrName.trim();
-            } else if (this.searchYear) {
-                // Only year provided
-                params.searchYear = this.searchYear;
+            if (this.clientId != null) {
+                params.client_id = this.clientId;
             }
+            const q = (this.searchOrderIdOrName || '').trim();
+            const y = this.searchYear ? String(this.searchYear).trim() : '';
+            if (q && y) {
+                if (/^\d+$/.test(q)) {
+                    params.searchQuery = `${q}/${y}`;
+                } else {
+                    params.searchQuery = q;
+                    params.searchYear = y;
+                }
+            } else if (q) {
+                params.searchQuery = q;
+            } else if (y) {
+                params.searchYear = y;
+            }
+            if (this.dateFrom) {
+                params.date_from = this.dateFrom;
+            }
+            if (this.dateTo) {
+                params.date_to = this.dateTo;
+            }
+            if (this.fiscalYear !== '' && this.fiscalYear != null) {
+                params.fiscal_year = this.fiscalYear;
+            }
+            if (this.calendarMonth !== '' && this.calendarMonth != null) {
+                params.month = this.calendarMonth;
+            }
+            return params;
+        },
+        onDateRangeChange() {
+            const state = { dateFrom: this.dateFrom, dateTo: this.dateTo };
+            normalizeDateRangeFields(state);
+            this.dateFrom = state.dateFrom;
+            this.dateTo = state.dateTo;
+            this.applyFilter();
+        },
+        onPeriodPreset(type) {
+            const d = new Date();
+            const y = d.getFullYear();
+            const m = String(d.getMonth() + 1).padStart(2, '0');
+            const today = `${y}-${m}-${String(d.getDate()).padStart(2, '0')}`;
+            if (type === 'this_month') {
+                this.dateFrom = `${y}-${m}-01`;
+                this.dateTo = today;
+                this.fiscalYear = '';
+                this.calendarMonth = '';
+            } else if (type === 'this_year') {
+                this.dateFrom = `${y}-01-01`;
+                this.dateTo = today;
+                this.fiscalYear = '';
+                this.calendarMonth = '';
+            }
+            this.applyFilter();
+        },
+        onClearDates() {
+            this.dateFrom = '';
+            this.dateTo = '';
+            this.applyFilter();
+        },
+        applyFilter() {
+            this.loading = true;
+            const params = { ...this.buildStockFilterParams(), page: 1 };
             this.$inertia.get('/stock-realizations', params, {
                 preserveState: true,
                 preserveScroll: true,
                 replace: true,
                 onFinish: () => {
                     this.loading = false;
-                }
+                },
             });
         },
         changePage(page) {
-            const params = {
-                status: this.filterStatus,
-                client: this.filterClient,
-                sortOrder: this.sortOrder,
-                page: page,
-            };
-            
-            // If both order ID/name and year are provided, combine them
-            if (this.searchOrderIdOrName && this.searchYear) {
-                // Check if order ID/name is numeric (order number)
-                if (/^\d+$/.test(this.searchOrderIdOrName.trim())) {
-                    params.searchQuery = `${this.searchOrderIdOrName.trim()}/${this.searchYear}`;
-                } else {
-                    // It's a text search, send both separately
-                    params.searchQuery = this.searchOrderIdOrName.trim();
-                    params.searchYear = this.searchYear;
-                }
-            } else if (this.searchOrderIdOrName) {
-                params.searchQuery = this.searchOrderIdOrName.trim();
-            } else if (this.searchYear) {
-                params.searchYear = this.searchYear;
-            }
+            const params = { ...this.buildStockFilterParams(), page };
             this.$inertia.get('/stock-realizations', params, {
                 preserveState: true,
                 preserveScroll: true,
@@ -744,6 +855,65 @@ export default {
         },
         getStatusColorClass(isRealized) {
             return isRealized ? 'status-completed-text' : 'status-pending-text';
+        },
+        getActionMenuGroups(stockRealization) {
+            return [
+                {
+                    label: 'Stock Realization',
+                    items: [
+                        {
+                            label: this.expandedRows[stockRealization.id] ? 'Collapse Details' : 'Expand Details',
+                            value: 'toggle-expand',
+                        },
+                        {
+                            label: 'Open Connected Order',
+                            value: 'view-order',
+                        },
+                        {
+                            label: this.generatingPDF[stockRealization.id] ? 'Generating PDF...' : 'Generate PDF',
+                            value: 'pdf',
+                            disabled: Boolean(this.generatingPDF[stockRealization.id]),
+                        },
+                        {
+                            label: 'Open Detail Page',
+                            value: 'view-detail',
+                        },
+                        {
+                            label: this.revertingStocks[stockRealization.id] ? 'Reverting...' : 'Revert Realization',
+                            value: 'revert',
+                            danger: true,
+                            disabled: !stockRealization.is_realized || !this.canRevert || Boolean(this.revertingStocks[stockRealization.id]),
+                        },
+                    ],
+                },
+            ];
+        },
+        handleActionMenuSelect(stockRealization, item) {
+            if (!item?.value) return;
+
+            if (item.value === 'toggle-expand') {
+                this.toggleExpanded(stockRealization.id);
+                return;
+            }
+
+            if (item.value === 'view-order') {
+                this.viewConnectedOrder(stockRealization.invoice_id);
+                return;
+            }
+
+            if (item.value === 'pdf') {
+                this.generatePDF(stockRealization);
+                return;
+            }
+
+            if (item.value === 'view-detail') {
+                this.viewStockRealization(stockRealization.id);
+                return;
+            }
+
+            if (item.value === 'revert') {
+                this.openRevertModal(stockRealization);
+            }
         },
         toggleExpanded(stockRealizationId) {
             this.expandedRows[stockRealizationId] = !this.expandedRows[stockRealizationId];
@@ -1509,40 +1679,140 @@ export default {
     min-width: 80vh;
 }
 
-.filter-container {
-    justify-content: space-between;
+.toolbar-inline {
+    display: flex;
     flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 10px 12px;
 }
 
-.filter-container .search {
-    flex: 1 1 320px;
+.filter-toolbar-sr {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 10px 12px;
+    flex: 1 1 auto;
+    min-width: 0;
 }
 
-.filter-container .filters-group {
-    flex: 2 1 500px;
-    flex-wrap: wrap;
+.filter-toolbar-sr .sr-field--search {
+    flex: 0 1 200px;
+    min-width: 160px;
+    max-width: 280px;
+}
+
+.filter-toolbar-sr .sr-field--searchyear {
+    flex: 0 0 100px;
+    min-width: 88px;
+}
+
+.sr-year-input {
+    max-width: 100%;
+}
+
+.filter-toolbar-sr .sr-field--sort {
+    flex: 0 0 130px;
+    min-width: 120px;
+}
+
+.filter-toolbar-sr .sr-field--status {
+    flex: 0 1 120px;
+    min-width: 108px;
+}
+
+.filter-toolbar-sr .sr-field--client {
+    flex: 0 1 200px;
+    min-width: 160px;
+}
+
+.filter-toolbar-sr .sr-field--dates {
+    flex: 1 1 280px;
+    min-width: 260px;
+    max-width: 340px;
+}
+
+.filter-toolbar-sr .sr-field--ym {
+    flex: 0 1 260px;
+    min-width: 240px;
+}
+
+.presets-inline-sr {
+    flex: 0 0 auto;
+    align-self: flex-end;
+    min-width: 0;
+}
+
+@media (min-width: 900px) {
+    .presets-inline-sr :deep(.fc-pp__row) {
+        flex-wrap: nowrap;
+    }
+}
+
+@media (max-width: 1100px) {
+    .filter-toolbar-sr .sr-field--dates {
+        flex-basis: 100%;
+        max-width: none;
+    }
+
+    .filter-toolbar-sr .sr-field--ym {
+        flex-basis: 100%;
+    }
+}
+
+.toolbar-panel {
+    margin-bottom: 14px;
+    padding: 12px 14px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.04);
+}
+
+.toolbar-label {
+    display: block;
+    margin-bottom: 4px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: rgba(255, 255, 255, 0.7);
+}
+
+.filter-col {
+    min-width: 0;
+}
+
+.filter-select-compact {
+    width: 100%;
+    min-height: 34px;
+    border-radius: 8px;
+    padding: 0 8px;
+    font-size: 13px;
 }
 
 .search-input {
-    width: 50vh;
+    width: 100%;
     max-width: 100%;
-    border-radius: 3px;
+    min-height: 40px;
+    border-radius: 8px;
+    padding: 0 14px;
 }
 
 .year-input {
     width: 120px;
+    min-width: 120px;
     max-width: 100%;
 }
 
 .filter-select {
-    width: 25vh;
+    width: 100%;
     max-width: 100%;
-    border-radius: 3px;
+    min-height: 40px;
+    border-radius: 8px;
+    padding: 0 12px;
 }
 
 select {
-    width: 25vh;
-    border-radius: 3px;
+    width: 100%;
 }
 
 .btn {
@@ -1556,6 +1826,152 @@ select {
 .create-order1 {
     background-color: $blue;
     color: white;
+}
+
+.toolbar-search-button {
+    min-width: 110px;
+    border-radius: 8px;
+}
+
+.stock-table {
+    border-radius: 12px;
+    overflow: hidden;
+    background: rgba(8, 15, 26, 0.55);
+}
+
+.stock-table :deep(.table-scroll) {
+    overflow-x: auto;
+    overflow-y: hidden;
+}
+
+.stock-table :deep(.data-table-head th:not(:last-child)),
+.stock-table :deep(.data-table-body td:not(:last-child)) {
+    border-right: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.stock-table :deep(.data-table-body tr:hover) {
+    background: rgba(255, 255, 255, 0.04);
+}
+
+.stock-table :deep(.data-table-body tr.detail-row:hover) {
+    background: transparent;
+}
+
+.expand-column {
+    width: 56px;
+}
+
+.stock-id-column {
+    width: 120px;
+}
+
+.order-column {
+    min-width: 240px;
+}
+
+.customer-column {
+    max-width: 280px;
+    width: 18%;
+}
+
+.actions-header {
+    text-align: right;
+}
+
+.expand-cell {
+    text-align: center;
+}
+
+.expand-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.06);
+    color: $white;
+    transition: all 0.2s ease;
+}
+
+.expand-toggle:hover {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: rgba(255, 255, 255, 0.24);
+}
+
+.stock-primary-cell,
+.order-primary-cell {
+    min-width: 0;
+}
+
+.order-link-button {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
+    width: 100%;
+    min-width: 0;
+    padding: 0;
+    border: none;
+    background: transparent;
+    text-align: left;
+}
+
+.order-link-button:hover .cell-primary,
+.order-link-button:hover .cell-secondary {
+    color: rgba(147, 197, 253, 0.95);
+}
+
+.status-badge {
+    display: inline-flex;
+    align-items: center;
+    border-radius: 999px;
+    padding: 4px 10px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.status-badge-pending {
+    background: rgba(234, 179, 8, 0.18);
+    border: 1px solid rgba(234, 179, 8, 0.32);
+    color: #fbbf24;
+}
+
+.status-badge-realized {
+    background: rgba(16, 185, 129, 0.16);
+    border: 1px solid rgba(16, 185, 129, 0.3);
+    color: #34d399;
+}
+
+.stock-row.status-pending td:first-child,
+.stock-row.status-completed td:first-child {
+    position: relative;
+}
+
+.stock-row.status-pending td:first-child::before,
+.stock-row.status-completed td:first-child::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 3px;
+}
+
+.stock-row.status-pending td:first-child::before {
+    background: rgba(234, 179, 8, 0.8);
+}
+
+.stock-row.status-completed td:first-child::before {
+    background: rgba(16, 185, 129, 0.85);
+}
+
+.detail-cell {
+    padding: 0 !important;
+    border-right: none !important;
 }
 
 .invoice-row {
@@ -2123,20 +2539,12 @@ select {
 
 /* Responsive Design Improvements */
 @media (max-width: 1024px) {
-    .filter-container {
-        gap: 12px;
-    }
-
     .search-input {
         width: 100%;
     }
 
     .filter-select {
         width: 100%;
-    }
-
-    .filters-group {
-        flex: 1 1 100%;
     }
 
     .jobs-table-container {
@@ -2218,16 +2626,6 @@ select {
     .col-realized-by,
     .col-expand {
         width: 100%;
-    }
-
-    .filter-container {
-        flex-direction: column;
-        gap: 1rem;
-    }
-
-    .filters-group {
-        flex-direction: column;
-        gap: 0.5rem;
     }
 
     .search-input {

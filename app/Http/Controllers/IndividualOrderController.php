@@ -111,6 +111,41 @@ class IndividualOrderController extends Controller
             });
         }
 
+        if ($request->filled('date_from')) {
+            $from = $request->input('date_from');
+            $allOrders = $allOrders->filter(function ($order) use ($from) {
+                $d = $order['created_at'] ?? null;
+                if (!$d) {
+                    return false;
+                }
+                return \Carbon\Carbon::parse($d)->toDateString() >= $from;
+            });
+        }
+        if ($request->filled('date_to')) {
+            $to = $request->input('date_to');
+            $allOrders = $allOrders->filter(function ($order) use ($to) {
+                $d = $order['created_at'] ?? null;
+                if (!$d) {
+                    return false;
+                }
+                return \Carbon\Carbon::parse($d)->toDateString() <= $to;
+            });
+        }
+        if ($request->filled('fiscal_year')) {
+            $y = (int) $request->input('fiscal_year');
+            $allOrders = $allOrders->filter(function ($order) use ($y) {
+                $d = $order['created_at'] ?? null;
+                return $d && (int) \Carbon\Carbon::parse($d)->year === $y;
+            });
+        }
+        if ($request->filled('month')) {
+            $m = (int) $request->input('month');
+            $allOrders = $allOrders->filter(function ($order) use ($m) {
+                $d = $order['created_at'] ?? null;
+                return $d && (int) \Carbon\Carbon::parse($d)->month === $m;
+            });
+        }
+
         // Sort combined collection
         $sortOrder = $request->input('sortOrder', 'desc');
         if ($sortOrder === 'desc') {
@@ -123,7 +158,7 @@ class IndividualOrderController extends Controller
         $allOrders = $allOrders->values();
 
         // Create pagination manually
-        $perPage = 10;
+        $perPage = 20;
         $currentPage = $request->input('page', 1);
         $total = $allOrders->count();
         $offset = ($currentPage - 1) * $perPage;

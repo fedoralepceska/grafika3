@@ -2,201 +2,239 @@
     <MainLayout>
         <div class="pl-7 pr-7">
             <Header title="invoice2" subtitle="Individual Orders" icon="invoice.png" link="individual"/>
-            <div class="dark-gray p-2 text-white">
-                <RedirectTabs :route="$page.url" />
-                <div class="form-container p-2 ">
-                    <h2 class="sub-title">
-                        Физичко лице
-                    </h2>
-                    <div class="filter-container flex gap-4 pb-10">
-                        <div class="search flex gap-2">
-                            <input v-model="searchQuery" placeholder="Search by Order Number, Name, or Contact" class="text-black" style="width: 50vh; border-radius: 3px" @keyup.enter="searchOrders" />
-                        </div>
-                        <div class="flex gap-3">
-                            <div class="contact-filter">
-                            <div class="relative">
-                                <div class="relative">
-                                    <input 
-                                        :value="displayValue"
-                                        placeholder="Select contact..."
-                                        class="text-black" 
-                                        style="width: 200px; border-radius: 3px; padding-right: 25px;"
-                                        @focus="showContactDropdown = true; contactSearchTerm = ''"
-                                        @click="showContactDropdown = true; contactSearchTerm = ''"
-                                        @input="contactSearchTerm = $event.target.value; setContactSearchDebounced()"
-                                    />
-                                    <div class="absolute inset-y-0 right-0 flex items-center pr-2 pointer-events-none">
-                                        <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
-                                        </svg>
+            <RedirectTabs :route="$page.url" />
+            <div class="dark-gray p-2 text-white overflow-x-hidden">
+                <div class="form-container p-2">
+                    <div class="toolbar-panel">
+                        <div class="toolbar-inline">
+                            <div class="filter-toolbar-individual">
+                                <FinanceCompactSearch
+                                    v-model="searchInput"
+                                    label="Search orders"
+                                    placeholder="Order #, title, contact…"
+                                    class="io-field io-field--search"
+                                    @submit="onSearchSubmit"
+                                />
+                                <div class="filter-col io-field io-field--sort">
+                                    <label class="toolbar-label">Sort order</label>
+                                    <select v-model="sortOrder" class="text-black filter-select-compact" @change="applyFilter">
+                                        <option value="desc" hidden>Sort order</option>
+                                        <option value="desc">Newest to oldest</option>
+                                        <option value="asc">Oldest to newest</option>
+                                    </select>
+                                </div>
+                                <div class="filter-col io-field io-field--contact contact-filter">
+                                    <label class="toolbar-label">Contact</label>
+                                    <div class="contact-input-row">
+                                        <div class="relative contact-dropdown-wrapper">
+                                            <input
+                                                :value="displayValue"
+                                                placeholder="Select contact…"
+                                                class="text-black filter-select-compact contact-search-input"
+                                                @focus="showContactDropdown = true; contactSearchTerm = ''"
+                                                @click="showContactDropdown = true; contactSearchTerm = ''"
+                                                @input="contactSearchTerm = $event.target.value; setContactSearchDebounced()"
+                                            />
+                                            <div class="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                                                <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                                                </svg>
+                                            </div>
+                                            <div
+                                                v-if="showContactDropdown"
+                                                class="contact-dropdown-menu"
+                                            >
+                                                <div
+                                                    class="contact-dropdown-item"
+                                                    :class="contactFilter === '' ? 'selected' : ''"
+                                                    @click="selectContact('')"
+                                                >
+                                                    All Contacts
+                                                </div>
+                                                <div
+                                                    v-if="filteredContacts.length === 0 && contactSearchTerm"
+                                                    class="contact-dropdown-empty"
+                                                >
+                                                    No contacts found for "{{ contactSearchTerm }}"
+                                                </div>
+                                                <div
+                                                    v-for="contact in filteredContacts"
+                                                    :key="contact.id"
+                                                    class="contact-dropdown-item"
+                                                    :class="contactFilter == contact.id ? 'selected' : ''"
+                                                    @click="selectContact(contact.id)"
+                                                >
+                                                    {{ contact.name }}
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <button
+                                            v-if="contactFilter !== ''"
+                                            @click="clearContactFilter"
+                                            class="clear-filter-button"
+                                            title="Clear contact filter"
+                                        >
+                                            <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+                                        </button>
                                     </div>
                                 </div>
-                                <div 
-                                    v-if="showContactDropdown"
-                                    class="absolute z-20 bg-white text-black border border-gray-300 rounded mt-1 max-h-60 overflow-y-auto"
-                                    style="width: 200px;"
-                                >
-                                    <div 
-                                        class="p-2 cursor-pointer border-b"
-                                        :class="contactFilter === '' ? 'bg-blue-100' : 'hover:bg-gray-100'"
-                                        @click="selectContact('')"
-                                    >
-                                        All Contacts
-                                    </div>
-                                    <div 
-                                        v-if="filteredContacts.length === 0 && contactSearchTerm"
-                                        class="p-2 text-gray-500"
-                                    >
-                                        No contacts found for "{{ contactSearchTerm }}"
-                                    </div>
-                                    <div 
-                                        v-for="contact in filteredContacts" 
-                                        :key="contact.id"
-                                        class="p-2 cursor-pointer border-b"
-                                        :class="contactFilter == contact.id ? 'bg-blue-100' : 'hover:bg-gray-100'"
-                                        @click="selectContact(contact.id)"
-                                    >
-                                        {{ contact.name }}
-                                    </div>
-                                </div>
-                            </div>
-                            <button 
-                                v-if="contactFilter !== ''"
-                                @click="clearContactFilter"
-                                class="ml-2 text-red-500 hover:text-red-700"
-                                title="Clear contact filter"
-                            >
-                                ✕
-                            </button>
-                        </div>
-                        <div class="status">
-                            <select v-model="status" class="text-black" @change="applyFilter">
-                                <option value="" hidden>Payment</option>
-                                <option value="">All Status</option>
-                                <option value="paid">Paid</option>
-                                <option value="unpaid">Unpaid</option>
-                            </select>
-                        </div>
-                        <div class="completion-status">
-                            <select v-model="completionStatus" class="text-black" @change="applyFilter">
-                                <option value="" hidden>Progress</option>
-                                <option value="">All</option>
-                                <option value="Completed">Completed</option>
-                                <option value="In progress">In Progress</option>
-                                <option value="Not started yet">Not Started</option>
-                            </select>
-                        </div>
-                        <div class="date">
-                            <select v-model="sortOrder" class="text-black" @change="applyFilter">
-                                <option value="desc" hidden>Sort Order</option>
-                                <option value="desc">Newest to Oldest</option>
-                                <option value="asc">Oldest to Newest</option>
-                            </select>
-                        </div>
-                        </div>
-                    </div>
-                    <div v-if="orders.data">
-                        <div class="border mb-1" v-for="order in orders.data" :key="order.id">
-                            <div class="bg-white text-black flex justify-between items-center p-2">
-                                <div class="bold">Order #{{order.order_number || order.id}} - {{ Number(order.total_amount).toFixed(2) }} MKD</div>
-                                <div class="note-header" @click="openNoteModal(order)">
-									<span v-if="order.notes" class="note-preview" :title="order.notes">{{ order.notes }}</span>
-                                    <span :class="order.notes ? 'text-green-500' : 'text-gray-400'" class="text-lg cursor-pointer">📝</span>
-                                </div>
-                            </div>
-                            <div class="flex justify-between p-4 mx-4">
-                                <div class="info">
-                                    <div>Invoice</div>
-                                    <div class="bold">#{{order.invoice_id}}</div>
-                                </div>
-                                <div class="info">
-                                    <div>Status</div>
-                                    <div class="bold w-fit" :class="getStatusClass(order.completion_status)">{{order.completion_status}}</div>
-                                </div>
-                                <div class="info">
-                                    <div>Date</div>
-                                    <div>{{ new Date(order.created_at).toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' }) }}</div>
-                                </div>
-                                <div class="info">
-                                    <div>Contact</div>
-                                    <div class="bold">{{ order.invoice?.contact?.name || 'No contact' }}</div>
-                                </div>
-                                <div class="info">
-                                    <div>Payment</div>
-                                    <select v-model="localStatus[order.id]"
-                                            class="text-black p-1"
-                                            :disabled="!order.is_completed"
-                                            @change="updateStatus(order.id, localStatus[order.id])">
+                                <div class="filter-col io-field io-field--payment">
+                                    <label class="toolbar-label">Payment</label>
+                                    <select v-model="status" class="text-black filter-select-compact" @change="applyFilter">
+                                        <option value="" hidden>Payment</option>
+                                        <option value="">All status</option>
                                         <option value="paid">Paid</option>
                                         <option value="unpaid">Unpaid</option>
                                     </select>
                                 </div>
-                            </div>
-                            
-                            <!-- Job Thumbnails Accordion -->
-                            <div v-if="order.invoice && order.invoice.jobs && order.invoice.jobs.length > 0" class="job-thumbnails-accordion">
-                                <div 
-                                    class="accordion-header" 
-                                    @click="toggleOrderExpansion(order.id)"
-                                >
-                                    <div class="accordion-header-content">
-                                        <span class="jobs-title">Job Preview Cards</span>
-                                        <span class="job-count">{{ getOrderJobWithThumbnails(order).length }} job(s)</span>
-                                    </div>
-                                    <div class="accordion-toggle">
-                                        <i 
-                                            :class="[isOrderExpanded(order.id) ? 'fa-chevron-up' : 'fa-chevron-down', 'fa']"
-                                        ></i>
-                                    </div>
+                                <div class="filter-col io-field io-field--progress">
+                                    <label class="toolbar-label">Progress</label>
+                                    <select v-model="completionStatus" class="text-black filter-select-compact" @change="applyFilter">
+                                        <option value="" hidden>Progress</option>
+                                        <option value="">All</option>
+                                        <option value="Completed">Completed</option>
+                                        <option value="In progress">In progress</option>
+                                        <option value="Not started yet">Not started</option>
+                                    </select>
                                 </div>
-                                
-                                <transition name="accordion">
-                                    <div 
-                                        v-if="isOrderExpanded(order.id)"
-                                        class="accordion-content"
-                                    >
-                                    <div class="jobs-container-grid">
-                                        <template v-for="(job, jobIndex) in getOrderJobWithThumbnails(order)" :key="jobIndex">
-                                            <!-- Each original file gets its own thumbnail container -->
-                                            <div 
-                                                v-for="(filePath, fileIndex) in job.originalFile || []"
-                                                :key="`${job.id}-${fileIndex}`"
-                                                class="thumbnail-card"
-                                                @click="openThumbnailModal(order.id, job.id, fileIndex)"
-                                            >
-                                                <!-- File thumbnails for this specific file -->
-                                                <div v-if="getFileThumbnails(order.id, job.id, fileIndex).length > 0" class="thumbnail-clickable">
-                                                    <!-- Always show first thumbnail -->
-                                                    <img 
-                                                        :src="getFileThumbnails(order.id, job.id, fileIndex)[0]?.url"
-                                                        :alt="`File ${fileIndex + 1}`"
-                                                        class="thumbnail-mini clickable-thumbnail"
-                                                        @error="onThumbnailError"
-                                                    />
-                                                    
-                                                    <!-- Show page count if multiple pages -->
-                                                    <div v-if="getFileThumbnails(order.id, job.id, fileIndex).length > 1" class="page-count-mini">
-                                                        {{ getFileThumbnails(order.id, job.id, fileIndex).length }}
-                                                    </div>
-                                                </div>
-                                                
-                                                <!-- Loading state -->
-                                                <div v-else-if="thumbnailLoading[order.id]" class="thumbnail-loading-mini">
-                                                    <i class="fa fa-spinner fa-spin"></i>
-                                                </div>
-                                                
-                                                <!-- No thumbnails -->
-                                                <div v-else class="thumbnail-placeholder-mini">
-                                                    <i class="fa fa-file-pdf-o"></i>
-                                                </div>
-                                            </div>
-                                        </template>
-                                    </div>
-                                    </div>
-                                </transition>
+                                <FinanceDateRangeCompact
+                                    class="io-field io-field--dates"
+                                    :date-from="dateFrom"
+                                    :date-to="dateTo"
+                                    label="Date created"
+                                    @update:date-from="dateFrom = $event"
+                                    @update:date-to="dateTo = $event"
+                                    @change="onDateRangeChange"
+                                />
+                                <FinanceYearMonthSelects
+                                    class="io-field io-field--ym"
+                                    :fiscal-year="fiscalYear"
+                                    :month="calendarMonth"
+                                    @update:fiscal-year="fiscalYear = $event"
+                                    @update:month="calendarMonth = $event"
+                                    @change="applyFilter"
+                                />
                             </div>
+                            <FinancePeriodPresets
+                                class="presets-inline-individual"
+                                label=""
+                                @preset="onPeriodPreset"
+                                @clear-dates="onClearDates"
+                            />
                         </div>
                     </div>
+
+                    <DataTableShell compact variant="grid">
+                        <template #header>
+                            <tr>
+                                <th class="number-column">Nr</th>
+                                <th class="order-column">Order</th>
+                                <th>Total</th>
+                                <th>Date</th>
+                                <th class="customer-column">Contact</th>
+                                <th>Progress</th>
+                                <th>Payment</th>
+                                <th>Notes</th>
+                                <th class="actions-column actions-header">Actions</th>
+                            </tr>
+                        </template>
+
+                        <template v-if="orders.data && orders.data.length > 0">
+                            <template v-for="(order, index) in orders.data" :key="order.id">
+                                <tr :class="{ 'row-expanded': isOrderExpanded(order.id) }">
+                                    <td class="cell-secondary">{{ rowNumber(index) }}</td>
+                                    <td class="order-primary-cell">
+                                        <div class="cell-primary">#{{ order.order_number || order.id }}</div>
+                                        <div class="cell-secondary">Invoice #{{ order.invoice_id }}</div>
+                                    </td>
+                                    <td><div class="cell-primary">{{ formatCurrency(order.total_amount) }} MKD</div></td>
+                                    <td><div class="cell-secondary">{{ formatDateDisplay(order.created_at) }}</div></td>
+                                    <td class="customer-column">
+                                        <FinanceClientNameCell :name="order.invoice?.contact?.name || ''" empty-label="No contact" />
+                                    </td>
+                                    <td>
+                                        <span :class="['status-badge', getStatusBadgeClass(order.completion_status)]">
+                                            {{ order.completion_status }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <ActionDropdown
+                                            :label="formatPaidStatus(localStatus[order.id])"
+                                            :trigger-title="`Update payment status for order ${order.order_number || order.id}`"
+                                            :groups="getPaymentMenuGroups()"
+                                            :disabled="!order.is_completed"
+                                            :tone="getPaymentTone(localStatus[order.id])"
+                                            @select="handlePaymentMenuSelect(order.id, $event)"
+                                        />
+                                    </td>
+                                    <td>
+                                        <button :class="['note-button', { 'note-filled': order.notes }]" @click="openNoteModal(order)">
+                                            <i class="fa-regular fa-note-sticky" aria-hidden="true"></i>
+                                            <span class="note-button-text">{{ order.notes ? 'View note' : 'Add note' }}</span>
+                                        </button>
+                                        <div v-if="order.notes" class="note-preview" :title="order.notes">{{ order.notes }}</div>
+                                    </td>
+                                    <td class="actions-cell">
+                                        <button
+                                            v-if="hasPreviewJobs(order)"
+                                            class="table-action-button"
+                                            @click="toggleOrderExpansion(order.id)"
+                                        >
+                                            <span>{{ isOrderExpanded(order.id) ? 'Hide Previews' : 'Preview Cards' }}</span>
+                                            <i :class="[isOrderExpanded(order.id) ? 'fa-chevron-up' : 'fa-chevron-down', 'fa-solid']" aria-hidden="true"></i>
+                                        </button>
+                                        <span v-else class="cell-secondary">No previews</span>
+                                    </td>
+                                </tr>
+
+                                <tr v-if="hasPreviewJobs(order) && isOrderExpanded(order.id)" class="preview-detail-row">
+                                    <td colspan="9" class="preview-detail-cell">
+                                        <div class="preview-detail-panel">
+                                            <div class="preview-panel-header">
+                                                <div class="preview-panel-title">Job Preview Cards</div>
+                                                <div class="preview-panel-count">{{ getOrderJobWithThumbnails(order).length }} job(s)</div>
+                                            </div>
+
+                                            <div class="jobs-container-grid">
+                                                <template v-for="(job, jobIndex) in getOrderJobWithThumbnails(order)" :key="jobIndex">
+                                                    <div
+                                                        v-for="(filePath, fileIndex) in job.originalFile || []"
+                                                        :key="`${job.id}-${fileIndex}`"
+                                                        class="thumbnail-card"
+                                                        @click="openThumbnailModal(order.id, job.id, fileIndex)"
+                                                    >
+                                                        <div v-if="getFileThumbnails(order.id, job.id, fileIndex).length > 0" class="thumbnail-clickable">
+                                                            <img
+                                                                :src="getFileThumbnails(order.id, job.id, fileIndex)[0]?.url"
+                                                                :alt="`File ${fileIndex + 1}`"
+                                                                class="thumbnail-mini clickable-thumbnail"
+                                                                @error="onThumbnailError"
+                                                            />
+                                                            <div v-if="getFileThumbnails(order.id, job.id, fileIndex).length > 1" class="page-count-mini">
+                                                                {{ getFileThumbnails(order.id, job.id, fileIndex).length }}
+                                                            </div>
+                                                        </div>
+                                                        <div v-else-if="thumbnailLoading[order.id]" class="thumbnail-loading-mini">
+                                                            <i class="fa fa-spinner fa-spin"></i>
+                                                        </div>
+                                                        <div v-else class="thumbnail-placeholder-mini">
+                                                            <i class="fa fa-file-pdf-o"></i>
+                                                        </div>
+                                                    </div>
+                                                </template>
+                                            </div>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </template>
+                        </template>
+
+                        <tr v-else>
+                            <td colspan="9" class="empty-cell">
+                                No individual orders found matching your criteria.
+                            </td>
+                        </tr>
+                    </DataTableShell>
                 </div>
                 <Pagination :pagination="orders" @pagination-change-page="handlePageChange"/>
             </div>
@@ -290,19 +328,44 @@
 import MainLayout from "@/Layouts/MainLayout.vue";
 import Header from "@/Components/Header.vue";
 import Pagination from "@/Components/Pagination.vue"
+import DataTableShell from "@/Components/DataTableShell.vue";
+import ActionDropdown from "@/Components/ActionDropdown.vue";
 import axios from 'axios';
 import RedirectTabs from "@/Components/RedirectTabs.vue";
 import { useToast } from "vue-toastification";
+import FinanceCompactSearch from "@/Components/Finance/FinanceCompactSearch.vue";
+import FinanceDateRangeCompact from "@/Components/Finance/FinanceDateRangeCompact.vue";
+import FinanceYearMonthSelects from "@/Components/Finance/FinanceYearMonthSelects.vue";
+import FinancePeriodPresets from "@/Components/Finance/FinancePeriodPresets.vue";
+import FinanceClientNameCell from "@/Components/Finance/FinanceClientNameCell.vue";
+import { normalizeDateRangeFields } from "@/utils/financeFilters";
 
 export default {
-    components: {Header, MainLayout, Pagination, RedirectTabs},
+    components: {
+        Header,
+        MainLayout,
+        Pagination,
+        DataTableShell,
+        ActionDropdown,
+        RedirectTabs,
+        FinanceCompactSearch,
+        FinanceDateRangeCompact,
+        FinanceYearMonthSelects,
+        FinancePeriodPresets,
+        FinanceClientNameCell,
+    },
     props:{
         orders:Object,
         availableContacts:Array,
     },
     data() {
         return {
+            searchInput: '',
             searchQuery: '',
+            dateFrom: '',
+            dateTo: '',
+            fiscalYear: '',
+            calendarMonth: '',
             sortOrder: 'desc',
             status: '',
             completionStatus: '',
@@ -381,6 +444,42 @@ export default {
         }
     },
     methods: {
+        rowNumber(index) {
+            const currentPage = this.orders?.current_page || 1;
+            const perPage = this.orders?.per_page || 20;
+            return ((currentPage - 1) * perPage) + index + 1;
+        },
+        formatDateDisplay(date) {
+            if (!date) return 'N/A';
+            return new Date(date).toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' });
+        },
+        formatCurrency(value) {
+            return Number(value || 0).toFixed(2);
+        },
+        hasPreviewJobs(order) {
+            return !!(order.invoice && order.invoice.jobs && order.invoice.jobs.length > 0);
+        },
+        formatPaidStatus(status) {
+            return status === 'paid' ? 'Paid' : 'Unpaid';
+        },
+        getPaymentTone(status) {
+            return status === 'paid' ? 'success' : 'danger';
+        },
+        getPaymentMenuGroups() {
+            return [
+                {
+                    label: 'Payment Status',
+                    items: [
+                        { label: 'Paid', value: 'paid' },
+                        { label: 'Unpaid', value: 'unpaid' },
+                    ],
+                },
+            ];
+        },
+        handlePaymentMenuSelect(orderId, item) {
+            this.localStatus[orderId] = item.value;
+            this.updateStatus(orderId, item.value);
+        },
         // Thumbnail methods
         async loadOrderThumbnails(orderId, jobs) {
             if (this.thumbnailLoading[orderId]) return;
@@ -428,39 +527,84 @@ export default {
             }));
         },
 
+        buildIndividualQueryParams() {
+            const state = { dateFrom: this.dateFrom, dateTo: this.dateTo };
+            normalizeDateRangeFields(state);
+            this.dateFrom = state.dateFrom;
+            this.dateTo = state.dateTo;
+            const params = new URLSearchParams();
+            if (this.searchQuery) {
+                params.append('searchQuery', this.searchQuery);
+            }
+            if (this.sortOrder) {
+                params.append('sortOrder', this.sortOrder);
+            }
+            if (this.status) {
+                params.append('status', this.status);
+            }
+            if (this.completionStatus) {
+                params.append('completionStatus', this.completionStatus);
+            }
+            if (this.contactFilter) {
+                params.append('contactFilter', this.contactFilter);
+            }
+            if (this.dateFrom) {
+                params.append('date_from', this.dateFrom);
+            }
+            if (this.dateTo) {
+                params.append('date_to', this.dateTo);
+            }
+            if (this.fiscalYear !== '' && this.fiscalYear != null) {
+                params.append('fiscal_year', this.fiscalYear);
+            }
+            if (this.calendarMonth !== '' && this.calendarMonth != null) {
+                params.append('month', this.calendarMonth);
+            }
+            return params;
+        },
         async applyFilter() {
             try {
-                const params = new URLSearchParams();
-                if (this.searchQuery) params.append('searchQuery', this.searchQuery);
-                if (this.sortOrder) params.append('sortOrder', this.sortOrder);
-                if (this.status) params.append('status', this.status);
-                if (this.completionStatus) params.append('completionStatus', this.completionStatus);
-                if (this.contactFilter) params.append('contactFilter', this.contactFilter);
-                
+                const params = this.buildIndividualQueryParams();
                 const queryString = params.toString();
                 const url = queryString ? `/individual?${queryString}` : '/individual';
-                
                 this.$inertia.visit(url);
             } catch (error) {
                 console.error(error);
             }
         },
-        async searchOrders() {
-            try {
-                const params = new URLSearchParams();
-                if (this.searchQuery) params.append('searchQuery', this.searchQuery);
-                if (this.sortOrder) params.append('sortOrder', this.sortOrder);
-                if (this.status) params.append('status', this.status);
-                if (this.completionStatus) params.append('completionStatus', this.completionStatus);
-                if (this.contactFilter) params.append('contactFilter', this.contactFilter);
-                
-                const queryString = params.toString();
-                const url = queryString ? `/individual?${queryString}` : '/individual';
-                
-                this.$inertia.visit(url);
-            } catch (error) {
-                console.error(error);
+        onSearchSubmit() {
+            this.searchQuery = (this.searchInput || '').trim();
+            this.applyFilter();
+        },
+        onDateRangeChange() {
+            const state = { dateFrom: this.dateFrom, dateTo: this.dateTo };
+            normalizeDateRangeFields(state);
+            this.dateFrom = state.dateFrom;
+            this.dateTo = state.dateTo;
+            this.applyFilter();
+        },
+        onPeriodPreset(type) {
+            const d = new Date();
+            const y = d.getFullYear();
+            const m = String(d.getMonth() + 1).padStart(2, '0');
+            const today = `${y}-${m}-${String(d.getDate()).padStart(2, '0')}`;
+            if (type === 'this_month') {
+                this.dateFrom = `${y}-${m}-01`;
+                this.dateTo = today;
+                this.fiscalYear = '';
+                this.calendarMonth = '';
+            } else if (type === 'this_year') {
+                this.dateFrom = `${y}-01-01`;
+                this.dateTo = today;
+                this.fiscalYear = '';
+                this.calendarMonth = '';
             }
+            this.applyFilter();
+        },
+        onClearDates() {
+            this.dateFrom = '';
+            this.dateTo = '';
+            this.applyFilter();
         },
         
         // Contact search methods
@@ -517,16 +661,10 @@ export default {
             }
         },
         handlePageChange(page) {
-            const params = new URLSearchParams();
-            if (this.searchQuery) params.append('searchQuery', this.searchQuery);
-            if (this.sortOrder) params.append('sortOrder', this.sortOrder);
-            if (this.status) params.append('status', this.status);
-            if (this.completionStatus) params.append('completionStatus', this.completionStatus);
-            params.append('page', page);
-            
+            const params = this.buildIndividualQueryParams();
+            params.set('page', page);
             const queryString = params.toString();
-            const url = queryString ? `/individual?${queryString}` : '/individual';
-            
+            const url = `/individual?${queryString}`;
             this.$inertia.visit(url);
         },
         openNoteModal(order) {
@@ -727,9 +865,32 @@ export default {
                     console.log('Unknown status:', status); // Debug log
                     return 'orange-text'; // Default to orange for unknown statuses
             }
+        },
+        getStatusBadgeClass(status) {
+            return this.getStatusClass(status);
         }
     },
     created() {
+        const url = new URL(window.location.href);
+        this.searchQuery = url.searchParams.get('searchQuery') || '';
+        this.searchInput = this.searchQuery;
+        this.sortOrder = url.searchParams.get('sortOrder') || 'desc';
+        this.status = url.searchParams.get('status') || '';
+        this.completionStatus = url.searchParams.get('completionStatus') || '';
+        this.contactFilter = url.searchParams.get('contactFilter') || '';
+        this.dateFrom = url.searchParams.get('date_from') || '';
+        this.dateTo = url.searchParams.get('date_to') || '';
+        const fy = url.searchParams.get('fiscal_year');
+        this.fiscalYear = fy !== null && fy !== '' ? parseInt(fy, 10) : '';
+        if (Number.isNaN(this.fiscalYear)) {
+            this.fiscalYear = '';
+        }
+        const mo = url.searchParams.get('month');
+        this.calendarMonth = mo !== null && mo !== '' ? parseInt(mo, 10) : '';
+        if (Number.isNaN(this.calendarMonth)) {
+            this.calendarMonth = '';
+        }
+
         // Initialize local status from props
         if (this.orders && this.orders.data) {
             this.localStatus = Object.fromEntries(this.orders.data.map(o => [o.id, o.paid_status]));
@@ -782,27 +943,182 @@ $ultra-light-gray: #f9fafb;
     justify-content: center;
 }
 
-.info {
-    flex: 1;
-    min-width: 0;
+.toolbar-inline {
     display: flex;
-    flex-direction: column;
-    justify-content: center;
-    margin-right: 1rem;
-    padding: 0.5rem;
-    
-    &:last-child {
-        margin-right: 0;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 10px 12px;
+}
+
+.filter-toolbar-individual {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 10px 12px;
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.filter-toolbar-individual .io-field--search {
+    flex: 0 1 220px;
+    min-width: 160px;
+    max-width: 280px;
+}
+
+.filter-toolbar-individual .io-field--sort {
+    flex: 0 0 150px;
+    min-width: 130px;
+}
+
+.filter-toolbar-individual .io-field--contact {
+    flex: 0 1 220px;
+    min-width: 180px;
+}
+
+.filter-toolbar-individual .io-field--payment {
+    flex: 0 1 120px;
+    min-width: 100px;
+}
+
+.filter-toolbar-individual .io-field--progress {
+    flex: 0 1 140px;
+    min-width: 120px;
+}
+
+.filter-toolbar-individual .io-field--dates {
+    flex: 1 1 280px;
+    min-width: 260px;
+    max-width: 340px;
+}
+
+.filter-toolbar-individual .io-field--ym {
+    flex: 0 1 260px;
+    min-width: 240px;
+}
+
+.presets-inline-individual {
+    flex: 0 0 auto;
+    align-self: flex-end;
+    min-width: 0;
+}
+
+@media (min-width: 900px) {
+    .presets-inline-individual :deep(.fc-pp__row) {
+        flex-wrap: nowrap;
     }
 }
 
-.filter-container{
-    justify-content: space-between;
+@media (max-width: 1100px) {
+    .filter-toolbar-individual .io-field--dates {
+        flex-basis: 100%;
+        max-width: none;
+    }
+
+    .filter-toolbar-individual .io-field--ym {
+        flex-basis: 100%;
+    }
 }
 
-select{
-    width: 25vh;
-    border-radius: 3px;
+.toolbar-panel {
+    margin-bottom: 14px;
+    padding: 12px 14px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.04);
+}
+
+.toolbar-label {
+    display: block;
+    margin-bottom: 4px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: rgba(255, 255, 255, 0.7);
+}
+
+.filter-col {
+    min-width: 0;
+}
+
+.filter-select-compact {
+    width: 100%;
+    min-height: 34px;
+    border-radius: 8px;
+    padding: 0 8px;
+    font-size: 13px;
+}
+
+.filter-select,
+select {
+    width: 100%;
+    min-height: 40px;
+    border-radius: 8px;
+    padding: 0 12px;
+}
+
+.search-input {
+    width: 100%;
+    min-height: 40px;
+    border-radius: 8px;
+    padding: 0 14px;
+}
+
+.contact-input-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.contact-dropdown-wrapper {
+    width: 100%;
+}
+
+.contact-search-input {
+    padding-right: 36px;
+}
+
+.contact-dropdown-menu {
+    position: absolute;
+    z-index: 20;
+    width: 100%;
+    margin-top: 6px;
+    max-height: 240px;
+    overflow-y: auto;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 10px;
+    background: white;
+    color: #111827;
+    box-shadow: 0 14px 30px rgba(0, 0, 0, 0.2);
+}
+
+.contact-dropdown-item,
+.contact-dropdown-empty {
+    padding: 10px 12px;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.contact-dropdown-item {
+    cursor: pointer;
+}
+
+.contact-dropdown-item:hover,
+.contact-dropdown-item.selected {
+    background: #dbeafe;
+}
+
+.contact-dropdown-empty {
+    color: #6b7280;
+}
+
+.clear-filter-button {
+    flex-shrink: 0;
+    width: 34px;
+    height: 34px;
+    border: 1px solid rgba(248, 113, 113, 0.3);
+    border-radius: 8px;
+    color: #f87171;
+    background: rgba(248, 113, 113, 0.08);
 }
 
 .blue-text{
@@ -864,7 +1180,7 @@ select{
 
 .dark-gray {
     background-color: $dark-gray;
-    border-radius: 3px;
+    border-radius: 8px;
     min-height: 20vh;
     min-width: 80vh;
 }
@@ -878,14 +1194,7 @@ select{
     font-weight: bold;
     align-items: center;
     color: $white;
-}
-
-.note-header{
-    display: flex;
-    align-items: center;
-    gap: 5px;
-    max-width: 50%;
-    cursor: pointer;
+    margin: 0;
 }
 
 .note-preview{
@@ -893,7 +1202,9 @@ select{
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    color: #4b5563;
+    color: rgba(255, 255, 255, 0.68);
+    max-width: 160px;
+    font-size: 12px;
 }
 
 .button-container{
@@ -907,14 +1218,206 @@ select{
     border-radius: 2px;
 }
 
-.create-order1{
-    background-color: $blue;
-    color: white;
+.toolbar-search-button {
+    min-width: 110px;
+    border: 1px solid rgba(96, 165, 250, 0.45);
+    border-radius: 8px;
+    background: linear-gradient(135deg, rgba(59, 130, 246, 0.92), rgba(37, 99, 235, 0.92));
+    color: $white;
+    box-shadow: 0 10px 24px rgba(37, 99, 235, 0.18);
+}
+
+.toolbar-search-button:hover {
+    background: linear-gradient(135deg, rgba(96, 165, 250, 0.96), rgba(59, 130, 246, 0.96));
 }
 
 .create-order{
     background-color: $green;
     color: white;
+}
+
+.number-column {
+    width: 70px;
+}
+
+.order-column {
+    width: 170px;
+}
+
+.customer-column {
+    max-width: 280px;
+    width: 18%;
+}
+
+.actions-column {
+    width: 150px;
+}
+
+.actions-header {
+    text-align: right;
+}
+
+.order-primary-cell {
+    min-width: 160px;
+}
+
+.cell-primary {
+    font-weight: 700;
+    color: $white;
+}
+
+.cell-secondary {
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.68);
+}
+
+.status-badge {
+    display: inline-flex;
+    align-items: center;
+    width: fit-content;
+}
+
+.payment-select {
+    min-height: 38px;
+    min-width: 124px;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: 8px;
+    padding: 0 36px 0 12px;
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    color: $white;
+    font-weight: 700;
+    background-color: rgba(255, 255, 255, 0.06);
+    background-image:
+        linear-gradient(45deg, transparent 50%, rgba(255, 255, 255, 0.68) 50%),
+        linear-gradient(135deg, rgba(255, 255, 255, 0.68) 50%, transparent 50%);
+    background-position:
+        calc(100% - 16px) calc(50% - 2px),
+        calc(100% - 11px) calc(50% - 2px);
+    background-size: 5px 5px, 5px 5px;
+    background-repeat: no-repeat;
+}
+
+.payment-select:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+
+.payment-paid {
+    border-color: rgba(74, 222, 128, 0.32);
+    background-color: rgba(74, 222, 128, 0.12);
+}
+
+.payment-unpaid {
+    border-color: rgba(248, 113, 113, 0.3);
+    background-color: rgba(248, 113, 113, 0.1);
+}
+
+.note-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-height: 34px;
+    padding: 6px 10px;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.06);
+    color: $white;
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 1;
+    white-space: nowrap;
+    margin-bottom: 4px;
+    transition: all 0.2s ease;
+}
+
+.note-button:hover {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: rgba(255, 255, 255, 0.24);
+}
+
+.note-button.note-filled {
+    border-color: rgba(74, 222, 128, 0.32);
+    background: rgba(74, 222, 128, 0.12);
+}
+
+.note-button.note-filled:hover {
+    background: rgba(74, 222, 128, 0.18);
+    border-color: rgba(74, 222, 128, 0.46);
+}
+
+.note-button i {
+    font-size: 11px;
+}
+
+.note-button-text {
+    white-space: nowrap;
+}
+
+.actions-cell {
+    text-align: right;
+}
+
+.table-action-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 6px 10px;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.06);
+    color: $white;
+    font-size: 12px;
+    font-weight: 700;
+    transition: all 0.2s ease;
+}
+
+.table-action-button:hover {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: rgba(255, 255, 255, 0.24);
+}
+
+.empty-cell {
+    padding: 34px 16px !important;
+    text-align: center;
+    color: rgba(255, 255, 255, 0.7);
+}
+
+.preview-detail-row :deep(td) {
+    padding: 0 !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    background: rgba(255, 255, 255, 0.02);
+}
+
+.preview-detail-cell {
+    text-align: left;
+}
+
+.preview-detail-panel {
+    padding: 16px;
+}
+
+.preview-panel-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 12px;
+}
+
+.preview-panel-title {
+    font-weight: 700;
+    color: $white;
+}
+
+.preview-panel-count {
+    color: rgba(255, 255, 255, 0.65);
+    font-size: 12px;
+    background: rgba(255, 255, 255, 0.08);
+    padding: 3px 8px;
+    border-radius: 999px;
 }
 
 // Accordion thumbnail container styles
@@ -979,13 +1482,17 @@ select{
     
     .jobs-container-grid {
         display: flex;
-        flex-wrap: wrap;
+        flex-wrap: nowrap;
         gap: 12px;
         padding: 8px 0;
         justify-content: flex-start;
+        align-items: flex-start;
         width: 100%;
         min-width: 0;
         max-width: 100%;
+        overflow-x: auto;
+        overflow-y: hidden;
+        scrollbar-width: thin;
         
         &:empty::after {
             content: "No job previews available";
@@ -998,6 +1505,7 @@ select{
         }
         
         .thumbnail-card {
+            flex: 0 0 auto;
             width: 40px;
             height: 50px;
             overflow: hidden;

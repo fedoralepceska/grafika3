@@ -726,7 +726,7 @@
                     </td>
                     <td style="font-size: 9pt; font-family: 'Calibri'; font-weight: 300; text-align: center; vertical-align: top; width: 40%;">
                         <span style="font-family: 'Calibri'; font-weight: 300;">Овластено лице за потпишување фактури</span><br>
-                        Зорица Гаштаровска<br>
+                        {{ $invoiceIssuerName ?? '' }}<br>
                         <div class="line" style="margin-top: 25px;"></div>
                     </td>
                     <td style="font-size: 9pt; text-align: center; vertical-align: top; width: 30%;">

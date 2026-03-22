@@ -1,115 +1,138 @@
 <template>
     <MainLayout>
         <div class="pl-7 pr-7">
-            <Header title="invoice2" subtitle="incomingInvoice" icon="invoice.png" link="incomingInvoice"/>
-            <div class="dark-gray p-2 text-white overflow-x-hidden">
-                <RedirectTabs :route="$page.url" />
-                <div class="form-container p-2">
-                    <div class="flex justify-between items-center align-middle">
-                        <h2 class="sub-title">
-                            {{ $t('listOfIncomingInvoices') }}
-                        </h2>
-                    <div style="margin-top: -12px;">
-                        <AddIncomingInvoiceDialog 
-                                    :incomingInvoice="incomingInvoice"
-                                    :cost-types="$page.props.costTypes"
-                                    :bill-types="$page.props.billTypes"
-                                    @invoice-added="handleInvoiceAdded"
+            <Header title="invoice2" subtitle="incomingInvoice" icon="invoice.png" link="incomingInvoice" />
+            <RedirectTabs :route="$page.url" />
+            <div class="dark-gray p-2 text-white min-w-0">
+                <div class="form-container p-2 min-w-0">
+                    <div class="toolbar-panel">
+                        <div class="toolbar-inline">
+                            <div class="filter-toolbar-incoming">
+                                <FinanceCompactSearch
+                                    v-model="searchInput"
+                                    label="Invoice #"
+                                    placeholder="Incoming #…"
+                                    class="incoming-field incoming-field--search"
+                                    @submit="onSearchSubmit"
                                 />
-                    </div>
-                    </div>
-                    <div class="filter-container">
-                        <!-- Search Section -->
-                        <div class="search-section mb-4">
-                            <div class="flex items-center gap-2">
-                                <div class="flex-1">
-                                    <input 
-                                        v-model="searchQuery" 
-                                        placeholder="Search by invoice number..." 
-                                        class="w-full text-black px-4 py-2 rounded border border-gray-300 focus:outline-none focus:border-blue-500" 
-                                        @keyup.enter="searchInvoices"
-                                    />
-                                </div>
-                                <button class="btn create-order1 px-6" @click="searchInvoices">
-                                    <i class="fa fa-search mr-2"></i>Search
-                                </button>
-                            </div>
-                        </div>
-
-                        <!-- Filters Section -->
-                        <div class="filters-section bg-gray-800 p-4 rounded mb-4">
-                            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
-                                <div class="filter-group">
-                                    <label class="block text-sm mb-2">Client</label>
-                                    <select v-model="filterClient" class="w-full text-black px-2 py-1.5 rounded">
-                                        <option value="All">All Clients</option>
-                                        <option v-for="client in $page.props.clients" :key="client.id" :value="client.id">
-                                            {{ client.name }}
-                                        </option>
+                                <div class="filter-col incoming-field incoming-field--sort">
+                                    <label class="toolbar-label">Order</label>
+                                    <select v-model="sortOrder" class="text-black filter-select-compact" @change="fetchList(1)">
+                                        <option value="desc">Newest first</option>
+                                        <option value="asc">Oldest first</option>
                                     </select>
                                 </div>
-
-                                <div class="filter-group">
-                                    <label class="block text-sm mb-2">Warehouse</label>
-                                    <select v-model="filterWarehouse" class="w-full text-black px-2 py-1.5 rounded">
-                                        <option value="">All Warehouses</option>
+                                <FinanceClientSearchSelect
+                                    v-model="clientId"
+                                    :clients="clients"
+                                    label="Client"
+                                    class="incoming-field incoming-field--client"
+                                    @change="fetchList(1)"
+                                />
+                                <div class="filter-col incoming-field">
+                                    <label class="toolbar-label">Warehouse</label>
+                                    <select v-model="filterWarehouse" class="text-black filter-select-compact" @change="fetchList(1)">
+                                        <option value="">All</option>
                                         <option v-for="warehouse in $page.props.warehouses" :key="warehouse" :value="warehouse">
                                             {{ warehouse }}
                                         </option>
                                     </select>
                                 </div>
-
-                                <div class="filter-group">
-                                    <label class="block text-sm mb-2">Cost Type</label>
-                                    <select v-model="filterCostType" class="w-full text-black px-2 py-1.5 rounded">
-                                        <option value="">All Cost Types</option>
+                                <div class="filter-col incoming-field">
+                                    <label class="toolbar-label">Cost type</label>
+                                    <select v-model="filterCostType" class="text-black filter-select-compact" @change="fetchList(1)">
+                                        <option value="">All</option>
                                         <option v-for="type in $page.props.costTypes" :key="type.id" :value="type.id">
                                             {{ type.name }}
                                         </option>
                                     </select>
                                 </div>
-
-                                <div class="filter-group">
-                                    <label class="block text-sm mb-2">Bill Type</label>
-                                    <select v-model="filterBillType" class="w-full text-black px-2 py-1.5 rounded">
-                                        <option value="">All Bill Types</option>
+                                <div class="filter-col incoming-field">
+                                    <label class="toolbar-label">Bill type</label>
+                                    <select v-model="filterBillType" class="text-black filter-select-compact" @change="fetchList(1)">
+                                        <option value="">All</option>
                                         <option v-for="type in $page.props.billTypes" :key="type.id" :value="type.id">
                                             {{ type.name }}
                                         </option>
                                     </select>
                                 </div>
-
-                                <div class="filter-group">
-                                    <label class="block text-sm mb-2">Date Order</label>
-                                    <select v-model="sortOrder" class="w-full text-black px-2 py-1.5 rounded">
-                                        <option value="desc">Newest to Oldest</option>
-                                        <option value="asc">Oldest to Newest</option>
-                                    </select>
-                                </div>
+                                <FinanceDateRangeCompact
+                                    class="incoming-field incoming-field--dates"
+                                    :date-from="dateFrom"
+                                    :date-to="dateTo"
+                                    label="Created"
+                                    @update:date-from="dateFrom = $event"
+                                    @update:date-to="dateTo = $event"
+                                    @change="onDateRangeChange"
+                                />
+                                <FinanceYearMonthSelects
+                                    class="incoming-field incoming-field--ym"
+                                    :fiscal-year="fiscalYear"
+                                    :month="calendarMonth"
+                                    @update:fiscal-year="fiscalYear = $event"
+                                    @update:month="calendarMonth = $event"
+                                    @change="fetchList(1)"
+                                />
                             </div>
+                            <FinancePeriodPresets class="presets-inline" label="" @preset="onPeriodPreset" @clear-dates="onClearDates" />
+                        </div>
 
-                            <div class="flex justify-end items-center mt-4">
-                                <button @click="applyFilter" class="btn create-order1 px-6">
-                                    <i class="fa fa-filter mr-2"></i>Apply Filters
-                                </button>
-                            </div>
+                        <div class="toolbar-actions">
+                            <AddIncomingInvoiceDialog
+                                :incoming-invoice="displayIncoming"
+                                :cost-types="$page.props.costTypes"
+                                :bill-types="$page.props.billTypes"
+                                @invoice-added="handleInvoiceAdded"
+                            />
                         </div>
                     </div>
 
-                    <div v-if="incomingInvoice.data" class="overflow-x-auto">
-                        <div class="border mb-1" v-for="faktura in incomingInvoice.data" :key="faktura.id">
-                            <div class="bg-white text-black flex justify-between">
-                                <div class="p-2 bold flex justify-between w-full">
-                                    <div>
-                                        Invoice #{{faktura.incoming_number}}/{{ new Date(faktura.created_at).toLocaleDateString('en-US', { year: 'numeric' }) }}
+                    <div v-if="loading" class="loading-inline">
+                        <i class="fa fa-spinner fa-spin" /> Loading…
+                    </div>
+
+                    <div v-else class="incoming-table-shell">
+                    <DataTableShell compact variant="grid">
+                        <template #header>
+                            <tr>
+                                <th class="invoice-column">Invoice</th>
+                                <th class="customer-column">Client</th>
+                                <th class="col-wh" title="Warehouse">Warehouse</th>
+                                <th class="col-cost" title="Cost type">Cost</th>
+                                <th class="col-bill" title="Bill type">Bill</th>
+                                <th class="col-num">Amount</th>
+                                <th class="col-num">Tax</th>
+                                <th class="col-num">Total</th>
+                                <th class="col-date">Date</th>
+                                <th class="col-comment">Comment</th>
+                                <th class="actions-column actions-header">Actions</th>
+                            </tr>
+                        </template>
+
+                        <template v-if="displayIncoming.data && displayIncoming.data.length > 0">
+                            <tr v-for="faktura in displayIncoming.data" :key="faktura.id">
+                                <td class="invoice-primary-cell">
+                                    <div class="invoice-main">
+                                        <div class="cell-primary">#{{ faktura.incoming_number }}</div>
+                                        <span v-if="faktura.billing_type === 'фактура'" class="archive-badge">
+                                            Archive #{{ faktura.faktura_counter }}
+                                        </span>
                                     </div>
-                                    <div v-if="faktura.billing_type === 'фактура'">
-                                        Archive #{{ faktura.faktura_counter }}
-                                    </div>
-                                </div>
-                                <div class="flex items-center">
-                                    <div class="p-2 bold text-gray-500">{{ new Date(faktura.date).toLocaleDateString('en-US', { year: 'numeric', month: '2-digit', day: '2-digit' }) }}</div>
-                                    <EditIncomingInvoiceDialog 
+                                    <div class="cell-secondary">{{ formatInvoicePeriod(faktura.created_at) }}</div>
+                                </td>
+                                <td class="customer-column">
+                                    <FinanceClientNameCell :name="faktura.client_name || ''" />
+                                </td>
+                                <td class="col-wh"><div class="cell-secondary incoming-ellipsis" :title="faktura.warehouse || ''">{{ faktura.warehouse || 'N/A' }}</div></td>
+                                <td class="col-cost"><div class="cell-secondary incoming-text-wrap" :title="faktura.cost_type || ''">{{ faktura.cost_type || 'N/A' }}</div></td>
+                                <td class="col-bill"><div class="cell-secondary incoming-text-wrap" :title="faktura.billing_type || ''">{{ faktura.billing_type || 'N/A' }}</div></td>
+                                <td class="col-num"><div class="cell-secondary text-right">{{ faktura.amount }}</div></td>
+                                <td class="col-num"><div class="cell-secondary text-right">{{ faktura.tax }}</div></td>
+                                <td class="col-num"><div class="cell-primary text-right">{{ calculateTotal(faktura) }}</div></td>
+                                <td class="col-date"><div class="cell-secondary incoming-ellipsis">{{ formatFullDate(faktura.date) }}</div></td>
+                                <td class="col-comment"><div class="cell-secondary comment-cell" :title="faktura.comment || ''">{{ faktura.comment || 'N/A' }}</div></td>
+                                <td class="actions-cell">
+                                    <EditIncomingInvoiceDialog
                                         :invoice="faktura"
                                         :cost-types="$page.props.costTypes"
                                         :bill-types="$page.props.billTypes"
@@ -117,265 +140,562 @@
                                         :clients="$page.props.clients"
                                         @invoice-updated="handleInvoiceUpdated"
                                     />
-                                </div>
-                            </div>
-                            <div class="flex flex-wrap justify-between gap-4 p-2">
-                                <div class="info">
-                                    <div>Customer</div>
-                                    <div class="bold">{{ faktura.client_name || 'N/A' }}</div>
-                                </div>
-                                <div class="info">
-                                    <div>Warehouse</div>
-                                    <div class="bold">{{ faktura.warehouse || 'N/A' }}</div>
-                                </div>
-                                <div class="info">
-                                    <div>Amount</div>
-                                    <div class="bold">{{ faktura.amount }}</div>
-                                </div>
-                                <div class="info">
-                                    <div>Tax</div>
-                                    <div class="bold">{{ faktura.tax }}</div>
-                                </div>
-                                <div class="info">
-                                    <div>Total</div>
-                                    <div class="bold">{{ calculateTotal(faktura) }}</div>
-                                </div>
-                                <div class="info">
-                                    <div>Comment</div>
-                                    <div class="bold">{{ faktura.comment || 'N/A' }}</div>
-                                </div>
-                            </div>
-                        </div>
+                                </td>
+                            </tr>
+                        </template>
+
+                        <tr v-else>
+                            <td colspan="11" class="empty-cell">
+                                No incoming invoices found matching your criteria.
+                            </td>
+                        </tr>
+                    </DataTableShell>
                     </div>
                 </div>
-                <AdvancedPagination 
-                    :pagination="incomingInvoice"
-                    :preserve-params="{
-                        searchQuery: searchQuery,
-                        filterClient: filterClient,
-                        filterWarehouse: filterWarehouse,
-                        filterCostType: filterCostType,
-                        filterBillType: filterBillType,
-                        sortOrder: sortOrder
-                    }"
-                />
+                <Pagination :pagination="displayIncoming" @pagination-change-page="goToPage" />
             </div>
         </div>
     </MainLayout>
 </template>
 
 <script>
-import MainLayout from "@/Layouts/MainLayout.vue";
-import Header from "@/Components/Header.vue";
-import AdvancedPagination from "@/Components/AdvancedPagination.vue"
-import { router } from '@inertiajs/vue3'
-import {reactive} from "vue";
-import OrderJobDetails from "@/Pages/Invoice/OrderJobDetails.vue";
-import ViewLockDialog from "@/Components/ViewLockDialog.vue";
-import RedirectTabs from "@/Components/RedirectTabs.vue";
-import AddIncomingInvoiceDialog from "@/Components/AddIncomingInvoiceDialog.vue";
-import EditIncomingInvoiceDialog from "@/Components/EditIncomingInvoiceDialog.vue";
+import MainLayout from '@/Layouts/MainLayout.vue';
+import Header from '@/Components/Header.vue';
+import Pagination from '@/Components/Pagination.vue';
+import DataTableShell from '@/Components/DataTableShell.vue';
+import RedirectTabs from '@/Components/RedirectTabs.vue';
+import AddIncomingInvoiceDialog from '@/Components/AddIncomingInvoiceDialog.vue';
+import EditIncomingInvoiceDialog from '@/Components/EditIncomingInvoiceDialog.vue';
+import FinanceCompactSearch from '@/Components/Finance/FinanceCompactSearch.vue';
+import FinanceClientSearchSelect from '@/Components/Finance/FinanceClientSearchSelect.vue';
+import FinanceDateRangeCompact from '@/Components/Finance/FinanceDateRangeCompact.vue';
+import FinanceYearMonthSelects from '@/Components/Finance/FinanceYearMonthSelects.vue';
+import FinancePeriodPresets from '@/Components/Finance/FinancePeriodPresets.vue';
+import FinanceClientNameCell from '@/Components/Finance/FinanceClientNameCell.vue';
+import axios from 'axios';
+import { normalizeDateRangeFields } from '@/utils/financeFilters';
 
 export default {
     components: {
-        Header, 
+        Header,
         MainLayout,
-        AdvancedPagination,
-        OrderJobDetails, 
-        ViewLockDialog, 
+        Pagination,
+        DataTableShell,
         RedirectTabs,
-        AddIncomingInvoiceDialog, 
-        EditIncomingInvoiceDialog 
+        AddIncomingInvoiceDialog,
+        EditIncomingInvoiceDialog,
+        FinanceCompactSearch,
+        FinanceClientSearchSelect,
+        FinanceDateRangeCompact,
+        FinanceYearMonthSelects,
+        FinancePeriodPresets,
+        FinanceClientNameCell,
     },
-    props:{
+    props: {
         incomingInvoice: Object,
         costTypes: {
             type: Array,
-            required: true
+            required: true,
         },
         billTypes: {
             type: Array,
-            required: true
+            required: true,
         },
         clients: {
             type: Array,
-            required: true
-        }
+            required: true,
+        },
     },
     data() {
         return {
+            searchInput: '',
             searchQuery: '',
-            filterClient: 'All',
+            clientId: null,
             filterWarehouse: '',
             filterCostType: '',
             filterBillType: '',
+            dateFrom: '',
+            dateTo: '',
+            fiscalYear: '',
+            calendarMonth: '',
             sortOrder: 'desc',
+            perPage: 20,
+            localIncoming: null,
             loading: false,
-            error: null
         };
     },
-    created() {
-        // Initialize filters from URL if they exist
-        const url = new URL(window.location.href);
-        this.searchQuery = url.searchParams.get('searchQuery') || '';
-        this.filterClient = url.searchParams.get('filterClient') || 'All';
-        this.filterWarehouse = url.searchParams.get('filterWarehouse') || '';
-        this.filterCostType = url.searchParams.get('filterCostType') || '';
-        this.filterBillType = url.searchParams.get('filterBillType') || '';
-        this.sortOrder = url.searchParams.get('sortOrder') || 'desc';
+    computed: {
+        displayIncoming() {
+            return this.localIncoming !== null ? this.localIncoming : this.incomingInvoice;
+        },
+    },
+    mounted() {
+        this.initFromUrl();
+        const page = parseInt(new URLSearchParams(window.location.search).get('page') || '1', 10) || 1;
+        this.fetchList(page);
     },
     methods: {
-        handleInvoiceAdded() {
-            this.visitWithFilters(); // Refresh the list after adding
-        },
-        calculateTotal(faktura) {
-            const amount = parseFloat(faktura.amount.replace(/,/g, ''));
-            const tax = parseFloat(faktura.tax.replace(/,/g, ''));
-            return (amount + tax).toFixed(2);
-        },
-        visitWithFilters(resetPage = false) {
-            const params = {
-                searchQuery: this.searchQuery,
-                filterClient: this.filterClient,
-                filterWarehouse: this.filterWarehouse,
-                filterCostType: this.filterCostType,
-                filterBillType: this.filterBillType,
-                sortOrder: this.sortOrder
-            };
-
-            // Only include page parameter if not resetting
-            if (!resetPage) {
-                const currentPage = new URL(window.location.href).searchParams.get('page');
-                if (currentPage) {
-                    params.page = currentPage;
+        initFromUrl() {
+            const p = new URLSearchParams(window.location.search);
+            this.searchInput = p.get('searchQuery') || '';
+            this.searchQuery = this.searchInput;
+            const cid = p.get('filterClient');
+            if (cid && cid !== 'All') {
+                const n = parseInt(cid, 10);
+                this.clientId = Number.isNaN(n) ? null : n;
+            }
+            this.filterWarehouse = p.get('filterWarehouse') || '';
+            this.filterCostType = p.get('filterCostType') || '';
+            this.filterBillType = p.get('filterBillType') || '';
+            this.dateFrom = p.get('date_from') || '';
+            this.dateTo = p.get('date_to') || '';
+            const fy = p.get('fiscal_year');
+            this.fiscalYear = fy ? parseInt(fy, 10) : '';
+            const mo = p.get('month');
+            this.calendarMonth = mo ? parseInt(mo, 10) : '';
+            this.sortOrder = p.get('sortOrder') || 'desc';
+            const pp = p.get('per_page');
+            if (pp) {
+                const n = parseInt(pp, 10);
+                if (!Number.isNaN(n) && n > 0) {
+                    this.perPage = Math.min(200, n);
                 }
             }
-
-            // Remove empty params
-            Object.keys(params).forEach(key => {
-                if (params[key] === '' || params[key] === null || params[key] === undefined) {
-                    delete params[key];
-                }
-            });
-
-            router.get('/incomingInvoice', params, {
-                preserveState: true,
-                preserveScroll: true,
-                replace: true
-            });
         },
-        async applyFilter() {
-            this.visitWithFilters(true); // Reset to page 1 when applying filters
+        buildParams(page) {
+            const state = { dateFrom: this.dateFrom, dateTo: this.dateTo };
+            normalizeDateRangeFields(state);
+            this.dateFrom = state.dateFrom;
+            this.dateTo = state.dateTo;
+
+            const params = {
+                page,
+                per_page: this.perPage,
+                sortOrder: this.sortOrder,
+            };
+            if (this.searchQuery) {
+                params.searchQuery = this.searchQuery;
+            }
+            params.filterClient = this.clientId == null ? 'All' : this.clientId;
+            if (this.filterWarehouse) {
+                params.filterWarehouse = this.filterWarehouse;
+            }
+            if (this.filterCostType !== '' && this.filterCostType != null) {
+                params.filterCostType = this.filterCostType;
+            }
+            if (this.filterBillType !== '' && this.filterBillType != null) {
+                params.filterBillType = this.filterBillType;
+            }
+            if (this.dateFrom) {
+                params.date_from = this.dateFrom;
+            }
+            if (this.dateTo) {
+                params.date_to = this.dateTo;
+            }
+            if (this.fiscalYear !== '' && this.fiscalYear != null) {
+                params.fiscal_year = this.fiscalYear;
+            }
+            if (this.calendarMonth !== '' && this.calendarMonth != null) {
+                params.month = this.calendarMonth;
+            }
+            return params;
         },
-        async searchInvoices() {
-            this.visitWithFilters(true); // Reset to page 1 when searching
+        buildHistoryQuery(page) {
+            const p = this.buildParams(page);
+            const parts = [];
+            if (p.searchQuery) {
+                parts.push(`searchQuery=${encodeURIComponent(p.searchQuery)}`);
+            }
+            if (p.filterClient && p.filterClient !== 'All') {
+                parts.push(`filterClient=${p.filterClient}`);
+            }
+            if (p.filterWarehouse) {
+                parts.push(`filterWarehouse=${encodeURIComponent(p.filterWarehouse)}`);
+            }
+            if (p.filterCostType !== undefined && p.filterCostType !== '') {
+                parts.push(`filterCostType=${encodeURIComponent(p.filterCostType)}`);
+            }
+            if (p.filterBillType !== undefined && p.filterBillType !== '') {
+                parts.push(`filterBillType=${encodeURIComponent(p.filterBillType)}`);
+            }
+            if (p.date_from) {
+                parts.push(`date_from=${p.date_from}`);
+            }
+            if (p.date_to) {
+                parts.push(`date_to=${p.date_to}`);
+            }
+            if (p.fiscal_year != null && p.fiscal_year !== '') {
+                parts.push(`fiscal_year=${p.fiscal_year}`);
+            }
+            if (p.month != null && p.month !== '') {
+                parts.push(`month=${p.month}`);
+            }
+            parts.push(`sortOrder=${this.sortOrder}`);
+            parts.push(`per_page=${this.perPage}`);
+            parts.push(`page=${page}`);
+            return parts.length ? `?${parts.join('&')}` : '';
+        },
+        async fetchList(page = 1) {
+            try {
+                this.loading = true;
+                const { data } = await axios.get('/incomingInvoice', {
+                    params: this.buildParams(page),
+                });
+                this.localIncoming = data;
+                window.history.pushState({}, '', `/incomingInvoice${this.buildHistoryQuery(page)}`);
+            } catch (e) {
+                console.error(e);
+            } finally {
+                this.loading = false;
+            }
+        },
+        goToPage(page) {
+            this.fetchList(page);
+        },
+        onSearchSubmit() {
+            this.searchQuery = (this.searchInput || '').trim();
+            this.fetchList(1);
+        },
+        onDateRangeChange() {
+            const state = { dateFrom: this.dateFrom, dateTo: this.dateTo };
+            normalizeDateRangeFields(state);
+            this.dateFrom = state.dateFrom;
+            this.dateTo = state.dateTo;
+            this.fetchList(1);
+        },
+        onPeriodPreset(type) {
+            const d = new Date();
+            const y = d.getFullYear();
+            const m = String(d.getMonth() + 1).padStart(2, '0');
+            const today = `${y}-${m}-${String(d.getDate()).padStart(2, '0')}`;
+            if (type === 'this_month') {
+                this.dateFrom = `${y}-${m}-01`;
+                this.dateTo = today;
+                this.fiscalYear = '';
+                this.calendarMonth = '';
+            } else if (type === 'this_year') {
+                this.dateFrom = `${y}-01-01`;
+                this.dateTo = today;
+                this.fiscalYear = '';
+                this.calendarMonth = '';
+            }
+            this.fetchList(1);
+        },
+        onClearDates() {
+            this.dateFrom = '';
+            this.dateTo = '';
+            this.fetchList(1);
+        },
+        handleInvoiceAdded() {
+            this.fetchList(1);
         },
         handleInvoiceUpdated() {
-            this.visitWithFilters(); // Refresh the list after update
-        }
+            this.fetchList(this.displayIncoming.current_page || 1);
+        },
+        calculateTotal(faktura) {
+            const amount = parseFloat(String(faktura.amount).replace(/,/g, ''));
+            const tax = parseFloat(String(faktura.tax).replace(/,/g, ''));
+            return (amount + tax).toFixed(2);
+        },
+        formatInvoicePeriod(date) {
+            return new Date(date).toLocaleDateString('en-US', { year: 'numeric', month: 'short' });
+        },
+        formatFullDate(date) {
+            if (!date) {
+                return 'N/A';
+            }
+            return new Date(date).toLocaleDateString('en-US', {
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+            });
+        },
     },
 };
 </script>
 <style scoped lang="scss">
-.info {
-    flex: 0 1 200px;
-    min-width: 0;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-}
-.jobInfo{
-    align-items: center;
-}
-.locked{
-    display: flex;
-    justify-content: center;
-}
-.img{
-    width: 70px;
-    height: 70px;
-}
-select{
-    width: 25vh;
-    border-radius: 3px;
-}
-.orange{
-    color: $orange;
-}
-.blue-text{
-    color: $blue;
-}
-.bold{
-    font-weight: bold;
-}
-.green-text{
-    color: $green;
-}
-.blue{
-    background-color: $blue;
-}
-.green{
-    background-color: $green;
-}
-.green:hover{
-    background-color: green;
-}
-.header{
-    display: flex;
-    align-items: center;
-}
-.bgJobs{
-    background-color: $ultra-light-gray;
-}
 .dark-gray {
     background-color: $dark-gray;
     justify-content: left;
+    border-radius: 8px;
     align-items: center;
     min-height: 20vh;
     width: 100%;
 }
-.ultra-light-gray{
-    background-color: $ultra-light-gray;
+
+.toolbar-inline {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 10px 12px;
 }
-.sub-title{
-    font-size: 20px;
-    font-weight: bold;
-    margin-bottom: 20px;
+
+/* Flex toolbar: one horizontal flow; min-widths stop date/year controls from stacking */
+.filter-toolbar-incoming {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 10px 12px;
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.filter-toolbar-incoming .incoming-field--search {
+    flex: 0 1 170px;
+    min-width: 140px;
+    max-width: 220px;
+}
+
+.filter-toolbar-incoming .incoming-field--sort {
+    flex: 0 0 130px;
+    min-width: 120px;
+}
+
+.filter-toolbar-incoming .incoming-field--client {
+    flex: 0 1 200px;
+    min-width: 160px;
+}
+
+.filter-toolbar-incoming .filter-col.incoming-field {
+    flex: 0 1 130px;
+    min-width: 110px;
+}
+
+.filter-toolbar-incoming .incoming-field--dates {
+    flex: 1 1 280px;
+    min-width: 260px;
+    max-width: 340px;
+}
+
+.filter-toolbar-incoming .incoming-field--ym {
+    flex: 0 1 260px;
+    min-width: 240px;
+}
+
+.presets-inline {
+    flex: 0 0 auto;
+    align-self: flex-end;
+}
+
+@media (max-width: 1100px) {
+    .filter-toolbar-incoming .incoming-field--dates {
+        flex-basis: 100%;
+        max-width: none;
+    }
+
+    .filter-toolbar-incoming .incoming-field--ym {
+        flex-basis: 100%;
+    }
+}
+
+.toolbar-panel {
+    margin-bottom: 14px;
+    padding: 12px 14px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.04);
+}
+
+.toolbar-label {
+    display: block;
+    margin-bottom: 4px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: rgba(255, 255, 255, 0.7);
+}
+
+.filter-select-compact {
+    width: 100%;
+    min-height: 34px;
+    border-radius: 8px;
+    padding: 0 8px;
+    font-size: 13px;
+}
+
+.filter-col {
+    min-width: 0;
+}
+
+.toolbar-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.loading-inline {
+    padding: 16px;
+    text-align: center;
+    color: rgba(255, 255, 255, 0.85);
+}
+
+/* Fixed layout, balanced widths; Actions column uses same cell styling as DataTableShell (no sticky panel) */
+.incoming-table-shell {
+    width: 100%;
+    min-width: 0;
+}
+
+.incoming-table-shell :deep(.data-table) {
+    table-layout: fixed;
+    width: 100%;
+}
+
+.incoming-table-shell :deep(.data-table-head th),
+.incoming-table-shell :deep(.data-table-body td) {
+    padding-left: 10px;
+    padding-right: 10px;
+}
+
+/* Single-line headers — avoids “WAREHOUS / E” wrapping */
+.incoming-table-shell :deep(.data-table-head th) {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    line-height: 1.2;
+    vertical-align: bottom;
+}
+
+/* Column widths (sum 100%) */
+.incoming-table-shell :deep(th.invoice-column),
+.incoming-table-shell :deep(td.invoice-primary-cell) {
+    width: 8%;
+    min-width: 0;
+}
+
+.incoming-table-shell :deep(th.customer-column),
+.incoming-table-shell :deep(td.customer-column) {
+    width: 18%;
+    min-width: 0;
+}
+
+.incoming-table-shell :deep(th.col-wh),
+.incoming-table-shell :deep(td.col-wh) {
+    width: 11%;
+    min-width: 0;
+}
+
+.incoming-table-shell :deep(th.col-cost),
+.incoming-table-shell :deep(td.col-cost) {
+    width: 9%;
+    min-width: 0;
+}
+
+.incoming-table-shell :deep(th.col-bill),
+.incoming-table-shell :deep(td.col-bill) {
+    width: 9%;
+    min-width: 0;
+}
+
+.incoming-table-shell :deep(th.col-num),
+.incoming-table-shell :deep(td.col-num) {
+    width: 6%;
+    min-width: 0;
+}
+
+.incoming-table-shell :deep(th.col-date),
+.incoming-table-shell :deep(td.col-date) {
+    width: 8%;
+    min-width: 0;
+}
+
+.incoming-table-shell :deep(th.col-comment),
+.incoming-table-shell :deep(td.col-comment) {
+    width: 9%;
+    min-width: 0;
+}
+
+.incoming-table-shell :deep(th.actions-column),
+.incoming-table-shell :deep(td.actions-cell) {
+    width: 10%;
+    min-width: 72px;
+    max-width: 104px;
+    vertical-align: middle;
+}
+
+.incoming-table-shell :deep(.finance-client-name) {
+    max-width: 100%;
+}
+
+.invoice-primary-cell {
+    min-width: 0;
+}
+
+.invoice-main {
     display: flex;
     align-items: center;
+    gap: 8px;
+    margin-bottom: 2px;
+    flex-wrap: wrap;
+}
+
+.cell-primary {
+    font-weight: 700;
     color: $white;
 }
-.filter-container{
-    justify-content: space-between;
+
+.cell-secondary {
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.68);
 }
-.button-container{
-    display: flex-end;
+
+.archive-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 4px 8px;
+    border-radius: 999px;
+    background: rgba(59, 130, 246, 0.16);
+    border: 1px solid rgba(96, 165, 250, 0.36);
+    color: $white;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
 }
-.btn {
-    padding: 9px 12px;
-    border: none;
-    cursor: pointer;
-    font-weight: bold;
-    border-radius: 2px;
-}
-.create-order1{
-    background-color: $blue;
-    color: white;
-}
-.create-order{
-    background-color: $green;
-    color: white;
-}
-.job-details-container {
-    max-height: 0;
-    opacity: 0;
+
+.comment-cell {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
     overflow: hidden;
-    transition: max-height 0.3s ease-in-out, opacity 0.3s ease-in-out;
-    will-change: max-height, opacity;
+    min-width: 0;
+    white-space: normal;
+    word-break: break-word;
 }
-.job-details-container.active {
-    max-height: 400px;
-    opacity: 1;
+
+.incoming-ellipsis {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0;
+}
+
+/* Cyrillic / longer labels: 2 lines instead of harsh mid-word ellipsis */
+.incoming-text-wrap {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    word-break: break-word;
+    line-height: 1.35;
+    min-width: 0;
+}
+
+.actions-cell {
+    text-align: right;
+}
+
+.text-right {
+    text-align: right;
+}
+
+.empty-cell {
+    padding: 34px 16px !important;
+    text-align: center;
+    color: rgba(255, 255, 255, 0.7);
 }
 </style>
-

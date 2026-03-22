@@ -6,6 +6,7 @@ use App\Models\StockRealization;
 use App\Models\StockRealizationJob;
 use App\Models\StockRealizationArticle;
 use App\Models\Article;
+use App\Models\Client;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -104,31 +105,40 @@ class StockRealizationController extends Controller
                 }
             }
 
-            // Filter by client
-            if ($request->has('client') && $request->input('client') !== 'All') {
+            if ($request->filled('client_id')) {
+                $query->where('client_id', (int) $request->input('client_id'));
+            } elseif ($request->has('client') && $request->input('client') !== 'All') {
                 $client = $request->input('client');
                 $query->whereHas('client', function ($subquery) use ($client) {
                     $subquery->where('name', $client);
                 });
             }
 
-            // Apply date filters
-            if ($request->has('start_date') && $request->has('end_date')) {
-                $startDate = $request->input('start_date');
-                $endDate = $request->input('end_date');
+            $startDate = $request->input('start_date') ?: $request->input('date_from');
+            $endDate = $request->input('end_date') ?: $request->input('date_to');
+            if ($startDate && $endDate) {
                 $query->whereDate('end_date', '>=', $startDate)
-                      ->whereDate('end_date', '<=', $endDate);
-            } elseif ($request->has('start_date')) {
-                $startDate = $request->input('start_date');
+                    ->whereDate('end_date', '<=', $endDate);
+            } elseif ($startDate) {
                 $query->whereDate('end_date', '>=', $startDate);
-            } elseif ($request->has('end_date')) {
-                $endDate = $request->input('end_date');
+            } elseif ($endDate) {
                 $query->whereDate('end_date', '<=', $endDate);
             }
 
+            if ($request->filled('fiscal_year')) {
+                $query->where('fiscal_year', (int) $request->input('fiscal_year'));
+            }
+            if ($request->filled('month')) {
+                $month = (int) $request->input('month');
+                if ($month >= 1 && $month <= 12) {
+                    $query->whereMonth('created_at', $month);
+                }
+            }
+
             $query->orderBy('created_at', $request->input('sortOrder', 'desc'));
-            $perPage = (int) $request->input('per_page', 10);
-            $stockRealizations = $query->paginate($perPage);
+            $perPage = (int) $request->input('per_page', 20);
+            $perPage = max(1, min($perPage, 200));
+            $stockRealizations = $query->paginate($perPage)->withQueryString();
 
             if ($request->wantsJson()) {
                 return response()->json($stockRealizations);
@@ -149,6 +159,7 @@ class StockRealizationController extends Controller
                 'stockRealizations' => $stockRealizations,
                 'canRevert' => $canRevert,
                 'yearsWithUnrealized' => $yearsWithUnrealized,
+                'clients' => Client::query()->orderBy('name')->get(['id', 'name']),
             ]);
         } catch (\Exception $e) {
             Log::error('Stock realization index error: ' . $e->getMessage());

@@ -48,17 +48,44 @@ class PriemnicaController extends Controller
             $receiptsQuery->where('warehouse', $request->warehouse_id);
         }
 
-        if ($request->filled('from_date')) {
-            $receiptsQuery->whereDate('priemnica.created_at', '>=', $request->from_date);
+        if ($request->filled('searchQuery')) {
+            $sq = ltrim(trim((string) $request->input('searchQuery')), '#');
+            if ($sq !== '') {
+                $receiptsQuery->where(function ($q) use ($sq) {
+                    $q->where('priemnica.receipt_number', 'like', '%'.$sq.'%');
+                    if (ctype_digit($sq)) {
+                        $q->orWhere('priemnica.id', (int) $sq);
+                    }
+                });
+            }
         }
 
-        if ($request->filled('to_date')) {
-            $receiptsQuery->whereDate('priemnica.created_at', '<=', $request->to_date);
+        if ($request->filled('fiscal_year')) {
+            $receiptsQuery->where('priemnica.fiscal_year', (int) $request->input('fiscal_year'));
         }
+        if ($request->filled('month')) {
+            $month = (int) $request->input('month');
+            if ($month >= 1 && $month <= 12) {
+                $receiptsQuery->whereMonth('priemnica.created_at', $month);
+            }
+        }
+
+        $fromDate = $request->input('from_date') ?: $request->input('date_from');
+        $toDate = $request->input('to_date') ?: $request->input('date_to');
+        if ($fromDate) {
+            $receiptsQuery->whereDate('priemnica.created_at', '>=', $fromDate);
+        }
+        if ($toDate) {
+            $receiptsQuery->whereDate('priemnica.created_at', '<=', $toDate);
+        }
+
+        $perPage = (int) $request->input('per_page', 20);
+        $perPage = max(1, min($perPage, 200));
 
         $receipts = $receiptsQuery->orderBy('priemnica.fiscal_year', 'desc')
             ->orderBy('priemnica.receipt_number', 'desc')
-            ->get();
+            ->paginate($perPage)
+            ->withQueryString();
 
         if ($request->wantsJson()) {
             return response()->json($receipts);
@@ -66,7 +93,7 @@ class PriemnicaController extends Controller
 
         return Inertia::render('Priemnica/Index', [
             'receipts' => $receipts,
-            'clients' => Client::all(),
+            'clients' => Client::query()->orderBy('name')->get(['id', 'name']),
             'warehouses' => Warehouse::all(),
         ]);
     }

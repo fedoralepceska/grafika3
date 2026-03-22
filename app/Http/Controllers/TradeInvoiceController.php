@@ -23,8 +23,14 @@ class TradeInvoiceController extends Controller
      */
     public function index(Request $request)
     {
-        $invoicesQuery = TradeInvoice::with(['client', 'warehouse', 'createdBy', 'items.article'])
-            ->orderBy('created_at', 'desc');
+        $invoicesQuery = TradeInvoice::with(['client', 'warehouse', 'createdBy', 'items.article']);
+
+        if ($request->filled('searchQuery')) {
+            $sq = trim((string) $request->input('searchQuery'));
+            if ($sq !== '') {
+                $invoicesQuery->where('invoice_number', 'like', '%'.$sq.'%');
+            }
+        }
 
         if ($request->filled('client_id') && $request->client_id !== 'All') {
             $invoicesQuery->where('client_id', $request->client_id);
@@ -38,15 +44,31 @@ class TradeInvoiceController extends Controller
             $invoicesQuery->where('status', $request->status);
         }
 
-        if ($request->filled('from_date')) {
-            $invoicesQuery->whereDate('invoice_date', '>=', $request->from_date);
+        $fromDate = $request->input('from_date') ?: $request->input('date_from');
+        $toDate = $request->input('to_date') ?: $request->input('date_to');
+        if ($fromDate) {
+            $invoicesQuery->whereDate('invoice_date', '>=', $fromDate);
+        }
+        if ($toDate) {
+            $invoicesQuery->whereDate('invoice_date', '<=', $toDate);
         }
 
-        if ($request->filled('to_date')) {
-            $invoicesQuery->whereDate('invoice_date', '<=', $request->to_date);
+        if ($request->filled('fiscal_year')) {
+            $invoicesQuery->whereYear('invoice_date', (int) $request->input('fiscal_year'));
+        }
+        if ($request->filled('month')) {
+            $month = (int) $request->input('month');
+            if ($month >= 1 && $month <= 12) {
+                $invoicesQuery->whereMonth('invoice_date', $month);
+            }
         }
 
-        $invoices = $invoicesQuery->paginate(20);
+        $sortOrder = in_array($request->input('sortOrder'), ['asc', 'desc'], true) ? $request->input('sortOrder') : 'desc';
+        $invoicesQuery->orderBy('created_at', $sortOrder);
+
+        $perPage = (int) $request->input('per_page', 20);
+        $perPage = max(1, min($perPage, 200));
+        $invoices = $invoicesQuery->paginate($perPage)->withQueryString();
 
         if ($request->wantsJson()) {
             return response()->json($invoices);
@@ -391,6 +413,7 @@ class TradeInvoiceController extends Controller
             // Use the same template as outgoing invoices, allow v2 via query param
             $pdf = PDF::loadView('invoices.outgoing_invoice_v2', [
                 'invoices' => [$transformedInvoice], // Wrap in array as expected by template
+                'invoiceIssuerName' => $invoice->createdBy?->name ?? auth()->user()?->name,
                 'isHtml5ParserEnabled' => true,
                 'isRemoteEnabled' => true,
                 'isFontSubsettingEnabled' => true,

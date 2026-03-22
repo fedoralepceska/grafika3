@@ -2,35 +2,36 @@
     <MainLayout>
         <div class="pl-7 pr-7">
             <Header title="invoice2" subtitle="allTradeInvoices" icon="invoice.png" link="trade-invoices" />
-            <div class="dark-gray p-2 text-white">
-                <RedirectTabs :route="$page.url" />
-                <div class="form-container p-2 ">
-                    <div class="form-container overflow-x-auto">
-                        <div class="title-row">
-                            <h2 class="sub-title">
-                                {{ $t('allTradeInvoices') }}
-                            </h2>
-                            <button @click="createInvoice" class="btn create-order1">Create Invoice</button>
-                        </div>
-                        <div class="filters flex gap-10 pb-2">
-                            <!-- Client Filter -->
-                            <div class="search-container pb-2">
-                                <div class="mr-1 ">Client</div>
-                                <div class="">
-                                    <select v-model="filters.client_id" class="rounded text-black">
-                                        <option value="All" hidden>Clients</option>
-                                        <option value="All">All Clients</option>
-                                        <option v-for="client in clients" :key="client.id" :value="client.id">
-                                            {{ client.name }}
-                                        </option>
+            <RedirectTabs :route="$page.url" />
+            <div class="dark-gray p-2 text-white overflow-x-hidden">
+                <div class="form-container p-2">
+                    <div class="toolbar-panel">
+                        <div class="toolbar-inline">
+                            <div class="filter-toolbar-trade">
+                                <FinanceCompactSearch
+                                    v-model="searchInput"
+                                    label="Invoice #"
+                                    placeholder="Number…"
+                                    class="trade-field trade-field--search"
+                                    @submit="onSearchSubmit"
+                                />
+                                <div class="filter-col trade-field trade-field--sort">
+                                    <label class="toolbar-label">Order</label>
+                                    <select v-model="sortOrder" class="text-black filter-select-compact" @change="applyFilter(1)">
+                                        <option value="desc">Newest first</option>
+                                        <option value="asc">Oldest first</option>
                                     </select>
                                 </div>
-                            </div>
-                            <!-- Warehouse Filter -->
-                            <div class="search-container pb-2">
-                                <div class="mr-1 ml-2">Warehouse</div>
-                                <div class="ml-2">
-                                    <select v-model="filters.warehouse_id" class="rounded text-black">
+                                <FinanceClientSearchSelect
+                                    v-model="clientId"
+                                    :clients="clients"
+                                    label="Client"
+                                    class="trade-field trade-field--client"
+                                    @change="applyFilter(1)"
+                                />
+                                <div class="filter-col trade-field trade-field--warehouse">
+                                    <label class="toolbar-label">Warehouse</label>
+                                    <select v-model="filters.warehouse_id" class="text-black filter-select-compact" @change="applyFilter(1)">
                                         <option value="All" hidden>Warehouses</option>
                                         <option value="All">All Warehouses</option>
                                         <option v-for="warehouse in warehouses" :key="warehouse.id" :value="warehouse.id">
@@ -38,12 +39,9 @@
                                         </option>
                                     </select>
                                 </div>
-                            </div>
-                            <!-- Status Filter -->
-                            <div class="search-container pb-2">
-                                <div class="mr-1 ml-2">Status</div>
-                                <div class="ml-2">
-                                    <select v-model="filters.status" class="rounded text-black">
+                                <div class="filter-col trade-field trade-field--status">
+                                    <label class="toolbar-label">Status</label>
+                                    <select v-model="filters.status" class="text-black filter-select-compact" @change="applyFilter(1)">
                                         <option value="All" hidden>Status</option>
                                         <option value="All">All Status</option>
                                         <option value="draft">Draft</option>
@@ -52,76 +50,91 @@
                                         <option value="cancelled">Cancelled</option>
                                     </select>
                                 </div>
+                                <FinanceDateRangeCompact
+                                    class="trade-field trade-field--dates"
+                                    :date-from="filters.from_date"
+                                    :date-to="filters.to_date"
+                                    label="Invoice date"
+                                    @update:date-from="filters.from_date = $event"
+                                    @update:date-to="filters.to_date = $event"
+                                    @change="onDateRangeChange"
+                                />
+                                <FinanceYearMonthSelects
+                                    class="trade-field trade-field--ym"
+                                    :fiscal-year="fiscalYear"
+                                    :month="calendarMonth"
+                                    @update:fiscal-year="fiscalYear = $event"
+                                    @update:month="calendarMonth = $event"
+                                    @change="applyFilter(1)"
+                                />
                             </div>
-                            <!-- Date Range Filters -->
-                            <div class="flex date-filters">
-                                <div class="search-container pb-2">
-                                    <div class="mr-1 ml-2">From Date</div>
-                                    <div class="ml-2">
-                                        <input type="date" v-model="filters.from_date" class="rounded text-black">
-                                    </div>
-                                </div>
-                                <div class="search-container pb-2">
-                                    <div class="mr-1 ml-2">To Date</div>
-                                    <div class="ml-2">
-                                        <input type="date" v-model="filters.to_date" class="rounded text-black">
-                                    </div>
-                                </div>
-                            </div>
+                            <FinancePeriodPresets class="presets-inline-trade" label="" @preset="onPeriodPreset" @clear-dates="onClearDates" />
                         </div>
-                        <table class="excel-table">
-                            <thead>
+
+                        <div class="toolbar-actions">
+                            <button @click="createInvoice" class="btn create-order1">Create Invoice</button>
+                        </div>
+                    </div>
+
+                    <DataTableShell compact variant="grid">
+                        <template #header>
                             <tr>
-                                <th style="width: 45px;">{{$t('Nr')}}</th>
-                                <th style="width: 120px">Invoice #<div class="resizer" @mousedown="initResize($event, 1)"></div></th>
-                                <th>{{$t('date')}}<div class="resizer" @mousedown="initResize($event, 2)"></div></th>
-                                <th>{{$t('client')}}<div class="resizer" @mousedown="initResize($event, 3)"></div></th>
-                                <th>{{$t('warehouse')}}<div class="resizer" @mousedown="initResize($event, 4)"></div></th>
-                                <th>{{$t('subtotal')}} (.ден)<div class="resizer" @mousedown="initResize($event, 5)"></div></th>
-                                <th>{{$t('VAT')}} (%)<div class="resizer" @mousedown="initResize($event, 6)"></div></th>
-                                <th>{{$t('total')}} (.ден)<div class="resizer" @mousedown="initResize($event, 7)"></div></th>
-                                <th>Status<div class="resizer" @mousedown="initResize($event, 8)"></div></th>
-                                <th>Created By<div class="resizer" @mousedown="initResize($event, 9)"></div></th>
-                                <th>{{$t('ACTIONS')}}</th>
+                                <th class="number-column">{{$t('Nr')}}</th>
+                                <th class="invoice-column">Invoice</th>
+                                <th>{{$t('date')}}</th>
+                                <th class="customer-column">{{$t('client')}}</th>
+                                <th>{{$t('warehouse')}}</th>
+                                <th class="text-right">{{$t('subtotal')}} (.ден)</th>
+                                <th class="text-right">{{$t('VAT')}} (%)</th>
+                                <th class="text-right">{{$t('total')}} (.ден)</th>
+                                <th>Status</th>
+                                <th>Created By</th>
+                                <th class="actions-column actions-header">{{$t('ACTIONS')}}</th>
                             </tr>
-                            </thead>
-                            <tbody>
+                        </template>
+
+                        <template v-if="localInvoices && localInvoices.length > 0">
                             <tr v-for="(invoice, index) in localInvoices" :key="invoice.id">
-                                <th>{{index + 1}}</th>
-                                <th>{{invoice.invoice_number}}</th>
-                                <th>{{ new Date(invoice.invoice_date).toLocaleDateString('en-GB') }}</th>
-                                <th>{{invoice.client.name}}</th>
-                                <th>{{invoice.warehouse.name}}</th>
-                                <th>{{ formatNumber(invoice.subtotal) }}</th>
-                                <th>{{ formatPercent(computedVatPercent(invoice)) }}</th>
-                                <th>{{ formatNumber(computedTotal(invoice)) }}</th>
-                                <th>
-                                    <span :class="getStatusClass(invoice.status)">
+                                <td class="cell-secondary">{{ rowNumber(index) }}</td>
+                                <td class="invoice-primary-cell">
+                                    <div class="cell-primary">#{{ invoice.invoice_number }}</div>
+                                </td>
+                                <td><div class="cell-secondary">{{ formatDateDisplay(invoice.invoice_date) }}</div></td>
+                                <td class="customer-column">
+                                    <FinanceClientNameCell :name="invoice.client?.name || ''" />
+                                </td>
+                                <td><div class="cell-secondary">{{ invoice.warehouse?.name || 'N/A' }}</div></td>
+                                <td><div class="cell-secondary text-right">{{ formatNumber(invoice.subtotal) }}</div></td>
+                                <td><div class="cell-secondary text-right">{{ formatPercent(computedVatPercent(invoice)) }}</div></td>
+                                <td><div class="cell-primary text-right">{{ formatNumber(computedTotal(invoice)) }}</div></td>
+                                <td>
+                                    <span :class="['status-badge', getStatusBadgeClass(invoice.status)]">
                                         {{ formatStatus(invoice.status) }}
                                     </span>
-                                </th>
-                                <th>{{invoice.created_by?.name || 'N/A'}}</th>
-                                <th>
+                                </td>
+                                <td><div class="cell-secondary">{{ invoice.created_by?.name || 'N/A' }}</div></td>
+                                <td class="actions-cell">
                                     <div class="action-buttons">
-                                        <button @click="openViewModal(invoice)" class="btn green btn-sm">{{ $t('View') }}</button>
-                                        <button @click="downloadPdf(invoice.id)" class="btn purple btn-sm">PDF</button>
-
-                                        <div class="dropdown" :class="{ open: dropdownOpen[invoice.id] }">
-                                            <button class="btn btn-sm gray" @click.stop="toggleDropdown($event, invoice.id)">Actions ▾</button>
-                                            <div class="dropdown-menu" v-if="dropdownOpen[invoice.id]" :style="dropdownStyles[invoice.id]">
-                                                <button class="dropdown-item" @click="openEditModal(invoice)" v-if="invoice.status === 'draft'">{{ $t('Edit') }}</button>
-                                                <button class="dropdown-item" @click="updateStatus(invoice.id, 'sent')" v-if="invoice.status === 'draft'">Send</button>
-                                                <button class="dropdown-item" @click="updateStatus(invoice.id, 'paid')" v-if="invoice.status === 'sent'">Mark Paid</button>
-                                                <button class="dropdown-item danger" @click="updateStatus(invoice.id, 'cancelled')" v-if="['draft', 'sent'].includes(invoice.status)">Cancel</button>
-                                            </div>
-                                        </div>
+                                        <button @click="openViewModal(invoice)" class="table-action-button">{{ $t('View') }}</button>
+                                        <ActionDropdown
+                                            icon-only
+                                            trigger-title="Invoice actions"
+                                            :groups="getActionMenuGroups(invoice)"
+                                            @select="handleActionMenuSelect(invoice, $event)"
+                                        />
                                     </div>
-                                </th>
+                                </td>
                             </tr>
-                            </tbody>
-                        </table>
-                        <Pagination :pagination="invoices" class="mt-2" />
-                    </div>
+                        </template>
+
+                        <tr v-else>
+                            <td colspan="11" class="empty-cell">
+                                No trade invoices found matching your criteria.
+                            </td>
+                        </tr>
+                    </DataTableShell>
+
+                    <Pagination :pagination="paginationState" class="mt-2" @pagination-change-page="goToPage" />
                 </div>
             </div>
         </div>
@@ -322,8 +335,16 @@ import MainLayout from "@/Layouts/MainLayout.vue";
 import Pagination from "@/Components/Pagination.vue";
 import Header from "@/Components/Header.vue";
 import RedirectTabs from "@/Components/RedirectTabs.vue";
+import DataTableShell from "@/Components/DataTableShell.vue";
+import ActionDropdown from "@/Components/ActionDropdown.vue";
 import axios from "axios";
 import { useToast } from "vue-toastification";
+import FinanceCompactSearch from "@/Components/Finance/FinanceCompactSearch.vue";
+import FinanceClientSearchSelect from "@/Components/Finance/FinanceClientSearchSelect.vue";
+import FinanceDateRangeCompact from "@/Components/Finance/FinanceDateRangeCompact.vue";
+import FinanceYearMonthSelects from "@/Components/Finance/FinanceYearMonthSelects.vue";
+import FinancePeriodPresets from "@/Components/Finance/FinancePeriodPresets.vue";
+import { normalizeDateRangeFields } from "@/utils/financeFilters";
 
 export default {
     components: {
@@ -331,6 +352,13 @@ export default {
         Pagination,
         Header,
         RedirectTabs,
+        DataTableShell,
+        ActionDropdown,
+        FinanceCompactSearch,
+        FinanceClientSearchSelect,
+        FinanceDateRangeCompact,
+        FinanceYearMonthSelects,
+        FinancePeriodPresets,
     },
     props: {
         invoices: Object,
@@ -340,18 +368,20 @@ export default {
     data() {
         return {
             localInvoices: this.invoices?.data || [],
+            paginationState: this.invoices || { data: [], links: [] },
+            searchInput: '',
+            searchQuery: '',
+            clientId: null,
             filters: {
-                client_id: 'All',
                 warehouse_id: 'All',
                 status: 'All',
                 from_date: '',
                 to_date: '',
             },
-            dropdownOpen: {},
-            dropdownStyles: {},
-            startX: 0,
-            startWidth: 0,
-            columnIndex: -1,
+            fiscalYear: '',
+            calendarMonth: '',
+            sortOrder: 'desc',
+            perPage: 20,
             // Modal states
             showViewModal: false,
             showEditModal: false,
@@ -371,6 +401,11 @@ export default {
         const toast = useToast();
         return { toast };
     },
+    mounted() {
+        this.initFromUrl();
+        const page = parseInt(new URLSearchParams(window.location.search).get('page') || '1', 10) || 1;
+        this.applyFilter(page);
+    },
     computed: {
         editTotals() {
             let subtotal = 0, vat = 0;
@@ -387,15 +422,115 @@ export default {
                    this.editForm.items.some(item => item.article_id && item.quantity > 0);
         }
     },
-    watch: {
-        filters: {
-            handler() {
-                this.applyFilter();
-            },
-            deep: true
-        }
-    },
     methods: {
+        initFromUrl() {
+            const p = new URLSearchParams(window.location.search);
+            this.searchInput = p.get('searchQuery') || '';
+            this.searchQuery = this.searchInput;
+            const cid = p.get('client_id');
+            if (cid && cid !== 'All') {
+                const n = parseInt(cid, 10);
+                this.clientId = Number.isNaN(n) ? null : n;
+            } else {
+                this.clientId = null;
+            }
+            this.filters.warehouse_id = p.get('warehouse_id') || 'All';
+            this.filters.status = p.get('status') || 'All';
+            this.filters.from_date = p.get('from_date') || p.get('date_from') || '';
+            this.filters.to_date = p.get('to_date') || p.get('date_to') || '';
+            const fy = p.get('fiscal_year');
+            this.fiscalYear = fy !== null && fy !== '' ? parseInt(fy, 10) : '';
+            if (Number.isNaN(this.fiscalYear)) {
+                this.fiscalYear = '';
+            }
+            const mo = p.get('month');
+            this.calendarMonth = mo !== null && mo !== '' ? parseInt(mo, 10) : '';
+            if (Number.isNaN(this.calendarMonth)) {
+                this.calendarMonth = '';
+            }
+            this.sortOrder = p.get('sortOrder') || 'desc';
+            const pp = p.get('per_page');
+            if (pp) {
+                const n = parseInt(pp, 10);
+                if (!Number.isNaN(n) && n > 0) {
+                    this.perPage = Math.min(200, n);
+                }
+            }
+        },
+        buildTradeListParams(page) {
+            const state = { dateFrom: this.filters.from_date, dateTo: this.filters.to_date };
+            normalizeDateRangeFields(state);
+            this.filters.from_date = state.dateFrom;
+            this.filters.to_date = state.dateTo;
+            const params = {
+                page,
+                per_page: this.perPage,
+                sortOrder: this.sortOrder,
+                client_id: this.clientId != null ? this.clientId : 'All',
+                warehouse_id: this.filters.warehouse_id,
+                status: this.filters.status,
+                from_date: this.filters.from_date || undefined,
+                to_date: this.filters.to_date || undefined,
+            };
+            if (this.searchQuery) {
+                params.searchQuery = this.searchQuery;
+            }
+            if (this.fiscalYear !== '' && this.fiscalYear != null) {
+                params.fiscal_year = this.fiscalYear;
+            }
+            if (this.calendarMonth !== '' && this.calendarMonth != null) {
+                params.month = this.calendarMonth;
+            }
+            return params;
+        },
+        pushTradeHistory(params) {
+            const qs = new URLSearchParams();
+            Object.entries(params).forEach(([k, v]) => {
+                if (v !== '' && v !== null && v !== undefined) {
+                    qs.set(k, String(v));
+                }
+            });
+            window.history.pushState({}, '', `/trade-invoices?${qs.toString()}`);
+        },
+        onSearchSubmit() {
+            this.searchQuery = (this.searchInput || '').trim();
+            this.applyFilter(1);
+        },
+        onDateRangeChange() {
+            const state = { dateFrom: this.filters.from_date, dateTo: this.filters.to_date };
+            normalizeDateRangeFields(state);
+            this.filters.from_date = state.dateFrom;
+            this.filters.to_date = state.dateTo;
+            this.applyFilter(1);
+        },
+        onPeriodPreset(type) {
+            const d = new Date();
+            const y = d.getFullYear();
+            const m = String(d.getMonth() + 1).padStart(2, '0');
+            const today = `${y}-${m}-${String(d.getDate()).padStart(2, '0')}`;
+            if (type === 'this_month') {
+                this.filters.from_date = `${y}-${m}-01`;
+                this.filters.to_date = today;
+                this.fiscalYear = '';
+                this.calendarMonth = '';
+            } else if (type === 'this_year') {
+                this.filters.from_date = `${y}-01-01`;
+                this.filters.to_date = today;
+                this.fiscalYear = '';
+                this.calendarMonth = '';
+            }
+            this.applyFilter(1);
+        },
+        onClearDates() {
+            this.filters.from_date = '';
+            this.filters.to_date = '';
+            this.applyFilter(1);
+        },
+        rowNumber(index) {
+            const currentPage = this.paginationState?.current_page || 1;
+            const perPage = this.paginationState?.per_page || 20;
+            return ((currentPage - 1) * perPage) + index + 1;
+        },
         computedVatPercent(invoice) {
             if (!invoice.items || !Array.isArray(invoice.items) || invoice.items.length === 0) {
                 // If server only provided totals, infer a weighted VAT% if possible
@@ -449,6 +584,10 @@ export default {
         formatPercent(num) {
             return `${Number(num).toFixed(2)}%`;
         },
+        formatDateDisplay(date) {
+            if (!date) return 'N/A';
+            return new Date(date).toLocaleDateString('en-GB');
+        },
         formatStatus(status) {
             return status.charAt(0).toUpperCase() + status.slice(1);
         },
@@ -461,10 +600,55 @@ export default {
             };
             return classes[status] || '';
         },
-        applyFilter() {
-            axios.get('/trade-invoices', { params: this.filters })
+        getStatusBadgeClass(status) {
+            const classes = {
+                'draft': 'status-draft',
+                'sent': 'status-sent',
+                'paid': 'status-paid',
+                'cancelled': 'status-cancelled'
+            };
+            return classes[status] || 'status-default';
+        },
+        getActionMenuGroups(invoice) {
+            const items = [
+                { label: 'PDF', value: 'pdf' },
+            ];
+
+            if (invoice.status === 'draft') {
+                items.push({ label: this.$t('Edit'), value: 'edit' });
+                items.push({ label: 'Send', value: 'sent' });
+            }
+
+            if (invoice.status === 'sent') {
+                items.push({ label: 'Mark Paid', value: 'paid' });
+            }
+
+            if (['draft', 'sent'].includes(invoice.status)) {
+                items.push({ label: 'Cancel', value: 'cancelled', danger: true });
+            }
+
+            return items.length ? [{ label: 'Invoice Actions', items }] : [];
+        },
+        handleActionMenuSelect(invoice, item) {
+            if (item.value === 'edit') {
+                this.openEditModal(invoice);
+                return;
+            }
+
+            if (item.value === 'pdf') {
+                this.downloadPdf(invoice.id);
+                return;
+            }
+
+            this.updateStatus(invoice.id, item.value);
+        },
+        applyFilter(page = 1) {
+            const params = this.buildTradeListParams(page);
+            axios.get('/trade-invoices', { params })
                 .then(response => {
                     this.localInvoices = response.data.data;
+                    this.paginationState = response.data;
+                    this.pushTradeHistory(params);
                 })
                 .catch(error => {
                     console.error('Error applying filters:', error);
@@ -474,6 +658,9 @@ export default {
         createInvoice() {
             this.$inertia.visit('/trade-invoices/create');
         },
+        goToPage(page) {
+            this.applyFilter(page);
+        },
         viewInvoice(invoiceId) {
             this.$inertia.visit(`/trade-invoices/${invoiceId}`);
         },
@@ -482,27 +669,6 @@ export default {
         },
         downloadPdf(invoiceId) {
             window.open(`/trade-invoices/${invoiceId}/pdf`, '_blank');
-        },
-        toggleDropdown(event, id) {
-            // Close others and toggle this one
-            const next = {};
-            Object.keys(this.dropdownOpen).forEach(key => { next[key] = false; });
-            next[id] = !this.dropdownOpen[id];
-            this.dropdownOpen = next;
-
-            // Compute fixed position so it can escape table stacking contexts
-            const rect = event.currentTarget.getBoundingClientRect();
-            const top = rect.bottom + window.scrollY;
-            const left = rect.right + window.scrollX - 160; // align to right approximately
-            this.dropdownStyles = { ...this.dropdownStyles, [id]: { position: 'fixed', top: top + 'px', left: left + 'px', zIndex: 9999 } };
-
-            // Attach one-time outside click handler
-            const onClickOutside = (e) => {
-                if (!this.dropdownOpen[id]) return;
-                this.dropdownOpen = { ...this.dropdownOpen, [id]: false };
-                document.removeEventListener('click', onClickOutside);
-            };
-            setTimeout(() => document.addEventListener('click', onClickOutside), 0);
         },
         updateStatus(invoiceId, status) {
             axios.put(`/trade-invoices/${invoiceId}/status`, { status })
@@ -518,27 +684,6 @@ export default {
                     console.error('Error updating status:', error);
                     this.toast.error('Error updating invoice status');
                 });
-        },
-        initResize(event, index) {
-            this.startX = event.clientX;
-            this.startWidth = event.target.parentElement.offsetWidth;
-            this.columnIndex = index;
-
-            document.documentElement.addEventListener('mousemove', this.resizeColumn);
-            document.documentElement.addEventListener('mouseup', this.stopResize);
-        },
-        resizeColumn(event) {
-            const diffX = event.clientX - this.startX;
-            const newWidth = this.startWidth + diffX;
-            const ths = document.querySelectorAll('.excel-table th');
-
-            if (this.columnIndex >= 0 && this.columnIndex < ths.length) {
-                ths[this.columnIndex].style.width = `${newWidth}px`;
-            }
-        },
-        stopResize() {
-            document.documentElement.removeEventListener('mousemove', this.resizeColumn);
-            document.documentElement.removeEventListener('mouseup', this.stopResize);
         },
         // Modal methods
         openViewModal(invoice) {
@@ -666,7 +811,7 @@ export default {
                 await axios.put(`/trade-invoices/${this.editForm.id}`, payload);
                 this.toast.success('Invoice updated successfully');
                 this.closeEditModal();
-                this.applyFilter(); // Refresh the list
+                this.applyFilter(this.paginationState?.current_page || 1); // Refresh the list
             } catch (error) {
                 console.error('Error updating invoice:', error);
                 this.toast.error(error.response?.data?.error || 'Failed to update invoice');
@@ -677,6 +822,195 @@ export default {
 </script>
 
 <style scoped lang="scss">
+
+.toolbar-inline {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 10px 12px;
+}
+
+/* Flex toolbar: one horizontal flow; min-widths stop date/year controls from stacking */
+.filter-toolbar-trade {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 10px 12px;
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.filter-toolbar-trade .trade-field--search {
+    flex: 0 1 170px;
+    min-width: 140px;
+    max-width: 220px;
+}
+
+.filter-toolbar-trade .trade-field--sort {
+    flex: 0 0 130px;
+    min-width: 120px;
+}
+
+.filter-toolbar-trade .trade-field--client {
+    flex: 0 1 200px;
+    min-width: 160px;
+}
+
+.filter-toolbar-trade .trade-field--warehouse {
+    flex: 0 1 140px;
+    min-width: 120px;
+}
+
+.filter-toolbar-trade .trade-field--status {
+    flex: 0 1 130px;
+    min-width: 110px;
+}
+
+.filter-toolbar-trade .trade-field--dates {
+    flex: 1 1 280px;
+    min-width: 260px;
+    max-width: 340px;
+}
+
+.filter-toolbar-trade .trade-field--ym {
+    flex: 0 1 260px;
+    min-width: 240px;
+}
+
+.presets-inline-trade {
+    flex: 0 0 auto;
+    align-self: flex-end;
+}
+
+@media (max-width: 1100px) {
+    .filter-toolbar-trade .trade-field--dates {
+        flex-basis: 100%;
+        max-width: none;
+    }
+
+    .filter-toolbar-trade .trade-field--ym {
+        flex-basis: 100%;
+    }
+}
+
+.toolbar-panel {
+    margin-bottom: 14px;
+    padding: 12px 14px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.04);
+}
+
+.toolbar-label {
+    display: block;
+    margin-bottom: 4px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: rgba(255, 255, 255, 0.7);
+}
+
+.filter-select-compact {
+    width: 100%;
+    min-height: 34px;
+    border-radius: 8px;
+    padding: 0 8px;
+    font-size: 13px;
+}
+
+.filter-col {
+    min-width: 0;
+}
+
+.toolbar-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.number-column {
+    width: 70px;
+}
+
+.customer-column {
+    max-width: 280px;
+    width: 18%;
+}
+
+.invoice-column {
+    width: 150px;
+}
+
+.actions-column {
+    width: 190px;
+}
+
+.invoice-primary-cell {
+    min-width: 140px;
+}
+
+.cell-primary {
+    font-weight: 700;
+    color: $white;
+}
+
+.cell-secondary {
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.68);
+}
+
+.text-right {
+    text-align: right;
+}
+
+.status-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.actions-cell {
+    text-align: right;
+}
+
+.actions-header {
+    text-align: right;
+}
+
+.table-action-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 6px 10px;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.06);
+    color: $white;
+    font-size: 12px;
+    font-weight: 700;
+    transition: all 0.2s ease;
+}
+
+.table-action-button:hover {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: rgba(255, 255, 255, 0.24);
+}
+
+.empty-cell {
+    padding: 34px 16px !important;
+    text-align: center;
+    color: rgba(255, 255, 255, 0.7);
+}
 
 .filters {
     justify-content: space-between;
@@ -762,7 +1096,7 @@ select {
     display: flex;
     flex-wrap: wrap;
     gap: 4px;
-    justify-content: center;
+    justify-content: flex-end;
     align-items: center;
     
     @media (max-width: 768px) {
@@ -864,18 +1198,33 @@ select {
 
 /* Status classes */
 .status-draft {
-    color: #6b7280;
-    font-weight: bold;
+    color: #9ca3af;
+    background: rgba(156, 163, 175, 0.14);
+    border: 1px solid rgba(156, 163, 175, 0.28);
 }
 
 .status-sent {
     color: #f59e0b;
-    font-weight: bold;
+    background: rgba(245, 158, 11, 0.14);
+    border: 1px solid rgba(245, 158, 11, 0.28);
+}
+
+.status-paid {
+    color: #4ade80;
+    background: rgba(74, 222, 128, 0.14);
+    border: 1px solid rgba(74, 222, 128, 0.28);
 }
 
 .status-cancelled {
     color: #ef4444;
-    font-weight: bold;
+    background: rgba(239, 68, 68, 0.14);
+    border: 1px solid rgba(239, 68, 68, 0.28);
+}
+
+.status-default {
+    color: rgba(255, 255, 255, 0.82);
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.14);
 }
 
 .dark-gray {
@@ -884,6 +1233,7 @@ select {
     align-items: center;
     min-height: 20vh;
     min-width: 80vh;
+    border-radius: 8px;
     
     @media (max-width: 768px) {
         min-width: auto;
@@ -1000,6 +1350,10 @@ select {
 
 /* Mobile-specific styles */
 @media (max-width: 768px) {
+    .toolbar-actions {
+        justify-content: flex-start;
+    }
+
     .pl-7 {
         padding-left: 15px;
         padding-right: 15px;
@@ -1266,4 +1620,5 @@ select {
 .gray:hover {
     background-color: #4b5563;
 }
+
 </style>

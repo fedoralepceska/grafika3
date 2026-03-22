@@ -2,92 +2,115 @@
     <MainLayout>
         <div class="pl-7 pr-7">
             <Header title="invoice2" subtitle="invoicedOrders" icon="invoice.png" link="allInvoices" />
+            <RedirectTabs :route="$page.url" />
             <div class="dark-gray p-2 text-white">
-                <RedirectTabs :route="$page.url" />
-                <div class="form-container p-2 ">
-                    <h2 class="sub-title">
-                        {{ $t('listOfAllInvoices') }}
-                    </h2>
-                    <div class="filter-container flex gap-4 pb-10">
-                        <div class="search flex gap-2">
-                            <input v-model="searchQuery" placeholder="Search by invoice #..." class="text-black search-input"
-                                @keyup.enter="searchInvoices" />
-                            <button class="btn create-order1" @click="searchInvoices">Search</button>
-                        </div>
-                        <div class="flex gap-2 filters-group">
-                            <div class="client">
-                                <label class="pr-3">Filter Invoices</label>
-                                <select v-model="filterClient" class="text-black filter-select" @change="applyFilter">
-                                    <option value="All" hidden>Clients</option>
-                                    <option value="All">All Clients</option>
-                                    <option v-for="client in uniqueClients" :key="client">{{ client.name }}</option>
+                <div class="form-container p-2">
+                    <div class="toolbar-panel">
+                        <div class="toolbar-inline">
+                            <div class="filter-grid">
+                            <FinanceCompactSearch
+                                v-model="searchInput"
+                                label="Invoice #"
+                                placeholder="# or number…"
+                                @submit="onSearchSubmit"
+                            />
+                            <FinanceClientSearchSelect
+                                v-model="clientId"
+                                :clients="uniqueClients"
+                                label="Client"
+                                @change="applyFilter(1)"
+                            />
+                            <FinanceDateRangeCompact
+                                :date-from="dateFrom"
+                                :date-to="dateTo"
+                                label="Date created"
+                                @update:date-from="dateFrom = $event"
+                                @update:date-to="dateTo = $event"
+                                @change="onDateRangeChange"
+                            />
+                            <FinanceYearMonthSelects
+                                :fiscal-year="fiscalYear"
+                                :month="calendarMonth"
+                                @update:fiscal-year="fiscalYear = $event"
+                                @update:month="calendarMonth = $event"
+                                @change="applyFilter(1)"
+                            />
+                            <div class="filter-col filter-col--sort">
+                                <label class="toolbar-label">Order</label>
+                                <select v-model="sortOrder" class="text-black filter-select-compact" @change="applyFilter(1)">
+                                    <option value="desc">Newest first</option>
+                                    <option value="asc">Oldest first</option>
                                 </select>
                             </div>
-                            <div class="date">
-                                <select v-model="sortOrder" class="text-black filter-select" @change="applyFilter">
-                                    <option value="desc" hidden>Date</option>
-                                    <option value="desc">Newest to Oldest</option>
-                                    <option value="asc">Oldest to Newest</option>
-                                </select>
                             </div>
+                            <FinancePeriodPresets
+                                class="presets-inline"
+                                label=""
+                                @preset="onPeriodPreset"
+                                @clear-dates="onClearDates"
+                            />
                         </div>
                     </div>
+
                     <div v-if="loading" class="loading-container">
                         <div class="loading-spinner">
-                            <i class="fa fa-spinner fa-spin"></i>
+                            <i class="fa fa-spinner fa-spin" />
                             <span>Loading invoices...</span>
                         </div>
                     </div>
-                    <div v-else-if="displayFakturas && displayFakturas.data && displayFakturas.data.length > 0">
-                        <div :class="['border mb-2 invoice-row', { 'split-invoice-row': faktura.is_split_invoice }]"
-                            v-for="faktura in displayFakturas.data" :key="faktura.id">
-                            <div class="text-black flex justify-between order-info" style="line-height: normal">
-                                <div class="p-2 bold" style="font-size: 16px">{{ faktura.faktura_number || faktura.id }}/{{ new
-                                    Date(faktura.created_at).toLocaleDateString('en-US', { year: 'numeric' }) }}</div>
-                                <div class="flex items-center gap-2" style="font-size: 12px">
-                                    <div v-if="faktura.is_split_invoice" class="split-badge">
-                                        SPLIT
+
+                    <DataTableShell v-else compact variant="grid">
+                        <template #header>
+                            <tr>
+                                <th class="invoice-column">Invoice</th>
+                                <th class="customer-column">Customer</th>
+                                <th>Orders</th>
+                                <th>Comment</th>
+                                <th>Created By</th>
+                                <th>Date Created</th>
+                                <th class="actions-column">Actions</th>
+                            </tr>
+                        </template>
+
+                        <template v-if="hasInvoices">
+                            <tr v-for="faktura in displayFakturas.data" :key="faktura.id">
+                                <td class="invoice-primary-cell">
+                                    <div class="invoice-main">
+                                        <div class="invoice-number">#{{ faktura.faktura_number || faktura.id }}</div>
+                                        <span v-if="faktura.is_split_invoice" class="split-badge">Split</span>
                                     </div>
-                                    <button class="flex items-center p-1" @click="viewInvoice(faktura.id)">
-                                        <i class="fa fa-eye bg-gray-300 p-2 rounded" aria-hidden="true"></i>
+                                    <div class="invoice-meta">{{ formatInvoicePeriod(faktura.created_at) }}</div>
+                                </td>
+                                <td class="customer-column">
+                                    <FinanceClientNameCell :name="getClientName(faktura)" />
+                                </td>
+                                <td>
+                                    <div class="cell-secondary orders-cell">{{ getOrdersDisplay(faktura) }}</div>
+                                </td>
+                                <td>
+                                    <div class="cell-secondary comment-cell">{{ getCommentDisplay(faktura.comment) }}</div>
+                                </td>
+                                <td>
+                                    <div class="cell-secondary">{{ faktura.created_by?.name || 'N/A' }}</div>
+                                </td>
+                                <td>
+                                    <div class="cell-secondary">{{ formatFullDate(faktura.created_at) }}</div>
+                                </td>
+                                <td class="actions-cell">
+                                    <button class="view-button" @click="viewInvoice(faktura.id)">
+                                        <i class="fa fa-eye" aria-hidden="true" />
+                                        <span>View</span>
                                     </button>
-                                </div>
-                            </div>
-                            <div class="flex row-columns pl-2 pt-1" style="line-height: initial">
-                                <div class="info col-order">
-                                    <div>Invoice</div>
-                                    <div class="bold">#{{ faktura.faktura_number || faktura.id }}</div>
-                                </div>
-                                <div class="info min-w-80 no-wrap col-client">
-                                    <div>Customer</div>
-                                    <div class="bold ellipsis">{{ getClientName(faktura) }}</div>
-                                </div>
-                                <div class="info col-date">
-                                    <div>Comment</div>
-                                    <div class="bold truncate">{{ faktura.comment }}</div>
-                                </div>
-                                <div class="info col-user">
-                                    <div>Created By</div>
-                                    <div class="bold truncate">{{ faktura.created_by?.name }}</div>
-                                </div>
-                                <div class="info col-status">
-                                    <div>Invoice for Orders</div>
-                                    <div class="bold truncate">{{ getOrdersDisplay(faktura) }}</div>
-                                </div>
-                                <div class="info col-date">
-                                    <div>Date Created</div>
-                                    <div class="bold truncate">{{ new
-                                        Date(faktura.created_at).toLocaleDateString('en-US', {
-                                            year: 'numeric', month:
-                                                '2-digit', day: '2-digit'
-                                        }) }}</div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    <div v-else class="no-invoices-message">
-                        <p>No invoices found matching your criteria.</p>
-                    </div>
+                                </td>
+                            </tr>
+                        </template>
+
+                        <tr v-else>
+                            <td colspan="7" class="empty-cell">
+                                No invoices found matching your criteria.
+                            </td>
+                        </tr>
+                    </DataTableShell>
                 </div>
                 <Pagination :pagination="displayFakturas" @pagination-change-page="goToPage" />
             </div>
@@ -96,30 +119,64 @@
 </template>
 
 <script>
-import MainLayout from "@/Layouts/MainLayout.vue";
-import Header from "@/Components/Header.vue";
-import Pagination from "@/Components/Pagination.vue"
+import MainLayout from '@/Layouts/MainLayout.vue';
+import Header from '@/Components/Header.vue';
+import Pagination from '@/Components/Pagination.vue';
+import DataTableShell from '@/Components/DataTableShell.vue';
+import RedirectTabs from '@/Components/RedirectTabs.vue';
+import FinanceCompactSearch from '@/Components/Finance/FinanceCompactSearch.vue';
+import FinanceClientSearchSelect from '@/Components/Finance/FinanceClientSearchSelect.vue';
+import FinanceDateRangeCompact from '@/Components/Finance/FinanceDateRangeCompact.vue';
+import FinanceYearMonthSelects from '@/Components/Finance/FinanceYearMonthSelects.vue';
+import FinancePeriodPresets from '@/Components/Finance/FinancePeriodPresets.vue';
+import FinanceClientNameCell from '@/Components/Finance/FinanceClientNameCell.vue';
 import axios from 'axios';
-import { reactive } from "vue";
-import OrderJobDetails from "@/Pages/Invoice/OrderJobDetails.vue";
-import ViewLockDialog from "@/Components/ViewLockDialog.vue";
-import RedirectTabs from "@/Components/RedirectTabs.vue";
+
+function localISODate(d = new Date()) {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+}
+
+function firstDayOfMonthFromDateString(dateStr) {
+    if (!dateStr || dateStr.length < 7) {
+        return '';
+    }
+    return `${dateStr.slice(0, 7)}-01`;
+}
 
 export default {
-    components: { Header, MainLayout, Pagination, OrderJobDetails, ViewLockDialog, RedirectTabs },
+    components: {
+        Header,
+        MainLayout,
+        Pagination,
+        DataTableShell,
+        RedirectTabs,
+        FinanceCompactSearch,
+        FinanceClientSearchSelect,
+        FinanceDateRangeCompact,
+        FinanceYearMonthSelects,
+        FinancePeriodPresets,
+        FinanceClientNameCell,
+    },
     props: {
         fakturas: Object,
     },
     data() {
         return {
+            searchInput: '',
             searchQuery: '',
-            filterClient: 'All',
+            clientId: null,
+            dateFrom: '',
+            dateTo: '',
+            fiscalYear: '',
+            calendarMonth: '',
             sortOrder: 'desc',
             uniqueClients: [],
-            localInvoices: [],
             localFakturas: null,
             loading: false,
-            perPage: 10,
+            perPage: 20,
         };
     },
     computed: {
@@ -127,58 +184,114 @@ export default {
             return this.localFakturas && this.localFakturas.data && this.localFakturas.data.length > 0;
         },
         displayFakturas() {
-            // Use localFakturas if available, otherwise fall back to prop
             return this.localFakturas || this.fakturas;
-        }
+        },
     },
     mounted() {
-        this.fetchUniqueClients()
-        // Initialize localFakturas with the prop data if it exists
+        this.fetchUniqueClients();
+        this.initFromUrl();
+        const page = parseInt(new URLSearchParams(window.location.search).get('page') || '1', 10) || 1;
         if (this.fakturas) {
             this.localFakturas = this.fakturas;
         }
-        // Force initial load with testing per-page value
-        this.applyFilter(1)
+        this.applyFilter(page);
     },
     methods: {
+        initFromUrl() {
+            const p = new URLSearchParams(window.location.search);
+            const sq = p.get('searchQuery') || '';
+            this.searchInput = sq;
+            this.searchQuery = sq;
+            const cid = p.get('client_id');
+            this.clientId = cid ? parseInt(cid, 10) : null;
+            this.dateFrom = p.get('date_from') || '';
+            this.dateTo = p.get('date_to') || '';
+            const fy = p.get('fiscal_year');
+            this.fiscalYear = fy ? parseInt(fy, 10) : '';
+            const mo = p.get('month');
+            this.calendarMonth = mo ? parseInt(mo, 10) : '';
+            this.sortOrder = p.get('sortOrder') || 'desc';
+            const pp = p.get('per_page');
+            if (pp) {
+                const n = parseInt(pp, 10);
+                if (!Number.isNaN(n) && n > 0) {
+                    this.perPage = Math.min(200, n);
+                }
+            }
+        },
+        normalizeDates() {
+            const today = localISODate();
+            if (this.dateFrom && !this.dateTo) {
+                this.dateTo = today;
+            }
+            if (this.dateTo && !this.dateFrom) {
+                this.dateFrom = firstDayOfMonthFromDateString(this.dateTo);
+            }
+        },
+        buildRequestParams(page) {
+            this.normalizeDates();
+            const params = {
+                page,
+                per_page: this.perPage,
+                sortOrder: this.sortOrder,
+            };
+            if (this.searchQuery) {
+                params.searchQuery = this.searchQuery;
+            }
+            if (this.clientId) {
+                params.client_id = this.clientId;
+            }
+            if (this.dateFrom) {
+                params.date_from = this.dateFrom;
+            }
+            if (this.dateTo) {
+                params.date_to = this.dateTo;
+            }
+            if (this.fiscalYear !== '' && this.fiscalYear != null) {
+                params.fiscal_year = this.fiscalYear;
+            }
+            if (this.calendarMonth !== '' && this.calendarMonth != null) {
+                params.month = this.calendarMonth;
+            }
+            return params;
+        },
+        buildHistoryQueryString(page) {
+            const parts = [];
+            if (this.searchQuery) {
+                parts.push(`searchQuery=${encodeURIComponent(this.searchQuery)}`);
+            }
+            if (this.sortOrder) {
+                parts.push(`sortOrder=${this.sortOrder}`);
+            }
+            if (this.clientId) {
+                parts.push(`client_id=${this.clientId}`);
+            }
+            if (this.dateFrom) {
+                parts.push(`date_from=${this.dateFrom}`);
+            }
+            if (this.dateTo) {
+                parts.push(`date_to=${this.dateTo}`);
+            }
+            if (this.fiscalYear !== '' && this.fiscalYear != null) {
+                parts.push(`fiscal_year=${this.fiscalYear}`);
+            }
+            if (this.calendarMonth !== '' && this.calendarMonth != null) {
+                parts.push(`month=${this.calendarMonth}`);
+            }
+            parts.push(`per_page=${this.perPage}`);
+            if (page) {
+                parts.push(`page=${page}`);
+            }
+            return parts.length ? `?${parts.join('&')}` : '';
+        },
         async applyFilter(page = 1) {
             try {
                 this.loading = true;
-
                 const response = await axios.get('/api/allInvoices/filtered', {
-                    params: {
-                        searchQuery: this.searchQuery,
-                        sortOrder: this.sortOrder,
-                        client: this.filterClient,
-                        page: page,
-                    },
+                    params: this.buildRequestParams(page),
                 });
-
-                // Update the fakturas data directly without showing all invoices
                 this.localFakturas = response.data;
-
-                // Build URL with current filters for browser history
-                let redirectUrl = '/allInvoices';
-                const params = [];
-
-                if (this.searchQuery) {
-                    params.push(`searchQuery=${encodeURIComponent(this.searchQuery)}`);
-                }
-                if (this.sortOrder) {
-                    params.push(`sortOrder=${this.sortOrder}`);
-                }
-                if (this.filterClient && this.filterClient !== 'All') {
-                    params.push(`client=${encodeURIComponent(this.filterClient)}`);
-                }
-                if (page) {
-                    params.push(`page=${page}`);
-                }
-
-                if (params.length > 0) {
-                    redirectUrl += '?' + params.join('&');
-                }
-
-                // Update URL without full page reload
+                const redirectUrl = `/allInvoices${this.buildHistoryQueryString(page)}`;
                 window.history.pushState({}, '', redirectUrl);
             } catch (error) {
                 console.error('Error applying filters:', error);
@@ -189,9 +302,37 @@ export default {
         goToPage(page) {
             this.applyFilter(page);
         },
-        async searchInvoices() {
-            // Use the same applyFilter method for consistency
-            await this.applyFilter(1);
+        onSearchSubmit() {
+            this.searchQuery = (this.searchInput || '').trim();
+            this.applyFilter(1);
+        },
+        onDateRangeChange() {
+            this.normalizeDates();
+            this.applyFilter(1);
+        },
+        onPeriodPreset(type) {
+            const today = localISODate();
+            if (type === 'this_month') {
+                const d = new Date();
+                const y = d.getFullYear();
+                const m = String(d.getMonth() + 1).padStart(2, '0');
+                this.dateFrom = `${y}-${m}-01`;
+                this.dateTo = today;
+                this.fiscalYear = '';
+                this.calendarMonth = '';
+            } else if (type === 'this_year') {
+                const y = new Date().getFullYear();
+                this.dateFrom = `${y}-01-01`;
+                this.dateTo = today;
+                this.fiscalYear = '';
+                this.calendarMonth = '';
+            }
+            this.applyFilter(1);
+        },
+        onClearDates() {
+            this.dateFrom = '';
+            this.dateTo = '';
+            this.applyFilter(1);
         },
         async fetchUniqueClients() {
             try {
@@ -204,19 +345,26 @@ export default {
         viewInvoice(id) {
             this.$inertia.visit(`/invoice/${id}`);
         },
-
+        formatInvoicePeriod(date) {
+            return new Date(date).toLocaleDateString('en-US', { year: 'numeric', month: 'short' });
+        },
+        formatFullDate(date) {
+            return new Date(date).toLocaleDateString('en-US', {
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+            });
+        },
+        getCommentDisplay(comment) {
+            return comment && String(comment).trim() ? comment : 'No comment';
+        },
         getClientName(faktura) {
-            // Prefer faktura-level override client when present
             if (faktura.client && faktura.client.name) {
                 return faktura.client.name;
             }
-
-            // For regular invoices, get client from first invoice
             if (faktura.invoices && faktura.invoices.length > 0) {
                 return faktura.invoices[0]?.client?.name || 'Unknown Client';
             }
-
-            // For split invoices, get client from jobs or parent order
             if (faktura.is_split_invoice) {
                 if (faktura.jobs && faktura.jobs.length > 0) {
                     return faktura.jobs[0]?.client?.name || 'Unknown Client';
@@ -225,107 +373,93 @@ export default {
                     return faktura.parent_order.client.name;
                 }
             }
-
             return 'Unknown Client';
         },
-
         getOrdersDisplay(faktura) {
-            // Deduplicate orders and display order_number instead of id
             const ordersMap = new Map();
-
             if (Array.isArray(faktura.invoices)) {
-                faktura.invoices.forEach(inv => {
+                faktura.invoices.forEach((inv) => {
                     if (inv && inv.id != null) {
                         ordersMap.set(Number(inv.id), inv.order_number || inv.id);
                     }
                 });
             }
-
             if (faktura.is_split_invoice && faktura.parent_order_id) {
-                // For split invoices, try to get order_number from parent_order
                 const orderNum = faktura.parent_order?.order_number || faktura.parent_order_id;
                 ordersMap.set(Number(faktura.parent_order_id), orderNum);
             }
-
             const orderNumbers = Array.from(ordersMap.values());
-            return orderNumbers.length ? orderNumbers.map(num => `#${num}`).join(', ') : 'No Orders';
+            return orderNumbers.length ? orderNumbers.map((num) => `#${num}`).join(', ') : 'No Orders';
         },
     },
 };
 </script>
 <style scoped lang="scss">
-.border:nth-child(odd) .order-info {
-    background-color: white;
+.toolbar-inline {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 10px 12px;
 }
 
-.border:nth-child(even) .order-info {
-    background-color: rgba(255, 255, 255, 0.65);
-}
-
-.info {
+.filter-grid {
+    display: grid;
+    flex: 1 1 auto;
     min-width: 0;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
+    grid-template-columns: minmax(140px, 1fr) minmax(160px, 1.1fr) minmax(200px, 1.2fr) minmax(200px, 1.2fr) minmax(120px, 0.7fr);
+    gap: 10px 12px;
+    align-items: end;
 }
 
-.filter-container {
-    justify-content: space-between;
-    flex-wrap: wrap;
+.presets-inline {
+    flex: 0 0 auto;
+    align-self: flex-end;
 }
 
-.filter-container .search {
-    flex: 1 1 320px;
+@media (max-width: 1200px) {
+    .filter-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
 }
 
-.filter-container .filters-group {
-    flex: 2 1 500px;
-    flex-wrap: wrap;
+@media (max-width: 640px) {
+    .filter-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .presets-inline {
+        width: 100%;
+    }
 }
 
-.search-input {
-    width: 50vh;
-    max-width: 100%;
-    border-radius: 3px;
+.filter-col--sort {
+    min-width: 0;
 }
 
-.filter-select {
-    width: 25vh;
-    max-width: 100%;
+.toolbar-panel {
+    margin-bottom: 14px;
+    padding: 12px 14px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.04);
 }
 
-select {
-    width: 25vh;
-    border-radius: 3px;
+.toolbar-label {
+    display: block;
+    margin-bottom: 4px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: rgba(255, 255, 255, 0.7);
 }
 
-.blue-text {
-    color: $blue;
-}
-
-.bold {
-    font-weight: bold;
-}
-
-.green-text {
-    color: $green;
-}
-
-.blue {
-    background-color: $blue;
-}
-
-.green {
-    background-color: $green;
-}
-
-.green:hover {
-    background-color: green;
-}
-
-.header {
-    display: flex;
-    align-items: center;
+.filter-select-compact {
+    width: 100%;
+    min-height: 34px;
+    border-radius: 8px;
+    padding: 0 8px;
+    font-size: 13px;
 }
 
 .dark-gray {
@@ -335,108 +469,6 @@ select {
     align-items: center;
     min-height: 20vh;
     min-width: 80vh;
-}
-
-.ultra-light-gray {
-    background-color: $ultra-light-gray;
-}
-
-.sub-title {
-    font-size: 20px;
-    font-weight: bold;
-    margin-bottom: 20px;
-    display: flex;
-    align-items: center;
-    color: $white;
-}
-
-.button-container {
-    display: flex-end;
-}
-
-.btn {
-    padding: 9px 12px;
-    border: none;
-    cursor: pointer;
-    font-weight: bold;
-    border-radius: 2px;
-}
-
-.create-order1 {
-    background-color: $blue;
-    color: white;
-}
-
-.create-order {
-    background-color: $green;
-    color: white;
-}
-
-.min-w-80 {
-    min-width: 320px;
-    flex-shrink: 0;
-    display: block;
-}
-
-.row-columns {
-    gap: 2rem;
-    align-items: center;
-    background-color: $background-color;
-}
-
-.col-status {
-    margin-left: auto;
-}
-
-.row-columns>.info div:nth-child(2) {
-    white-space: nowrap;
-}
-
-.col-order {
-    width: 90px;
-}
-
-.col-client {
-    width: 320px;
-}
-
-.col-date {
-    width: 170px;
-}
-
-.col-user {
-    width: 200px;
-}
-
-.col-status {
-    width: 180px;
-}
-
-.truncate {
-    overflow: hidden;
-    white-space: nowrap;
-    text-overflow: ellipsis;
-}
-
-.ellipsis {
-    width: 100%;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    overflow: hidden;
-    display: inline-block;
-    max-width: 100%;
-}
-
-.ellipsis-file {
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    overflow: hidden;
-    display: inline-block;
-    width: 150px;
-}
-
-.w-150 {
-    width: 150px;
 }
 
 .loading-container {
@@ -464,139 +496,92 @@ select {
     }
 }
 
-.no-invoices-message {
-    text-align: center;
-    padding: 40px;
-    color: white;
-
-    p {
-        font-size: 18px;
-        margin: 0;
-        opacity: 0.8;
-    }
+.customer-column {
+    max-width: 280px;
+    width: 22%;
 }
 
-/* Improved invoice row styling */
-.invoice-row {
-    border: 3px solid rgba(255, 255, 255, 0.25);
-    border-radius: 8px;
+.invoice-column {
+    width: 180px;
+}
+
+.actions-column {
+    width: 120px;
+}
+
+.invoice-primary-cell {
+    min-width: 180px;
+}
+
+.invoice-main {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 2px;
+}
+
+.invoice-number,
+.cell-primary {
+    font-weight: 700;
+    color: $white;
+}
+
+.invoice-meta,
+.cell-secondary {
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.68);
+}
+
+.orders-cell,
+.comment-cell {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
     overflow: hidden;
-    background: rgba(255, 255, 255, 0.06);
-    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
-    transition: box-shadow 0.2s ease, transform 0.2s ease, border-color 0.2s ease;
+    min-width: 180px;
+    white-space: normal;
 }
 
-.invoice-row:nth-child(odd) {
-    background-color: rgba(255, 255, 255, 0.05);
-}
-
-.invoice-row:nth-child(even) {
-    background-color: rgba(255, 255, 255, 0.09);
-}
-
-.invoice-row .order-info {
-    border-bottom: 1px solid rgba(255, 255, 255, 0.12);
-}
-
-.invoice-row .row-columns {
-    padding-bottom: 8px;
-}
-
-/* Status-based row accents for a more lively UI */
-.row-completed {
-    border-color: rgba(16, 185, 129, 0.35);
-    /* green */
-}
-
-.row-progress {
-    border-color: rgba(59, 130, 246, 0.35);
-    /* blue */
-}
-
-.row-pending {
-    border-color: rgba(234, 179, 8, 0.35);
-    /* amber */
-}
-
-/* Split invoice styling */
-.split-invoice-row {
-    border-color: rgba(168, 85, 247, 0.4);
-    /* purple accent for split invoices */
-    background: linear-gradient(135deg, rgba(168, 85, 247, 0.08) 0%, rgba(255, 255, 255, 0.06) 100%);
-}
-
-/* Split badge styling */
 .split-badge {
-    background: rgba(168, 85, 247, 0.9);
+    display: inline-flex;
+    align-items: center;
+    background: rgba(168, 85, 247, 0.18);
     color: white;
-    padding: 3px 8px;
-    border-radius: 4px;
+    padding: 4px 8px;
+    border-radius: 999px;
     font-size: 10px;
     font-weight: bold;
     text-transform: uppercase;
     letter-spacing: 0.5px;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
-    border: 1px solid rgba(168, 85, 247, 1);
+    border: 1px solid rgba(168, 85, 247, 0.55);
 }
 
-/* Status pill styling */
-.status-pill {
-    display: inline-block;
-    padding: 4px 10px;
-    border-radius: 9999px;
-    background-color: rgba(255, 255, 255, 0.08);
-    width: fit-content;
+.actions-cell {
+    text-align: right;
 }
 
-@media (max-width: 1024px) {
-    .filter-container {
-        gap: 12px;
-    }
-
-    .search-input {
-        width: 100%;
-    }
-
-    .filter-select {
-        width: 100%;
-    }
-
-    .filters-group {
-        flex: 1 1 100%;
-    }
-
-    .row-columns {
-        gap: 1rem;
-    }
-
-    .col-client {
-        width: 220px;
-    }
-
-    .col-user {
-        width: 150px;
-    }
-
-    .col-status {
-        width: 140px;
-    }
+.view-button {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 10px;
+    border: 1px solid rgba(59, 130, 246, 0.35);
+    border-radius: 8px;
+    background: rgba(59, 130, 246, 0.14);
+    color: $white;
+    font-size: 12px;
+    font-weight: 700;
+    transition: all 0.2s ease;
 }
 
-@media (max-width: 768px) {
-    .row-columns {
-        gap: 0.75rem;
-    }
+.view-button:hover {
+    background: rgba(59, 130, 246, 0.22);
+    border-color: rgba(96, 165, 250, 0.85);
+}
 
-    .col-client {
-        width: 180px;
-    }
-
-    .col-user {
-        width: 120px;
-    }
-
-    .col-status {
-        width: 120px;
-    }
+.empty-cell {
+    padding: 34px 16px !important;
+    text-align: center;
+    color: rgba(255, 255, 255, 0.7);
 }
 </style>

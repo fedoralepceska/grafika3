@@ -2,35 +2,61 @@
     <MainLayout>
         <div class="pl-7 pr-7">
             <Header title="invoice2" subtitle="UninvoicedOrders" icon="invoice.png" link="notInvoiced" />
+            <RedirectTabs :route="$page.url" />
             <div class="dark-gray p-2 text-white">
-                <RedirectTabs :route="$page.url" />
-                <div class="form-container p-2 ">
-                    <h2 class="sub-title">
-                        {{ $t('listOfNotInvoiced') }}
-                    </h2>
-                    <div class="filter-container flex gap-4 pb-10">
-                        <div class="search flex gap-2">
-                            <input v-model="searchQuery" placeholder="Search by order #, title, client..."
-                                class="text-black search-input" @keyup.enter="searchInvoices" />
-                            <button class="btn create-order1" @click="searchInvoices">Search</button>
+                <div class="form-container p-2">
+                    <div class="toolbar-panel">
+                        <div class="toolbar-inline">
+                            <div class="filter-grid">
+                                <FinanceCompactSearch
+                                    v-model="searchInput"
+                                    label="Search orders"
+                                    placeholder="Order #, title, client…"
+                                    @submit="onSearchSubmit"
+                                />
+                                <FinanceClientSearchSelect
+                                    v-model="clientId"
+                                    :clients="uniqueClients"
+                                    label="Client"
+                                    @change="applyFilter(1)"
+                                />
+                                <FinanceDateRangeCompact
+                                    :date-from="dateFrom"
+                                    :date-to="dateTo"
+                                    label="Date created"
+                                    @update:date-from="dateFrom = $event"
+                                    @update:date-to="dateTo = $event"
+                                    @change="onDateRangeChange"
+                                />
+                                <FinanceYearMonthSelects
+                                    :fiscal-year="fiscalYear"
+                                    :month="calendarMonth"
+                                    @update:fiscal-year="fiscalYear = $event"
+                                    @update:month="calendarMonth = $event"
+                                    @change="applyFilter(1)"
+                                />
+                                <div class="filter-col filter-col--sort">
+                                    <label class="toolbar-label">Order</label>
+                                    <select v-model="sortOrder" class="text-black filter-select-compact" @change="applyFilter(1)">
+                                        <option value="desc">Newest first</option>
+                                        <option value="asc">Oldest first</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <FinancePeriodPresets
+                                class="presets-inline"
+                                label=""
+                                @preset="onPeriodPreset"
+                                @clear-dates="onClearDates"
+                            />
                         </div>
-                        <div class="flex gap-2 filters-group">
-                            <div class="status">
 
-                                <ClientSelectDropdown v-model="filterClient" :clients="uniqueClients"
-                                    @change="applyFilter" />
-                            </div>
-                            <div class="date">
-                                <select v-model="sortOrder" class="text-black filter-select" @change="applyFilter">
-                                    <option value="desc" hidden>Date</option>
-                                    <option value="desc">Newest to Oldest</option>
-                                    <option value="asc">Oldest to Newest</option>
-                                </select>
-                            </div>
-                        </div>
-                        <div class="button flex gap-3">
-                            <button @click="clearAllSelections" v-if="hasSelectedInvoices || filterClient !== 'All'"
-                                class="btn create-order1">
+                        <div class="toolbar-actions">
+                            <button
+                                v-if="hasSelectedInvoices || clientId != null"
+                                @click="clearAllSelections"
+                                class="btn create-order1"
+                            >
                                 Clear Selection <i class="fa-solid fa-times"></i>
                             </button>
                             <button @click="generateInvoices" class="btn create-order">
@@ -45,86 +71,91 @@
                             <span>Loading orders...</span>
                         </div>
                     </div>
-                    <div v-else-if="filteredInvoices && filteredInvoices.length > 0">
-                        <div :class="['border mb-2 invoice-row', getStatusRowClass(invoice.status)]"
-                            v-for="invoice in filteredInvoices" :key="invoice.id">
-                            <div class="text-black flex justify-between order-info" style="line-height: normal">
-                                <div class="p-2 bold" style="font-size: 16px">{{ invoice.invoice_title }}</div>
-                                <div class="flex" style="font-size: 12px">
-                                    <button class="flex items-center p-1" @click="viewInvoice(invoice.id)">
-                                        <i class="fa fa-eye bg-gray-300 p-2 rounded" aria-hidden="true"></i>
+
+                    <DataTableShell v-else compact variant="grid">
+                        <template #header>
+                            <tr>
+                                <th class="select-column">Select</th>
+                                <th class="order-column">Order</th>
+                                <th>Title</th>
+                                <th class="customer-column">Customer</th>
+                                <th>Files</th>
+                                <th>End Date</th>
+                                <th>Created By</th>
+                                <th>Status</th>
+                                <th class="actions-column">Actions</th>
+                            </tr>
+                        </template>
+
+                        <template v-if="filteredInvoices && filteredInvoices.length > 0">
+                            <tr
+                                v-for="invoice in filteredInvoices"
+                                :key="invoice.id"
+                                :class="['invoice-table-row', getStatusRowClass(invoice.status), { 'row-selected': selectedInvoices[invoice.id] }]"
+                            >
+                                <td class="select-cell">
+                                    <button
+                                        type="button"
+                                        class="select-toggle"
+                                        :class="{ selected: selectedInvoices[invoice.id] }"
+                                        :aria-pressed="selectedInvoices[invoice.id] ? 'true' : 'false'"
+                                        :title="selectedInvoices[invoice.id] ? 'Selected' : 'Select order'"
+                                        @click="handleSelectionClick(invoice)"
+                                    >
+                                        <span class="select-indicator">
+                                            <i v-if="selectedInvoices[invoice.id]" class="fa-solid fa-check" aria-hidden="true"></i>
+                                        </span>
                                     </button>
-                                    <div class="flex items-center p-1">
-                                        <input type="checkbox" :id="`invoice-${invoice.id}`"
-                                            :checked="selectedInvoices[invoice.id]"
-                                            @change="toggleInvoiceSelection(invoice, $event)"
-                                            class="bg-gray-200 p-2 rounded px-3 py-3 border-gray-500">
+                                </td>
+                                <td class="order-primary-cell">
+                                    <div class="cell-primary">#{{ invoice.order_number }}</div>
+                                </td>
+                                <td>
+                                    <div class="title-cell">
+                                        <div class="cell-primary truncate-title">{{ invoice.invoice_title }}</div>
+                                        <div v-if="invoice.LockedNote" class="lock-note-trigger">
+                                            <ViewLockDialog :invoice="invoice" />
+                                        </div>
                                     </div>
-                                </div>
-                            </div>
-                            <div class="flex row-columns pl-2 pt-1" style="line-height: initial">
-                                <div class="info col-order">
-                                    <div>Order</div>
-                                    <div class="bold">#{{ invoice.order_number }}</div>
-                                </div>
-                                <div class="info min-w-80 no-wrap col-client">
-                                    <div>Customer</div>
-                                    <div class="bold ellipsis">{{ invoice.client.name }}</div>
-                                </div>
-                                <div class="info col-date">
-                                    <div>End Date</div>
-                                    <div class="bold truncate">{{ formatDate(invoice.end_date) }}</div>
-                                </div>
-                                <div class="info col-user">
-                                    <div>Created By</div>
-                                    <div class="bold truncate">{{ invoice.user.name }}</div>
-                                </div>
-                                <div class="info col-thumbnails">
+                                </td>
+                                <td class="customer-column">
+                                    <FinanceClientNameCell :name="invoice.client?.name || ''" variant="secondary" />
+                                </td>
+                                <td>
                                     <div class="thumbnail-section">
-                                        <!-- Display thumbnails for all jobs in this invoice -->
                                         <template v-if="invoice.jobs && invoice.jobs.length > 0">
                                             <div class="invoice-thumbnails-container">
                                                 <template v-for="(job, jobIndex) in invoice.jobs" :key="job.id">
                                                     <template v-if="hasDisplayableFiles(job)">
-                                                        <!-- Multiple files - display in flex row -->
                                                         <template v-if="hasMultipleFiles(job)">
                                                             <div class="multiple-thumbnails-row">
-                                                                <div v-for="(file, fileIndex) in getJobFiles(job)"
+                                                                <div
+                                                                    v-for="(file, fileIndex) in getJobFiles(job)"
                                                                     :key="`${job.id}-${fileIndex}`"
                                                                     class="file-thumbnail-wrapper"
-                                                                    @click="openFileThumbnailModal(job, jobIndex, fileIndex)">
-                                                                    <!-- File thumbnail -->
-                                                                    <div v-if="getAvailableThumbnails(job.id, fileIndex).length > 0"
-                                                                        class="thumbnail-preview-container">
-                                                                        <img v-if="shouldAttemptImageLoad(job, fileIndex)"
+                                                                    @click="openFileThumbnailModal(job, jobIndex, fileIndex)"
+                                                                >
+                                                                    <div v-if="getAvailableThumbnails(job.id, fileIndex).length > 0" class="thumbnail-preview-container">
+                                                                        <img
+                                                                            v-if="shouldAttemptImageLoad(job, fileIndex)"
                                                                             :src="getThumbnailUrl(job.id, fileIndex)"
                                                                             :alt="`File ${fileIndex + 1}`"
                                                                             class="preview-thumbnail-img"
-                                                                            @error="handleThumbnailError($event, job, fileIndex)" />
+                                                                            @error="handleThumbnailError($event, job, fileIndex)"
+                                                                        />
                                                                         <div v-else class="thumbnail-placeholder-icon">
                                                                             <i class="fa fa-file-o"></i>
                                                                         </div>
-
-                                                                        <!-- Page count indicator -->
-                                                                        <div v-if="getAvailableThumbnails(job.id, fileIndex).length > 1"
-                                                                            class="page-count-indicator">
-                                                                            {{ getAvailableThumbnails(job.id,
-                                                                                fileIndex).length }}
+                                                                        <div v-if="getAvailableThumbnails(job.id, fileIndex).length > 1" class="page-count-indicator">
+                                                                            {{ getAvailableThumbnails(job.id, fileIndex).length }}
                                                                         </div>
-
-                                                                        <!-- File number indicator -->
                                                                         <div class="file-number-indicator">
                                                                             {{ fileIndex + 1 }}
                                                                         </div>
                                                                     </div>
-
-                                                                    <!-- Loading state -->
-                                                                    <div v-else-if="thumbnailLoading && thumbnailLoading[job.id]"
-                                                                        class="thumbnail-loading-indicator">
+                                                                    <div v-else-if="thumbnailLoading && thumbnailLoading[job.id]" class="thumbnail-loading-indicator">
                                                                         <i class="fa fa-spinner fa-spin"></i>
                                                                     </div>
-
-                                                                    <!-- No thumbnails available -->
                                                                     <div v-else class="thumbnail-placeholder-icon">
                                                                         <span class="text-xs">No preview</span>
                                                                     </div>
@@ -132,38 +163,27 @@
                                                             </div>
                                                         </template>
 
-                                                        <!-- Single file - centered display -->
                                                         <template v-else-if="hasSingleNewFile(job) || isLegacyJob(job)">
                                                             <div class="single-thumbnail-container">
-                                                                <div class="file-thumbnail-wrapper single-file"
-                                                                    @click="openFileThumbnailModal(job, jobIndex, 0)">
-                                                                    <!-- Single file thumbnail -->
-                                                                    <div v-if="getAvailableThumbnails(job.id, 0).length > 0"
-                                                                        class="thumbnail-preview-container">
-                                                                        <img v-if="shouldAttemptImageLoad(job, 0)"
+                                                                <div class="file-thumbnail-wrapper single-file" @click="openFileThumbnailModal(job, jobIndex, 0)">
+                                                                    <div v-if="getAvailableThumbnails(job.id, 0).length > 0" class="thumbnail-preview-container">
+                                                                        <img
+                                                                            v-if="shouldAttemptImageLoad(job, 0)"
                                                                             :src="getThumbnailUrl(job.id, 0)"
                                                                             :alt="`Job ${jobIndex + 1} Preview`"
                                                                             class="preview-thumbnail-img single-file-img"
-                                                                            @error="handleThumbnailError($event, job, 0)" />
+                                                                            @error="handleThumbnailError($event, job, 0)"
+                                                                        />
                                                                         <div v-else class="thumbnail-placeholder-icon">
                                                                             <i class="fa fa-file-o"></i>
                                                                         </div>
-
-                                                                        <!-- Page count indicator -->
-                                                                        <div v-if="getAvailableThumbnails(job.id, 0).length > 1"
-                                                                            class="page-count-indicator">
-                                                                            {{ getAvailableThumbnails(job.id, 0).length
-                                                                            }}
+                                                                        <div v-if="getAvailableThumbnails(job.id, 0).length > 1" class="page-count-indicator">
+                                                                            {{ getAvailableThumbnails(job.id, 0).length }}
                                                                         </div>
                                                                     </div>
-
-                                                                    <!-- Loading state -->
-                                                                    <div v-else-if="thumbnailLoading && thumbnailLoading[job.id]"
-                                                                        class="thumbnail-loading-indicator">
+                                                                    <div v-else-if="thumbnailLoading && thumbnailLoading[job.id]" class="thumbnail-loading-indicator">
                                                                         <i class="fa fa-spinner fa-spin"></i>
                                                                     </div>
-
-                                                                    <!-- No thumbnails available -->
                                                                     <div v-else class="thumbnail-placeholder-icon">
                                                                         <span class="text-xs">No preview</span>
                                                                     </div>
@@ -178,21 +198,35 @@
                                             <span class="text-xs">No files</span>
                                         </div>
                                     </div>
-                                </div>
-                                <div v-if="invoice.LockedNote" class="info locked">
-                                    <ViewLockDialog :invoice="invoice" />
-                                </div>
-                                <div class="info col-status">
-                                    <div>Status</div>
-                                    <div
-                                        :class="[getStatusColorClass(invoice.status), 'bold', 'truncate', 'status-pill']">
-                                        {{ invoice.status }}</div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+                                </td>
+                                <td>
+                                    <div class="cell-secondary">{{ formatDate(invoice.end_date) }}</div>
+                                </td>
+                                <td>
+                                    <div class="cell-secondary">{{ invoice.user?.name || 'N/A' }}</div>
+                                </td>
+                                <td>
+                                    <span :class="['status-badge', getStatusBadgeClass(invoice.status)]">
+                                        {{ invoice.status }}
+                                    </span>
+                                </td>
+                                <td class="actions-cell">
+                                    <button class="view-button" @click="viewInvoice(invoice.id)">
+                                        <i class="fa fa-eye" aria-hidden="true"></i>
+                                        <span>View</span>
+                                    </button>
+                                </td>
+                            </tr>
+                        </template>
+
+                        <tr v-else>
+                            <td colspan="9" class="empty-cell">
+                                No orders found matching your criteria.
+                            </td>
+                        </tr>
+                    </DataTableShell>
                 </div>
-                <Pagination :pagination="{ data: [], links: invoices?.links || [] }"
+                <Pagination :pagination="paginationState"
                     @pagination-change-page="goToPage" />
             </div>
 
@@ -245,30 +279,67 @@
 import MainLayout from "@/Layouts/MainLayout.vue";
 import Header from "@/Components/Header.vue";
 import Pagination from "@/Components/Pagination.vue"
+import DataTableShell from "@/Components/DataTableShell.vue";
 import axios from 'axios';
-import { reactive } from "vue";
-import OrderJobDetails from "@/Pages/Invoice/OrderJobDetails.vue";
 import ViewLockDialog from "@/Components/ViewLockDialog.vue";
 import RedirectTabs from "@/Components/RedirectTabs.vue";
-import ClientSelectDropdown from "@/Components/ClientSelectDropdown.vue";
+import FinanceCompactSearch from "@/Components/Finance/FinanceCompactSearch.vue";
+import FinanceClientSearchSelect from "@/Components/Finance/FinanceClientSearchSelect.vue";
+import FinanceDateRangeCompact from "@/Components/Finance/FinanceDateRangeCompact.vue";
+import FinanceYearMonthSelects from "@/Components/Finance/FinanceYearMonthSelects.vue";
+import FinancePeriodPresets from "@/Components/Finance/FinancePeriodPresets.vue";
+import FinanceClientNameCell from "@/Components/Finance/FinanceClientNameCell.vue";
 import { useToast } from "vue-toastification";
 
+function localISODate(d = new Date()) {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+}
+
+function firstDayOfMonthFromDateString(dateStr) {
+    if (!dateStr || dateStr.length < 7) {
+        return '';
+    }
+    return `${dateStr.slice(0, 7)}-01`;
+}
+
 export default {
-    components: { Header, MainLayout, Pagination, OrderJobDetails, ViewLockDialog, RedirectTabs, ClientSelectDropdown },
+    components: {
+        Header,
+        MainLayout,
+        Pagination,
+        DataTableShell,
+        ViewLockDialog,
+        RedirectTabs,
+        FinanceCompactSearch,
+        FinanceClientSearchSelect,
+        FinanceDateRangeCompact,
+        FinanceYearMonthSelects,
+        FinancePeriodPresets,
+        FinanceClientNameCell,
+    },
     props: {
         invoices: Object,
     },
     data() {
         return {
+            searchInput: '',
             searchQuery: '',
-            filterClient: 'All',
+            clientId: null,
+            dateFrom: '',
+            dateTo: '',
+            fiscalYear: '',
+            calendarMonth: '',
             sortOrder: 'desc',
             localInvoices: [],
+            paginationState: { data: [], links: [] },
             uniqueClients: [],
             filteredInvoices: [],
             selectedInvoices: {},
             loading: false,
-            perPage: 10,
+            perPage: 20,
             // Image error tracking
             imageErrors: {},
             // Thumbnail files discovery
@@ -288,10 +359,12 @@ export default {
     },
     mounted() {
         this.localInvoices = this.invoices.data.slice();
-        this.fetchUniqueClients()
-        this.filteredInvoices = this.invoices.data; // Backend now handles the faktura_id filtering
-        // Force initial load with testing per-page value
-        this.applyFilter(1)
+        this.paginationState = this.invoices;
+        this.fetchUniqueClients();
+        this.filteredInvoices = this.invoices.data;
+        this.initFromUrl();
+        const page = parseInt(new URLSearchParams(window.location.search).get('page') || '1', 10) || 1;
+        this.applyFilter(page);
     },
     computed: {
         hasSelectedInvoices() {
@@ -332,7 +405,7 @@ export default {
 
                 // If no invoices are selected anymore, clear the filter
                 const remainingSelected = Object.keys(this.selectedInvoices).filter(id => this.selectedInvoices[id]);
-                if (remainingSelected.length === 0 && this.filterClient !== 'All') {
+                if (remainingSelected.length === 0 && this.clientId != null) {
                     this.clearAllSelections();
                 }
                 return;
@@ -350,7 +423,7 @@ export default {
 
             // If we have existing selections, check if we're already filtered to the same client
             // or if the current invoice matches the filter
-            if (this.filterClient !== 'All' && this.filterClient === invoice.client.name) {
+            if (this.clientId != null && invoice.client && this.clientId === invoice.client.id) {
                 // We're already filtered to this client, so it's safe to select
                 this.selectedInvoices[invoice.id] = true;
                 return;
@@ -359,6 +432,14 @@ export default {
             // If we're not filtered to a specific client, check against existing selections
             // We need to make an API call to get the client info for previously selected invoices
             this.checkClientCompatibilityAndSelect(invoice, selectedInvoiceIds);
+        },
+        handleSelectionClick(invoice) {
+            const nextCheckedState = !this.selectedInvoices[invoice.id];
+            this.toggleInvoiceSelection(invoice, {
+                target: {
+                    checked: nextCheckedState,
+                },
+            });
         },
 
         async checkClientCompatibilityAndSelect(invoice, selectedInvoiceIds) {
@@ -400,58 +481,155 @@ export default {
                 return "green-text";
             }
         },
+        getStatusBadgeClass(status) {
+            if (status === "Completed") {
+                return "status-completed";
+            } else if (status === "In progress" || status === "In Progress") {
+                return "status-progress";
+            } else if (status === "Not started yet") {
+                return "status-pending";
+            }
+
+            return "status-default";
+        },
+        initFromUrl() {
+            const p = new URLSearchParams(window.location.search);
+            const sq = p.get('searchQuery') || '';
+            this.searchInput = sq;
+            this.searchQuery = sq;
+            const cid = p.get('client_id');
+            this.clientId = cid ? parseInt(cid, 10) : null;
+            this.dateFrom = p.get('date_from') || '';
+            this.dateTo = p.get('date_to') || '';
+            const fy = p.get('fiscal_year');
+            this.fiscalYear = fy ? parseInt(fy, 10) : '';
+            const mo = p.get('month');
+            this.calendarMonth = mo ? parseInt(mo, 10) : '';
+            this.sortOrder = p.get('sortOrder') || 'desc';
+            const pp = p.get('per_page');
+            if (pp) {
+                const n = parseInt(pp, 10);
+                if (!Number.isNaN(n) && n > 0) {
+                    this.perPage = Math.min(200, n);
+                }
+            }
+        },
+        normalizeDates() {
+            const today = localISODate();
+            if (this.dateFrom && !this.dateTo) {
+                this.dateTo = today;
+            }
+            if (this.dateTo && !this.dateFrom) {
+                this.dateFrom = firstDayOfMonthFromDateString(this.dateTo);
+            }
+        },
+        buildRequestParams(page) {
+            this.normalizeDates();
+            const params = {
+                page,
+                per_page: this.perPage,
+                sortOrder: this.sortOrder,
+            };
+            if (this.searchQuery) {
+                params.searchQuery = this.searchQuery;
+            }
+            if (this.clientId) {
+                params.client_id = this.clientId;
+            }
+            if (this.dateFrom) {
+                params.date_from = this.dateFrom;
+            }
+            if (this.dateTo) {
+                params.date_to = this.dateTo;
+            }
+            if (this.fiscalYear !== '' && this.fiscalYear != null) {
+                params.fiscal_year = this.fiscalYear;
+            }
+            if (this.calendarMonth !== '' && this.calendarMonth != null) {
+                params.month = this.calendarMonth;
+            }
+            return params;
+        },
+        buildHistoryQueryString(page) {
+            const parts = [];
+            if (this.searchQuery) {
+                parts.push(`searchQuery=${encodeURIComponent(this.searchQuery)}`);
+            }
+            if (this.sortOrder) {
+                parts.push(`sortOrder=${this.sortOrder}`);
+            }
+            if (this.clientId) {
+                parts.push(`client_id=${this.clientId}`);
+            }
+            if (this.dateFrom) {
+                parts.push(`date_from=${this.dateFrom}`);
+            }
+            if (this.dateTo) {
+                parts.push(`date_to=${this.dateTo}`);
+            }
+            if (this.fiscalYear !== '' && this.fiscalYear != null) {
+                parts.push(`fiscal_year=${this.fiscalYear}`);
+            }
+            if (this.calendarMonth !== '' && this.calendarMonth != null) {
+                parts.push(`month=${this.calendarMonth}`);
+            }
+            parts.push(`per_page=${this.perPage}`);
+            if (page) {
+                parts.push(`page=${page}`);
+            }
+            return parts.length ? `?${parts.join('&')}` : '';
+        },
         async applyFilter(page = 1) {
             try {
                 this.loading = true;
 
                 const response = await axios.get('/api/notInvoiced/filtered', {
-                    params: {
-                        searchQuery: this.searchQuery,
-                        sortOrder: this.sortOrder,
-                        client: this.filterClient,
-                        page: page,
-                    },
+                    params: this.buildRequestParams(page),
                 });
 
-                // Update the filtered invoices directly without showing all orders
                 this.filteredInvoices = response.data.data || response.data;
-                // Keep pagination links from backend if sent
-                if (response.data && response.data.links) {
-                    this.invoices.links = response.data.links;
-                }
+                this.paginationState = response.data && response.data.links
+                    ? response.data
+                    : { data: this.filteredInvoices, links: [] };
 
-                // Build URL with current filters for browser history
-                let redirectUrl = '/notInvoiced';
-                const params = [];
-
-                if (this.searchQuery) {
-                    params.push(`searchQuery=${encodeURIComponent(this.searchQuery)}`);
-                }
-                if (this.sortOrder) {
-                    params.push(`sortOrder=${this.sortOrder}`);
-                }
-                if (this.filterClient && this.filterClient !== 'All') {
-                    params.push(`client=${encodeURIComponent(this.filterClient)}`);
-                }
-                if (page) {
-                    params.push(`page=${page}`);
-                }
-
-                if (params.length > 0) {
-                    redirectUrl += '?' + params.join('&');
-                }
-
-                // Update URL without full page reload
-                window.history.pushState({}, '', redirectUrl);
+                window.history.pushState({}, '', `/notInvoiced${this.buildHistoryQueryString(page)}`);
             } catch (error) {
                 console.error('Error applying filters:', error);
             } finally {
                 this.loading = false;
             }
         },
-        async searchInvoices() {
-            // Use the same applyFilter method for consistency
-            await this.applyFilter(1);
+        onSearchSubmit() {
+            this.searchQuery = (this.searchInput || '').trim();
+            this.applyFilter(1);
+        },
+        onDateRangeChange() {
+            this.normalizeDates();
+            this.applyFilter(1);
+        },
+        onPeriodPreset(type) {
+            const today = localISODate();
+            if (type === 'this_month') {
+                const d = new Date();
+                const y = d.getFullYear();
+                const m = String(d.getMonth() + 1).padStart(2, '0');
+                this.dateFrom = `${y}-${m}-01`;
+                this.dateTo = today;
+                this.fiscalYear = '';
+                this.calendarMonth = '';
+            } else if (type === 'this_year') {
+                const y = new Date().getFullYear();
+                this.dateFrom = `${y}-01-01`;
+                this.dateTo = today;
+                this.fiscalYear = '';
+                this.calendarMonth = '';
+            }
+            this.applyFilter(1);
+        },
+        onClearDates() {
+            this.dateFrom = '';
+            this.dateTo = '';
+            this.applyFilter(1);
         },
         goToPage(page) {
             this.applyFilter(page);
@@ -466,8 +644,8 @@ export default {
         },
 
         async autoFilterByClient(clientName) {
-            // Set the client filter and apply it
-            this.filterClient = clientName;
+            const c = this.uniqueClients.find((x) => x.name === clientName);
+            this.clientId = c ? c.id : null;
             await this.applyFilter(1);
         },
         viewInvoice(id) {
@@ -475,7 +653,7 @@ export default {
         },
         clearAllSelections() {
             this.selectedInvoices = {};
-            this.filterClient = 'All';
+            this.clientId = null;
             this.applyFilter(1);
         },
 
@@ -765,88 +943,87 @@ export default {
 };
 </script>
 <style scoped lang="scss">
-.border:nth-child(odd) .order-info {
-    background-color: white;
+.toolbar-inline {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 10px 12px;
 }
 
-.border:nth-child(even) .order-info {
-    background-color: rgba(255, 255, 255, 0.65);
-}
-
-.info {
+.filter-grid {
+    display: grid;
+    flex: 1 1 auto;
     min-width: 0;
+    grid-template-columns: minmax(140px, 1fr) minmax(160px, 1.1fr) minmax(200px, 1.2fr) minmax(200px, 1.2fr) minmax(120px, 0.7fr);
+    gap: 10px 12px;
+    align-items: end;
+}
+
+.presets-inline {
+    flex: 0 0 auto;
+    align-self: flex-end;
+}
+
+@media (max-width: 1200px) {
+    .filter-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 640px) {
+    .filter-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .presets-inline {
+        width: 100%;
+    }
+}
+
+.filter-col--sort {
+    min-width: 0;
+}
+
+.toolbar-panel {
+    margin-bottom: 14px;
+    padding: 12px 14px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.04);
+}
+
+.toolbar-actions {
     display: flex;
-    flex-direction: column;
-    justify-content: center;
-}
-
-.filter-container {
-    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    justify-content: flex-end;
     flex-wrap: wrap;
+    white-space: nowrap;
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
 }
 
-.filter-container .search {
-    flex: 1 1 320px;
+.toolbar-label {
+    display: block;
+    margin-bottom: 4px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: rgba(255, 255, 255, 0.7);
 }
 
-.filter-container .filters-group {
-    flex: 2 1 600px;
-    flex-wrap: wrap;
-}
-
-.search-input {
-    width: 50vh;
-    max-width: 100%;
-    border-radius: 3px;
-}
-
-.filter-select {
-    width: 30vh;
-    min-width: 200px;
-    max-width: 100%;
-}
-
-.locked {
-    display: flex;
-    justify-content: center;
+.filter-select-compact {
+    width: 100%;
+    min-height: 34px;
+    border-radius: 8px;
+    padding: 0 8px;
+    font-size: 13px;
 }
 
 select {
-    width: 25vh;
-    border-radius: 3px;
-}
-
-.orange {
-    color: $orange;
-}
-
-.blue-text {
-    color: $blue;
-}
-
-.bold {
-    font-weight: bold;
-}
-
-.green-text {
-    color: $green;
-}
-
-.blue {
-    background-color: $blue;
-}
-
-.green {
-    background-color: $green;
-}
-
-.green:hover {
-    background-color: green;
-}
-
-.header {
-    display: flex;
-    align-items: center;
+    width: 100%;
 }
 
 .dark-gray {
@@ -856,19 +1033,6 @@ select {
     align-items: center;
     min-height: 20vh;
     min-width: 80vh;
-}
-
-.sub-title {
-    font-size: 20px;
-    font-weight: bold;
-    margin-bottom: 20px;
-    display: flex;
-    align-items: center;
-    color: $white;
-}
-
-.button-container {
-    display: flex-end;
 }
 
 .btn {
@@ -887,77 +1051,6 @@ select {
 .create-order {
     background-color: $green;
     color: white;
-}
-
-.min-w-80 {
-    min-width: 320px;
-    flex-shrink: 0;
-    display: block;
-}
-
-.row-columns {
-    gap: 2rem;
-    align-items: center;
-    background-color: $background-color;
-}
-
-.col-status {
-    margin-left: auto;
-}
-
-.row-columns>.info div:nth-child(2) {
-    white-space: nowrap;
-}
-
-.col-order {
-    width: 90px;
-}
-
-.col-client {
-    width: 320px;
-}
-
-.col-date {
-    width: 170px;
-}
-
-.col-user {
-    width: 200px;
-}
-
-.col-thumbnails {
-    width: 180px;
-}
-
-.col-status {
-    width: 180px;
-}
-
-.truncate {
-    overflow: hidden;
-    white-space: nowrap;
-    text-overflow: ellipsis;
-}
-
-.ellipsis {
-    width: 100%;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    overflow: hidden;
-    display: inline-block;
-    max-width: 100%;
-}
-
-.ellipsis-file {
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    overflow: hidden;
-    display: inline-block;
-    width: 150px;
-}
-
-.w-150 {
-    width: 150px;
 }
 
 .loading-container {
@@ -985,159 +1078,169 @@ select {
     }
 }
 
-/* Improved invoice row styling */
-.invoice-row {
-    border: 3px solid rgba(255, 255, 255, 0.25);
-    border-radius: 8px;
+.select-column {
+    width: 76px;
+}
+
+.order-column {
+    width: 110px;
+}
+
+.actions-column {
+    width: 110px;
+}
+
+.select-cell {
+    text-align: center;
+}
+
+.select-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    padding: 0;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.04);
+    color: rgba(255, 255, 255, 0.84);
+    transition: all 0.2s ease;
+}
+
+.select-toggle:hover {
+    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(255, 255, 255, 0.2);
+}
+
+.select-toggle.selected {
+    background: rgba(59, 130, 246, 0.16);
+    border-color: rgba(96, 165, 250, 0.5);
+    color: $white;
+}
+
+.select-indicator {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.04);
+    font-size: 10px;
+}
+
+.select-toggle.selected .select-indicator {
+    border-color: rgba(96, 165, 250, 0.6);
+    background: rgba(59, 130, 246, 0.95);
+    color: $white;
+}
+
+.row-selected {
+    box-shadow: inset 3px 0 0 rgba(59, 130, 246, 0.95);
+}
+
+.order-primary-cell .cell-primary,
+.cell-primary {
+    font-weight: 700;
+    color: $white;
+}
+
+.cell-secondary {
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.68);
+}
+
+.title-cell {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 220px;
+}
+
+.truncate-title {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
     overflow: hidden;
-    background: rgba(255, 255, 255, 0.06);
-    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
-    transition: box-shadow 0.2s ease, transform 0.2s ease, border-color 0.2s ease;
 }
 
-.invoice-row:nth-child(odd) {
-    background-color: rgba(255, 255, 255, 0.05);
+.customer-column {
+    max-width: 280px;
+    width: 18%;
 }
 
-.invoice-row:nth-child(even) {
-    background-color: rgba(255, 255, 255, 0.09);
+.lock-note-trigger {
+    flex-shrink: 0;
 }
 
-.invoice-row .order-info {
-    border-bottom: 1px solid rgba(255, 255, 255, 0.12);
-}
-
-.invoice-row .row-columns {
-    padding-bottom: 8px;
-}
-
-/* Status-based row accents for a more lively UI */
-.row-completed {
-    border-color: rgba(16, 185, 129, 0.35);
-    /* green */
-}
-
-.row-progress {
-    border-color: rgba(59, 130, 246, 0.35);
-    /* blue */
-}
-
-.row-pending {
-    border-color: rgba(234, 179, 8, 0.35);
-    /* amber */
-}
-
-/* Status pill styling */
-.status-pill {
-    display: inline-block;
+.status-badge {
+    display: inline-flex;
+    align-items: center;
     padding: 4px 10px;
-    border-radius: 9999px;
-    background-color: rgba(255, 255, 255, 0.08);
-    width: fit-content;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.status-pending {
+    color: #facc15;
+    background: rgba(250, 204, 21, 0.12);
+    border: 1px solid rgba(250, 204, 21, 0.28);
+}
+
+.status-progress {
+    color: #60a5fa;
+    background: rgba(96, 165, 250, 0.12);
+    border: 1px solid rgba(96, 165, 250, 0.28);
+}
+
+.status-completed {
+    color: #4ade80;
+    background: rgba(74, 222, 128, 0.12);
+    border: 1px solid rgba(74, 222, 128, 0.28);
+}
+
+.status-default {
+    color: rgba(255, 255, 255, 0.8);
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.14);
+}
+
+.actions-cell {
+    text-align: right;
+}
+
+.view-button {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 10px;
+    border: 1px solid rgba(59, 130, 246, 0.35);
+    border-radius: 8px;
+    background: rgba(59, 130, 246, 0.14);
+    color: $white;
+    font-size: 12px;
+    font-weight: 700;
+    transition: all 0.2s ease;
+}
+
+.view-button:hover {
+    background: rgba(59, 130, 246, 0.22);
+    border-color: rgba(96, 165, 250, 0.85);
+}
+
+.empty-cell {
+    padding: 34px 16px !important;
+    text-align: center;
+    color: rgba(255, 255, 255, 0.7);
 }
 
 @media (max-width: 1024px) {
-    .filter-container {
-        gap: 12px;
-    }
-
-    .search-input {
-        width: 100%;
-    }
-
-    .filter-select {
-        width: 100%;
-    }
-
-    .filters-group {
-        flex: 1 1 100%;
-    }
-
-    .row-columns {
-        gap: 1rem;
-    }
-
-    .col-client {
-        width: 220px;
-    }
-
-    .col-user {
-        width: 150px;
-    }
-
-    .col-thumbnails {
-        width: 160px;
-    }
-
-    .col-status {
-        width: 140px;
-    }
-}
-
-@media (max-width: 768px) {
-    .row-columns {
-        gap: 0.75rem;
-    }
-
-    .col-client {
-        width: 180px;
-    }
-
-    .col-user {
-        width: 120px;
-    }
-
-    .col-thumbnails {
-        width: 120px;
-    }
-
-    .col-status {
-        width: 120px;
-    }
-}
-
-@media (max-width: 640px) {
-    .filter-container {
-        gap: 8px;
-        flex-wrap: nowrap;
-        overflow-x: hidden;
-    }
-
-    .filters-group {
-        flex-wrap: nowrap;
-    }
-
-    /* Responsive thumbnail adjustments */
-    .thumbnail-section {
-        min-width: 100px;
-        max-width: 120px;
-    }
-
-    .multiple-thumbnails-row {
-        gap: 4px;
-        max-width: 100px;
-    }
-
-    .preview-thumbnail-img {
-        width: 30px;
-        height: 40px;
-
-        &.single-file-img {
-            width: 35px;
-            height: 45px;
-        }
-    }
-
-    .thumbnail-placeholder-icon,
-    .thumbnail-loading-indicator {
-        width: 30px;
-        height: 40px;
-    }
-
-    .file-number-indicator,
-    .page-count-indicator {
-        font-size: 8px;
-        padding: 1px 4px;
+    .filter-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 }
 
@@ -1314,6 +1417,59 @@ select {
     height: 50px;
     color: #6c757d;
     font-size: 12px;
+}
+
+@media (max-width: 768px) {
+    .filter-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .toolbar-actions {
+        width: 100%;
+        justify-content: flex-start;
+        flex-wrap: wrap;
+        white-space: normal;
+        margin-top: 14px;
+        padding-top: 14px;
+    }
+
+    .toolbar-panel {
+        padding: 14px;
+    }
+}
+
+@media (max-width: 640px) {
+    .thumbnail-section {
+        min-width: 100px;
+        max-width: 120px;
+    }
+
+    .multiple-thumbnails-row {
+        gap: 4px;
+        max-width: 100px;
+    }
+
+    .preview-thumbnail-img {
+        width: 30px;
+        height: 40px;
+
+        &.single-file-img {
+            width: 35px;
+            height: 45px;
+        }
+    }
+
+    .thumbnail-placeholder-icon,
+    .thumbnail-loading-indicator {
+        width: 30px;
+        height: 40px;
+    }
+
+    .file-number-indicator,
+    .page-count-indicator {
+        font-size: 8px;
+        padding: 1px 4px;
+    }
 }
 
 /* Thumbnail modal styles */
