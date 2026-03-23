@@ -111,14 +111,20 @@
 
                         <template v-if="displayIncoming.data && displayIncoming.data.length > 0">
                             <tr v-for="faktura in displayIncoming.data" :key="faktura.id">
-                                <td class="invoice-primary-cell">
-                                    <div class="invoice-main">
+                                <td
+                                    class="invoice-primary-cell"
+                                    :class="{ 'invoice-primary-cell--archived': faktura.billing_type === 'фактура' }"
+                                    :title="faktura.billing_type === 'фактура' ? `Archive #${faktura.faktura_counter}` : undefined"
+                                >
+                                    <div class="invoice-primary-stack">
                                         <div class="cell-primary">#{{ faktura.incoming_number }}</div>
-                                        <span v-if="faktura.billing_type === 'фактура'" class="archive-badge">
-                                            Archive #{{ faktura.faktura_counter }}
-                                        </span>
+                                        <div
+                                            v-if="faktura.billing_type === 'фактура'"
+                                            class="invoice-archive-reveal"
+                                        >
+                                            <span class="invoice-archive-badge">Archive #{{ faktura.faktura_counter }}</span>
+                                        </div>
                                     </div>
-                                    <div class="cell-secondary">{{ formatInvoicePeriod(faktura.created_at) }}</div>
                                 </td>
                                 <td class="customer-column">
                                     <FinanceClientNameCell :name="faktura.client_name || ''" />
@@ -149,10 +155,38 @@
                                 No incoming invoices found matching your criteria.
                             </td>
                         </tr>
+
+                        <template #footer>
+                            <tr
+                                v-if="displayIncoming.data && displayIncoming.data.length > 0"
+                                class="incoming-subtotal-row"
+                                title="Totals for all loaded rows"
+                            >
+                                <td colspan="5" class="incoming-subtotal-label">
+                                    <span class="incoming-subtotal-label-text">Subtotal</span>
+                                    <span class="incoming-subtotal-hint">loaded</span>
+                                </td>
+                                <td class="col-num incoming-subtotal-num">
+                                    <div class="incoming-subtotal-value text-right">{{ incomingPageTotals.amount }}</div>
+                                </td>
+                                <td class="col-num incoming-subtotal-num">
+                                    <div class="incoming-subtotal-value text-right">{{ incomingPageTotals.tax }}</div>
+                                </td>
+                                <td class="col-num incoming-subtotal-num incoming-subtotal-num--total">
+                                    <div class="incoming-subtotal-value incoming-subtotal-value--emphasis text-right">{{ incomingPageTotals.total }}</div>
+                                </td>
+                                <td colspan="3" class="incoming-subtotal-rest">&nbsp;</td>
+                            </tr>
+                        </template>
                     </DataTableShell>
                     </div>
                 </div>
-                <Pagination :pagination="displayIncoming" @pagination-change-page="goToPage" />
+                <FinanceShowMore
+                    :pagination="displayIncoming"
+                    :loading-more="loadingMore"
+                    :chunk-size="chunkSize"
+                    @load-more="loadMore"
+                />
             </div>
         </div>
     </MainLayout>
@@ -161,7 +195,7 @@
 <script>
 import MainLayout from '@/Layouts/MainLayout.vue';
 import Header from '@/Components/Header.vue';
-import Pagination from '@/Components/Pagination.vue';
+import FinanceShowMore from '@/Components/Finance/FinanceShowMore.vue';
 import DataTableShell from '@/Components/DataTableShell.vue';
 import RedirectTabs from '@/Components/RedirectTabs.vue';
 import AddIncomingInvoiceDialog from '@/Components/AddIncomingInvoiceDialog.vue';
@@ -179,7 +213,7 @@ export default {
     components: {
         Header,
         MainLayout,
-        Pagination,
+        FinanceShowMore,
         DataTableShell,
         RedirectTabs,
         AddIncomingInvoiceDialog,
@@ -219,20 +253,38 @@ export default {
             fiscalYear: '',
             calendarMonth: '',
             sortOrder: 'desc',
-            perPage: 20,
+            chunkSize: 20,
             localIncoming: null,
             loading: false,
+            loadingMore: false,
         };
     },
     computed: {
         displayIncoming() {
             return this.localIncoming !== null ? this.localIncoming : this.incomingInvoice;
         },
+        incomingPageTotals() {
+            const rows = this.displayIncoming?.data ?? [];
+            let amountSum = 0;
+            let taxSum = 0;
+            let totalSum = 0;
+            for (const f of rows) {
+                const amount = parseFloat(String(f.amount ?? 0).replace(/,/g, '')) || 0;
+                const tax = parseFloat(String(f.tax ?? 0).replace(/,/g, '')) || 0;
+                amountSum += amount;
+                taxSum += tax;
+                totalSum += amount + tax;
+            }
+            return {
+                amount: amountSum.toFixed(2),
+                tax: taxSum.toFixed(2),
+                total: totalSum.toFixed(2),
+            };
+        },
     },
     mounted() {
         this.initFromUrl();
-        const page = parseInt(new URLSearchParams(window.location.search).get('page') || '1', 10) || 1;
-        this.fetchList(page);
+        this.fetchList(1);
     },
     methods: {
         initFromUrl() {
@@ -254,13 +306,6 @@ export default {
             const mo = p.get('month');
             this.calendarMonth = mo ? parseInt(mo, 10) : '';
             this.sortOrder = p.get('sortOrder') || 'desc';
-            const pp = p.get('per_page');
-            if (pp) {
-                const n = parseInt(pp, 10);
-                if (!Number.isNaN(n) && n > 0) {
-                    this.perPage = Math.min(200, n);
-                }
-            }
         },
         buildParams(page) {
             const state = { dateFrom: this.dateFrom, dateTo: this.dateTo };
@@ -270,7 +315,7 @@ export default {
 
             const params = {
                 page,
-                per_page: this.perPage,
+                per_page: this.chunkSize,
                 sortOrder: this.sortOrder,
             };
             if (this.searchQuery) {
@@ -300,8 +345,8 @@ export default {
             }
             return params;
         },
-        buildHistoryQuery(page) {
-            const p = this.buildParams(page);
+        buildHistoryQuery() {
+            const p = this.buildParams(1);
             const parts = [];
             if (p.searchQuery) {
                 parts.push(`searchQuery=${encodeURIComponent(p.searchQuery)}`);
@@ -331,26 +376,40 @@ export default {
                 parts.push(`month=${p.month}`);
             }
             parts.push(`sortOrder=${this.sortOrder}`);
-            parts.push(`per_page=${this.perPage}`);
-            parts.push(`page=${page}`);
             return parts.length ? `?${parts.join('&')}` : '';
         },
-        async fetchList(page = 1) {
+        async fetchList(page = 1, { append = false } = {}) {
             try {
-                this.loading = true;
+                if (append) {
+                    this.loadingMore = true;
+                } else {
+                    this.loading = true;
+                }
                 const { data } = await axios.get('/incomingInvoice', {
                     params: this.buildParams(page),
                 });
-                this.localIncoming = data;
-                window.history.replaceState({}, '', `/incomingInvoice${this.buildHistoryQuery(page)}`);
+                if (append && this.localIncoming && Array.isArray(this.localIncoming.data)) {
+                    this.localIncoming = {
+                        ...data,
+                        data: [...this.localIncoming.data, ...data.data],
+                    };
+                } else {
+                    this.localIncoming = data;
+                }
+                window.history.replaceState({}, '', `/incomingInvoice${this.buildHistoryQuery()}`);
             } catch (e) {
                 console.error(e);
             } finally {
                 this.loading = false;
+                this.loadingMore = false;
             }
         },
-        goToPage(page) {
-            this.fetchList(page);
+        loadMore() {
+            const p = this.displayIncoming;
+            if (!p || p.current_page >= p.last_page || this.loadingMore) {
+                return;
+            }
+            this.fetchList(p.current_page + 1, { append: true });
         },
         onSearchSubmit() {
             this.searchQuery = (this.searchInput || '').trim();
@@ -390,15 +449,12 @@ export default {
             this.fetchList(1);
         },
         handleInvoiceUpdated() {
-            this.fetchList(this.displayIncoming.current_page || 1);
+            this.fetchList(1);
         },
         calculateTotal(faktura) {
             const amount = parseFloat(String(faktura.amount).replace(/,/g, ''));
             const tax = parseFloat(String(faktura.tax).replace(/,/g, ''));
             return (amount + tax).toFixed(2);
-        },
-        formatInvoicePeriod(date) {
-            return new Date(date).toLocaleDateString('en-US', { year: 'numeric', month: 'short' });
         },
         formatFullDate(date) {
             if (!date) {
@@ -625,12 +681,12 @@ export default {
     min-width: 0;
 }
 
-.invoice-main {
+.invoice-primary-stack {
     display: flex;
-    align-items: center;
-    gap: 8px;
-    margin-bottom: 2px;
-    flex-wrap: wrap;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0;
+    min-width: 0;
 }
 
 .cell-primary {
@@ -643,13 +699,42 @@ export default {
     color: rgba(255, 255, 255, 0.68);
 }
 
-.archive-badge {
+/* Archived invoice: accent rail + archive line only on hover */
+.incoming-table-shell :deep(td.invoice-primary-cell--archived) {
+    border-left: 3px solid rgba(96, 165, 250, 0.55) !important;
+    transition:
+        border-left-color 0.2s ease,
+        background-color 0.2s ease;
+}
+
+.incoming-table-shell :deep(td.invoice-primary-cell--archived:hover) {
+    border-left-color: rgba(147, 197, 253, 0.95) !important;
+    background-color: rgba(59, 130, 246, 0.08) !important;
+}
+
+.invoice-archive-reveal {
+    max-height: 0;
+    opacity: 0;
+    overflow: hidden;
+    transition:
+        max-height 0.22s ease,
+        opacity 0.18s ease,
+        margin-top 0.18s ease;
+}
+
+.incoming-table-shell :deep(td.invoice-primary-cell--archived:hover .invoice-archive-reveal) {
+    max-height: 40px;
+    opacity: 1;
+    margin-top: 6px;
+}
+
+.invoice-archive-badge {
     display: inline-flex;
     align-items: center;
     padding: 4px 8px;
     border-radius: 999px;
-    background: rgba(59, 130, 246, 0.16);
-    border: 1px solid rgba(96, 165, 250, 0.36);
+    background: rgba(59, 130, 246, 0.22);
+    border: 1px solid rgba(96, 165, 250, 0.45);
     color: $white;
     font-size: 10px;
     font-weight: 700;
@@ -697,5 +782,67 @@ export default {
     padding: 34px 16px !important;
     text-align: center;
     color: rgba(255, 255, 255, 0.7);
+}
+
+/* ─── Subtotal row: full-width band ─── */
+.incoming-table-shell :deep(tr.incoming-subtotal-row td) {
+    background: linear-gradient(
+        180deg,
+        rgba(37, 99, 235, 0.24) 0%,
+        rgba(15, 23, 42, 0.94) 100%
+    ) !important;
+    border-color: rgba(147, 197, 253, 0.22) !important;
+    border-top: 2px solid rgba(147, 197, 253, 0.7) !important;
+    box-shadow: inset 0 1px 0 rgba(191, 219, 254, 0.14);
+    padding-top: 9px !important;
+    padding-bottom: 9px !important;
+}
+
+.incoming-table-shell :deep(tr.incoming-subtotal-row td.incoming-subtotal-num--total) {
+    box-shadow:
+        inset 0 1px 0 rgba(191, 219, 254, 0.14),
+        inset 1px 0 0 rgba(147, 197, 253, 0.4);
+}
+
+.incoming-table-shell :deep(.incoming-subtotal-label) {
+    text-align: left;
+    vertical-align: middle;
+}
+
+.incoming-table-shell :deep(.incoming-subtotal-label-text) {
+    display: inline-block;
+    margin-right: 8px;
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: #e8f0fe;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+}
+
+.incoming-table-shell :deep(.incoming-subtotal-hint) {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: lowercase;
+    color: rgba(191, 219, 254, 0.95);
+    background: rgba(15, 23, 42, 0.55);
+    border: 1px solid rgba(96, 165, 250, 0.35);
+}
+
+.incoming-table-shell :deep(.incoming-subtotal-value) {
+    font-size: 13px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    color: #f1f5f9;
+}
+
+.incoming-table-shell :deep(.incoming-subtotal-value--emphasis) {
+    font-size: 14px;
+    font-weight: 800;
+    color: #fff;
 }
 </style>

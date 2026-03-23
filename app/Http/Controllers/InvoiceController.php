@@ -26,6 +26,7 @@ use Inertia\Inertia;
 use Milon\Barcode\DNS1D;
 use ZipArchive;
 use function PHPUnit\Framework\isEmpty;
+use App\Services\FakturaListTotalsService;
 use App\Services\TemplateStorageService;
 use Spatie\PdfToImage\Pdf as PdfToImage;
 
@@ -1458,13 +1459,32 @@ class InvoiceController extends Controller
         return Faktura::with([
             'createdBy:id,name',
             'invoices.client:id,name',
+            'invoices.jobs.articles',
             'invoices.user:id,name',
             'jobs.client:id,name',
+            'jobs.articles',
             'parentOrder:id,invoice_title',
             'parentOrder.client:id,name',
             'tradeItems.article:id,name,code',
+            'additionalServices',
             'client:id,name',
         ])->where('isInvoiced', 1);
+    }
+
+    /**
+     * Add amount / tax / total (PDF-style) onto each faktura for list JSON and Inertia.
+     */
+    protected function augmentAllInvoicesPaginator($fakturas): void
+    {
+        $svc = app(FakturaListTotalsService::class);
+        $fakturas->getCollection()->transform(function (Faktura $f) use ($svc) {
+            $t = $svc->compute($f);
+            $f->setAttribute('amount', number_format($t['amount'], 2, '.', ','));
+            $f->setAttribute('tax', number_format($t['tax'], 2, '.', ','));
+            $f->setAttribute('total', number_format($t['total'], 2, '.', ','));
+
+            return $f;
+        });
     }
 
     /**
@@ -1559,6 +1579,7 @@ class InvoiceController extends Controller
             $perPage = (int) $request->input('per_page', 20);
             $perPage = max(1, min($perPage, 200));
             $fakturas = $query->paginate($perPage)->withQueryString();
+            $this->augmentAllInvoicesPaginator($fakturas);
 
             // Return JSON response for AJAX calls
             return response()->json($fakturas);
@@ -3029,6 +3050,7 @@ class InvoiceController extends Controller
             $perPage = (int) $request->input('per_page', 20);
             $perPage = max(1, min($perPage, 200));
             $fakturas = $query->paginate($perPage)->withQueryString();
+            $this->augmentAllInvoicesPaginator($fakturas);
 
             // Handle AJAX requests for JSON responses
             if ($request->wantsJson()) {

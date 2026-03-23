@@ -59,7 +59,8 @@
                         </div>
                     </div>
 
-                    <DataTableShell v-else compact variant="grid">
+                    <div v-else class="all-invoices-table-shell">
+                    <DataTableShell compact variant="grid">
                         <template #header>
                             <tr>
                                 <th class="invoice-column">Invoice</th>
@@ -68,6 +69,9 @@
                                 <th>Comment</th>
                                 <th>Created By</th>
                                 <th>Date Created</th>
+                                <th class="col-num">Amount</th>
+                                <th class="col-num">Tax</th>
+                                <th class="col-num">Total</th>
                                 <th class="actions-column">Actions</th>
                             </tr>
                         </template>
@@ -79,7 +83,6 @@
                                         <div class="invoice-number">#{{ faktura.faktura_number || faktura.id }}</div>
                                         <span v-if="faktura.is_split_invoice" class="split-badge">Split</span>
                                     </div>
-                                    <div class="invoice-meta">{{ formatInvoicePeriod(faktura.created_at) }}</div>
                                 </td>
                                 <td class="customer-column">
                                     <FinanceClientNameCell :name="getClientName(faktura)" />
@@ -96,6 +99,15 @@
                                 <td>
                                     <div class="cell-secondary">{{ formatFullDate(faktura.created_at) }}</div>
                                 </td>
+                                <td class="col-num">
+                                    <div class="cell-secondary text-right">{{ formatFakturaMoney(faktura.amount) }}</div>
+                                </td>
+                                <td class="col-num">
+                                    <div class="cell-secondary text-right">{{ formatFakturaMoney(faktura.tax) }}</div>
+                                </td>
+                                <td class="col-num">
+                                    <div class="cell-primary text-right">{{ formatFakturaTotalCell(faktura) }}</div>
+                                </td>
                                 <td class="actions-cell">
                                     <button class="view-button" @click="viewInvoice(faktura.id)">
                                         <i class="fa fa-eye" aria-hidden="true" />
@@ -106,13 +118,42 @@
                         </template>
 
                         <tr v-else>
-                            <td colspan="7" class="empty-cell">
+                            <td colspan="10" class="empty-cell">
                                 No invoices found matching your criteria.
                             </td>
                         </tr>
+
+                        <template #footer>
+                            <tr
+                                v-if="displayFakturas.data && displayFakturas.data.length > 0"
+                                class="all-invoices-subtotal-row"
+                                title="Totals for all loaded rows"
+                            >
+                                <td colspan="6" class="all-invoices-subtotal-label">
+                                    <span class="all-invoices-subtotal-label-text">Subtotal</span>
+                                    <span class="all-invoices-subtotal-hint">loaded</span>
+                                </td>
+                                <td class="col-num all-invoices-subtotal-num">
+                                    <div class="all-invoices-subtotal-value text-right">{{ allInvoicesPageTotals.amount }}</div>
+                                </td>
+                                <td class="col-num all-invoices-subtotal-num">
+                                    <div class="all-invoices-subtotal-value text-right">{{ allInvoicesPageTotals.tax }}</div>
+                                </td>
+                                <td class="col-num all-invoices-subtotal-num all-invoices-subtotal-num--total">
+                                    <div class="all-invoices-subtotal-value all-invoices-subtotal-value--emphasis text-right">{{ allInvoicesPageTotals.total }}</div>
+                                </td>
+                                <td class="actions-cell all-invoices-subtotal-rest">&nbsp;</td>
+                            </tr>
+                        </template>
                     </DataTableShell>
+                    </div>
                 </div>
-                <Pagination :pagination="displayFakturas" @pagination-change-page="goToPage" />
+                <FinanceShowMore
+                    :pagination="displayFakturas"
+                    :loading-more="loadingMore"
+                    :chunk-size="chunkSize"
+                    @load-more="loadMore"
+                />
             </div>
         </div>
     </MainLayout>
@@ -121,7 +162,7 @@
 <script>
 import MainLayout from '@/Layouts/MainLayout.vue';
 import Header from '@/Components/Header.vue';
-import Pagination from '@/Components/Pagination.vue';
+import FinanceShowMore from '@/Components/Finance/FinanceShowMore.vue';
 import DataTableShell from '@/Components/DataTableShell.vue';
 import RedirectTabs from '@/Components/RedirectTabs.vue';
 import FinanceCompactSearch from '@/Components/Finance/FinanceCompactSearch.vue';
@@ -150,7 +191,7 @@ export default {
     components: {
         Header,
         MainLayout,
-        Pagination,
+        FinanceShowMore,
         DataTableShell,
         RedirectTabs,
         FinanceCompactSearch,
@@ -176,7 +217,8 @@ export default {
             uniqueClients: [],
             localFakturas: null,
             loading: false,
-            perPage: 20,
+            loadingMore: false,
+            chunkSize: 20,
         };
     },
     computed: {
@@ -186,15 +228,29 @@ export default {
         displayFakturas() {
             return this.localFakturas || this.fakturas;
         },
+        allInvoicesPageTotals() {
+            const rows = this.displayFakturas?.data ?? [];
+            let amountSum = 0;
+            let taxSum = 0;
+            let totalSum = 0;
+            for (const f of rows) {
+                const amount = parseFloat(String(f.amount ?? 0).replace(/,/g, '')) || 0;
+                const tax = parseFloat(String(f.tax ?? 0).replace(/,/g, '')) || 0;
+                amountSum += amount;
+                taxSum += tax;
+                totalSum += amount + tax;
+            }
+            return {
+                amount: amountSum.toFixed(2),
+                tax: taxSum.toFixed(2),
+                total: totalSum.toFixed(2),
+            };
+        },
     },
     mounted() {
         this.fetchUniqueClients();
         this.initFromUrl();
-        const page = parseInt(new URLSearchParams(window.location.search).get('page') || '1', 10) || 1;
-        if (this.fakturas) {
-            this.localFakturas = this.fakturas;
-        }
-        this.applyFilter(page);
+        this.applyFilter(1);
     },
     methods: {
         initFromUrl() {
@@ -211,13 +267,6 @@ export default {
             const mo = p.get('month');
             this.calendarMonth = mo ? parseInt(mo, 10) : '';
             this.sortOrder = p.get('sortOrder') || 'desc';
-            const pp = p.get('per_page');
-            if (pp) {
-                const n = parseInt(pp, 10);
-                if (!Number.isNaN(n) && n > 0) {
-                    this.perPage = Math.min(200, n);
-                }
-            }
         },
         normalizeDates() {
             const today = localISODate();
@@ -232,7 +281,7 @@ export default {
             this.normalizeDates();
             const params = {
                 page,
-                per_page: this.perPage,
+                per_page: this.chunkSize,
                 sortOrder: this.sortOrder,
             };
             if (this.searchQuery) {
@@ -255,7 +304,7 @@ export default {
             }
             return params;
         },
-        buildHistoryQueryString(page) {
+        buildHistoryQueryString() {
             const parts = [];
             if (this.searchQuery) {
                 parts.push(`searchQuery=${encodeURIComponent(this.searchQuery)}`);
@@ -278,29 +327,41 @@ export default {
             if (this.calendarMonth !== '' && this.calendarMonth != null) {
                 parts.push(`month=${this.calendarMonth}`);
             }
-            parts.push(`per_page=${this.perPage}`);
-            if (page) {
-                parts.push(`page=${page}`);
-            }
             return parts.length ? `?${parts.join('&')}` : '';
         },
-        async applyFilter(page = 1) {
+        async applyFilter(page = 1, { append = false } = {}) {
             try {
-                this.loading = true;
+                if (append) {
+                    this.loadingMore = true;
+                } else {
+                    this.loading = true;
+                }
                 const response = await axios.get('/api/allInvoices/filtered', {
                     params: this.buildRequestParams(page),
                 });
-                this.localFakturas = response.data;
-                const redirectUrl = `/allInvoices${this.buildHistoryQueryString(page)}`;
+                if (append && this.localFakturas && Array.isArray(this.localFakturas.data)) {
+                    this.localFakturas = {
+                        ...response.data,
+                        data: [...this.localFakturas.data, ...response.data.data],
+                    };
+                } else {
+                    this.localFakturas = response.data;
+                }
+                const redirectUrl = `/allInvoices${this.buildHistoryQueryString()}`;
                 window.history.replaceState({}, '', redirectUrl);
             } catch (error) {
                 console.error('Error applying filters:', error);
             } finally {
                 this.loading = false;
+                this.loadingMore = false;
             }
         },
-        goToPage(page) {
-            this.applyFilter(page);
+        loadMore() {
+            const p = this.displayFakturas;
+            if (!p || p.current_page >= p.last_page || this.loadingMore) {
+                return;
+            }
+            this.applyFilter(p.current_page + 1, { append: true });
         },
         onSearchSubmit() {
             this.searchQuery = (this.searchInput || '').trim();
@@ -345,9 +406,6 @@ export default {
         viewInvoice(id) {
             this.$inertia.visit(`/invoice/${id}`);
         },
-        formatInvoicePeriod(date) {
-            return new Date(date).toLocaleDateString('en-US', { year: 'numeric', month: 'short' });
-        },
         formatFullDate(date) {
             return new Date(date).toLocaleDateString('en-US', {
                 year: 'numeric',
@@ -374,6 +432,19 @@ export default {
                 }
             }
             return 'Unknown Client';
+        },
+        formatFakturaMoney(val) {
+            if (val === undefined || val === null || val === '') {
+                return '—';
+            }
+            return val;
+        },
+        formatFakturaTotalCell(faktura) {
+            const raw = faktura.total;
+            if (raw === undefined || raw === null || raw === '') {
+                return '—';
+            }
+            return raw;
         },
         getOrdersDisplay(faktura) {
             const ordersMap = new Map();
@@ -509,6 +580,16 @@ export default {
     width: 120px;
 }
 
+.col-num {
+    width: 7%;
+    min-width: 72px;
+    text-align: right;
+}
+
+.text-right {
+    text-align: right;
+}
+
 .invoice-primary-cell {
     min-width: 180px;
 }
@@ -526,7 +607,6 @@ export default {
     color: $white;
 }
 
-.invoice-meta,
 .cell-secondary {
     font-size: 12px;
     color: rgba(255, 255, 255, 0.68);
@@ -583,5 +663,77 @@ export default {
     padding: 34px 16px !important;
     text-align: center;
     color: rgba(255, 255, 255, 0.7);
+}
+
+.all-invoices-table-shell {
+    width: 100%;
+    min-width: 0;
+}
+
+.all-invoices-table-shell :deep(.data-table) {
+    table-layout: fixed;
+    width: 100%;
+}
+
+/* ─── Subtotal row (matches Incoming Invoice footer style) ─── */
+.all-invoices-table-shell :deep(tr.all-invoices-subtotal-row td) {
+    background: linear-gradient(
+        180deg,
+        rgba(37, 99, 235, 0.24) 0%,
+        rgba(15, 23, 42, 0.94) 100%
+    ) !important;
+    border-color: rgba(147, 197, 253, 0.22) !important;
+    border-top: 2px solid rgba(147, 197, 253, 0.7) !important;
+    box-shadow: inset 0 1px 0 rgba(191, 219, 254, 0.14);
+    padding-top: 9px !important;
+    padding-bottom: 9px !important;
+}
+
+.all-invoices-table-shell :deep(tr.all-invoices-subtotal-row td.all-invoices-subtotal-num--total) {
+    box-shadow:
+        inset 0 1px 0 rgba(191, 219, 254, 0.14),
+        inset 1px 0 0 rgba(147, 197, 253, 0.4);
+}
+
+.all-invoices-table-shell :deep(.all-invoices-subtotal-label) {
+    text-align: left;
+    vertical-align: middle;
+}
+
+.all-invoices-table-shell :deep(.all-invoices-subtotal-label-text) {
+    display: inline-block;
+    margin-right: 8px;
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: #e8f0fe;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+}
+
+.all-invoices-table-shell :deep(.all-invoices-subtotal-hint) {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: lowercase;
+    color: rgba(191, 219, 254, 0.95);
+    background: rgba(15, 23, 42, 0.55);
+    border: 1px solid rgba(96, 165, 250, 0.35);
+}
+
+.all-invoices-table-shell :deep(.all-invoices-subtotal-value) {
+    font-size: 13px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    color: #f1f5f9;
+}
+
+.all-invoices-table-shell :deep(.all-invoices-subtotal-value--emphasis) {
+    font-size: 14px;
+    font-weight: 800;
+    color: #fff;
 }
 </style>

@@ -180,11 +180,25 @@ export default {
     border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 }
 
+/* Match header/body grid lines so footer rows (e.g. subtotals) align vertically */
+.data-table-shell--grid .data-table-foot :deep(td) {
+    padding: 6px 10px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    font-size: 12px;
+    line-height: 1.35;
+    vertical-align: middle;
+    background: rgba(255, 255, 255, 0.06);
+}
+
 .data-table-shell--grid.compact .data-table-head :deep(th) {
     padding: 7px 9px;
 }
 
 .data-table-shell--grid.compact .data-table-body :deep(td) {
+    padding: 5px 9px;
+}
+
+.data-table-shell--grid.compact .data-table-foot :deep(td) {
     padding: 5px 9px;
 }
 </style>
