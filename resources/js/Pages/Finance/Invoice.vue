@@ -847,7 +847,8 @@
                         <label>Search and select uninvoiced orders<span v-if="attachClientName"> (Client: {{
                             attachClientName
                                 }})</span>:</label>
-                        <input v-model="attachSearch" class="form-control" placeholder="Search by title or #id" />
+                        <input v-model="attachSearch" class="form-control"
+                            placeholder="Title, DB id, or order # / year (e.g. 42 or 42/2025)" />
                     </div>
                     <div class="form-group flex" style="gap:8px; align-items:center;">
                         <button class="btn blue" @click="selectAllAttachVisible"
@@ -864,7 +865,7 @@
                                 @click="toggleAttachSelection(ord)" style="padding: 6px 0;">
                                 <input type="checkbox" :checked="selectedAttachOrderIds.includes(ord.id)" @click.stop
                                     @change="toggleAttachSelection(ord)" />
-                                <div class="bold">#{{ ord.order_number || ord.id }}</div>
+                                <div class="bold">#{{ displayOrderNumberForList(ord) }}</div>
                                 <div class="select-title" :title="ord.invoice_title">{{ truncateTitle(ord.invoice_title,
                                     40) }}
                                 </div>
@@ -928,7 +929,7 @@
                             @click="toggleDetachSelection(ord)" style="padding: 6px 0;">
                             <input type="checkbox" :checked="selectedDetachOrderIds.includes(ord.id)" @click.stop
                                 @change="toggleDetachSelection(ord)" />
-                            <div class="bold">#{{ ord.order_number || ord.id }}</div>
+                            <div class="bold">#{{ displayOrderNumberForList(ord) }}</div>
                             <div class="select-title" :title="ord.invoice_title">{{ truncateTitle(ord.invoice_title, 40)
                                 }}
                             </div>
@@ -1163,7 +1164,7 @@ export default {
 
             // Apply search filter if provided
             if (q) {
-                filtered = byClient.filter(o => String(o.id).includes(q) || (o.invoice_title || '').toLowerCase().includes(q));
+                filtered = byClient.filter(o => this.uninvoicedOrderMatchesSearch(o, q));
             }
 
             // Get selected orders from all pages (not just current page)
@@ -1172,8 +1173,8 @@ export default {
                 const orderClient = o.client?.name || o.client || '';
                 const clientMatch = !client || orderClient === client;
 
-                // Apply same search filter
-                const searchMatch = !q || String(o.id).includes(q) || (o.invoice_title || '').toLowerCase().includes(q);
+                // Apply same search filter (DB id + fiscal order # + title)
+                const searchMatch = !q || this.uninvoicedOrderMatchesSearch(o, q);
 
                 return clientMatch && searchMatch;
             });
@@ -1186,10 +1187,16 @@ export default {
         },
         filteredDetachableOrders() {
             const list = Array.isArray(this.invoice) ? this.invoice : [];
-            const mapped = list.map(o => ({ id: o.id, invoice_title: o.invoice_title, client: o.client?.name || o.client || '' }));
+            const mapped = list.map(o => ({
+                id: o.id,
+                order_number: o.order_number,
+                fiscal_year: o.fiscal_year,
+                invoice_title: o.invoice_title,
+                client: o.client?.name || o.client || ''
+            }));
             const q = (this.detachSearch || '').toLowerCase().trim();
             if (!q) return mapped;
-            return mapped.filter(o => String(o.id).includes(q) || (o.invoice_title || '').toLowerCase().includes(q));
+            return mapped.filter(o => this.uninvoicedOrderMatchesSearch(o, q));
         },
         hasValidMergeGroups() {
             const mergeGroups = this.faktura?.merge_groups || [];
@@ -1864,6 +1871,8 @@ export default {
                     // Laravel pagination response
                     this.attachableOrders = (Array.isArray(res.data.data) ? res.data.data : []).map(r => ({
                         id: r.id,
+                        order_number: r.order_number,
+                        fiscal_year: r.fiscal_year,
                         invoice_title: r.invoice_title || r.title || `Order ${r.id}`,
                         client: r.client || r.client?.name || (r.client_name || ''),
                     }));
@@ -1877,6 +1886,8 @@ export default {
                     const data = res?.data?.data || res?.data || [];
                     this.attachableOrders = (Array.isArray(data) ? data : []).map(r => ({
                         id: r.id,
+                        order_number: r.order_number,
+                        fiscal_year: r.fiscal_year,
                         invoice_title: r.invoice_title || r.title || `Order ${r.id}`,
                         client: r.client || r.client?.name || (r.client_name || ''),
                     }));
@@ -2004,6 +2015,32 @@ export default {
             const t = String(title || '');
             if (t.length <= max) return t;
             return t.slice(0, max - 1) + '…';
+        },
+        /**
+         * Human-facing order label after fiscal-year migrations (order_number is per-year; id is DB PK).
+         * Selection / attach API still uses invoices.id.
+         */
+        displayOrderNumberForList(ord) {
+            if (!ord) return '';
+            const on = ord.order_number;
+            const fy = ord.fiscal_year;
+            if (on != null && fy != null) return `${on}/${fy}`;
+            if (on != null) return String(on);
+            return String(ord.id);
+        },
+        uninvoicedOrderMatchesSearch(o, qRaw) {
+            const q = String(qRaw || '').trim().toLowerCase().replace(/^#/, '');
+            if (!q) return true;
+            const title = (o.invoice_title || '').toLowerCase();
+            if (title.includes(q)) return true;
+            if (String(o.id).includes(q)) return true;
+            if (o.order_number != null && String(o.order_number).includes(q)) return true;
+            if (o.fiscal_year != null && String(o.fiscal_year).includes(q)) return true;
+            if (o.order_number != null && o.fiscal_year != null) {
+                const combo = `${o.order_number}/${o.fiscal_year}`;
+                if (combo.includes(q)) return true;
+            }
+            return false;
         },
         closeAddTradeItemModal() {
             this.showTradeItemsModal = false;

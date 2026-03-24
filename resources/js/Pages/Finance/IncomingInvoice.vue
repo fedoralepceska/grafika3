@@ -91,21 +91,42 @@
                         <i class="fa fa-spinner fa-spin" /> Loading…
                     </div>
 
-                    <div v-else class="incoming-table-shell">
+                    <div v-else class="incoming-table-block">
+                    <div
+                        ref="incomingTableScroll"
+                        class="incoming-table-shell finance-table-scroll"
+                        :class="{ 'finance-table-scroll--has-subtotal': hasIncomingFetchedRows }"
+                        @scroll.passive="onIncomingTableScroll"
+                    >
                     <DataTableShell compact variant="grid">
+                        <template #colgroup>
+                            <colgroup>
+                                <col class="inc-col-inv" />
+                                <col class="inc-col-date" />
+                                <col class="inc-col-client" />
+                                <col class="inc-col-num" />
+                                <col class="inc-col-num" />
+                                <col class="inc-col-num" />
+                                <col class="inc-col-wh" />
+                                <col class="inc-col-cost" />
+                                <col class="inc-col-bill" />
+                                <col class="inc-col-comment" />
+                                <col class="inc-col-actions" />
+                            </colgroup>
+                        </template>
                         <template #header>
                             <tr>
-                                <th class="invoice-column">Invoice</th>
-                                <th class="customer-column">Client</th>
-                                <th class="col-wh" title="Warehouse">Warehouse</th>
-                                <th class="col-cost" title="Cost type">Cost</th>
-                                <th class="col-bill" title="Bill type">Bill</th>
-                                <th class="col-num">Amount</th>
-                                <th class="col-num">Tax</th>
-                                <th class="col-num">Total</th>
-                                <th class="col-date">Date</th>
-                                <th class="col-comment">Comment</th>
-                                <th class="actions-column actions-header">Actions</th>
+                                <th class="invoice-column">{{ $t('financeTable.invoice') }}</th>
+                                <th class="col-date">{{ $t('financeTable.date') }}</th>
+                                <th class="customer-column">{{ $t('financeTable.client') }}</th>
+                                <th class="col-num">{{ $t('financeTable.amount') }}</th>
+                                <th class="col-num">{{ $t('financeTable.tax') }}</th>
+                                <th class="col-num">{{ $t('financeTable.total') }}</th>
+                                <th class="col-wh" :title="$t('financeTable.warehouse')">{{ $t('financeTable.warehouse') }}</th>
+                                <th class="col-cost" :title="$t('financeTable.costType')">{{ $t('financeTable.cost') }}</th>
+                                <th class="col-bill" :title="$t('financeTable.billType')">{{ $t('financeTable.bill') }}</th>
+                                <th class="col-comment">{{ $t('financeTable.comment') }}</th>
+                                <th class="actions-column actions-header">{{ $t('financeTable.actions') }}</th>
                             </tr>
                         </template>
 
@@ -126,16 +147,16 @@
                                         </div>
                                     </div>
                                 </td>
+                                <td class="col-date"><div class="cell-secondary incoming-ellipsis">{{ formatFullDate(faktura.date) }}</div></td>
                                 <td class="customer-column">
                                     <FinanceClientNameCell :name="faktura.client_name || ''" />
                                 </td>
-                                <td class="col-wh"><div class="cell-secondary incoming-ellipsis" :title="faktura.warehouse || ''">{{ faktura.warehouse || 'N/A' }}</div></td>
-                                <td class="col-cost"><div class="cell-secondary incoming-text-wrap" :title="faktura.cost_type || ''">{{ faktura.cost_type || 'N/A' }}</div></td>
-                                <td class="col-bill"><div class="cell-secondary incoming-text-wrap" :title="faktura.billing_type || ''">{{ faktura.billing_type || 'N/A' }}</div></td>
                                 <td class="col-num"><div class="cell-secondary text-right">{{ faktura.amount }}</div></td>
                                 <td class="col-num"><div class="cell-secondary text-right">{{ faktura.tax }}</div></td>
                                 <td class="col-num"><div class="cell-primary text-right">{{ calculateTotal(faktura) }}</div></td>
-                                <td class="col-date"><div class="cell-secondary incoming-ellipsis">{{ formatFullDate(faktura.date) }}</div></td>
+                                <td class="col-wh"><div class="cell-secondary incoming-ellipsis" :title="faktura.warehouse || ''">{{ faktura.warehouse || 'N/A' }}</div></td>
+                                <td class="col-cost"><div class="cell-secondary incoming-text-wrap" :title="faktura.cost_type || ''">{{ faktura.cost_type || 'N/A' }}</div></td>
+                                <td class="col-bill"><div class="cell-secondary incoming-text-wrap" :title="faktura.billing_type || ''">{{ faktura.billing_type || 'N/A' }}</div></td>
                                 <td class="col-comment"><div class="cell-secondary comment-cell" :title="faktura.comment || ''">{{ faktura.comment || 'N/A' }}</div></td>
                                 <td class="actions-cell">
                                     <EditIncomingInvoiceDialog
@@ -155,38 +176,57 @@
                                 No incoming invoices found matching your criteria.
                             </td>
                         </tr>
-
-                        <template #footer>
-                            <tr
-                                v-if="displayIncoming.data && displayIncoming.data.length > 0"
-                                class="incoming-subtotal-row"
-                                title="Totals for all loaded rows"
-                            >
-                                <td colspan="5" class="incoming-subtotal-label">
-                                    <span class="incoming-subtotal-label-text">Subtotal</span>
-                                    <span class="incoming-subtotal-hint">loaded</span>
-                                </td>
-                                <td class="col-num incoming-subtotal-num">
-                                    <div class="incoming-subtotal-value text-right">{{ incomingPageTotals.amount }}</div>
-                                </td>
-                                <td class="col-num incoming-subtotal-num">
-                                    <div class="incoming-subtotal-value text-right">{{ incomingPageTotals.tax }}</div>
-                                </td>
-                                <td class="col-num incoming-subtotal-num incoming-subtotal-num--total">
-                                    <div class="incoming-subtotal-value incoming-subtotal-value--emphasis text-right">{{ incomingPageTotals.total }}</div>
-                                </td>
-                                <td colspan="3" class="incoming-subtotal-rest">&nbsp;</td>
-                            </tr>
-                        </template>
                     </DataTableShell>
+                    <div v-if="loadingMore" class="finance-scroll-loading" aria-live="polite">
+                        <i class="fa fa-spinner fa-spin" /> Loading more…
+                    </div>
+                    </div>
+
+                    <div
+                        v-if="hasIncomingFetchedRows"
+                        class="incoming-table-shell finance-subtotal-outside"
+                        :style="{ paddingInlineEnd: subtotalScrollbarPadPx + 'px' }"
+                    >
+                        <table class="data-table finance-subtotal-table" title="Totals for all fetched rows">
+                            <colgroup>
+                                <col class="inc-col-inv" />
+                                <col class="inc-col-date" />
+                                <col class="inc-col-client" />
+                                <col class="inc-col-num" />
+                                <col class="inc-col-num" />
+                                <col class="inc-col-num" />
+                                <col class="inc-col-wh" />
+                                <col class="inc-col-cost" />
+                                <col class="inc-col-bill" />
+                                <col class="inc-col-comment" />
+                                <col class="inc-col-actions" />
+                            </colgroup>
+                            <tbody>
+                                <tr class="incoming-subtotal-row">
+                                    <td colspan="3" class="incoming-subtotal-label">
+                                        <span class="incoming-subtotal-label-text">Subtotal</span>
+                                        <span class="incoming-subtotal-hint">{{ incomingFetchedRowCount }} fetched</span>
+                                    </td>
+                                    <td class="col-num incoming-subtotal-num">
+                                        <div class="incoming-subtotal-value text-right">{{ incomingPageTotals.amount }}</div>
+                                    </td>
+                                    <td class="col-num incoming-subtotal-num">
+                                        <div class="incoming-subtotal-value text-right">{{ incomingPageTotals.tax }}</div>
+                                    </td>
+                                    <td class="col-num incoming-subtotal-num incoming-subtotal-num--total">
+                                        <div class="incoming-subtotal-value incoming-subtotal-value--emphasis text-right">{{ incomingPageTotals.total }}</div>
+                                    </td>
+                                    <td class="col-wh incoming-subtotal-rest">&nbsp;</td>
+                                    <td class="col-cost incoming-subtotal-rest">&nbsp;</td>
+                                    <td class="col-bill incoming-subtotal-rest">&nbsp;</td>
+                                    <td class="col-comment incoming-subtotal-rest">&nbsp;</td>
+                                    <td class="actions-cell incoming-subtotal-rest">&nbsp;</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
                     </div>
                 </div>
-                <FinanceShowMore
-                    :pagination="displayIncoming"
-                    :loading-more="loadingMore"
-                    :chunk-size="chunkSize"
-                    @load-more="loadMore"
-                />
             </div>
         </div>
     </MainLayout>
@@ -195,7 +235,6 @@
 <script>
 import MainLayout from '@/Layouts/MainLayout.vue';
 import Header from '@/Components/Header.vue';
-import FinanceShowMore from '@/Components/Finance/FinanceShowMore.vue';
 import DataTableShell from '@/Components/DataTableShell.vue';
 import RedirectTabs from '@/Components/RedirectTabs.vue';
 import AddIncomingInvoiceDialog from '@/Components/AddIncomingInvoiceDialog.vue';
@@ -208,12 +247,12 @@ import FinancePeriodPresets from '@/Components/Finance/FinancePeriodPresets.vue'
 import FinanceClientNameCell from '@/Components/Finance/FinanceClientNameCell.vue';
 import axios from 'axios';
 import { normalizeDateRangeFields } from '@/utils/financeFilters';
+import { measureVerticalScrollbarWidth } from '@/utils/financeTableScrollbar';
 
 export default {
     components: {
         Header,
         MainLayout,
-        FinanceShowMore,
         DataTableShell,
         RedirectTabs,
         AddIncomingInvoiceDialog,
@@ -257,6 +296,10 @@ export default {
             localIncoming: null,
             loading: false,
             loadingMore: false,
+            /** Guards auto-fill loop when the viewport is taller than one page of rows */
+            incomingScrollFillDepth: 0,
+            /** Subtotal sits outside the scroll box; pad by scrollbar width so columns match the grid above */
+            subtotalScrollbarPadPx: 0,
         };
     },
     computed: {
@@ -281,10 +324,26 @@ export default {
                 total: totalSum.toFixed(2),
             };
         },
+        hasIncomingFetchedRows() {
+            return (this.displayIncoming?.data?.length ?? 0) > 0;
+        },
+        incomingFetchedRowCount() {
+            return this.displayIncoming?.data?.length ?? 0;
+        },
+    },
+    watch: {
+        loading(val) {
+            if (!val) {
+                this.$nextTick(() => this.ensureIncomingSubtotalScrollbarSync());
+            }
+        },
     },
     mounted() {
         this.initFromUrl();
         this.fetchList(1);
+    },
+    beforeUnmount() {
+        this.teardownIncomingSubtotalScrollbarSync();
     },
     methods: {
         initFromUrl() {
@@ -379,6 +438,9 @@ export default {
             return parts.length ? `?${parts.join('&')}` : '';
         },
         async fetchList(page = 1, { append = false } = {}) {
+            if (!append) {
+                this.incomingScrollFillDepth = 0;
+            }
             try {
                 if (append) {
                     this.loadingMore = true;
@@ -402,14 +464,73 @@ export default {
             } finally {
                 this.loading = false;
                 this.loadingMore = false;
+                this.$nextTick(() => {
+                    this.maybeFillIncomingScroll();
+                    this.ensureIncomingSubtotalScrollbarSync();
+                });
             }
         },
-        loadMore() {
-            const p = this.displayIncoming;
-            if (!p || p.current_page >= p.last_page || this.loadingMore) {
+        syncIncomingSubtotalScrollbarPad() {
+            this.subtotalScrollbarPadPx = measureVerticalScrollbarWidth(this.$refs.incomingTableScroll);
+        },
+        ensureIncomingSubtotalScrollbarSync() {
+            const el = this.$refs.incomingTableScroll;
+            if (!el) {
                 return;
             }
-            this.fetchList(p.current_page + 1, { append: true });
+            this.teardownIncomingSubtotalScrollbarSync();
+            this.syncIncomingSubtotalScrollbarPad();
+            if (typeof ResizeObserver !== 'undefined') {
+                this._incomingSubtotalScrollObserver = new ResizeObserver(() => {
+                    this.syncIncomingSubtotalScrollbarPad();
+                });
+                this._incomingSubtotalScrollObserver.observe(el);
+            }
+            if (!this._incomingSubtotalWindowResize) {
+                this._incomingSubtotalWindowResize = () => this.syncIncomingSubtotalScrollbarPad();
+                window.addEventListener('resize', this._incomingSubtotalWindowResize);
+            }
+        },
+        teardownIncomingSubtotalScrollbarSync() {
+            if (this._incomingSubtotalScrollObserver) {
+                this._incomingSubtotalScrollObserver.disconnect();
+                this._incomingSubtotalScrollObserver = null;
+            }
+            if (this._incomingSubtotalWindowResize) {
+                window.removeEventListener('resize', this._incomingSubtotalWindowResize);
+                this._incomingSubtotalWindowResize = null;
+            }
+        },
+        onIncomingTableScroll(e) {
+            const el = e.target;
+            if (this.loading || this.loadingMore) {
+                return;
+            }
+            const p = this.displayIncoming;
+            if (!p || !p.data?.length || p.current_page >= p.last_page) {
+                return;
+            }
+            const threshold = 100;
+            if (el.scrollTop + el.clientHeight >= el.scrollHeight - threshold) {
+                this.fetchList(p.current_page + 1, { append: true });
+            }
+        },
+        maybeFillIncomingScroll() {
+            const el = this.$refs.incomingTableScroll;
+            if (!el || this.loading || this.loadingMore) {
+                return;
+            }
+            const p = this.displayIncoming;
+            if (!p || p.current_page >= p.last_page) {
+                return;
+            }
+            if (this.incomingScrollFillDepth >= 50) {
+                return;
+            }
+            if (el.scrollHeight <= el.clientHeight + 2) {
+                this.incomingScrollFillDepth += 1;
+                this.fetchList(p.current_page + 1, { append: true });
+            }
         },
         onSearchSubmit() {
             this.searchQuery = (this.searchInput || '').trim();
@@ -596,9 +717,84 @@ export default {
     min-width: 0;
 }
 
+.incoming-table-block {
+    width: 100%;
+    min-width: 0;
+}
+
+/* ~20 data rows visible; scroll for more (loads next page near bottom) */
+.incoming-table-shell.finance-table-scroll {
+    min-height: 0;
+    max-height: min(calc(40px + 20 * 38px), calc(100vh - 260px));
+    overflow-y: auto;
+    overflow-x: auto;
+    border-radius: 12px;
+}
+
+.incoming-table-shell.finance-table-scroll.finance-table-scroll--has-subtotal {
+    border-radius: 12px 12px 0 0;
+}
+
+.incoming-table-shell.finance-table-scroll :deep(.data-table-head th) {
+    position: sticky;
+    top: 0;
+    z-index: 4;
+    background: #171d24;
+    background-clip: border-box;
+    box-shadow: 0 1px 0 rgba(255, 255, 255, 0.12);
+}
+
+.finance-scroll-loading {
+    padding: 8px 12px;
+    text-align: center;
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.65);
+    background: rgba(8, 15, 26, 0.9);
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
 .incoming-table-shell :deep(.data-table) {
     table-layout: fixed;
     width: 100%;
+}
+
+.incoming-table-shell.finance-table-scroll :deep(.data-table-shell) {
+    min-width: 0;
+    overflow: visible;
+}
+.incoming-table-shell.finance-table-scroll :deep(.table-scroll) {
+    overflow: visible;
+    min-width: 0;
+}
+
+/* Shared 11-column grid — Invoice, Date, Client, Amount, Tax, Total, Warehouse, Cost, Bill, Comment, Actions (sum 100%) */
+.incoming-table-shell col.inc-col-inv {
+    width: 7%;
+}
+.incoming-table-shell col.inc-col-date {
+    width: 7%;
+}
+.incoming-table-shell col.inc-col-client {
+    width: 16%;
+}
+.incoming-table-shell col.inc-col-num {
+    width: 7%;
+}
+.incoming-table-shell col.inc-col-wh {
+    width: 10%;
+}
+.incoming-table-shell col.inc-col-cost {
+    width: 8%;
+}
+.incoming-table-shell col.inc-col-bill {
+    width: 8%;
+}
+.incoming-table-shell col.inc-col-comment {
+    width: 11%;
+}
+.incoming-table-shell col.inc-col-actions {
+    width: 12%;
+    min-width: 72px;
 }
 
 .incoming-table-shell :deep(.data-table-head th),
@@ -616,61 +812,22 @@ export default {
     vertical-align: bottom;
 }
 
-/* Column widths (sum 100%) */
-.incoming-table-shell :deep(th.invoice-column),
-.incoming-table-shell :deep(td.invoice-primary-cell) {
-    width: 8%;
-    min-width: 0;
-}
-
-.incoming-table-shell :deep(th.customer-column),
-.incoming-table-shell :deep(td.customer-column) {
-    width: 18%;
-    min-width: 0;
-}
-
-.incoming-table-shell :deep(th.col-wh),
-.incoming-table-shell :deep(td.col-wh) {
-    width: 11%;
-    min-width: 0;
-}
-
-.incoming-table-shell :deep(th.col-cost),
-.incoming-table-shell :deep(td.col-cost) {
-    width: 9%;
-    min-width: 0;
-}
-
-.incoming-table-shell :deep(th.col-bill),
-.incoming-table-shell :deep(td.col-bill) {
-    width: 9%;
-    min-width: 0;
-}
-
-.incoming-table-shell :deep(th.col-num),
-.incoming-table-shell :deep(td.col-num) {
-    width: 6%;
-    min-width: 0;
-}
-
-.incoming-table-shell :deep(th.col-date),
-.incoming-table-shell :deep(td.col-date) {
-    width: 8%;
-    min-width: 0;
-}
-
-.incoming-table-shell :deep(th.col-comment),
-.incoming-table-shell :deep(td.col-comment) {
-    width: 9%;
-    min-width: 0;
-}
-
 .incoming-table-shell :deep(th.actions-column),
 .incoming-table-shell :deep(td.actions-cell) {
-    width: 10%;
-    min-width: 72px;
     max-width: 104px;
     vertical-align: middle;
+}
+
+/* Amount / Tax / Total — override DataTableShell default th alignment */
+.incoming-table-shell :deep(.data-table-head th.col-num),
+.incoming-table-shell :deep(.data-table-body td.col-num) {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+
+.incoming-table-shell.finance-subtotal-outside .finance-subtotal-table td.col-num {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
 }
 
 .incoming-table-shell :deep(.finance-client-name) {
@@ -784,8 +941,38 @@ export default {
     color: rgba(255, 255, 255, 0.7);
 }
 
-/* ─── Subtotal row: full-width band ─── */
-.incoming-table-shell :deep(tr.incoming-subtotal-row td) {
+/* Subtotal strip — scrollbar padding-inline-end matches table width; same gradient fills that zone (no pale patch bottom-right) */
+.incoming-table-shell.finance-subtotal-outside {
+    box-sizing: border-box;
+    width: 100%;
+    min-width: 0;
+    border-radius: 0 0 12px 12px;
+    overflow: hidden;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-top: none;
+    background: linear-gradient(
+        180deg,
+        rgba(37, 99, 235, 0.24) 0%,
+        rgba(15, 23, 42, 0.94) 100%
+    );
+}
+
+.incoming-table-shell.finance-subtotal-outside .finance-subtotal-table {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;
+    font-variant-numeric: tabular-nums;
+}
+
+.incoming-table-shell.finance-subtotal-outside .finance-subtotal-table td {
+    padding: 6px 10px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    font-size: 12px;
+    line-height: 1.35;
+    vertical-align: middle;
+}
+
+.incoming-table-shell.finance-subtotal-outside tr.incoming-subtotal-row td {
     background: linear-gradient(
         180deg,
         rgba(37, 99, 235, 0.24) 0%,
@@ -798,18 +985,18 @@ export default {
     padding-bottom: 9px !important;
 }
 
-.incoming-table-shell :deep(tr.incoming-subtotal-row td.incoming-subtotal-num--total) {
+.incoming-table-shell.finance-subtotal-outside tr.incoming-subtotal-row td.incoming-subtotal-num--total {
     box-shadow:
         inset 0 1px 0 rgba(191, 219, 254, 0.14),
         inset 1px 0 0 rgba(147, 197, 253, 0.4);
 }
 
-.incoming-table-shell :deep(.incoming-subtotal-label) {
+.incoming-table-shell.finance-subtotal-outside .incoming-subtotal-label {
     text-align: left;
     vertical-align: middle;
 }
 
-.incoming-table-shell :deep(.incoming-subtotal-label-text) {
+.incoming-table-shell.finance-subtotal-outside .incoming-subtotal-label-text {
     display: inline-block;
     margin-right: 8px;
     font-size: 11px;
@@ -820,7 +1007,7 @@ export default {
     text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
 }
 
-.incoming-table-shell :deep(.incoming-subtotal-hint) {
+.incoming-table-shell.finance-subtotal-outside .incoming-subtotal-hint {
     display: inline-block;
     padding: 2px 8px;
     border-radius: 999px;
@@ -833,14 +1020,14 @@ export default {
     border: 1px solid rgba(96, 165, 250, 0.35);
 }
 
-.incoming-table-shell :deep(.incoming-subtotal-value) {
+.incoming-table-shell.finance-subtotal-outside .incoming-subtotal-value {
     font-size: 13px;
     font-weight: 700;
     font-variant-numeric: tabular-nums;
     color: #f1f5f9;
 }
 
-.incoming-table-shell :deep(.incoming-subtotal-value--emphasis) {
+.incoming-table-shell.finance-subtotal-outside .incoming-subtotal-value--emphasis {
     font-size: 14px;
     font-weight: 800;
     color: #fff;

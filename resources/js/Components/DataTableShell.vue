@@ -11,6 +11,7 @@
 
         <div class="table-scroll">
             <table class="data-table">
+                <slot name="colgroup" />
                 <thead v-if="$slots.header" class="data-table-head">
                     <slot name="header" />
                 </thead>

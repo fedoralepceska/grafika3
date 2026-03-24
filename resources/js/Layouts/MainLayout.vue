@@ -235,11 +235,12 @@ export default {
         overflow: visible;
     }
 
+    /* padding-left (not margin-left): margin is outside the flex item and can make the row wider than 100%, causing horizontal scroll and table/subtotal misalignment when the nav sidebar is visible */
     .main-slot.width {
         flex: 1 1 0%;
         min-width: 0;
         max-width: 100%;
-        margin-left: 70px;
+        padding-left: 70px;
         box-sizing: border-box;
     }
     .counter-container {

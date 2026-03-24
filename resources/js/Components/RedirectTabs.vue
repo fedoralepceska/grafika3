@@ -46,22 +46,20 @@ export default {
             default: '',
         },
     },
-    data() {
-        return {
-            tabs: [
-                { label: 'All Invoices', route: '/allInvoices', icon: 'fa-solid fa-file-invoice' },
-                { label: 'Not Invoiced', route: '/notInvoiced', icon: 'fa-solid fa-clock-rotate-left' },
-                { label: 'Incoming Invoice', route: '/incomingInvoice', icon: 'fa-solid fa-file-arrow-down' },
-                { label: 'Trade Invoices', route: '/trade-invoices', icon: 'fa-solid fa-receipt' },
-                { label: 'Receipts', route: '/receipt', icon: 'fa-solid fa-box-archive' },
-                { label: 'Individual', route: '/individual', icon: 'fa-solid fa-user' },
-                { label: 'Stock Realization', route: '/stock-realizations', icon: 'fa-solid fa-boxes-stacked' },
-                { label: 'Bank Statements', route: '/statements', icon: 'fa-solid fa-building-columns' },
-                { label: 'Client Statements', route: '/cardStatements', icon: 'fa-solid fa-address-card' },
-            ],
-        };
-    },
     computed: {
+        tabs() {
+            return [
+                { label: this.$t('financeTabs.allInvoices'), route: '/allInvoices', icon: 'fa-solid fa-file-invoice' },
+                { label: this.$t('financeTabs.notInvoiced'), route: '/notInvoiced', icon: 'fa-solid fa-clock-rotate-left' },
+                { label: this.$t('financeTabs.incomingInvoice'), route: '/incomingInvoice', icon: 'fa-solid fa-file-arrow-down' },
+                { label: this.$t('financeTabs.tradeInvoices'), route: '/trade-invoices', icon: 'fa-solid fa-receipt' },
+                { label: this.$t('financeTabs.receipts'), route: '/receipt', icon: 'fa-solid fa-box-archive' },
+                { label: this.$t('financeTabs.individual'), route: '/individual', icon: 'fa-solid fa-user' },
+                { label: this.$t('financeTabs.stockRealization'), route: '/stock-realizations', icon: 'fa-solid fa-boxes-stacked' },
+                { label: this.$t('financeTabs.bankStatements'), route: '/statements', icon: 'fa-solid fa-building-columns' },
+                { label: this.$t('financeTabs.clientStatements'), route: '/cardStatements', icon: 'fa-solid fa-address-card' },
+            ];
+        },
         currentRoute() {
             const sourceRoute = this.route || this.$page.url || '';
             const [path] = sourceRoute.split('?');
