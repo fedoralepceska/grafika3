@@ -183,11 +183,11 @@
                     </div>
 
                     <div
-                        v-if="hasIncomingFetchedRows"
+                        v-if="showIncomingSubtotal"
                         class="incoming-table-shell finance-subtotal-outside"
                         :style="{ paddingInlineEnd: subtotalScrollbarPadPx + 'px' }"
                     >
-                        <table class="data-table finance-subtotal-table" title="Totals for all fetched rows">
+                        <table class="data-table finance-subtotal-table" title="Totals for all rows matching the current filters">
                             <colgroup>
                                 <col class="inc-col-inv" />
                                 <col class="inc-col-date" />
@@ -205,16 +205,16 @@
                                 <tr class="incoming-subtotal-row">
                                     <td colspan="3" class="incoming-subtotal-label">
                                         <span class="incoming-subtotal-label-text">Subtotal</span>
-                                        <span class="incoming-subtotal-hint">{{ incomingFetchedRowCount }} fetched</span>
+                                        <span class="incoming-subtotal-hint">{{ incomingSubtotalRowCount }} {{ incomingSubtotalCountLabel }}</span>
                                     </td>
                                     <td class="col-num incoming-subtotal-num">
-                                        <div class="incoming-subtotal-value text-right">{{ incomingPageTotals.amount }}</div>
+                                        <div class="incoming-subtotal-value text-right">{{ incomingSubtotalTotals.amount }}</div>
                                     </td>
                                     <td class="col-num incoming-subtotal-num">
-                                        <div class="incoming-subtotal-value text-right">{{ incomingPageTotals.tax }}</div>
+                                        <div class="incoming-subtotal-value text-right">{{ incomingSubtotalTotals.tax }}</div>
                                     </td>
                                     <td class="col-num incoming-subtotal-num incoming-subtotal-num--total">
-                                        <div class="incoming-subtotal-value incoming-subtotal-value--emphasis text-right">{{ incomingPageTotals.total }}</div>
+                                        <div class="incoming-subtotal-value incoming-subtotal-value--emphasis text-right">{{ incomingSubtotalTotals.total }}</div>
                                     </td>
                                     <td class="col-wh incoming-subtotal-rest">&nbsp;</td>
                                     <td class="col-cost incoming-subtotal-rest">&nbsp;</td>
@@ -246,7 +246,7 @@ import FinanceYearMonthSelects from '@/Components/Finance/FinanceYearMonthSelect
 import FinancePeriodPresets from '@/Components/Finance/FinancePeriodPresets.vue';
 import FinanceClientNameCell from '@/Components/Finance/FinanceClientNameCell.vue';
 import axios from 'axios';
-import { normalizeDateRangeFields } from '@/utils/financeFilters';
+import { normalizeDateRangeFields, monthBoundsLocalISO } from '@/utils/financeFilters';
 import { measureVerticalScrollbarWidth } from '@/utils/financeTableScrollbar';
 
 export default {
@@ -278,6 +278,10 @@ export default {
             type: Array,
             required: true,
         },
+        filter_totals: {
+            type: Object,
+            default: null,
+        },
     },
     data() {
         return {
@@ -292,7 +296,7 @@ export default {
             fiscalYear: '',
             calendarMonth: '',
             sortOrder: 'desc',
-            chunkSize: 20,
+            chunkSize: 18,
             localIncoming: null,
             loading: false,
             loadingMore: false,
@@ -300,13 +304,24 @@ export default {
             incomingScrollFillDepth: 0,
             /** Subtotal sits outside the scroll box; pad by scrollbar width so columns match the grid above */
             subtotalScrollbarPadPx: 0,
+            filterTotalsSnapshot: null,
         };
     },
     computed: {
         displayIncoming() {
             return this.localIncoming !== null ? this.localIncoming : this.incomingInvoice;
         },
-        incomingPageTotals() {
+        effectiveIncomingFilterTotals() {
+            if (this.filterTotalsSnapshot && typeof this.filterTotalsSnapshot.row_count === 'number') {
+                return this.filterTotalsSnapshot;
+            }
+            return this.filter_totals;
+        },
+        incomingSubtotalTotals() {
+            const ft = this.effectiveIncomingFilterTotals;
+            if (ft && typeof ft.amount === 'string') {
+                return { amount: ft.amount, tax: ft.tax, total: ft.total };
+            }
             const rows = this.displayIncoming?.data ?? [];
             let amountSum = 0;
             let taxSum = 0;
@@ -327,8 +342,29 @@ export default {
         hasIncomingFetchedRows() {
             return (this.displayIncoming?.data?.length ?? 0) > 0;
         },
-        incomingFetchedRowCount() {
+        showIncomingSubtotal() {
+            const n = this.effectiveIncomingFilterTotals?.row_count;
+            if (typeof n === 'number') {
+                return n > 0;
+            }
+            return this.hasIncomingFetchedRows;
+        },
+        incomingSubtotalRowCount() {
+            const ft = this.effectiveIncomingFilterTotals;
+            if (ft && typeof ft.row_count === 'number') {
+                return ft.row_count;
+            }
             return this.displayIncoming?.data?.length ?? 0;
+        },
+        incomingSubtotalCountLabel() {
+            const ft = this.effectiveIncomingFilterTotals;
+            if (ft && typeof ft.row_count === 'number' && ft.row_count !== 1) {
+                return 'invoices';
+            }
+            if (ft && ft.row_count === 1) {
+                return 'invoice';
+            }
+            return 'fetched';
         },
     },
     watch: {
@@ -340,6 +376,7 @@ export default {
     },
     mounted() {
         this.initFromUrl();
+        this.filterTotalsSnapshot = this.filter_totals || null;
         this.fetchList(1);
     },
     beforeUnmount() {
@@ -360,6 +397,12 @@ export default {
             this.filterBillType = p.get('filterBillType') || '';
             this.dateFrom = p.get('date_from') || '';
             this.dateTo = p.get('date_to') || '';
+            const noDateFilter = p.get('no_date_filter') === '1';
+            if (!noDateFilter && !this.dateFrom && !this.dateTo) {
+                const bounds = monthBoundsLocalISO(new Date());
+                this.dateFrom = bounds.dateFrom;
+                this.dateTo = bounds.dateTo;
+            }
             const fy = p.get('fiscal_year');
             this.fiscalYear = fy ? parseInt(fy, 10) : '';
             const mo = p.get('month');
@@ -402,6 +445,9 @@ export default {
             if (this.calendarMonth !== '' && this.calendarMonth != null) {
                 params.month = this.calendarMonth;
             }
+            if (!this.dateFrom && !this.dateTo) {
+                params.no_date_filter = 1;
+            }
             return params;
         },
         buildHistoryQuery() {
@@ -435,6 +481,9 @@ export default {
                 parts.push(`month=${p.month}`);
             }
             parts.push(`sortOrder=${this.sortOrder}`);
+            if (!this.dateFrom && !this.dateTo) {
+                parts.push('no_date_filter=1');
+            }
             return parts.length ? `?${parts.join('&')}` : '';
         },
         async fetchList(page = 1, { append = false } = {}) {
@@ -457,6 +506,9 @@ export default {
                     };
                 } else {
                     this.localIncoming = data;
+                }
+                if (data.filter_totals) {
+                    this.filterTotalsSnapshot = data.filter_totals;
                 }
                 window.history.replaceState({}, '', `/incomingInvoice${this.buildHistoryQuery()}`);
             } catch (e) {

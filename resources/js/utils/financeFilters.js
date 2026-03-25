@@ -29,3 +29,15 @@ export function normalizeDateRangeFields(state) {
         state.dateFrom = firstDayOfMonthFromDateString(state.dateTo);
     }
 }
+
+/** First and last calendar day of the month for `d` (local timezone), as Y-m-d strings. */
+export function monthBoundsLocalISO(d = new Date()) {
+    const y = d.getFullYear();
+    const m = d.getMonth();
+    const pad = (n) => String(n).padStart(2, '0');
+    const last = new Date(y, m + 1, 0).getDate();
+    return {
+        dateFrom: `${y}-${pad(m + 1)}-01`,
+        dateTo: `${y}-${pad(m + 1)}-${pad(last)}`,
+    };
+}

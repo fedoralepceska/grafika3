@@ -1564,9 +1564,120 @@ class InvoiceController extends Controller
         }
     }
 
+    /**
+     * When neither date is set (and client is not opting out), default to the current calendar month on created_at.
+     */
+    protected function applyDefaultMonthDateFilter(Request $request): void
+    {
+        if ($request->boolean('no_date_filter')) {
+            return;
+        }
+        if (! $request->filled('date_from') && ! $request->filled('date_to')) {
+            $request->merge([
+                'date_from' => now()->startOfMonth()->toDateString(),
+                'date_to' => now()->endOfMonth()->toDateString(),
+            ]);
+        }
+    }
+
+    /**
+     * Cache key for list subtotals: filter fingerprint + data revision (any invoiced faktura row update).
+     * Line-item changes that do not touch faktura.updated_at can leave totals stale until TTL — see {@see computeAllInvoicesFilterTotalsUncached}.
+     */
+    protected function allInvoicesFilterTotalsCacheKey(Request $request): string
+    {
+        $fingerprint = hash('sha256', json_encode([
+            'searchQuery' => $request->input('searchQuery'),
+            'client_id' => $request->input('client_id'),
+            'client' => $request->input('client'),
+            'date_from' => $request->input('date_from'),
+            'date_to' => $request->input('date_to'),
+            'fiscal_year' => $request->input('fiscal_year'),
+            'month' => $request->input('month'),
+            'no_date_filter' => $request->boolean('no_date_filter'),
+        ], JSON_THROW_ON_ERROR));
+
+        $rev = Faktura::query()->where('isInvoiced', 1)->max('updated_at');
+        $revKey = $rev ? (string) $rev : '0';
+
+        return 'all_invoices_filter_totals:'.$fingerprint.':'.$revKey;
+    }
+
+    /**
+     * Amount / tax / total for every row matching the same filters (full scan + per-faktura service).
+     * Used for ~5k–10k+ year slices; wrapped with cache to avoid repeating work on every page-1 load.
+     */
+    protected function computeAllInvoicesFilterTotalsUncached(Request $request): array
+    {
+        $idQuery = Faktura::query()->where('isInvoiced', 1);
+        $this->applyAllInvoicesListFilters($idQuery, $request);
+        $ids = $idQuery->pluck('id');
+        $count = $ids->count();
+        if ($count === 0) {
+            return [
+                'amount' => number_format(0, 2, '.', ','),
+                'tax' => number_format(0, 2, '.', ','),
+                'total' => number_format(0, 2, '.', ','),
+                'row_count' => 0,
+            ];
+        }
+
+        $svc = app(FakturaListTotalsService::class);
+        $sumAmount = 0.0;
+        $sumTax = 0.0;
+        $sumTotal = 0.0;
+        $eager = [
+            'invoices.client:id,name',
+            'invoices.jobs.articles',
+            'invoices.user:id,name',
+            'jobs.client:id,name',
+            'jobs.articles',
+            'parentOrder:id,invoice_title',
+            'parentOrder.client:id,name',
+            'tradeItems.article:id,name,code',
+            'additionalServices',
+            'client:id,name',
+        ];
+
+        foreach ($ids->chunk(200) as $chunk) {
+            $batch = Faktura::with($eager)->whereIn('id', $chunk)->get();
+            foreach ($batch as $f) {
+                $t = $svc->compute($f);
+                $sumAmount += $t['amount'];
+                $sumTax += $t['tax'];
+                $sumTotal += $t['total'];
+            }
+        }
+
+        return [
+            'amount' => number_format(round($sumAmount, 2), 2, '.', ','),
+            'tax' => number_format(round($sumTax, 2), 2, '.', ','),
+            'total' => number_format(round($sumTotal, 2), 2, '.', ','),
+            'row_count' => $count,
+        ];
+    }
+
+    /**
+     * Cached wrapper — safe for year-wide sets (5k–10k rows): first hit pays cost, repeats are cheap.
+     */
+    protected function computeAllInvoicesFilterTotals(Request $request): array
+    {
+        $key = $this->allInvoicesFilterTotalsCacheKey($request);
+
+        return Cache::remember($key, 3600, function () use ($request) {
+            return $this->computeAllInvoicesFilterTotalsUncached($request);
+        });
+    }
+
     public function getFilteredAllInvoices(Request $request)
     {
         try {
+            $this->applyDefaultMonthDateFilter($request);
+            $page = (int) $request->input('page', 1);
+            $filterTotals = $page === 1
+                ? $this->computeAllInvoicesFilterTotals($request)
+                : null;
+
             $query = $this->allInvoicesListBaseQuery();
             $this->applyAllInvoicesListFilters($query, $request);
 
@@ -1576,13 +1687,17 @@ class InvoiceController extends Controller
                 ->orderBy('id', $sortOrder);
 
             // Apply pagination with configurable results per page
-            $perPage = (int) $request->input('per_page', 20);
+            $perPage = (int) $request->input('per_page', 18);
             $perPage = max(1, min($perPage, 200));
             $fakturas = $query->paginate($perPage)->withQueryString();
             $this->augmentAllInvoicesPaginator($fakturas);
 
-            // Return JSON response for AJAX calls
-            return response()->json($fakturas);
+            $payload = $fakturas->toArray();
+            if ($filterTotals !== null) {
+                $payload['filter_totals'] = $filterTotals;
+            }
+
+            return response()->json($payload);
         } catch (\Exception $e) {
             Log::error('Filtered All Invoices Error: ' . $e->getMessage());
             Log::error('Stack trace: ' . $e->getTraceAsString());
@@ -3038,6 +3153,9 @@ class InvoiceController extends Controller
     public function allFaktura(Request $request)
     {
         try {
+            $this->applyDefaultMonthDateFilter($request);
+            $filterTotals = $this->computeAllInvoicesFilterTotals($request);
+
             $query = $this->allInvoicesListBaseQuery();
             $this->applyAllInvoicesListFilters($query, $request);
 
@@ -3047,19 +3165,22 @@ class InvoiceController extends Controller
                 ->orderBy('id', $sortOrder);
 
             // Apply pagination with configurable results per page on initial page
-            $perPage = (int) $request->input('per_page', 20);
+            $perPage = (int) $request->input('per_page', 18);
             $perPage = max(1, min($perPage, 200));
             $fakturas = $query->paginate($perPage)->withQueryString();
             $this->augmentAllInvoicesPaginator($fakturas);
 
             // Handle AJAX requests for JSON responses
             if ($request->wantsJson()) {
-                return response()->json($fakturas);
-            }
+                $payload = $fakturas->toArray();
+                $payload['filter_totals'] = $filterTotals;
 
+                return response()->json($payload);
+            }
 
             return Inertia::render('Finance/AllInvoices', [
                 'fakturas' => $fakturas,
+                'filter_totals' => $filterTotals,
             ]);
         } catch (\Exception $e) {
             Log::error('AllFaktura Error: ' . $e->getMessage());
@@ -3073,6 +3194,12 @@ class InvoiceController extends Controller
             // For Inertia requests, return proper Inertia response
             return Inertia::render('Finance/AllInvoices', [
                 'fakturas' => collect([]), // Empty collection
+                'filter_totals' => [
+                    'amount' => number_format(0, 2, '.', ','),
+                    'tax' => number_format(0, 2, '.', ','),
+                    'total' => number_format(0, 2, '.', ','),
+                    'row_count' => 0,
+                ],
                 'error' => 'Unable to load invoices. Please try again.'
             ]);
         }

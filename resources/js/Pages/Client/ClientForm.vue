@@ -38,10 +38,10 @@
                                     <input v-model="contact.name" class="contact-input" type="text" placeholder="Name">
                                     <input v-model="contact.email" class="contact-input" type="email" placeholder="Email">
                                     <input v-model="contact.phone" class="contact-input" type="text" placeholder="Phone">
-                                    <button class="addBtn" @click="addContact" v-if="index === client.contacts.length - 1">
+                                    <button type="button" class="addBtn" @click.prevent="addContact" v-if="index === client.contacts.length - 1">
                                         <span class="mdi mdi-plus-circle"></span>
                                     </button>
-                                    <button class="removeBtn" @click="removeContact(index)" v-else>
+                                    <button type="button" class="removeBtn" @click.prevent="removeContact(index)" v-else>
                                         <span class="mdi mdi-minus-circle"></span>
                                     </button>
                                 </div>
@@ -81,6 +81,10 @@ export default {
     methods: {
         addClient() {
             const toast = useToast();
+            if (!this.hasAtLeastOneCompleteContact()) {
+                toast.error(this.$t('clientCreateContactRequired'));
+                return;
+            }
             axios
                 .post('/clients', this.client)
                 .then((response) => {
@@ -88,9 +92,20 @@ export default {
                     this.$inertia.visit('/clients');
                 })
                 .catch((error) => {
-                    toast.error("Error adding client!")
-
+                    const msg =
+                        error?.response?.data?.errors?.contacts?.[0]
+                        || error?.response?.data?.message
+                        || this.$t('clientCreateError');
+                    toast.error(msg);
                 });
+        },
+        hasAtLeastOneCompleteContact() {
+            return this.client.contacts.some((c) => {
+                const name = (c.name || '').trim();
+                const email = (c.email || '').trim();
+                const phone = (c.phone || '').trim();
+                return name !== '' && email !== '' && phone !== '';
+            });
         },
         addContact() {
             this.client.contacts.push({ name: '', email: '', phone: '' });

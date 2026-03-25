@@ -5,7 +5,9 @@ namespace App\Http\Controllers;
 use App\Models\Client;
 use App\Models\ClientCardStatement;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 
 class ClientController extends Controller
@@ -16,7 +18,17 @@ class ClientController extends Controller
     public function index(Request $request)
     {
         $perPage = $request->query('per_page', 10); // Use default of 10 if not provided
-        $clients = Client::with('contacts');
+        $clients = Client::with('contacts')
+            ->withCount([
+                'invoices',
+                'jobs',
+                'fakturas',
+                'priemnice',
+                'individualOrders',
+                'tradeInvoices',
+                'stockRealizations',
+                'incomingFakturas',
+            ]);
 
         // Apply search filtering (explained later)
         $clients = $this->applySearch($clients, $request);
@@ -52,35 +64,58 @@ class ClientController extends Controller
             'city' => 'required|string'
         ]);
 
-        // Create a new client record
-        $client = new Client();
-        $client->name = $validatedData['name'];
-        $client->address = $validatedData['address'];
-        $client->city = $validatedData['city'];
-        $client->save();
+        $contactRows = $request->input('contacts', []);
+        if (! is_array($contactRows)) {
+            $contactRows = [];
+        }
 
-        $clientCardStatement = new ClientCardStatement();
-        $clientCardStatement->client_id = $client->id;
-        $clientCardStatement->save();
+        $filledContacts = [];
+        foreach ($contactRows as $contact) {
+            if (! is_array($contact)) {
+                continue;
+            }
+            $name = trim((string) ($contact['name'] ?? ''));
+            $email = trim((string) ($contact['email'] ?? ''));
+            $phone = trim((string) ($contact['phone'] ?? ''));
+            if ($name === '' && $email === '' && $phone === '') {
+                continue;
+            }
+            $filledContacts[] = $contact;
+        }
 
-        // Validate and save the contacts associated with this client
-        $contacts = $request->input('contacts');
-
-        foreach ($contacts as $contact) {
-            // Validate the contact data (name, email, phone)
-            $validatedContact = Validator::make($contact, [
-                'name' => 'required|string',
-                'email' => 'required|email',
-                'phone' => 'required|string|max:20',
-            ])->validate();
-
-            // Save the contact associated with the client
-            $client->contacts()->create([
-                'name' => $validatedContact['name'],
-                'email' => $validatedContact['email'],
-                'phone' => $validatedContact['phone'],
+        if ($filledContacts === []) {
+            throw ValidationException::withMessages([
+                'contacts' => ['At least one contact with name, email, and phone is required.'],
             ]);
         }
+
+        $client = DB::transaction(function () use ($validatedData, $filledContacts) {
+            $client = new Client();
+            $client->name = $validatedData['name'];
+            $client->address = $validatedData['address'];
+            $client->city = $validatedData['city'];
+            $client->save();
+
+            $clientCardStatement = new ClientCardStatement();
+            $clientCardStatement->client_id = $client->id;
+            $clientCardStatement->save();
+
+            foreach ($filledContacts as $contact) {
+                $validatedContact = Validator::make($contact, [
+                    'name' => 'required|string',
+                    'email' => 'required|email',
+                    'phone' => 'required|string|max:20',
+                ])->validate();
+
+                $client->contacts()->create([
+                    'name' => $validatedContact['name'],
+                    'email' => $validatedContact['email'],
+                    'phone' => $validatedContact['phone'],
+                ]);
+            }
+
+            return $client;
+        });
 
         return response()->json(['message' => 'Client added successfully'], 201);
     }
@@ -133,11 +168,38 @@ class ClientController extends Controller
     /**
      * Remove the specified resource from storage.
      */
-    public function destroy(Client $client)
+    public function destroy(Request $request, Client $client)
     {
+        $request->validate([
+            'passcode' => 'required|string',
+        ]);
+
+        $expected = env('CLIENT_DELETE_PASSCODE', '9632');
+        if ($request->input('passcode') !== $expected) {
+            return response()->json(['error' => 'Invalid passcode'], 422);
+        }
+
+        if ($this->clientHasBlockingLinks($client)) {
+            return response()->json([
+                'error' => 'This client cannot be deleted because they have orders, invoices, receipts, or other linked records.',
+            ], 422);
+        }
+
         $client->delete();
 
-        return redirect()->route('clients.index');
+        return response()->json(['message' => 'Client deleted successfully']);
+    }
+
+    private function clientHasBlockingLinks(Client $client): bool
+    {
+        return $client->invoices()->exists()
+            || $client->jobs()->exists()
+            || $client->fakturas()->exists()
+            || $client->priemnice()->exists()
+            || $client->individualOrders()->exists()
+            || $client->tradeInvoices()->exists()
+            || $client->stockRealizations()->exists()
+            || $client->incomingFakturas()->exists();
     }
 
     private function applySearch($query, Request $request)

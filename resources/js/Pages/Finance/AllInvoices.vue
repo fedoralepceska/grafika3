@@ -149,11 +149,11 @@
                     </div>
 
                     <div
-                        v-if="hasAllInvoicesFetchedRows"
+                        v-if="showAllInvoicesSubtotal"
                         class="all-invoices-table-shell finance-subtotal-outside"
                         :style="{ paddingInlineEnd: subtotalScrollbarPadPx + 'px' }"
                     >
-                        <table class="data-table finance-subtotal-table" title="Totals for all fetched rows">
+                        <table class="data-table finance-subtotal-table" title="Totals for all rows matching the current filters">
                             <colgroup>
                                 <col class="ai-col-inv" />
                                 <col class="ai-col-date" />
@@ -170,16 +170,16 @@
                                 <tr class="all-invoices-subtotal-row">
                                     <td colspan="3" class="all-invoices-subtotal-label">
                                         <span class="all-invoices-subtotal-label-text">Subtotal</span>
-                                        <span class="all-invoices-subtotal-hint">{{ allInvoicesFetchedRowCount }} fetched</span>
+                                        <span class="all-invoices-subtotal-hint">{{ allInvoicesSubtotalRowCount }} {{ allInvoicesSubtotalCountLabel }}</span>
                                     </td>
                                     <td class="col-num all-invoices-subtotal-num">
-                                        <div class="all-invoices-subtotal-value text-right">{{ allInvoicesPageTotals.amount }}</div>
+                                        <div class="all-invoices-subtotal-value text-right">{{ allInvoicesSubtotalTotals.amount }}</div>
                                     </td>
                                     <td class="col-num all-invoices-subtotal-num">
-                                        <div class="all-invoices-subtotal-value text-right">{{ allInvoicesPageTotals.tax }}</div>
+                                        <div class="all-invoices-subtotal-value text-right">{{ allInvoicesSubtotalTotals.tax }}</div>
                                     </td>
                                     <td class="col-num all-invoices-subtotal-num all-invoices-subtotal-num--total">
-                                        <div class="all-invoices-subtotal-value all-invoices-subtotal-value--emphasis text-right">{{ allInvoicesPageTotals.total }}</div>
+                                        <div class="all-invoices-subtotal-value all-invoices-subtotal-value--emphasis text-right">{{ allInvoicesSubtotalTotals.total }}</div>
                                     </td>
                                     <td class="col-created-cell all-invoices-subtotal-rest">&nbsp;</td>
                                     <td class="col-orders-h all-invoices-subtotal-rest">&nbsp;</td>
@@ -209,6 +209,7 @@ import FinancePeriodPresets from '@/Components/Finance/FinancePeriodPresets.vue'
 import FinanceClientNameCell from '@/Components/Finance/FinanceClientNameCell.vue';
 import axios from 'axios';
 import { measureVerticalScrollbarWidth } from '@/utils/financeTableScrollbar';
+import { monthBoundsLocalISO } from '@/utils/financeFilters';
 
 function localISODate(d = new Date()) {
     const y = d.getFullYear();
@@ -239,6 +240,10 @@ export default {
     },
     props: {
         fakturas: Object,
+        filter_totals: {
+            type: Object,
+            default: null,
+        },
     },
     data() {
         return {
@@ -254,10 +259,12 @@ export default {
             localFakturas: null,
             loading: false,
             loadingMore: false,
-            chunkSize: 20,
+            chunkSize: 18,
             allInvoicesScrollFillDepth: 0,
             /** Subtotal sits outside the scroll box; pad by scrollbar width so columns match the grid above */
             subtotalScrollbarPadPx: 0,
+            /** Server-side totals for the full filtered set (stable while scrolling pages). */
+            filterTotalsSnapshot: null,
         };
     },
     computed: {
@@ -267,7 +274,17 @@ export default {
         displayFakturas() {
             return this.localFakturas || this.fakturas;
         },
-        allInvoicesPageTotals() {
+        effectiveFilterTotals() {
+            if (this.filterTotalsSnapshot && typeof this.filterTotalsSnapshot.row_count === 'number') {
+                return this.filterTotalsSnapshot;
+            }
+            return this.filter_totals;
+        },
+        allInvoicesSubtotalTotals() {
+            const ft = this.effectiveFilterTotals;
+            if (ft && typeof ft.amount === 'string') {
+                return { amount: ft.amount, tax: ft.tax, total: ft.total };
+            }
             const rows = this.displayFakturas?.data ?? [];
             let amountSum = 0;
             let taxSum = 0;
@@ -288,8 +305,29 @@ export default {
         hasAllInvoicesFetchedRows() {
             return (this.displayFakturas?.data?.length ?? 0) > 0;
         },
-        allInvoicesFetchedRowCount() {
+        showAllInvoicesSubtotal() {
+            const n = this.effectiveFilterTotals?.row_count;
+            if (typeof n === 'number') {
+                return n > 0;
+            }
+            return this.hasAllInvoicesFetchedRows;
+        },
+        allInvoicesSubtotalRowCount() {
+            const ft = this.effectiveFilterTotals;
+            if (ft && typeof ft.row_count === 'number') {
+                return ft.row_count;
+            }
             return this.displayFakturas?.data?.length ?? 0;
+        },
+        allInvoicesSubtotalCountLabel() {
+            const ft = this.effectiveFilterTotals;
+            if (ft && typeof ft.row_count === 'number' && ft.row_count !== 1) {
+                return 'invoices';
+            }
+            if (ft && ft.row_count === 1) {
+                return 'invoice';
+            }
+            return 'fetched';
         },
     },
     watch: {
@@ -302,6 +340,7 @@ export default {
     mounted() {
         this.fetchUniqueClients();
         this.initFromUrl();
+        this.filterTotalsSnapshot = this.filter_totals || null;
         this.applyFilter(1);
     },
     beforeUnmount() {
@@ -317,6 +356,12 @@ export default {
             this.clientId = cid ? parseInt(cid, 10) : null;
             this.dateFrom = p.get('date_from') || '';
             this.dateTo = p.get('date_to') || '';
+            const noDateFilter = p.get('no_date_filter') === '1';
+            if (!noDateFilter && !this.dateFrom && !this.dateTo) {
+                const bounds = monthBoundsLocalISO(new Date());
+                this.dateFrom = bounds.dateFrom;
+                this.dateTo = bounds.dateTo;
+            }
             const fy = p.get('fiscal_year');
             this.fiscalYear = fy ? parseInt(fy, 10) : '';
             const mo = p.get('month');
@@ -357,6 +402,9 @@ export default {
             if (this.calendarMonth !== '' && this.calendarMonth != null) {
                 params.month = this.calendarMonth;
             }
+            if (!this.dateFrom && !this.dateTo) {
+                params.no_date_filter = 1;
+            }
             return params;
         },
         buildHistoryQueryString() {
@@ -382,6 +430,9 @@ export default {
             if (this.calendarMonth !== '' && this.calendarMonth != null) {
                 parts.push(`month=${this.calendarMonth}`);
             }
+            if (!this.dateFrom && !this.dateTo) {
+                parts.push('no_date_filter=1');
+            }
             return parts.length ? `?${parts.join('&')}` : '';
         },
         async applyFilter(page = 1, { append = false } = {}) {
@@ -404,6 +455,9 @@ export default {
                     };
                 } else {
                     this.localFakturas = response.data;
+                }
+                if (response.data.filter_totals) {
+                    this.filterTotalsSnapshot = response.data.filter_totals;
                 }
                 const redirectUrl = `/allInvoices${this.buildHistoryQueryString()}`;
                 window.history.replaceState({}, '', redirectUrl);
