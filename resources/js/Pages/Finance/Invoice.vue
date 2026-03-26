@@ -191,6 +191,7 @@
                                     <div class="label-cell">Quantity</div>
                                     <div class="label-cell">Unit</div>
                                     <div class="label-cell">Total m²</div>
+                                    <div class="label-cell">VAT</div>
                                     <div class="label-cell">Sale Price</div>
                                     <div class="label-cell action-cell">Actions</div>
                                 </div>
@@ -229,6 +230,17 @@
                                                         v-model.number="job.computed_total_area_m2" />
                                                 </template>
                                                 <template v-else>{{ formatArea(job.computed_total_area_m2) }}</template>
+                                            </div>
+                                            <div class="value-cell job-vat-cell">
+                                                <template v-if="isEditMode && editingJobId === job.id">
+                                                    <select class="inline-input unit-select" v-model="editingJobVatMode">
+                                                        <option value="auto">Auto (materials)</option>
+                                                        <option value="5">5%</option>
+                                                        <option value="10">10%</option>
+                                                        <option value="18">18%</option>
+                                                    </select>
+                                                </template>
+                                                <template v-else>{{ formatJobVatDisplay(job) }}</template>
                                             </div>
                                             <div class="value-cell">
                                                 <template v-if="isEditMode && editingJobId === job.id">
@@ -356,6 +368,7 @@
                                                 <option value="ком">ком</option>
                                             </select>
                                             <div class="value-cell"></div>
+                                            <div class="value-cell"></div>
                                             <input type="number" min="0" step="0.01" class="inline-input"
                                                 :class="{ 'invalid-field': !isMergeGroupFieldValid(grp.__idx, 'sale_price') }"
                                                 placeholder="Sale Price" v-model.number="grp.sale_price" />
@@ -376,6 +389,7 @@
                                             <div class="value-cell">{{ grp.title || 'Merged group' }}</div>
                                             <div class="value-cell">{{ formatNumber(grp.quantity || 0) }}</div>
                                             <div class="value-cell">{{ grp.unit || 'м²' }}</div>
+                                            <div class="value-cell"></div>
                                             <div class="value-cell"></div>
                                             <div class="value-cell">{{ formatPrice(grp.sale_price || 0) }} ден.</div>
                                             <div class="value-cell actions">
@@ -412,6 +426,7 @@
                                                 <div class="value-cell">{{ displayJobQty(gid) }}</div>
                                                 <div class="value-cell">{{ displayJobUnit(gid) }}</div>
                                                 <div class="value-cell">{{ displayJobArea(gid) }}</div>
+                                                <div class="value-cell">{{ formatJobVatDisplayForJobId(gid) }}</div>
                                                 <div class="value-cell">{{ displayJobPrice(gid) }} ден.</div>
                                                 <div class="value-cell actions">
                                                     <button v-if="!splitMode" class="merge-toggle ml-2"
@@ -1060,6 +1075,7 @@ import OrderSpreadsheet from "@/Components/OrderSpreadsheet.vue";
 import Header from "@/Components/Header.vue";
 import InvoiceJobEdit from "@/Components/InvoiceJobEdit.vue";
 import TradeItemsEdit from "@/Components/TradeItemsEdit.vue";
+import { getEffectiveVatFromArticles } from "@/utils/jobVatFromArticles.js";
 
 export default {
     components: {
@@ -1309,8 +1325,10 @@ export default {
             currentOverrides: {
                 order_titles: {},
                 job_names: {},
-                job_quantities: {}
-            }
+                job_quantities: {},
+                job_vat_rates: {}
+            },
+            editingJobVatMode: 'auto'
         }
     },
     mounted() {
@@ -1658,7 +1676,16 @@ export default {
         initializeOverrides() {
             // Load existing overrides from faktura
             if (this.faktura?.faktura_overrides) {
-                this.currentOverrides = { ...this.faktura.faktura_overrides };
+                this.currentOverrides = {
+                    order_titles: {},
+                    job_names: {},
+                    job_quantities: {},
+                    job_vat_rates: {},
+                    ...this.faktura.faktura_overrides
+                };
+            }
+            if (!this.currentOverrides.job_vat_rates) {
+                this.currentOverrides.job_vat_rates = {};
             }
 
             // Initialize original values
@@ -1691,6 +1718,22 @@ export default {
         getDisplayJobQuantity(jobId, originalQuantity) {
             return this.currentOverrides.job_quantities[jobId] !== undefined ?
                 this.currentOverrides.job_quantities[jobId] : originalQuantity;
+        },
+        formatJobVatDisplay(job) {
+            if (!job) return '—';
+            const o = this.currentOverrides.job_vat_rates && this.currentOverrides.job_vat_rates[job.id];
+            if (o !== undefined && o !== null) {
+                return `${o}%`;
+            }
+            const eff = getEffectiveVatFromArticles(job);
+            if (eff.kind === 'mixed') {
+                return '—';
+            }
+            return `${eff.rate}%`;
+        },
+        formatJobVatDisplayForJobId(jobId) {
+            const j = this.getJobById(jobId);
+            return j ? this.formatJobVatDisplay(j) : '—';
         },
         // Save overrides to faktura
         async saveOverrides() {
@@ -2170,19 +2213,24 @@ export default {
             job.name = this.getDisplayJobName(job.id, job.name);
             job.quantity = this.getDisplayJobQuantity(job.id, job.quantity);
 
+            const vatO = this.currentOverrides.job_vat_rates && this.currentOverrides.job_vat_rates[job.id];
+            this.editingJobVatMode = vatO !== undefined && vatO !== null ? String(vatO) : 'auto';
+
             // snapshot current display values (which include overrides) for cancel
             this.$set ? this.$set(this.originalJobSnapshots, job.id, {
                 name: job.name,
                 quantity: job.quantity,
                 computed_total_area_m2: job.computed_total_area_m2,
                 salePrice: job.salePrice,
-                totalPrice: job.totalPrice
+                totalPrice: job.totalPrice,
+                vatOverride: vatO !== undefined && vatO !== null ? Number(vatO) : null
             }) : (this.originalJobSnapshots[job.id] = {
                 name: job.name,
                 quantity: job.quantity,
                 computed_total_area_m2: job.computed_total_area_m2,
                 salePrice: job.salePrice,
-                totalPrice: job.totalPrice
+                totalPrice: job.totalPrice,
+                vatOverride: vatO !== undefined && vatO !== null ? Number(vatO) : null
             });
         },
         cancelEditingJob(job) {
@@ -2193,8 +2241,19 @@ export default {
                 job.computed_total_area_m2 = snap.computed_total_area_m2;
                 job.salePrice = snap.salePrice;
                 job.totalPrice = snap.totalPrice;
+                if ('vatOverride' in snap) {
+                    if (!this.currentOverrides.job_vat_rates) {
+                        this.currentOverrides.job_vat_rates = {};
+                    }
+                    if (snap.vatOverride === null || snap.vatOverride === undefined) {
+                        delete this.currentOverrides.job_vat_rates[job.id];
+                    } else {
+                        this.currentOverrides.job_vat_rates[job.id] = snap.vatOverride;
+                    }
+                }
             }
             this.editingJobId = null;
+            this.editingJobVatMode = 'auto';
             delete this.originalJobSnapshots[job.id];
         },
         async saveEditingJob(job) {
@@ -2224,12 +2283,35 @@ export default {
                     this.currentOverrides.job_quantities[job.id] = job.quantity;
                 }
 
-                // Save overrides to faktura
-                const saved = await this.saveOverrides();
+                let newVat = null;
+                if (this.editingJobVatMode !== 'auto') {
+                    newVat = parseInt(this.editingJobVatMode, 10);
+                }
+                if (!this.currentOverrides.job_vat_rates) {
+                    this.currentOverrides.job_vat_rates = {};
+                }
+                if (newVat === null || Number.isNaN(newVat)) {
+                    delete this.currentOverrides.job_vat_rates[job.id];
+                } else {
+                    this.currentOverrides.job_vat_rates[job.id] = newVat;
+                }
+
+                const snap = this.originalJobSnapshots[job.id];
+                const vatChanged = (snap?.vatOverride ?? null) !== (newVat ?? null);
+                const metaChanged = job.name !== snap?.name
+                    || job.quantity !== snap?.quantity
+                    || vatChanged;
+
+                // Save overrides to faktura when name/qty/vat metadata changed (not only salePrice)
+                let saved = true;
+                if (metaChanged) {
+                    saved = await this.saveOverrides();
+                }
                 if (saved) {
                     // Keep the frontend-only unit field
                     job.unit = localUnit;
                     this.editingJobId = null;
+                    this.editingJobVatMode = 'auto';
                     delete this.originalJobSnapshots[job.id];
                 }
             } catch (e) {
@@ -2487,7 +2569,8 @@ export default {
                     // Include current overrides for print
                     order_title_overrides: this.currentOverrides.order_titles || {},
                     job_name_overrides: this.currentOverrides.job_names || {},
-                    job_quantity_overrides: this.currentOverrides.job_quantities || {}
+                    job_quantity_overrides: this.currentOverrides.job_quantities || {},
+                    job_vat_rate_overrides: this.currentOverrides.job_vat_rates || {}
                 }, { responseType: 'blob' });
 
                 // Open blob in new tab
@@ -3058,7 +3141,7 @@ $orange: #a36a03;
 
 .merged-container .merged-header {
     display: grid;
-    grid-template-columns: 2fr 1fr 0.8fr 1fr 1fr 1fr;
+    grid-template-columns: 2fr 1fr 0.8fr 1fr 0.7fr 1fr 1fr;
     /* align with job header: Title, Qty, Unit, Total m², Sale, Actions */
     gap: 8px;
     padding: 8px;
@@ -3714,7 +3797,7 @@ $orange: #a36a03;
 
 .job-header-labels {
     display: grid;
-    grid-template-columns: 2fr 1fr 0.8fr 1fr 1fr 1fr;
+    grid-template-columns: 2fr 1fr 0.8fr 1fr 0.7fr 1fr 1fr;
     gap: 8px;
     padding: 5px 10px;
     border-top: 1px solid $ultra-light-gray;
@@ -3730,7 +3813,7 @@ $orange: #a36a03;
 
 .job-header {
     display: grid;
-    grid-template-columns: 2fr 1fr 0.8fr 1fr 1fr 1fr;
+    grid-template-columns: 2fr 1fr 0.8fr 1fr 0.7fr 1fr 1fr;
     align-items: center;
     padding: 10px;
     background-color: #7DC068;

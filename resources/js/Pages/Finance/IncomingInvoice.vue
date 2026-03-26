@@ -151,9 +151,15 @@
                                 <td class="customer-column">
                                     <FinanceClientNameCell :name="faktura.client_name || ''" />
                                 </td>
-                                <td class="col-num"><div class="cell-secondary text-right">{{ faktura.amount }}</div></td>
-                                <td class="col-num"><div class="cell-secondary text-right">{{ faktura.tax }}</div></td>
-                                <td class="col-num"><div class="cell-primary text-right">{{ calculateTotal(faktura) }}</div></td>
+                                <td class="col-num" :title="String(faktura.amount)">
+                                    <div class="cell-secondary text-right finance-money">{{ faktura.amount }}</div>
+                                </td>
+                                <td class="col-num" :title="String(faktura.tax)">
+                                    <div class="cell-secondary text-right finance-money">{{ faktura.tax }}</div>
+                                </td>
+                                <td class="col-num" :title="String(calculateTotal(faktura))">
+                                    <div class="cell-primary text-right finance-money">{{ calculateTotal(faktura) }}</div>
+                                </td>
                                 <td class="col-wh"><div class="cell-secondary incoming-ellipsis" :title="faktura.warehouse || ''">{{ faktura.warehouse || 'N/A' }}</div></td>
                                 <td class="col-cost"><div class="cell-secondary incoming-text-wrap" :title="faktura.cost_type || ''">{{ faktura.cost_type || 'N/A' }}</div></td>
                                 <td class="col-bill"><div class="cell-secondary incoming-text-wrap" :title="faktura.billing_type || ''">{{ faktura.billing_type || 'N/A' }}</div></td>
@@ -207,14 +213,14 @@
                                         <span class="incoming-subtotal-label-text">Subtotal</span>
                                         <span class="incoming-subtotal-hint">{{ incomingSubtotalRowCount }} {{ incomingSubtotalCountLabel }}</span>
                                     </td>
-                                    <td class="col-num incoming-subtotal-num">
-                                        <div class="incoming-subtotal-value text-right">{{ incomingSubtotalTotals.amount }}</div>
+                                    <td class="col-num incoming-subtotal-num" :title="incomingSubtotalTotals.amount">
+                                        <div class="incoming-subtotal-value text-right finance-money">{{ incomingSubtotalTotals.amount }}</div>
                                     </td>
-                                    <td class="col-num incoming-subtotal-num">
-                                        <div class="incoming-subtotal-value text-right">{{ incomingSubtotalTotals.tax }}</div>
+                                    <td class="col-num incoming-subtotal-num" :title="incomingSubtotalTotals.tax">
+                                        <div class="incoming-subtotal-value text-right finance-money">{{ incomingSubtotalTotals.tax }}</div>
                                     </td>
-                                    <td class="col-num incoming-subtotal-num incoming-subtotal-num--total">
-                                        <div class="incoming-subtotal-value incoming-subtotal-value--emphasis text-right">{{ incomingSubtotalTotals.total }}</div>
+                                    <td class="col-num incoming-subtotal-num incoming-subtotal-num--total" :title="incomingSubtotalTotals.total">
+                                        <div class="incoming-subtotal-value incoming-subtotal-value--emphasis text-right finance-money">{{ incomingSubtotalTotals.total }}</div>
                                     </td>
                                     <td class="col-wh incoming-subtotal-rest">&nbsp;</td>
                                     <td class="col-cost incoming-subtotal-rest">&nbsp;</td>
@@ -827,25 +833,25 @@ export default {
     width: 7%;
 }
 .incoming-table-shell col.inc-col-client {
-    width: 16%;
+    width: 9%;
 }
 .incoming-table-shell col.inc-col-num {
-    width: 7%;
+    width: 11%;
 }
 .incoming-table-shell col.inc-col-wh {
-    width: 10%;
+    width: 8%;
 }
 .incoming-table-shell col.inc-col-cost {
-    width: 8%;
+    width: 7%;
 }
 .incoming-table-shell col.inc-col-bill {
-    width: 8%;
+    width: 7%;
 }
 .incoming-table-shell col.inc-col-comment {
     width: 11%;
 }
 .incoming-table-shell col.inc-col-actions {
-    width: 12%;
+    width: 11%;
     min-width: 72px;
 }
 
@@ -875,11 +881,22 @@ export default {
 .incoming-table-shell :deep(.data-table-body td.col-num) {
     text-align: right;
     font-variant-numeric: tabular-nums;
+    min-width: 11rem;
+    white-space: nowrap;
 }
 
 .incoming-table-shell.finance-subtotal-outside .finance-subtotal-table td.col-num {
     text-align: right;
     font-variant-numeric: tabular-nums;
+    min-width: 11rem;
+    white-space: nowrap;
+}
+
+.incoming-table-shell .finance-money {
+    display: block;
+    overflow: visible;
+    text-overflow: clip;
+    white-space: nowrap;
 }
 
 .incoming-table-shell :deep(.finance-client-name) {
@@ -999,7 +1016,8 @@ export default {
     width: 100%;
     min-width: 0;
     border-radius: 0 0 12px 12px;
-    overflow: hidden;
+    overflow-x: auto;
+    overflow-y: visible;
     border: 1px solid rgba(255, 255, 255, 0.12);
     border-top: none;
     background: linear-gradient(

@@ -429,8 +429,18 @@
                 }
                 
                 $lineNet = $unit * $qty;
-                $taxRate = (float) ($item['taxRate'] ?? 0);
-                $lineVat = $lineNet * ($taxRate / 100);
+                $vatOvr = null;
+                if ($jobId && isset($fakturaOverrides['job_vat_rates'][$jobId])) {
+                    $vatOvr = (float) $fakturaOverrides['job_vat_rates'][$jobId];
+                } elseif ($jobId && isset($fakturaOverrides['job_vat_rates'][(string) $jobId])) {
+                    $vatOvr = (float) $fakturaOverrides['job_vat_rates'][(string) $jobId];
+                }
+                if ($vatOvr !== null) {
+                    $lineVat = $lineNet * ($vatOvr / 100);
+                } else {
+                    $taxRate = (float) ($item['taxRate'] ?? 0);
+                    $lineVat = $lineNet * ($taxRate / 100);
+                }
                 $netTotal += $lineNet;
                 $vatTotal += $lineVat;
             } elseif ($item['type'] === 'trade_item') {
@@ -543,24 +553,33 @@
                             @endif
                         </td>
                         @php
-                            // Determine per-row tax rate from job articles
+                            // Determine per-row tax rate: faktura override, else job articles
                             $rowRateDisplay = '';
                             $rateMap = [1 => 18, 2 => 5, 3 => 10];
-                            $rates = [];
-                            if (isset($item['job']['articles']) && is_array($item['job']['articles'])) {
-                                foreach ($item['job']['articles'] as $art) {
-                                    $tt = (int) (data_get($art, 'tax_type', 0));
-                                    if (isset($rateMap[$tt])) { $rates[$rateMap[$tt]] = true; }
-                                }
+                            $vatOvrDisplay = null;
+                            if ($jobId && isset($fakturaOverrides['job_vat_rates'][$jobId])) {
+                                $vatOvrDisplay = (float) $fakturaOverrides['job_vat_rates'][$jobId];
+                            } elseif ($jobId && isset($fakturaOverrides['job_vat_rates'][(string) $jobId])) {
+                                $vatOvrDisplay = (float) $fakturaOverrides['job_vat_rates'][(string) $jobId];
                             }
-                            $uniqueRates = array_keys($rates);
-                            if (count($uniqueRates) === 1) {
-                                $rowRateDisplay = number_format($uniqueRates[0], 0) . '%';
-                            } elseif (count($uniqueRates) === 0) {
-                                $rowRateDisplay = '';
+                            if ($vatOvrDisplay !== null) {
+                                $rowRateDisplay = number_format($vatOvrDisplay, 0) . '%';
                             } else {
-                                // Mixed rates within a single job
-                                $rowRateDisplay = '—';
+                                $rates = [];
+                                if (isset($item['job']['articles']) && is_array($item['job']['articles'])) {
+                                    foreach ($item['job']['articles'] as $art) {
+                                        $tt = (int) (data_get($art, 'tax_type', 0));
+                                        if (isset($rateMap[$tt])) { $rates[$rateMap[$tt]] = true; }
+                                    }
+                                }
+                                $uniqueRates = array_keys($rates);
+                                if (count($uniqueRates) === 1) {
+                                    $rowRateDisplay = number_format($uniqueRates[0], 0) . '%';
+                                } elseif (count($uniqueRates) === 0) {
+                                    $rowRateDisplay = '';
+                                } else {
+                                    $rowRateDisplay = '—';
+                                }
                             }
                         @endphp
                         <td style="font-size: 10pt; padding: 6px; text-align: center; background-color: #E7F1F2;">{{ $rowRateDisplay }}</td>
@@ -623,6 +642,15 @@
                         }
                         
                         $lineNet = ((float) ($item['job']['salePrice'] ?? 0)) * $qty;
+                        $vatOvrBr = null;
+                        if ($jobId && isset($fakturaOverrides['job_vat_rates'][$jobId])) {
+                            $vatOvrBr = (int) $fakturaOverrides['job_vat_rates'][$jobId];
+                        } elseif ($jobId && isset($fakturaOverrides['job_vat_rates'][(string) $jobId])) {
+                            $vatOvrBr = (int) $fakturaOverrides['job_vat_rates'][(string) $jobId];
+                        }
+                        if ($vatOvrBr !== null && isset($vatBreakdown[$vatOvrBr])) {
+                            $vatBreakdown[$vatOvrBr] += $lineNet * ($vatOvrBr / 100);
+                        } else {
                         // Determine rate from job articles (same logic as row display)
                         $rates = [];
                         if (isset($item['job']['articles']) && is_array($item['job']['articles'])) {
@@ -649,6 +677,9 @@
                                     $articleVat += $articleLine * ($rate/100);
                                 }
                             }
+                        } elseif (count($uniqueRates) === 0) {
+                            if (isset($vatBreakdown[18])) $vatBreakdown[18] += $lineNet * 0.18;
+                        }
                         }
                     } elseif ($item['type'] === 'trade_item') {
                         $vr = (int) data_get($item, 'tradeItem.vat_rate', 0);

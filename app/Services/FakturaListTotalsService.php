@@ -10,9 +10,6 @@ use App\Models\Faktura;
  */
 class FakturaListTotalsService
 {
-    /** @var array<int, float> */
-    private const TAX_MAP = [1 => 18.0, 2 => 5.0, 3 => 10.0];
-
     public function compute(Faktura $faktura): array
     {
         $faktura->loadMissing([
@@ -33,23 +30,67 @@ class FakturaListTotalsService
     {
         $materialsSubtotal = 0.0;
         $materialsVat = 0.0;
+        /** Align with invoices/outgoing_invoice_v2.blade.php: row net = salePrice × qty; VAT follows PDF rules. */
+        $rateMap = [1 => 18, 2 => 5, 3 => 10];
+        $jobQtyOverrides = $faktura->faktura_overrides['job_quantities'] ?? [];
+        $jobVatOverrides = $faktura->faktura_overrides['job_vat_rates'] ?? [];
 
         foreach ($faktura->invoices as $invoice) {
             foreach ($invoice->jobs as $job) {
-                if ($job->articles->isNotEmpty()) {
-                    foreach ($job->articles as $article) {
-                        $qty = (float) ($article->pivot->quantity ?? 0);
+                $qty = (float) ($job->quantity ?? 0);
+                $jid = $job->id;
+                if (isset($jobQtyOverrides[$jid])) {
+                    $qty = (float) $jobQtyOverrides[$jid];
+                } elseif ($jid !== null && isset($jobQtyOverrides[(string) $jid])) {
+                    $qty = (float) $jobQtyOverrides[(string) $jid];
+                }
+                $lineNet = (float) ($job->salePrice ?? 0) * $qty;
+                $materialsSubtotal += $lineNet;
+
+                $vatOvr = null;
+                if ($jid !== null && isset($jobVatOverrides[$jid])) {
+                    $vatOvr = (int) $jobVatOverrides[$jid];
+                } elseif ($jid !== null && isset($jobVatOverrides[(string) $jid])) {
+                    $vatOvr = (int) $jobVatOverrides[(string) $jid];
+                }
+                if ($vatOvr !== null && in_array($vatOvr, [5, 10, 18], true)) {
+                    $materialsVat += $lineNet * ($vatOvr / 100);
+
+                    continue;
+                }
+
+                $articles = $job->articles;
+                if ($articles->isEmpty()) {
+                    $materialsVat += $lineNet * 0.18;
+
+                    continue;
+                }
+
+                $ratesFound = [];
+                foreach ($articles as $art) {
+                    $tt = (int) ($art->tax_type ?? 0);
+                    if (isset($rateMap[$tt])) {
+                        $ratesFound[$rateMap[$tt]] = true;
+                    }
+                }
+                $uniqueRates = array_keys($ratesFound);
+
+                if (count($uniqueRates) === 1) {
+                    $r = (int) $uniqueRates[0];
+                    $materialsVat += $lineNet * ($r / 100);
+                } elseif (count($uniqueRates) > 1) {
+                    foreach ($articles as $article) {
+                        $tt = (int) ($article->tax_type ?? 0);
+                        $r = $rateMap[$tt] ?? 0;
+                        $pq = (float) ($article->pivot->quantity ?? 0);
                         $unitPrice = (float) ($article->price_1 ?? 0);
-                        $line = $qty * $unitPrice;
-                        $materialsSubtotal += $line;
-                        $rate = (float) (self::TAX_MAP[$article->tax_type] ?? 0);
-                        $materialsVat += $line * ($rate / 100);
+                        $articleLine = $pq * $unitPrice;
+                        if ($r > 0) {
+                            $materialsVat += $articleLine * ($r / 100);
+                        }
                     }
                 } else {
-                    $qty = (float) ($job->quantity ?? 0);
-                    $line = (float) ($job->salePrice ?? 0) * $qty;
-                    $materialsSubtotal += $line;
-                    $materialsVat += $line * 0.18;
+                    $materialsVat += $lineNet * 0.18;
                 }
             }
         }
@@ -70,6 +111,7 @@ class FakturaListTotalsService
     {
         $taxRatePercent = 18.0;
         $overrides = $faktura->faktura_overrides['job_quantities'] ?? [];
+        $jobVatOverrides = $faktura->faktura_overrides['job_vat_rates'] ?? [];
 
         $net = 0.0;
         $vat = 0.0;
@@ -77,7 +119,20 @@ class FakturaListTotalsService
             $qty = (float) ($overrides[$job->id] ?? $job->quantity);
             $line = (float) ($job->salePrice ?? 0) * $qty;
             $net += $line;
-            $vat += $line * ($taxRatePercent / 100);
+            $jid = $job->id;
+            $pct = $taxRatePercent;
+            if ($jid !== null && isset($jobVatOverrides[$jid])) {
+                $ovr = (int) $jobVatOverrides[$jid];
+                if (in_array($ovr, [5, 10, 18], true)) {
+                    $pct = (float) $ovr;
+                }
+            } elseif ($jid !== null && isset($jobVatOverrides[(string) $jid])) {
+                $ovr = (int) $jobVatOverrides[(string) $jid];
+                if (in_array($ovr, [5, 10, 18], true)) {
+                    $pct = (float) $ovr;
+                }
+            }
+            $vat += $line * ($pct / 100);
         }
 
         $tradeSubtotal = (float) $faktura->tradeItems->sum('total_price');

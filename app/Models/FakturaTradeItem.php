@@ -6,6 +6,20 @@ use Illuminate\Database\Eloquent\Model;
 
 class FakturaTradeItem extends Model
 {
+    protected static function booted(): void
+    {
+        static::saved(function (FakturaTradeItem $item) {
+            if ($item->faktura_id) {
+                Faktura::query()->whereKey($item->faktura_id)->update(['updated_at' => now()]);
+            }
+        });
+        static::deleted(function (FakturaTradeItem $item) {
+            if ($item->faktura_id) {
+                Faktura::query()->whereKey($item->faktura_id)->update(['updated_at' => now()]);
+            }
+        });
+    }
+
     protected $fillable = [
         'faktura_id',
         'article_id', 

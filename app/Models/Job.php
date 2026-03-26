@@ -25,6 +25,10 @@ class Job extends Model
     {
         parent::boot();
 
+        static::saved(function (Job $job) {
+            self::touchParentFakturaForListTotalsCache($job);
+        });
+
         static::deleting(function ($job) {
             // Clean up original files from R2 storage when job is being deleted
             if ($job->hasOriginalFiles()) {
@@ -88,6 +92,25 @@ class Job extends Model
                 ]);
             }
         });
+    }
+
+    /**
+     * All Invoices subtotals are cached by filter + max(invoiced faktura.updated_at).
+     * Job edits (e.g. salePrice) do not change faktura rows — bust cache by touching the parent faktura.
+     */
+    protected static function touchParentFakturaForListTotalsCache(Job $job): void
+    {
+        $fakturaId = $job->faktura_id;
+        if (! $fakturaId && $job->invoice_id) {
+            $fakturaId = Invoice::query()->whereKey($job->invoice_id)->value('faktura_id');
+        }
+        if (! $fakturaId) {
+            return;
+        }
+        $faktura = Faktura::query()->find($fakturaId);
+        if ($faktura && (int) $faktura->isInvoiced === 1) {
+            $faktura->touch();
+        }
     }
 
     protected $fillable = [

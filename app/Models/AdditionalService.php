@@ -9,6 +9,20 @@ class AdditionalService extends Model
 {
     use HasFactory;
 
+    protected static function booted(): void
+    {
+        static::saved(function (AdditionalService $service) {
+            if ($service->faktura_id) {
+                Faktura::query()->whereKey($service->faktura_id)->update(['updated_at' => now()]);
+            }
+        });
+        static::deleted(function (AdditionalService $service) {
+            if ($service->faktura_id) {
+                Faktura::query()->whereKey($service->faktura_id)->update(['updated_at' => now()]);
+            }
+        });
+    }
+
     protected $fillable = [
         'faktura_id',
         'name',

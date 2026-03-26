@@ -110,14 +110,14 @@
                                 <td class="customer-column">
                                     <FinanceClientNameCell :name="getClientName(faktura)" />
                                 </td>
-                                <td class="col-num">
-                                    <div class="cell-secondary text-right">{{ formatFakturaMoney(faktura.amount) }}</div>
+                                <td class="col-num" :title="formatFakturaMoney(faktura.amount)">
+                                    <div class="cell-secondary text-right finance-money">{{ formatFakturaMoney(faktura.amount) }}</div>
                                 </td>
-                                <td class="col-num">
-                                    <div class="cell-secondary text-right">{{ formatFakturaMoney(faktura.tax) }}</div>
+                                <td class="col-num" :title="formatFakturaMoney(faktura.tax)">
+                                    <div class="cell-secondary text-right finance-money">{{ formatFakturaMoney(faktura.tax) }}</div>
                                 </td>
-                                <td class="col-num">
-                                    <div class="cell-primary text-right">{{ formatFakturaTotalCell(faktura) }}</div>
+                                <td class="col-num" :title="formatFakturaTotalCell(faktura)">
+                                    <div class="cell-primary text-right finance-money">{{ formatFakturaTotalCell(faktura) }}</div>
                                 </td>
                                 <td class="col-created-cell">
                                     <div class="cell-secondary">{{ faktura.created_by?.name || 'N/A' }}</div>
@@ -172,14 +172,14 @@
                                         <span class="all-invoices-subtotal-label-text">Subtotal</span>
                                         <span class="all-invoices-subtotal-hint">{{ allInvoicesSubtotalRowCount }} {{ allInvoicesSubtotalCountLabel }}</span>
                                     </td>
-                                    <td class="col-num all-invoices-subtotal-num">
-                                        <div class="all-invoices-subtotal-value text-right">{{ allInvoicesSubtotalTotals.amount }}</div>
+                                    <td class="col-num all-invoices-subtotal-num" :title="allInvoicesSubtotalTotals.amount">
+                                        <div class="all-invoices-subtotal-value text-right finance-money">{{ allInvoicesSubtotalTotals.amount }}</div>
                                     </td>
-                                    <td class="col-num all-invoices-subtotal-num">
-                                        <div class="all-invoices-subtotal-value text-right">{{ allInvoicesSubtotalTotals.tax }}</div>
+                                    <td class="col-num all-invoices-subtotal-num" :title="allInvoicesSubtotalTotals.tax">
+                                        <div class="all-invoices-subtotal-value text-right finance-money">{{ allInvoicesSubtotalTotals.tax }}</div>
                                     </td>
-                                    <td class="col-num all-invoices-subtotal-num all-invoices-subtotal-num--total">
-                                        <div class="all-invoices-subtotal-value all-invoices-subtotal-value--emphasis text-right">{{ allInvoicesSubtotalTotals.total }}</div>
+                                    <td class="col-num all-invoices-subtotal-num all-invoices-subtotal-num--total" :title="allInvoicesSubtotalTotals.total">
+                                        <div class="all-invoices-subtotal-value all-invoices-subtotal-value--emphasis text-right finance-money">{{ allInvoicesSubtotalTotals.total }}</div>
                                     </td>
                                     <td class="col-created-cell all-invoices-subtotal-rest">&nbsp;</td>
                                     <td class="col-orders-h all-invoices-subtotal-rest">&nbsp;</td>
@@ -759,16 +759,27 @@ export default {
     text-align: right;
 }
 
-/* Amount / Tax / Total — headers + body + subtotal (tabular alignment) */
+/* Amount / Tax / Total — room for large figures; nowrap + min-width so values don’t clip */
 .all-invoices-table-shell :deep(.data-table-head th.col-num),
 .all-invoices-table-shell :deep(.data-table-body td.col-num) {
     text-align: right;
     font-variant-numeric: tabular-nums;
+    min-width: 11rem;
+    white-space: nowrap;
 }
 
 .all-invoices-table-shell.finance-subtotal-outside .finance-subtotal-table td.col-num {
     text-align: right;
     font-variant-numeric: tabular-nums;
+    min-width: 11rem;
+    white-space: nowrap;
+}
+
+.all-invoices-table-shell .finance-money {
+    display: block;
+    overflow: visible;
+    text-overflow: clip;
+    white-space: nowrap;
 }
 
 .text-right {
@@ -868,19 +879,19 @@ export default {
     width: 9%;
 }
 .all-invoices-table-shell col.ai-col-client {
-    width: 18%;
+    width: 12%;
 }
 .all-invoices-table-shell col.ai-col-num {
-    width: 7%;
+    width: 11%;
 }
 .all-invoices-table-shell col.ai-col-by {
     width: 8%;
 }
 .all-invoices-table-shell col.ai-col-orders {
-    width: 10%;
+    width: 8%;
 }
 .all-invoices-table-shell col.ai-col-comment {
-    width: 14%;
+    width: 10%;
 }
 .all-invoices-table-shell col.ai-col-actions {
     width: 10%;
@@ -940,7 +951,8 @@ export default {
     width: 100%;
     min-width: 0;
     border-radius: 0 0 12px 12px;
-    overflow: hidden;
+    overflow-x: auto;
+    overflow-y: visible;
     border: 1px solid rgba(255, 255, 255, 0.12);
     border-top: none;
     background: linear-gradient(

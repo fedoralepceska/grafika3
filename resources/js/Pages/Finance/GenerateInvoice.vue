@@ -168,6 +168,7 @@
                                 <div class="label-cell">Quantity</div>
                                 <div class="label-cell">Unit</div>
                                 <div class="label-cell">Total m²</div>
+                                <div class="label-cell">VAT</div>
                                 <div class="label-cell">Sale Price</div>
                                 <!-- <div class="label-cell">Job Price</div> -->
                                 <div class="label-cell action-cell">Actions</div>
@@ -205,6 +206,17 @@
                                                     v-model.number="job.computed_total_area_m2" />
                                             </template>
                                             <template v-else>{{ formatArea(job.computed_total_area_m2) }}</template>
+                                        </div>
+                                        <div class="value-cell job-vat-cell">
+                                            <template v-if="isEditMode && editingJobId === job.id">
+                                                <select class="inline-input unit-select" v-model="editingJobVatMode">
+                                                    <option value="auto">Auto (materials)</option>
+                                                    <option value="5">5%</option>
+                                                    <option value="10">10%</option>
+                                                    <option value="18">18%</option>
+                                                </select>
+                                            </template>
+                                            <template v-else>{{ formatJobVatDisplay(job) }}</template>
                                         </div>
                                         <div class="value-cell">
                                             <template v-if="isEditMode && editingJobId === job.id">
@@ -330,6 +342,7 @@
                                             <option value="ком">ком</option>
                                         </select>
                                         <div class="value-cell"></div>
+                                        <div class="value-cell"></div>
                                         <input type="number" min="0" step="0.01" class="inline-input"
                                             :class="{ 'invalid-field': !isMergeGroupFieldValid(grp.__idx, 'sale_price') }"
                                             placeholder="Sale Price"
@@ -342,6 +355,7 @@
                                         <div class="value-cell">{{ formatNumber(mergeGroups[grp.__idx].quantity || 0) }}
                                         </div>
                                         <div class="value-cell">{{ mergeGroups[grp.__idx].unit || 'ком' }}</div>
+                                        <div class="value-cell"></div>
                                         <div class="value-cell"></div>
                                         <div class="value-cell">{{ formatPrice(mergeGroups[grp.__idx].sale_price || 0)
                                             }} ден.</div>
@@ -363,6 +377,7 @@
                                                 </select>
                                             </div>
                                             <div class="value-cell">{{ displayJobArea(gid) }}</div>
+                                            <div class="value-cell">{{ formatJobVatDisplayForJobId(gid) }}</div>
                                             <div class="value-cell">{{ displayJobPrice(gid) }} ден.</div>
                                             <div class="value-cell actions">
                                                 <div class="actions-row">
@@ -927,6 +942,7 @@ import OrderJobDetails from "@/Pages/Invoice/OrderJobDetails.vue";
 import OrderSpreadsheet from "@/Components/OrderSpreadsheet.vue";
 import Header from "@/Components/Header.vue";
 import InvoiceJobEdit from "@/Components/InvoiceJobEdit.vue";
+import { getEffectiveVatFromArticles } from "@/utils/jobVatFromArticles.js";
 
 export default {
     components: {
@@ -1085,6 +1101,8 @@ export default {
             originalOrderTitles: {},
             originalJobNames: {},
             originalJobQuantities: {},
+            jobVatOverrides: {},
+            editingJobVatMode: 'auto',
             // Faktura-level client override
             fakturaClientId: null,
             fakturaClientName: '',
@@ -1276,8 +1294,25 @@ export default {
             return {
                 order_title_overrides: overrides.order_titles,
                 job_name_overrides: overrides.job_names,
-                job_quantity_overrides: overrides.job_quantities
+                job_quantity_overrides: overrides.job_quantities,
+                job_vat_rate_overrides: { ...this.jobVatOverrides }
             };
+        },
+        formatJobVatDisplay(job) {
+            if (!job) return '—';
+            const o = this.jobVatOverrides[job.id];
+            if (o !== undefined && o !== null) {
+                return `${o}%`;
+            }
+            const eff = getEffectiveVatFromArticles(job);
+            if (eff.kind === 'mixed') {
+                return '—';
+            }
+            return `${eff.rate}%`;
+        },
+        formatJobVatDisplayForJobId(jobId) {
+            const j = this.getJobById(jobId);
+            return j ? this.formatJobVatDisplay(j) : '—';
         },
         // Initialize units for all jobs
         initializeJobUnits() {
@@ -1513,6 +1548,8 @@ export default {
             if (!job.unit) {
                 this.$set ? this.$set(job, 'unit', 'ком') : (job.unit = 'ком');
             }
+            const vatO = this.jobVatOverrides[job.id];
+            this.editingJobVatMode = vatO !== undefined && vatO !== null ? String(vatO) : 'auto';
             // snapshot original values for cancel
             this.$set ? this.$set(this.originalJobSnapshots, job.id, {
                 name: job.name,
@@ -1520,14 +1557,16 @@ export default {
                 unit: job.unit,
                 computed_total_area_m2: job.computed_total_area_m2,
                 salePrice: job.salePrice,
-                totalPrice: job.totalPrice
+                totalPrice: job.totalPrice,
+                vatOverride: vatO !== undefined && vatO !== null ? Number(vatO) : null
             }) : (this.originalJobSnapshots[job.id] = {
                 name: job.name,
                 quantity: job.quantity,
                 unit: job.unit,
                 computed_total_area_m2: job.computed_total_area_m2,
                 salePrice: job.salePrice,
-                totalPrice: job.totalPrice
+                totalPrice: job.totalPrice,
+                vatOverride: vatO !== undefined && vatO !== null ? Number(vatO) : null
             });
         },
         cancelEditingJob(job) {
@@ -1539,8 +1578,16 @@ export default {
                 job.computed_total_area_m2 = snap.computed_total_area_m2;
                 job.salePrice = snap.salePrice;
                 job.totalPrice = snap.totalPrice;
+                if ('vatOverride' in snap) {
+                    if (snap.vatOverride === null || snap.vatOverride === undefined) {
+                        delete this.jobVatOverrides[job.id];
+                    } else {
+                        this.jobVatOverrides[job.id] = snap.vatOverride;
+                    }
+                }
             }
             this.editingJobId = null;
+            this.editingJobVatMode = 'auto';
             delete this.originalJobSnapshots[job.id];
         },
         async saveEditingJob(job) {
@@ -1575,6 +1622,16 @@ export default {
                 
                 // Keep the frontend-only unit field
                 job.unit = localUnit;
+
+                let newVat = null;
+                if (this.editingJobVatMode !== 'auto') {
+                    newVat = parseInt(this.editingJobVatMode, 10);
+                }
+                if (newVat === null || Number.isNaN(newVat)) {
+                    delete this.jobVatOverrides[job.id];
+                } else {
+                    this.jobVatOverrides[job.id] = newVat;
+                }
                 
                 // Debug: Check if overrides are being detected
                 console.log('Job saved locally:', {
@@ -1590,6 +1647,7 @@ export default {
                 this.$toast?.success?.('Job changes saved for faktura (name/quantity changes will only appear in the generated invoice)');
                 
                 this.editingJobId = null;
+                this.editingJobVatMode = 'auto';
                 delete this.originalJobSnapshots[job.id];
             } catch (e) {
                 console.error('Save error:', e);
@@ -3389,7 +3447,7 @@ table th {
 
 .job-header-labels {
     display: grid;
-    grid-template-columns: 2fr 1fr 0.8fr 1fr 1fr 1fr;
+    grid-template-columns: 2fr 1fr 0.8fr 1fr 0.7fr 1fr 1fr;
     gap: 8px;
     padding: 5px 10px;
     border-top: 1px solid $ultra-light-gray;
@@ -3397,7 +3455,7 @@ table th {
 
 .job-header-labels.with-actions {
     /* Removed Job Price column, keep actions as last */
-    grid-template-columns: 2fr 1fr 0.8fr 1fr 1fr 1fr;
+    grid-template-columns: 2fr 1fr 0.8fr 1fr 0.7fr 1fr 1fr;
 }
 
 .job-header-labels .label-cell {
@@ -3410,7 +3468,7 @@ table th {
 
 .job-header {
     display: grid;
-    grid-template-columns: 2fr 1fr 0.8fr 1fr 1fr 1fr;
+    grid-template-columns: 2fr 1fr 0.8fr 1fr 0.7fr 1fr 1fr;
     align-items: center;
     padding: 10px;
     background-color: #7DC068;
@@ -3452,7 +3510,7 @@ table th {
 
 .merged-container .merged-header {
     display: grid;
-    grid-template-columns: 2fr 1fr 0.8fr 1fr 1fr 1fr;
+    grid-template-columns: 2fr 1fr 0.8fr 1fr 0.7fr 1fr 1fr;
     /* align with job header: Title, Qty, Unit, Total m², Sale, Actions */
     gap: 8px;
     padding: 8px;
@@ -3519,7 +3577,7 @@ table th {
 
 .job-header.with-actions {
     /* Removed Job Price column, keep actions as last */
-    grid-template-columns: 2fr 1fr 0.8fr 1fr 1fr 1fr;
+    grid-template-columns: 2fr 1fr 0.8fr 1fr 0.7fr 1fr 1fr;
 }
 
 .job-header .value-cell {

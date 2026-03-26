@@ -1929,13 +1929,14 @@ class InvoiceController extends Controller
         $fakturaOverrides = [
             'order_titles' => $request->input('order_title_overrides', []),
             'job_names' => $request->input('job_name_overrides', []),
-            'job_quantities' => $request->input('job_quantity_overrides', [])
+            'job_quantities' => $request->input('job_quantity_overrides', []),
+            'job_vat_rates' => $request->input('job_vat_rate_overrides', []),
         ];
         
         // Debug logging
         \Log::info('GenerateInvoice - Received faktura overrides', [
             'overrides' => $fakturaOverrides,
-            'request_data' => $request->only(['order_title_overrides', 'job_name_overrides', 'job_quantity_overrides'])
+            'request_data' => $request->only(['order_title_overrides', 'job_name_overrides', 'job_quantity_overrides', 'job_vat_rate_overrides'])
         ]);
 
         // Check if this is a split invoice request
@@ -1969,6 +1970,7 @@ class InvoiceController extends Controller
             }
 
             $fakturaOverrides = $this->mergeDefaultJobNameOverrides($fakturaOverrides, $invoices);
+            $fakturaOverrides = $this->sanitizeFakturaOverridesJobVatRates($fakturaOverrides);
 
             // Create a new Faktura instance (only after validation passes)
             $paymentDeadlineOverride = $request->input('payment_deadline_override');
@@ -2273,7 +2275,7 @@ class InvoiceController extends Controller
     {
         try {
             $faktura = Faktura::findOrFail($fakturaId);
-            $overrides = $request->input('faktura_overrides', []);
+            $overrides = $this->sanitizeFakturaOverridesJobVatRates($request->input('faktura_overrides', []));
             
             $faktura->faktura_overrides = $overrides;
             $faktura->save();
@@ -2526,8 +2528,10 @@ class InvoiceController extends Controller
         $fakturaOverrides = [
             'order_titles' => $request->input('order_title_overrides', []),
             'job_names' => $request->input('job_name_overrides', []),
-            'job_quantities' => $request->input('job_quantity_overrides', [])
+            'job_quantities' => $request->input('job_quantity_overrides', []),
+            'job_vat_rates' => $request->input('job_vat_rate_overrides', []),
         ];
+        $fakturaOverrides = $this->sanitizeFakturaOverridesJobVatRates($fakturaOverrides);
 
         try {
             DB::beginTransaction();
@@ -3223,7 +3227,8 @@ class InvoiceController extends Controller
             $fakturaOverrides = [
                 'order_titles' => $request->input('order_title_overrides', []),
                 'job_names' => $request->input('job_name_overrides', []),
-                'job_quantities' => $request->input('job_quantity_overrides', [])
+                'job_quantities' => $request->input('job_quantity_overrides', []),
+                'job_vat_rates' => $request->input('job_vat_rate_overrides', []),
             ];
 
             // Check if this is a split preview request
@@ -3245,6 +3250,7 @@ class InvoiceController extends Controller
             }
 
             $fakturaOverrides = $this->mergeDefaultJobNameOverrides($fakturaOverrides, $invoices);
+            $fakturaOverrides = $this->sanitizeFakturaOverridesJobVatRates($fakturaOverrides);
 
             // If a faktura-level client override is provided, reflect it in preview output
             if (is_numeric($fakturaClientId)) {
@@ -4761,6 +4767,23 @@ class InvoiceController extends Controller
         }
 
         return auth()->user()?->name;
+    }
+
+    private function sanitizeFakturaOverridesJobVatRates(array $overrides): array
+    {
+        $allowedVat = [5, 10, 18];
+        if (! isset($overrides['job_vat_rates']) || ! is_array($overrides['job_vat_rates'])) {
+            $overrides['job_vat_rates'] = [];
+        } else {
+            foreach ($overrides['job_vat_rates'] as $jid => $rate) {
+                $r = (int) $rate;
+                if (! in_array($r, $allowedVat, true)) {
+                    unset($overrides['job_vat_rates'][$jid]);
+                }
+            }
+        }
+
+        return $overrides;
     }
 
     private function mergeDefaultJobNameOverrides(array $fakturaOverrides, $invoices): array
