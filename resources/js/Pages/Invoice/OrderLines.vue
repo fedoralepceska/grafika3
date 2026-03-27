@@ -6,7 +6,10 @@
                 <!-- ORDER INDEX, NAME, AND ADDITIONAL INFO -->
                 <div class="text-white">
                     <td class="text-black bg-gray-200 font-weight-black flex justify-between items-center" style="padding: 0 0 0 5px">
-                        <span class="bold">#{{ index + 1 }} {{ job.name }}</span>
+                        <span
+                            class="bold"
+                            :title="'#' + (index + 1) + ' ' + (job.name || '')"
+                        >#{{ index + 1 }} {{ job.name }}</span>
                         <div class="flex gap-2">
                             <button
                                 @click="refreshJobState(job)"

@@ -100,6 +100,17 @@
                                     <div>Created By</div>
                                     <div class="bold">{{ invoice.user.name }}</div>
                                 </div>
+                                <div v-if="invoice.faktura" class="info">
+                                    <div>Linked invoice</div>
+                                    <div class="bold">
+                                        <Link
+                                            :href="`/invoice/${invoice.faktura.id}`"
+                                            class="faktura-link text-sky-300 underline hover:text-white"
+                                        >
+                                            #{{ invoice.faktura.faktura_number }}/{{ invoice.faktura.fiscal_year }}
+                                        </Link>
+                                    </div>
+                                </div>
                                 <div class="btns flex gap-2">
                                     <div class="bt"><i class="fa-regular fa-pen-to-square"></i></div>
                                     <div class="bt" @click="toggleSpreadsheetMode"
@@ -126,8 +137,13 @@
                                 <div class="border">
                                     <div class="flex gap-6 items-start">
                                         <div class="invoice-title text-black bold flex flex-col gap-2">
-                                            <div class="flex gap-2 bg-[#7DC068] p-3 w-[18rem] truncate">
-                                                #{{index+1}} {{job.name}}
+                                            <div class="flex min-w-0 max-w-[18rem] gap-2 rounded-md rounded-tl-none rounded-tr-none border border-white/25 bg-[#7DC068] p-3 shadow-sm w-[18rem]">
+                                                <span
+                                                    class="min-w-0 flex-1 truncate font-semibold"
+                                                    :title="'#' + (index + 1) + ' ' + (job.name || '')"
+                                                >
+                                                    #{{ index + 1 }} {{ job.name }}
+                                                </span>
                                             </div>
                                             <!-- Cutting Files Preview Buttons -->
                                         <div v-if="job.cuttingFiles && job.cuttingFiles.length > 0" class="p-2 cutting-files-preview flex gap-1 border border-solid border-white rounded-md ml-2 ">
@@ -333,6 +349,45 @@
                                                     <i class="fa fa-info-circle"></i>
                                                 </button>
                                             </div>
+                                            <div v-if="hasLinkedFaktura()" class="overrideInfo">
+                                                <div class="overrideTitle">
+                                                    {{ hasJobFakturaOverrides(job) ? 'Invoiced overrides' : 'Invoiced values' }}
+                                                </div>
+                                                <template v-if="getJobMergeGroup(job)">
+                                                    <div v-if="isMergeGroupRepresentative(job)">
+                                                        Qty (merge group):
+                                                        <span class="bold">{{ getMergeGroupQuantityOverride(job) ?? getEffectiveInvoicedQuantity(job) }}</span>
+                                                    </div>
+                                                    <div v-else>
+                                                        Merged in group:
+                                                        <span class="bold">shown on job #{{ getMergeGroupRepresentativeId(job) }}</span>
+                                                    </div>
+                                                    <div v-if="isMergeGroupRepresentative(job)">
+                                                        Invoiced line net (group):
+                                                        <span class="bold">{{ getMergeGroupLineNet(job).toFixed(2) }} ден.</span>
+                                                    </div>
+                                                </template>
+                                                <template v-else-if="getJobQuantityOverride(job) !== null">
+                                                    Qty override:
+                                                    <span class="bold">{{ getJobQuantityOverride(job) }}</span>
+                                                </template>
+                                                <template v-else>
+                                                    Effective qty:
+                                                    <span class="bold">{{ getEffectiveInvoicedQuantity(job) }}</span>
+                                                </template>
+                                                <div v-if="!getJobMergeGroup(job) && getJobVatOverride(job) !== null">
+                                                    VAT override:
+                                                    <span class="bold">{{ getJobVatOverride(job) }}%</span>
+                                                </div>
+                                                <div v-else-if="!getJobMergeGroup(job)">
+                                                    VAT override:
+                                                    <span class="bold">none</span>
+                                                </div>
+                                                <div v-if="!getJobMergeGroup(job)">
+                                                    Invoiced line net:
+                                                    <span class="bold">{{ getInvoicedLineNet(job).toFixed(2) }} ден.</span>
+                                                </div>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
@@ -431,7 +486,7 @@ import CostBreakdownModal from "@/Components/CostBreakdownModal.vue";
 import DownloadFilesModal from "@/Components/DownloadFilesModal.vue";
 import useRoleCheck from '@/Composables/useRoleCheck';
 import { computed } from 'vue';
-
+import { Link } from '@inertiajs/vue3';
 
 export default {
     setup() {
@@ -454,7 +509,9 @@ export default {
         MainLayout,
         Header,
         CostBreakdownModal,
-        DownloadFilesModal },
+        DownloadFilesModal,
+        Link,
+    },
     props: {
         invoice: Object,
         canViewPrice: Boolean
@@ -919,6 +976,97 @@ export default {
             this.showCostBreakdownModal = true;
             this.fetchCostBreakdown(job.id);
         },
+        getFakturaOverrides() {
+            return this.invoice?.faktura?.faktura_overrides ?? {};
+        },
+        getJobQuantityOverride(job) {
+            const overrides = this.getFakturaOverrides();
+            const qtyById = overrides.job_quantities ?? {};
+            const jobId = job?.id;
+            if (jobId == null) return null;
+            if (qtyById[jobId] !== undefined && qtyById[jobId] !== null) return qtyById[jobId];
+            const key = String(jobId);
+            if (qtyById[key] !== undefined && qtyById[key] !== null) return qtyById[key];
+            return null;
+        },
+        getJobVatOverride(job) {
+            const overrides = this.getFakturaOverrides();
+            const vatById = overrides.job_vat_rates ?? {};
+            const jobId = job?.id;
+            if (jobId == null) return null;
+            if (vatById[jobId] !== undefined && vatById[jobId] !== null) return vatById[jobId];
+            const key = String(jobId);
+            if (vatById[key] !== undefined && vatById[key] !== null) return vatById[key];
+            return null;
+        },
+        getMergeGroupQuantityOverride(job) {
+            const group = this.getJobMergeGroup(job);
+            if (!group) return null;
+            const qty = Number(group?.quantity);
+            return Number.isFinite(qty) && qty > 0 ? qty : null;
+        },
+        getJobMergeGroup(job) {
+            const groups = this.invoice?.faktura?.merge_groups;
+            if (!Array.isArray(groups) || !job?.id) return null;
+
+            const targetId = Number(job.id);
+            for (const group of groups) {
+                const ids = Array.isArray(group?.job_ids) ? group.job_ids.map((id) => Number(id)) : [];
+                if (ids.length < 2) continue;
+                if (ids.includes(targetId)) return group;
+            }
+            return null;
+        },
+        isMergeGroupRepresentative(job) {
+            const group = this.getJobMergeGroup(job);
+            if (!group) return false;
+            const ids = Array.isArray(group?.job_ids) ? group.job_ids.map((id) => Number(id)) : [];
+            return ids.length > 0 && Number(job?.id) === ids[0];
+        },
+        getMergeGroupRepresentativeId(job) {
+            const group = this.getJobMergeGroup(job);
+            if (!group) return '';
+            const ids = Array.isArray(group?.job_ids) ? group.job_ids.map((id) => Number(id)) : [];
+            return ids.length > 0 ? ids[0] : '';
+        },
+        getMergeGroupSalePrice(job) {
+            const group = this.getJobMergeGroup(job);
+            const groupSalePrice = Number(group?.sale_price);
+            if (Number.isFinite(groupSalePrice) && groupSalePrice >= 0) {
+                return groupSalePrice;
+            }
+            const unitSale = Number(job?.salePrice ?? job?.totalPrice ?? job?.price ?? 0);
+            return Number.isFinite(unitSale) ? unitSale : 0;
+        },
+        getMergeGroupLineNet(job) {
+            const quantity = Number(this.getMergeGroupQuantityOverride(job) ?? this.getEffectiveInvoicedQuantity(job));
+            const salePrice = this.getMergeGroupSalePrice(job);
+            if (!Number.isFinite(quantity) || !Number.isFinite(salePrice)) return 0;
+            return quantity * salePrice;
+        },
+        hasJobFakturaOverrides(job) {
+            return this.getJobQuantityOverride(job) !== null
+                || this.getJobVatOverride(job) !== null
+                || this.getMergeGroupQuantityOverride(job) !== null;
+        },
+        hasLinkedFaktura() {
+            return !!this.invoice?.faktura?.id;
+        },
+        getEffectiveInvoicedQuantity(job) {
+            const quantityOverride = this.getJobQuantityOverride(job);
+            if (quantityOverride !== null) return Number(quantityOverride);
+
+            const mergedQuantity = this.getMergeGroupQuantityOverride(job);
+            if (mergedQuantity !== null) return Number(mergedQuantity);
+
+            return Number(job?.quantity ?? 0);
+        },
+        getInvoicedLineNet(job) {
+            const quantity = this.getEffectiveInvoicedQuantity(job);
+            const unitSale = Number(job?.salePrice ?? job?.totalPrice ?? job?.price ?? 0);
+            if (!Number.isFinite(quantity) || !Number.isFinite(unitSale)) return 0;
+            return quantity * unitSale;
+        },
         async fetchCostBreakdown(jobId) {
             const toast = useToast();
             try {
@@ -1156,6 +1304,18 @@ export default {
     border-radius: 6px 0 0 0;
     box-shadow: 0 2px 6px rgba(0,0,0,0.15);
     z-index: 5;
+}
+.overrideInfo{
+    margin-top: 4px;
+    padding-top: 4px;
+    border-top: 1px dashed #d1d5db;
+    text-align: right;
+    font-size: 12px;
+}
+.overrideTitle{
+    font-weight: 700;
+    color: #1f2937;
+    margin-bottom: 2px;
 }
 .right{
     gap: 34.9rem;

@@ -282,24 +282,36 @@ export default {
         },
         allInvoicesSubtotalTotals() {
             const ft = this.effectiveFilterTotals;
+            const rows = this.displayFakturas?.data ?? [];
+            const rowCount = ft?.row_count;
+            /** Every matching invoice is on this page — sum row cells so subtotal matches the table (avoids stale cached filter_totals). */
+            const fullFilteredSetLoaded =
+                typeof rowCount === 'number' && rowCount > 0 && rows.length === rowCount;
+
+            let amountSum = 0;
+            let taxSum = 0;
+            for (const f of rows) {
+                amountSum += parseFloat(String(f.amount ?? 0).replace(/,/g, '')) || 0;
+                taxSum += parseFloat(String(f.tax ?? 0).replace(/,/g, '')) || 0;
+            }
+            const totalSum = amountSum + taxSum;
+
+            if (fullFilteredSetLoaded) {
+                return {
+                    amount: this.formatFinanceSubtotal(amountSum),
+                    tax: this.formatFinanceSubtotal(taxSum),
+                    total: this.formatFinanceSubtotal(totalSum),
+                };
+            }
+
             if (ft && typeof ft.amount === 'string') {
                 return { amount: ft.amount, tax: ft.tax, total: ft.total };
             }
-            const rows = this.displayFakturas?.data ?? [];
-            let amountSum = 0;
-            let taxSum = 0;
-            let totalSum = 0;
-            for (const f of rows) {
-                const amount = parseFloat(String(f.amount ?? 0).replace(/,/g, '')) || 0;
-                const tax = parseFloat(String(f.tax ?? 0).replace(/,/g, '')) || 0;
-                amountSum += amount;
-                taxSum += tax;
-                totalSum += amount + tax;
-            }
+
             return {
-                amount: amountSum.toFixed(2),
-                tax: taxSum.toFixed(2),
-                total: totalSum.toFixed(2),
+                amount: this.formatFinanceSubtotal(amountSum),
+                tax: this.formatFinanceSubtotal(taxSum),
+                total: this.formatFinanceSubtotal(totalSum),
             };
         },
         hasAllInvoicesFetchedRows() {
@@ -609,6 +621,14 @@ export default {
                 return '—';
             }
             return val;
+        },
+        /** Match PHP number_format(..., 2, '.', ',') for subtotal strip */
+        formatFinanceSubtotal(n) {
+            const num = Number(n);
+            if (!Number.isFinite(num)) {
+                return '0.00';
+            }
+            return num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
         },
         formatFakturaTotalCell(faktura) {
             const raw = faktura.total;

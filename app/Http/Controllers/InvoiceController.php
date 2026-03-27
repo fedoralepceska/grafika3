@@ -557,7 +557,7 @@ class InvoiceController extends Controller
                 $query->select([
                     'jobs.id', 'jobs.invoice_id', 'jobs.name', 'jobs.status', 'jobs.quantity', 'jobs.copies',
                     'jobs.file', 'jobs.originalFile', 'jobs.cuttingFiles', 'jobs.total_area_m2', 'jobs.dimensions_breakdown',
-                    'jobs.small_material_id', 'jobs.large_material_id'
+                    'jobs.small_material_id', 'jobs.large_material_id', 'jobs.price', 'jobs.salePrice',
                 ]);
             },
             'jobs.small_material.smallFormatMaterial', 
@@ -1058,7 +1058,7 @@ class InvoiceController extends Controller
                 $query->select([
                     'jobs.id', 'jobs.invoice_id', 'jobs.name', 'jobs.status', 'jobs.quantity', 'jobs.copies',
                     'jobs.file', 'jobs.originalFile', 'jobs.cuttingFiles', 'jobs.total_area_m2', 'jobs.dimensions_breakdown',
-                    'jobs.small_material_id', 'jobs.large_material_id'
+                    'jobs.small_material_id', 'jobs.large_material_id', 'jobs.price', 'jobs.salePrice',
                 ]);
             },
             'jobs.small_material.smallFormatMaterial', 
@@ -1583,7 +1583,12 @@ class InvoiceController extends Controller
     /**
      * Cache key for list subtotals: filter fingerprint + data revision (any invoiced faktura row update).
      * Line-item changes that do not touch faktura.updated_at can leave totals stale until TTL — see {@see computeAllInvoicesFilterTotalsUncached}.
+     *
+     * {@see FakturaListTotalsService} algorithm changes (e.g. merge_groups handling) must bump TOTALS_ALGO_VERSION
+     * so cached aggregates match per-row augmentation (rows are never cached).
      */
+    private const ALL_INVOICES_FILTER_TOTALS_ALGO_VERSION = '2';
+
     protected function allInvoicesFilterTotalsCacheKey(Request $request): string
     {
         $fingerprint = hash('sha256', json_encode([
@@ -1600,7 +1605,7 @@ class InvoiceController extends Controller
         $rev = Faktura::query()->where('isInvoiced', 1)->max('updated_at');
         $revKey = $rev ? (string) $rev : '0';
 
-        return 'all_invoices_filter_totals:'.$fingerprint.':'.$revKey;
+        return 'all_invoices_filter_totals:v'.self::ALL_INVOICES_FILTER_TOTALS_ALGO_VERSION.':'.$fingerprint.':'.$revKey;
     }
 
     /**
@@ -1868,7 +1873,7 @@ class InvoiceController extends Controller
                     $query->select([
                         'jobs.id', 'jobs.invoice_id', 'jobs.name', 'jobs.status', 'jobs.quantity', 'jobs.copies',
                         'jobs.file', 'jobs.originalFile', 'jobs.cuttingFiles', 'jobs.total_area_m2', 'jobs.dimensions_breakdown',
-                        'jobs.small_material_id', 'jobs.large_material_id', 'jobs.salePrice', 'jobs.faktura_override_name'
+                        'jobs.small_material_id', 'jobs.large_material_id', 'jobs.price', 'jobs.salePrice', 'jobs.faktura_override_name'
                     ])->with(['articles' => function ($a) {
                         // Ensure unit flags and tax type are present in payload
                         $a->select('article.id', 'article.name', 'article.code', 'article.tax_type', 'article.in_square_meters', 'article.in_pieces', 'article.in_kilograms', 'article.in_meters');
@@ -3135,7 +3140,7 @@ class InvoiceController extends Controller
                 $query->select([
                     'jobs.id', 'jobs.invoice_id', 'jobs.name', 'jobs.status', 'jobs.quantity', 'jobs.copies',
                     'jobs.file', 'jobs.originalFile', 'jobs.cuttingFiles', 'jobs.total_area_m2', 'jobs.dimensions_breakdown',
-                    'jobs.small_material_id', 'jobs.large_material_id'
+                    'jobs.small_material_id', 'jobs.large_material_id', 'jobs.price', 'jobs.salePrice',
                 ]);
             },
             'jobs.actions',
