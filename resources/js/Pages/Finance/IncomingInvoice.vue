@@ -302,7 +302,7 @@ export default {
             fiscalYear: '',
             calendarMonth: '',
             sortOrder: 'desc',
-            chunkSize: 18,
+            chunkSize: 13,
             localIncoming: null,
             loading: false,
             loadingMore: false,

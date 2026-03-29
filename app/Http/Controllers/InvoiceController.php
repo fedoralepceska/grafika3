@@ -1692,7 +1692,7 @@ class InvoiceController extends Controller
                 ->orderBy('id', $sortOrder);
 
             // Apply pagination with configurable results per page
-            $perPage = (int) $request->input('per_page', 18);
+            $perPage = (int) $request->input('per_page', 13);
             $perPage = max(1, min($perPage, 200));
             $fakturas = $query->paginate($perPage)->withQueryString();
             $this->augmentAllInvoicesPaginator($fakturas);
@@ -1711,6 +1711,101 @@ class InvoiceController extends Controller
         }
     }
 
+    /**
+     * Build per-invoice job row arrays with merge_groups applied (one combined line per group).
+     * Returns [] when there is nothing to merge so callers keep default invoice jobs.
+     *
+     * @param  \Illuminate\Support\Collection<int, Invoice>  $invoices
+     * @param  array<int, array<string, mixed>>  $mergeGroups
+     * @param  array<int, array<string, mixed>>  $jobUnits
+     * @return array<int, array<int, array<string, mixed>>>
+     */
+    protected function buildMergedJobsByInvoiceFromGroups($invoices, array $mergeGroups, array $jobUnits = []): array
+    {
+        if ($mergeGroups === [] || $invoices->isEmpty()) {
+            return [];
+        }
+
+        $mergedJobsByInvoice = [];
+        foreach ($invoices as $inv) {
+            $mergedJobsByInvoice[$inv->id] = $inv->jobs->map(function ($j) {
+                return $j->toArray();
+            })->all();
+        }
+
+        $jobLookup = [];
+        $jobInvoiceLookup = [];
+        foreach ($invoices as $inv) {
+            foreach ($inv->jobs as $j) {
+                $jobLookup[$j->id] = $j->toArray();
+                $jobInvoiceLookup[$j->id] = $inv->id;
+            }
+        }
+
+        $firstInvoiceId = $invoices->first()->id;
+
+        foreach ($mergeGroups as $grp) {
+            $ids = isset($grp['job_ids']) && is_array($grp['job_ids']) ? $grp['job_ids'] : [];
+            $ids = array_values(array_filter($ids, fn ($v) => isset($jobLookup[$v])));
+            if (count($ids) < 2) {
+                continue;
+            }
+            $first = $jobLookup[$ids[0]];
+            $sumQty = 0;
+            $sumArea = 0.0;
+            foreach ($ids as $jid) {
+                $jj = $jobLookup[$jid];
+                $sumQty += (int) ($jj['quantity'] ?? 0);
+                $sumArea += (float) ($jj['computed_total_area_m2'] ?? 0);
+            }
+
+            $mergedUnit = null;
+            if (isset($grp['unit']) && ! empty($grp['unit'])) {
+                $mergedUnit = $grp['unit'];
+            } else {
+                foreach ($ids as $jid) {
+                    $customUnit = null;
+                    if ($jobUnits && is_array($jobUnits)) {
+                        foreach ($jobUnits as $unitData) {
+                            if (isset($unitData['id']) && $unitData['id'] == $jid && ! empty($unitData['unit'])) {
+                                $customUnit = $unitData['unit'];
+                                break;
+                            }
+                        }
+                    }
+                    if ($customUnit) {
+                        $mergedUnit = $customUnit;
+                        break;
+                    }
+                }
+                if (! $mergedUnit) {
+                    $mergedUnit = 'ком';
+                }
+            }
+
+            $merged = $first;
+            $merged['id'] = $first['id'];
+            $merged['name'] = $grp['title'] ?? ($first['name'] ?? null);
+            $merged['quantity'] = isset($grp['quantity']) ? (float) $grp['quantity'] : $sumQty;
+            $merged['salePrice'] = isset($grp['sale_price']) ? (float) $grp['sale_price'] : (float) ($first['salePrice'] ?? 0);
+            $merged['computed_total_area_m2'] = $sumArea;
+            $merged['merged'] = true;
+            $merged['merged_job_ids'] = $ids;
+            $merged['unit'] = $mergedUnit;
+
+            $holderInvoiceId = $jobInvoiceLookup[$ids[0]] ?? $firstInvoiceId;
+            foreach ($ids as $jid) {
+                $invId = $jobInvoiceLookup[$jid];
+                $mergedJobsByInvoice[$invId] = array_values(array_filter($mergedJobsByInvoice[$invId], function ($jrow) use ($jid) {
+                    return ($jrow['id'] ?? null) !== $jid;
+                }));
+            }
+            $mergedJobsByInvoice[$holderInvoiceId][] = $merged;
+        }
+
+        return $mergedJobsByInvoice;
+    }
+
     public function outgoingInvoicePdf(Request $request)
     {
         $invoiceIds = $request->input('invoiceIds', []);
@@ -1722,15 +1817,42 @@ class InvoiceController extends Controller
         }
 
         $firstInvoice = null;
+        $mergedJobsByInvoice = [];
+        $additionalServices = [];
+        $jobUnits = [];
+
+        $jobsArticleWith = [
+            'jobs.articles' => function ($q) {
+                $q->select('article.id', 'article.name', 'article.price_1', 'article.tax_type', 'article.in_square_meters', 'article.in_pieces', 'article.in_kilograms', 'article.in_meters');
+            },
+        ];
 
         // If already generated, fetch ALL invoices that belong to the same faktura
         if ($isAlreadyGenerated) {
             $firstInvoice = Invoice::with(['faktura.createdBy'])->findOrFail($invoiceIds[0]);
             if ($firstInvoice->faktura) {
+                $firstInvoice->faktura->loadMissing(['merge_groups', 'additionalServices']);
                 // Get all invoices that belong to this faktura
-                $invoices = Invoice::with(['article','client','client.clientCardStatement','faktura.tradeItems.article','faktura.createdBy','jobs'])
+                $invoices = Invoice::with(array_merge([
+                    'article',
+                    'client',
+                    'client.clientCardStatement',
+                    'faktura.tradeItems.article',
+                    'faktura.createdBy',
+                    'jobs.actions',
+                ], $jobsArticleWith))
                     ->where('faktura_id', $firstInvoice->faktura->id)
                     ->get();
+
+                $mergeGroups = $firstInvoice->faktura->merge_groups ?? [];
+                $mergedJobsByInvoice = $this->buildMergedJobsByInvoiceFromGroups(
+                    $invoices,
+                    is_array($mergeGroups) ? $mergeGroups : [],
+                    []
+                );
+                $additionalServices = $firstInvoice->faktura->additionalServices
+                    ? $firstInvoice->faktura->additionalServices->map(fn ($s) => $s->toArray())->all()
+                    : [];
 
                 // If faktura has a client override, reflect it for printing
                 if ($firstInvoice->faktura->client_id) {
@@ -1743,19 +1865,36 @@ class InvoiceController extends Controller
                 }
             } else {
                 // Fallback to original behavior if no faktura
-                $invoices = Invoice::with(['article','client','client.clientCardStatement','faktura.tradeItems.article','faktura.createdBy'])->findOrFail($invoiceIds);
+                $invoices = Invoice::with(array_merge([
+                    'article',
+                    'client',
+                    'client.clientCardStatement',
+                    'faktura.tradeItems.article',
+                    'faktura.createdBy',
+                    'jobs.actions',
+                ], $jobsArticleWith))->findOrFail($invoiceIds);
             }
         } else {
             // For preview/generation, use the provided invoice IDs
-            $invoices = Invoice::with(['article','client','client.clientCardStatement','faktura.tradeItems.article','faktura.createdBy'])->findOrFail($invoiceIds);
+            $invoices = Invoice::with(array_merge([
+                'article',
+                'client',
+                'client.clientCardStatement',
+                'faktura.tradeItems.article',
+                'faktura.createdBy',
+                'jobs.actions',
+            ], $jobsArticleWith))->findOrFail($invoiceIds);
         }
 
         $dns1d = new DNS1D();
+        $fakturaGeneratedAt = ($isAlreadyGenerated && $firstInvoice && $firstInvoice->faktura && $firstInvoice->faktura->created_at)
+            ? $firstInvoice->faktura->created_at->toDateTimeString()
+            : null;
         // Create a transformed array for PDF generation without modifying the original invoices
         $nextFakturaId = (int) (\App\Models\Faktura::max('id') ?? 0) + 1;
         $fiscalYear = (int) date('Y');
         $nextFakturaNumber = (int) (\App\Models\Faktura::where('fiscal_year', $fiscalYear)->max('faktura_number') ?? 0) + 1;
-        $transformedInvoices = $invoices->map(function ($invoice) use ($dns1d, $isAlreadyGenerated, $nextFakturaId, $nextFakturaNumber, $fiscalYear, $invoices) {
+        $transformedInvoices = $invoices->map(function ($invoice) use ($dns1d, $isAlreadyGenerated, $nextFakturaId, $nextFakturaNumber, $fiscalYear, $invoices, $mergedJobsByInvoice, $fakturaGeneratedAt) {
             $barcodeString = $invoice->id . '-' . date('m-Y', strtotime($invoice->end_date));
             $barcodeImage = base64_encode($dns1d->getBarcodePNG($barcodeString, 'C128'));
 
@@ -1784,9 +1923,16 @@ class InvoiceController extends Controller
                 })->toArray();
             }
 
+            $invoiceArr = $invoice->toArray();
+            if (! empty($mergedJobsByInvoice) && isset($mergedJobsByInvoice[$invoice->id])) {
+                $invoiceArr['jobs'] = $mergedJobsByInvoice[$invoice->id];
+            }
+
+            $generatedAt = $fakturaGeneratedAt ?? now()->toDateTimeString();
+
             // Return a new array for this invoice with the required fields
             return array_merge(
-                $invoice->toArray(),
+                $invoiceArr,
                 [
                     'barcodeImage' => $barcodeImage,
                     'totalSalePrice' => $totalSalePrice,
@@ -1795,8 +1941,7 @@ class InvoiceController extends Controller
                     'taxAmount' => $taxAmount,
                     'copies' => $totalCopies,
                     'trade_items' => $tradeItemsArray,
-                    // For this flow, use current timestamp as generated_at (pre or post generation)
-                    'generated_at' => now()->toDateTimeString(),
+                    'generated_at' => $generatedAt,
                     // If already generated, include faktura_id and faktura_number; else propose next
                     'faktura_id' => optional($invoice->faktura)->id,
                     'faktura_number' => optional($invoice->faktura)->faktura_number,
@@ -1826,7 +1971,7 @@ class InvoiceController extends Controller
 
             $pdf = PDF::loadView('invoices.outgoing_invoice_v2', [
                 'invoices' => $transformedInvoices,
-                'additionalServices' => is_array($additionalServices) ? $additionalServices : [],
+                'additionalServices' => $additionalServices,
                 'jobUnits' => $jobUnits,
                 'fakturaOverrides' => $fakturaOverrides,
                 'invoiceIssuerName' => $invoiceIssuerName,
@@ -2100,67 +2245,11 @@ class InvoiceController extends Controller
             $dns1d = new DNS1D();
             // If merge groups persisted on faktura (from request or pre-set), build merged jobs
             $mergeGroups = is_array($request->input('merge_groups')) ? $request->input('merge_groups') : ($faktura->merge_groups ?? []);
-            $mergedJobsByInvoice = [];
-            if (!empty($mergeGroups)) {
-                foreach ($invoices as $inv) {
-                    $mergedJobsByInvoice[$inv->id] = $inv->jobs->map(function ($j) { return $j->toArray(); })->all();
-                }
-                $jobLookup = [];
-                $jobInvoiceLookup = [];
-                foreach ($invoices as $inv) {
-                    foreach ($inv->jobs as $j) { $jobLookup[$j->id] = $j->toArray(); $jobInvoiceLookup[$j->id] = $inv->id; }
-                }
-                foreach ($mergeGroups as $grp) {
-                    $ids = isset($grp['job_ids']) && is_array($grp['job_ids']) ? $grp['job_ids'] : [];
-                    $ids = array_values(array_filter($ids, fn($v) => isset($jobLookup[$v])));
-                    if (count($ids) < 2) continue;
-                    $first = $jobLookup[$ids[0]];
-                    $sumQty = 0; $sumArea = 0.0;
-                    foreach ($ids as $jid) { $jj = $jobLookup[$jid]; $sumQty += (int)($jj['quantity'] ?? 0); $sumArea += (float)($jj['computed_total_area_m2'] ?? 0); }
-                    
-                    // Determine the unit for the merged job from merge group or from constituent jobs
-                    $mergedUnit = null;
-                    if (isset($grp['unit']) && !empty($grp['unit'])) {
-                        // Use unit from merge group if specified
-                        $mergedUnit = $grp['unit'];
-                    } else {
-                        // Determine unit from constituent jobs - use the unit from the first job that has a custom unit,
-                        // or fall back to the first job's unit
-                        foreach ($ids as $jid) {
-                            $customUnit = null;
-                            if ($jobUnits && is_array($jobUnits)) {
-                                foreach ($jobUnits as $unitData) {
-                                    if (isset($unitData['id']) && $unitData['id'] == $jid && !empty($unitData['unit'])) {
-                                        $customUnit = $unitData['unit'];
-                                        break;
-                                    }
-                                }
-                            }
-                            if ($customUnit) {
-                                $mergedUnit = $customUnit;
-                                break;
-                            }
-                        }
-                        // If no custom unit found, use the first job's default unit
-                        if (!$mergedUnit) {
-                            $mergedUnit = 'ком'; // Default fallback
-                        }
-                    }
-                    
-                    $merged = $first; $merged['id'] = $first['id'];
-                    $merged['name'] = $grp['title'] ?? ($first['name'] ?? null);
-                    $merged['quantity'] = isset($grp['quantity']) ? (float)$grp['quantity'] : $sumQty;
-                    $merged['salePrice'] = isset($grp['sale_price']) ? (float)$grp['sale_price'] : (float)($first['salePrice'] ?? 0);
-                    $merged['computed_total_area_m2'] = $sumArea; $merged['merged'] = true; $merged['merged_job_ids'] = $ids;
-                    $merged['unit'] = $mergedUnit; // Add the determined unit to the merged job
-                    $holderInvoiceId = $jobInvoiceLookup[$ids[0]] ?? $invoices->first()->id;
-                    foreach ($ids as $jid) {
-                        $invId = $jobInvoiceLookup[$jid];
-                        $mergedJobsByInvoice[$invId] = array_values(array_filter($mergedJobsByInvoice[$invId], function ($jrow) use ($jid) { return ($jrow['id'] ?? null) !== $jid; }));
-                    }
-                    $mergedJobsByInvoice[$holderInvoiceId][] = $merged;
-                }
-            }
+            $mergedJobsByInvoice = $this->buildMergedJobsByInvoiceFromGroups(
+                $invoices,
+                is_array($mergeGroups) ? $mergeGroups : [],
+                is_array($jobUnits) ? $jobUnits : []
+            );
 
             // If faktura has a client override, reflect it in mapped data by overriding invoice->client relation
             if ($faktura && $faktura->client_id) {
@@ -3174,7 +3263,7 @@ class InvoiceController extends Controller
                 ->orderBy('id', $sortOrder);
 
             // Apply pagination with configurable results per page on initial page
-            $perPage = (int) $request->input('per_page', 18);
+            $perPage = (int) $request->input('per_page', 13);
             $perPage = max(1, min($perPage, 200));
             $fakturas = $query->paginate($perPage)->withQueryString();
             $this->augmentAllInvoicesPaginator($fakturas);
@@ -3267,90 +3356,11 @@ class InvoiceController extends Controller
                 }
             }
 
-            // If merge groups provided, prepare merged jobs view per-invoice for preview
-            $mergedJobsByInvoice = [];
-            if (!empty($mergeGroups) && is_array($mergeGroups)) {
-                // Seed with original jobs as arrays
-                foreach ($invoices as $inv) {
-                    $mergedJobsByInvoice[$inv->id] = $inv->jobs->map(function ($j) {
-                        return $j->toArray();
-                    })->all();
-                }
-                // Build job lookup by id and invoice id
-                $jobLookup = [];
-                $jobInvoiceLookup = [];
-                foreach ($invoices as $inv) {
-                    foreach ($inv->jobs as $j) {
-                        $jobLookup[$j->id] = $j->toArray();
-                        $jobInvoiceLookup[$j->id] = $inv->id;
-                    }
-                }
-                foreach ($mergeGroups as $grp) {
-                    $ids = isset($grp['job_ids']) && is_array($grp['job_ids']) ? $grp['job_ids'] : [];
-                    $ids = array_values(array_filter($ids, fn($v) => isset($jobLookup[$v])));
-                    if (count($ids) < 2) continue;
-                    $first = $jobLookup[$ids[0]];
-                    // Compute sums
-                    $sumQty = 0; $sumArea = 0.0;
-                    foreach ($ids as $jid) {
-                        $jj = $jobLookup[$jid];
-                        $sumQty += (int)($jj['quantity'] ?? 0);
-                        $sumArea += (float)($jj['computed_total_area_m2'] ?? 0);
-                    }
-                    
-                    // Determine the unit for the merged job from merge group or from constituent jobs
-                    $mergedUnit = null;
-                    if (isset($grp['unit']) && !empty($grp['unit'])) {
-                        // Use unit from merge group if specified
-                        $mergedUnit = $grp['unit'];
-                    } else {
-                        // Determine unit from constituent jobs - use the unit from the first job that has a custom unit,
-                        // or fall back to the first job's unit
-                        foreach ($ids as $jid) {
-                            $customUnit = null;
-                            if ($jobUnits && is_array($jobUnits)) {
-                                foreach ($jobUnits as $unitData) {
-                                    if (isset($unitData['id']) && $unitData['id'] == $jid && !empty($unitData['unit'])) {
-                                        $customUnit = $unitData['unit'];
-                                        break;
-                                    }
-                                }
-                            }
-                            if ($customUnit) {
-                                $mergedUnit = $customUnit;
-                                break;
-                            }
-                        }
-                        // If no custom unit found, use the first job's default unit
-                        if (!$mergedUnit) {
-                            $mergedUnit = 'ком'; // Default fallback
-                        }
-                    }
-                    
-                    // Create merged job based on first
-                    $merged = $first;
-                    $merged['id'] = $first['id'];
-                    // Allow explicit override from merge group payload
-                    $merged['name'] = $grp['title'] ?? ($first['name'] ?? null);
-                    $merged['quantity'] = isset($grp['quantity']) ? (float)$grp['quantity'] : $sumQty;
-                    $merged['salePrice'] = isset($grp['sale_price']) ? (float)$grp['sale_price'] : (float)($first['salePrice'] ?? 0);
-                    $merged['computed_total_area_m2'] = $sumArea;
-                    $merged['merged'] = true;
-                    $merged['merged_job_ids'] = $ids;
-                    $merged['unit'] = $mergedUnit; // Add the determined unit to the merged job
-                    // Holder is the first invoice in selection to keep deterministic
-                    $holderInvoiceId = $jobInvoiceLookup[$ids[0]] ?? $invoices->first()->id;
-                    // Remove all original jobs from their invoices
-                    foreach ($ids as $jid) {
-                        $invId = $jobInvoiceLookup[$jid];
-                        $mergedJobsByInvoice[$invId] = array_values(array_filter($mergedJobsByInvoice[$invId], function ($jrow) use ($jid) {
-                            return ($jrow['id'] ?? null) !== $jid;
-                        }));
-                    }
-                    // Place merged job into holder invoice
-                    $mergedJobsByInvoice[$holderInvoiceId][] = $merged;
-                }
-            }
+            $mergedJobsByInvoice = $this->buildMergedJobsByInvoiceFromGroups(
+                $invoices,
+                is_array($mergeGroups) ? $mergeGroups : [],
+                is_array($jobUnits) ? $jobUnits : []
+            );
 
             // Transform invoices for PDF generation (same as outgoingInvoicePdf)
             $dns1d = new DNS1D();

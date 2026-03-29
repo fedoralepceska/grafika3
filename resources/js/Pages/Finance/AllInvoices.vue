@@ -259,7 +259,7 @@ export default {
             localFakturas: null,
             loading: false,
             loadingMore: false,
-            chunkSize: 18,
+            chunkSize: 13,
             allInvoicesScrollFillDepth: 0,
             /** Subtotal sits outside the scroll box; pad by scrollbar width so columns match the grid above */
             subtotalScrollbarPadPx: 0,

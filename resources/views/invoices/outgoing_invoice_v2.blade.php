@@ -492,18 +492,28 @@
                         <td style="font-size: 10pt; padding: 6px; text-align: center; white-space: nowrap;">{{ $item['row_number'] }}.</td>
                         @php
                             $originalJobName = $item['job']['name'] ?? '';
-                            $jobName = $originalJobName;
+                            $fakturaOverrideName = trim((string)($item['job']['faktura_override_name'] ?? ''));
                             $jobId = $item['job']['id'] ?? null;
                             $hasJobNameOverride = false;
-                            
-                            // Apply job name override if available
+                            $jobNameFromFaktura = '';
+
                             if ($jobId && isset($fakturaOverrides['job_names'][$jobId]) && trim((string)$fakturaOverrides['job_names'][$jobId]) !== '') {
-                                $jobName = $fakturaOverrides['job_names'][$jobId];
+                                $jobNameFromFaktura = $fakturaOverrides['job_names'][$jobId];
                                 $hasJobNameOverride = true;
                             }
-                            
-                            // For merged jobs: keep only the first order's title, and hide order id
+
                             $isMerged = (bool) ($item['job']['merged'] ?? false);
+
+                            // Primary line: merged rows use merge-group title in job.name (do not use job_names override — it still holds the first constituent job name).
+                            $primaryArticleTitle = '';
+                            if ($isMerged) {
+                                $t = trim((string) $originalJobName);
+                                $primaryArticleTitle = $t !== '' ? $originalJobName : $fakturaOverrideName;
+                            } elseif ($hasJobNameOverride) {
+                                $primaryArticleTitle = $jobNameFromFaktura;
+                            }
+
+                            // For merged jobs: keep only the first order's title, and hide order id
                             if ($isMerged) {
                                 $ids = $item['job']['merged_job_ids'] ?? [];
                                 $earliestId = null; $earliestTitle = '';
@@ -519,24 +529,30 @@
                                     }
                                 }
                                 $orderName = $earliestTitle;
-                                
-                                // Apply order title override if available
+
                                 if ($earliestId && isset($fakturaOverrides['order_titles'][$earliestId])) {
                                     $orderName = $fakturaOverrides['order_titles'][$earliestId];
                                 }
                             } else {
                                 $orderName = $item['invoice_title'] ?? '';
                                 $orderId = $item['invoice_id'] ?? null;
-                                
-                                // Apply order title override if available
+
                                 if ($orderId && isset($fakturaOverrides['order_titles'][$orderId])) {
                                     $orderName = $fakturaOverrides['order_titles'][$orderId];
                                 }
                             }
+
+                            $showGrayJobNameLine = trim((string) $originalJobName) !== '';
+                            if ($isMerged && trim((string) $primaryArticleTitle) !== '' && trim((string) $primaryArticleTitle) === trim((string) $originalJobName)) {
+                                $showGrayJobNameLine = false;
+                            }
+                            if (! $isMerged && $hasJobNameOverride && trim((string) $primaryArticleTitle) !== '' && trim((string) $primaryArticleTitle) === trim((string) $originalJobName)) {
+                                $showGrayJobNameLine = false;
+                            }
                         @endphp
                         <td style="font-size: 10pt; padding: 6px; text-align: left;">
-                            @if($hasJobNameOverride)
-                                <div class="truncate-cell">{{ $jobName }}</div>
+                            @if(trim((string) $primaryArticleTitle) !== '')
+                                <div class="truncate-cell">{{ $primaryArticleTitle }}</div>
                             @endif
                             @if($orderName)
                                 <div class="truncate-cell" style="color:rgb(109, 128, 129); font-size: 8pt; line-height: 0.8;">
@@ -546,7 +562,7 @@
                                     {{ $orderName }}
                                 </div>
                             @endif
-                            @if($originalJobName)
+                            @if($showGrayJobNameLine)
                                 <div class="truncate-cell" style="color:rgb(109, 128, 129); font-size: 8pt; line-height: 0.8;">
                                     {{ $originalJobName }}
                                 </div>
