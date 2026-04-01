@@ -93,9 +93,12 @@
 
                     <div v-else class="incoming-table-block">
                     <div
+                        class="finance-table-viewport"
+                        :class="{ 'finance-table-viewport--has-subtotal': showIncomingSubtotal }"
+                    >
+                    <div
                         ref="incomingTableScroll"
                         class="incoming-table-shell finance-table-scroll"
-                        :class="{ 'finance-table-scroll--has-subtotal': hasIncomingFetchedRows }"
                         @scroll.passive="onIncomingTableScroll"
                     >
                     <DataTableShell compact variant="grid">
@@ -186,9 +189,11 @@
                     <div v-if="loadingMore" class="finance-scroll-loading" aria-live="polite">
                         <i class="fa fa-spinner fa-spin" /> Loading more…
                     </div>
+                    </div>
+
                     <div
                         v-if="showIncomingSubtotal"
-                        class="incoming-table-shell finance-subtotal-outside finance-subtotal-sticky"
+                        class="incoming-table-shell finance-subtotal-outside"
                         :style="{ paddingInlineEnd: subtotalScrollbarPadPx + 'px' }"
                     >
                         <table class="data-table finance-subtotal-table" title="Totals for all rows matching the current filters">
@@ -305,8 +310,6 @@ export default {
             localIncoming: null,
             loading: false,
             loadingMore: false,
-            /** Guards auto-fill loop when the viewport is taller than one page of rows */
-            incomingScrollFillDepth: 0,
             /** Subtotal sits outside the scroll box; pad by scrollbar width so columns match the grid above */
             subtotalScrollbarPadPx: 0,
             filterTotalsSnapshot: null,
@@ -492,9 +495,6 @@ export default {
             return parts.length ? `?${parts.join('&')}` : '';
         },
         async fetchList(page = 1, { append = false } = {}) {
-            if (!append) {
-                this.incomingScrollFillDepth = 0;
-            }
             try {
                 if (append) {
                     this.loadingMore = true;
@@ -522,7 +522,6 @@ export default {
                 this.loading = false;
                 this.loadingMore = false;
                 this.$nextTick(() => {
-                    this.maybeFillIncomingScroll();
                     this.ensureIncomingSubtotalScrollbarSync();
                 });
             }
@@ -569,23 +568,6 @@ export default {
             }
             const threshold = 100;
             if (el.scrollTop + el.clientHeight >= el.scrollHeight - threshold) {
-                this.fetchList(p.current_page + 1, { append: true });
-            }
-        },
-        maybeFillIncomingScroll() {
-            const el = this.$refs.incomingTableScroll;
-            if (!el || this.loading || this.loadingMore) {
-                return;
-            }
-            const p = this.displayIncoming;
-            if (!p || p.current_page >= p.last_page) {
-                return;
-            }
-            if (this.incomingScrollFillDepth >= 50) {
-                return;
-            }
-            if (el.scrollHeight <= el.clientHeight + 2) {
-                this.incomingScrollFillDepth += 1;
                 this.fetchList(p.current_page + 1, { append: true });
             }
         },
@@ -779,18 +761,24 @@ export default {
     min-width: 0;
 }
 
+.finance-table-viewport {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    max-height: min(calc(40px + 20 * 38px), calc(100vh - 260px));
+}
+
+.finance-table-viewport--has-subtotal .finance-table-scroll {
+    border-radius: 12px 12px 0 0;
+}
+
 /* ~20 data rows visible; scroll for more (loads next page near bottom) */
 .incoming-table-shell.finance-table-scroll {
+    flex: 1 1 auto;
     min-height: 0;
-    max-height: min(calc(40px + 20 * 38px), calc(100vh - 260px));
     overflow-y: auto;
     overflow-x: auto;
     border-radius: 12px;
-}
-
-.incoming-table-shell.finance-table-scroll.finance-table-scroll--has-subtotal {
-    border-radius: 12px 12px 0 0;
-    padding-bottom: 56px; /* reserve space so last row isn't hidden behind sticky subtotal */
 }
 
 .incoming-table-shell.finance-table-scroll :deep(.data-table-head th) {
@@ -1012,6 +1000,7 @@ export default {
 
 /* Subtotal strip — scrollbar padding-inline-end matches table width; same gradient fills that zone (no pale patch bottom-right) */
 .incoming-table-shell.finance-subtotal-outside {
+    flex: 0 0 auto;
     box-sizing: border-box;
     width: 100%;
     min-width: 0;
@@ -1025,12 +1014,6 @@ export default {
         rgba(37, 99, 235, 0.24) 0%,
         rgba(15, 23, 42, 0.94) 100%
     );
-}
-
-.incoming-table-shell.finance-subtotal-outside.finance-subtotal-sticky {
-    position: sticky;
-    bottom: 0;
-    z-index: 6;
 }
 
 .incoming-table-shell.finance-subtotal-outside .finance-subtotal-table {
