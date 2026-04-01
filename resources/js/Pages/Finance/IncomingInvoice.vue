@@ -186,11 +186,9 @@
                     <div v-if="loadingMore" class="finance-scroll-loading" aria-live="polite">
                         <i class="fa fa-spinner fa-spin" /> Loading more…
                     </div>
-                    </div>
-
                     <div
                         v-if="showIncomingSubtotal"
-                        class="incoming-table-shell finance-subtotal-outside"
+                        class="incoming-table-shell finance-subtotal-outside finance-subtotal-sticky"
                         :style="{ paddingInlineEnd: subtotalScrollbarPadPx + 'px' }"
                     >
                         <table class="data-table finance-subtotal-table" title="Totals for all rows matching the current filters">
@@ -230,6 +228,7 @@
                                 </tr>
                             </tbody>
                         </table>
+                    </div>
                     </div>
                     </div>
                 </div>
@@ -791,6 +790,7 @@ export default {
 
 .incoming-table-shell.finance-table-scroll.finance-table-scroll--has-subtotal {
     border-radius: 12px 12px 0 0;
+    padding-bottom: 56px; /* reserve space so last row isn't hidden behind sticky subtotal */
 }
 
 .incoming-table-shell.finance-table-scroll :deep(.data-table-head th) {
@@ -1025,6 +1025,12 @@ export default {
         rgba(37, 99, 235, 0.24) 0%,
         rgba(15, 23, 42, 0.94) 100%
     );
+}
+
+.incoming-table-shell.finance-subtotal-outside.finance-subtotal-sticky {
+    position: sticky;
+    bottom: 0;
+    z-index: 6;
 }
 
 .incoming-table-shell.finance-subtotal-outside .finance-subtotal-table {

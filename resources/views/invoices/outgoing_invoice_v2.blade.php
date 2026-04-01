@@ -52,7 +52,8 @@
         }
 
         .side-banner {
-            position: absolute;
+            /* DomPDF repeats fixed-position elements on every page */
+            position: fixed;
             top: 0;
             bottom: 0;
             left: 0;
@@ -68,7 +69,8 @@
         }
 
         .side-banner-right {
-            position: absolute;
+            /* DomPDF repeats fixed-position elements on every page */
+            position: fixed;
             top: 0;
             bottom: 0;
             right: 0;
