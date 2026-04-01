@@ -189,6 +189,11 @@
                     <div v-if="loadingMore" class="finance-scroll-loading" aria-live="polite">
                         <i class="fa fa-spinner fa-spin" /> Loading more…
                     </div>
+                    <div v-if="incomingShowLoadMoreCta" class="finance-scroll-load-more">
+                        <button type="button" class="finance-load-more-btn" @click="loadMoreIncomingPage">
+                            Load more invoices
+                        </button>
+                    </div>
                     </div>
 
                     <div
@@ -313,6 +318,7 @@ export default {
             /** Subtotal sits outside the scroll box; pad by scrollbar width so columns match the grid above */
             subtotalScrollbarPadPx: 0,
             filterTotalsSnapshot: null,
+            incomingShowLoadMoreCta: false,
         };
     },
     computed: {
@@ -378,7 +384,10 @@ export default {
     watch: {
         loading(val) {
             if (!val) {
-                this.$nextTick(() => this.ensureIncomingSubtotalScrollbarSync());
+                this.$nextTick(() => {
+                    this.ensureIncomingSubtotalScrollbarSync();
+                    this.updateIncomingLoadMoreCta();
+                });
             }
         },
     },
@@ -523,8 +532,27 @@ export default {
                 this.loadingMore = false;
                 this.$nextTick(() => {
                     this.ensureIncomingSubtotalScrollbarSync();
+                    this.updateIncomingLoadMoreCta();
                 });
             }
+        },
+        updateIncomingLoadMoreCta() {
+            const el = this.$refs.incomingTableScroll;
+            const p = this.displayIncoming;
+            if (this.loading || this.loadingMore || !el || !p?.data?.length) {
+                this.incomingShowLoadMoreCta = false;
+                return;
+            }
+            const hasMore = p.current_page < p.last_page;
+            const noOverflow = el.scrollHeight <= el.clientHeight + 2;
+            this.incomingShowLoadMoreCta = hasMore && noOverflow;
+        },
+        loadMoreIncomingPage() {
+            const p = this.displayIncoming;
+            if (!p || p.current_page >= p.last_page || this.loading || this.loadingMore) {
+                return;
+            }
+            this.fetchList(p.current_page + 1, { append: true });
         },
         syncIncomingSubtotalScrollbarPad() {
             this.subtotalScrollbarPadPx = measureVerticalScrollbarWidth(this.$refs.incomingTableScroll);
@@ -539,11 +567,15 @@ export default {
             if (typeof ResizeObserver !== 'undefined') {
                 this._incomingSubtotalScrollObserver = new ResizeObserver(() => {
                     this.syncIncomingSubtotalScrollbarPad();
+                    this.updateIncomingLoadMoreCta();
                 });
                 this._incomingSubtotalScrollObserver.observe(el);
             }
             if (!this._incomingSubtotalWindowResize) {
-                this._incomingSubtotalWindowResize = () => this.syncIncomingSubtotalScrollbarPad();
+                this._incomingSubtotalWindowResize = () => {
+                    this.syncIncomingSubtotalScrollbarPad();
+                    this.updateIncomingLoadMoreCta();
+                };
                 window.addEventListener('resize', this._incomingSubtotalWindowResize);
             }
         },
@@ -570,6 +602,7 @@ export default {
             if (el.scrollTop + el.clientHeight >= el.scrollHeight - threshold) {
                 this.fetchList(p.current_page + 1, { append: true });
             }
+            this.updateIncomingLoadMoreCta();
         },
         onSearchSubmit() {
             this.searchQuery = (this.searchInput || '').trim();
@@ -762,10 +795,13 @@ export default {
 }
 
 .finance-table-viewport {
+    --finance-table-viewport-h: min(calc(40px + 20 * 38px), calc(100vh - 260px));
     display: flex;
     flex-direction: column;
     min-width: 0;
-    max-height: min(calc(40px + 20 * 38px), calc(100vh - 260px));
+    min-height: 0;
+    height: var(--finance-table-viewport-h);
+    max-height: var(--finance-table-viewport-h);
 }
 
 .finance-table-viewport--has-subtotal .finance-table-scroll {
@@ -774,7 +810,7 @@ export default {
 
 /* ~20 data rows visible; scroll for more (loads next page near bottom) */
 .incoming-table-shell.finance-table-scroll {
-    flex: 1 1 auto;
+    flex: 1 1 0;
     min-height: 0;
     overflow-y: auto;
     overflow-x: auto;
@@ -797,6 +833,32 @@ export default {
     color: rgba(255, 255, 255, 0.65);
     background: rgba(8, 15, 26, 0.9);
     border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.finance-scroll-load-more {
+    padding: 10px 12px;
+    text-align: center;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    background: rgba(8, 15, 26, 0.75);
+}
+
+.finance-load-more-btn {
+    padding: 6px 14px;
+    border-radius: 8px;
+    border: 1px solid rgba(59, 130, 246, 0.45);
+    background: rgba(59, 130, 246, 0.18);
+    color: $white;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    transition:
+        background 0.15s ease,
+        border-color 0.15s ease;
+}
+
+.finance-load-more-btn:hover {
+    background: rgba(59, 130, 246, 0.28);
+    border-color: rgba(96, 165, 250, 0.85);
 }
 
 .incoming-table-shell :deep(.data-table) {

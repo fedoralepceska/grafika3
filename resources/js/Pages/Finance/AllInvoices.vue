@@ -149,6 +149,11 @@
                     <div v-if="loadingMore" class="finance-scroll-loading" aria-live="polite">
                         <i class="fa fa-spinner fa-spin" /> Loading more…
                     </div>
+                    <div v-if="allInvoicesShowLoadMoreCta" class="finance-scroll-load-more">
+                        <button type="button" class="finance-load-more-btn" @click="loadMoreAllInvoicesPage">
+                            Load more invoices
+                        </button>
+                    </div>
                     </div>
 
                     <div
@@ -268,6 +273,8 @@ export default {
             subtotalScrollbarPadPx: 0,
             /** Server-side totals for the full filtered set (stable while scrolling pages). */
             filterTotalsSnapshot: null,
+            /** When the list does not overflow, scroll-to-load cannot run — offer an explicit control. */
+            allInvoicesShowLoadMoreCta: false,
         };
     },
     computed: {
@@ -348,7 +355,10 @@ export default {
     watch: {
         loading(val) {
             if (!val) {
-                this.$nextTick(() => this.ensureAllInvoicesSubtotalScrollbarSync());
+                this.$nextTick(() => {
+                    this.ensureAllInvoicesSubtotalScrollbarSync();
+                    this.updateAllInvoicesLoadMoreCta();
+                });
             }
         },
     },
@@ -480,8 +490,27 @@ export default {
                 this.loadingMore = false;
                 this.$nextTick(() => {
                     this.ensureAllInvoicesSubtotalScrollbarSync();
+                    this.updateAllInvoicesLoadMoreCta();
                 });
             }
+        },
+        updateAllInvoicesLoadMoreCta() {
+            const el = this.$refs.allInvoicesTableScroll;
+            const p = this.displayFakturas;
+            if (this.loading || this.loadingMore || !el || !p?.data?.length) {
+                this.allInvoicesShowLoadMoreCta = false;
+                return;
+            }
+            const hasMore = p.current_page < p.last_page;
+            const noOverflow = el.scrollHeight <= el.clientHeight + 2;
+            this.allInvoicesShowLoadMoreCta = hasMore && noOverflow;
+        },
+        loadMoreAllInvoicesPage() {
+            const p = this.displayFakturas;
+            if (!p || p.current_page >= p.last_page || this.loading || this.loadingMore) {
+                return;
+            }
+            this.applyFilter(p.current_page + 1, { append: true });
         },
         syncAllInvoicesSubtotalScrollbarPad() {
             this.subtotalScrollbarPadPx = measureVerticalScrollbarWidth(this.$refs.allInvoicesTableScroll);
@@ -496,11 +525,15 @@ export default {
             if (typeof ResizeObserver !== 'undefined') {
                 this._allInvoicesSubtotalScrollObserver = new ResizeObserver(() => {
                     this.syncAllInvoicesSubtotalScrollbarPad();
+                    this.updateAllInvoicesLoadMoreCta();
                 });
                 this._allInvoicesSubtotalScrollObserver.observe(el);
             }
             if (!this._allInvoicesSubtotalWindowResize) {
-                this._allInvoicesSubtotalWindowResize = () => this.syncAllInvoicesSubtotalScrollbarPad();
+                this._allInvoicesSubtotalWindowResize = () => {
+                    this.syncAllInvoicesSubtotalScrollbarPad();
+                    this.updateAllInvoicesLoadMoreCta();
+                };
                 window.addEventListener('resize', this._allInvoicesSubtotalWindowResize);
             }
         },
@@ -527,6 +560,7 @@ export default {
             if (el.scrollTop + el.clientHeight >= el.scrollHeight - threshold) {
                 this.applyFilter(p.current_page + 1, { append: true });
             }
+            this.updateAllInvoicesLoadMoreCta();
         },
         onSearchSubmit() {
             this.searchQuery = (this.searchInput || '').trim();
@@ -868,12 +902,17 @@ export default {
     min-width: 0;
 }
 
-/* Flex column: table scrolls above; subtotal always visible below (no sticky overlap) */
+/* Flex column: table scrolls above; subtotal always visible below (no sticky overlap).
+   Explicit height (not only max-height) so the flex main size is definite; otherwise the
+   scroll child grows with content and never overflows — no inner scrollbar or scroll events. */
 .finance-table-viewport {
+    --finance-table-viewport-h: min(calc(40px + 20 * 38px), calc(100vh - 260px));
     display: flex;
     flex-direction: column;
     min-width: 0;
-    max-height: min(calc(40px + 20 * 38px), calc(100vh - 260px));
+    min-height: 0;
+    height: var(--finance-table-viewport-h);
+    max-height: var(--finance-table-viewport-h);
 }
 
 .finance-table-viewport--has-subtotal .finance-table-scroll {
@@ -912,7 +951,7 @@ export default {
 }
 
 .all-invoices-table-shell.finance-table-scroll {
-    flex: 1 1 auto;
+    flex: 1 1 0;
     min-height: 0;
     overflow-y: auto;
     overflow-x: auto;
@@ -937,6 +976,32 @@ export default {
     color: rgba(255, 255, 255, 0.65);
     background: rgba(8, 15, 26, 0.9);
     border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.finance-scroll-load-more {
+    padding: 10px 12px;
+    text-align: center;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    background: rgba(8, 15, 26, 0.75);
+}
+
+.finance-load-more-btn {
+    padding: 6px 14px;
+    border-radius: 8px;
+    border: 1px solid rgba(59, 130, 246, 0.45);
+    background: rgba(59, 130, 246, 0.18);
+    color: $white;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    transition:
+        background 0.15s ease,
+        border-color 0.15s ease;
+}
+
+.finance-load-more-btn:hover {
+    background: rgba(59, 130, 246, 0.28);
+    border-color: rgba(96, 165, 250, 0.85);
 }
 
 .all-invoices-table-shell :deep(.data-table) {
