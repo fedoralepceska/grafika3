@@ -93,10 +93,6 @@
 
                     <div v-else class="incoming-table-block">
                     <div
-                        class="finance-table-viewport"
-                        :class="{ 'finance-table-viewport--has-subtotal': showIncomingSubtotal }"
-                    >
-                    <div
                         ref="incomingTableScroll"
                         class="incoming-table-shell finance-table-scroll"
                         @scroll.passive="onIncomingTableScroll"
@@ -189,16 +185,11 @@
                     <div v-if="loadingMore" class="finance-scroll-loading" aria-live="polite">
                         <i class="fa fa-spinner fa-spin" /> Loading more…
                     </div>
-                    <div v-if="incomingShowLoadMoreCta" class="finance-scroll-load-more">
-                        <button type="button" class="finance-load-more-btn" @click="loadMoreIncomingPage">
-                            Load more invoices
-                        </button>
                     </div>
-                    </div>
-
+                    
                     <div
                         v-if="showIncomingSubtotal"
-                        class="incoming-table-shell finance-subtotal-outside"
+                        class="incoming-subtotal-sticky"
                         :style="{ paddingInlineEnd: subtotalScrollbarPadPx + 'px' }"
                     >
                         <table class="data-table finance-subtotal-table" title="Totals for all rows matching the current filters">
@@ -240,9 +231,8 @@
                         </table>
                     </div>
                     </div>
-                    </div>
                 </div>
-            </div>
+        </div>
         </div>
     </MainLayout>
 </template>
@@ -311,14 +301,13 @@ export default {
             fiscalYear: '',
             calendarMonth: '',
             sortOrder: 'desc',
-            chunkSize: 13,
+            chunkSize: 10,
             localIncoming: null,
             loading: false,
             loadingMore: false,
-            /** Subtotal sits outside the scroll box; pad by scrollbar width so columns match the grid above */
+            incomingScrollFillDepth: 0,
             subtotalScrollbarPadPx: 0,
             filterTotalsSnapshot: null,
-            incomingShowLoadMoreCta: false,
         };
     },
     computed: {
@@ -384,10 +373,7 @@ export default {
     watch: {
         loading(val) {
             if (!val) {
-                this.$nextTick(() => {
-                    this.ensureIncomingSubtotalScrollbarSync();
-                    this.updateIncomingLoadMoreCta();
-                });
+                this.$nextTick(() => this.syncIncomingSubtotalScrollbarPad());
             }
         },
     },
@@ -397,7 +383,9 @@ export default {
         this.fetchList(1);
     },
     beforeUnmount() {
-        this.teardownIncomingSubtotalScrollbarSync();
+        if (this._incomingSubtotalWindowResize) {
+            window.removeEventListener('resize', this._incomingSubtotalWindowResize);
+        }
     },
     methods: {
         initFromUrl() {
@@ -504,6 +492,9 @@ export default {
             return parts.length ? `?${parts.join('&')}` : '';
         },
         async fetchList(page = 1, { append = false } = {}) {
+            if (!append) {
+                this.incomingScrollFillDepth = 0;
+            }
             try {
                 if (append) {
                     this.loadingMore = true;
@@ -531,62 +522,21 @@ export default {
                 this.loading = false;
                 this.loadingMore = false;
                 this.$nextTick(() => {
-                    this.ensureIncomingSubtotalScrollbarSync();
-                    this.updateIncomingLoadMoreCta();
+                    this.maybeFillIncomingScroll();
+                    this.syncIncomingSubtotalScrollbarPad();
                 });
             }
-        },
-        updateIncomingLoadMoreCta() {
-            const el = this.$refs.incomingTableScroll;
-            const p = this.displayIncoming;
-            if (this.loading || this.loadingMore || !el || !p?.data?.length) {
-                this.incomingShowLoadMoreCta = false;
-                return;
-            }
-            const hasMore = p.current_page < p.last_page;
-            const noOverflow = el.scrollHeight <= el.clientHeight + 2;
-            this.incomingShowLoadMoreCta = hasMore && noOverflow;
-        },
-        loadMoreIncomingPage() {
-            const p = this.displayIncoming;
-            if (!p || p.current_page >= p.last_page || this.loading || this.loadingMore) {
-                return;
-            }
-            this.fetchList(p.current_page + 1, { append: true });
         },
         syncIncomingSubtotalScrollbarPad() {
-            this.subtotalScrollbarPadPx = measureVerticalScrollbarWidth(this.$refs.incomingTableScroll);
-        },
-        ensureIncomingSubtotalScrollbarSync() {
             const el = this.$refs.incomingTableScroll;
             if (!el) {
+                this.subtotalScrollbarPadPx = 0;
                 return;
             }
-            this.teardownIncomingSubtotalScrollbarSync();
-            this.syncIncomingSubtotalScrollbarPad();
-            if (typeof ResizeObserver !== 'undefined') {
-                this._incomingSubtotalScrollObserver = new ResizeObserver(() => {
-                    this.syncIncomingSubtotalScrollbarPad();
-                    this.updateIncomingLoadMoreCta();
-                });
-                this._incomingSubtotalScrollObserver.observe(el);
-            }
+            this.subtotalScrollbarPadPx = measureVerticalScrollbarWidth(el);
             if (!this._incomingSubtotalWindowResize) {
-                this._incomingSubtotalWindowResize = () => {
-                    this.syncIncomingSubtotalScrollbarPad();
-                    this.updateIncomingLoadMoreCta();
-                };
+                this._incomingSubtotalWindowResize = () => this.syncIncomingSubtotalScrollbarPad();
                 window.addEventListener('resize', this._incomingSubtotalWindowResize);
-            }
-        },
-        teardownIncomingSubtotalScrollbarSync() {
-            if (this._incomingSubtotalScrollObserver) {
-                this._incomingSubtotalScrollObserver.disconnect();
-                this._incomingSubtotalScrollObserver = null;
-            }
-            if (this._incomingSubtotalWindowResize) {
-                window.removeEventListener('resize', this._incomingSubtotalWindowResize);
-                this._incomingSubtotalWindowResize = null;
             }
         },
         onIncomingTableScroll(e) {
@@ -602,7 +552,23 @@ export default {
             if (el.scrollTop + el.clientHeight >= el.scrollHeight - threshold) {
                 this.fetchList(p.current_page + 1, { append: true });
             }
-            this.updateIncomingLoadMoreCta();
+        },
+        maybeFillIncomingScroll() {
+            const el = this.$refs.incomingTableScroll;
+            if (!el || this.loading || this.loadingMore) {
+                return;
+            }
+            const p = this.displayIncoming;
+            if (!p || p.current_page >= p.last_page) {
+                return;
+            }
+            if (this.incomingScrollFillDepth >= 50) {
+                return;
+            }
+            if (el.scrollHeight <= el.clientHeight + 2) {
+                this.incomingScrollFillDepth += 1;
+                this.fetchList(p.current_page + 1, { append: true });
+            }
         },
         onSearchSubmit() {
             this.searchQuery = (this.searchInput || '').trim();
@@ -792,26 +758,13 @@ export default {
 .incoming-table-block {
     width: 100%;
     min-width: 0;
+    position: relative;
 }
 
-.finance-table-viewport {
-    --finance-table-viewport-h: min(calc(40px + 20 * 38px), calc(100vh - 260px));
-    display: flex;
-    flex-direction: column;
-    min-width: 0;
-    min-height: 0;
-    height: var(--finance-table-viewport-h);
-    max-height: var(--finance-table-viewport-h);
-}
-
-.finance-table-viewport--has-subtotal .finance-table-scroll {
-    border-radius: 12px 12px 0 0;
-}
-
-/* ~20 data rows visible; scroll for more (loads next page near bottom) */
+/* ~10 data rows visible; scroll for more (loads next page near bottom) */
 .incoming-table-shell.finance-table-scroll {
-    flex: 1 1 0;
     min-height: 0;
+    max-height: calc(40px + 10 * 38px + 56px);
     overflow-y: auto;
     overflow-x: auto;
     border-radius: 12px;
@@ -835,32 +788,6 @@ export default {
     border-top: 1px solid rgba(255, 255, 255, 0.08);
 }
 
-.finance-scroll-load-more {
-    padding: 10px 12px;
-    text-align: center;
-    border-top: 1px solid rgba(255, 255, 255, 0.08);
-    background: rgba(8, 15, 26, 0.75);
-}
-
-.finance-load-more-btn {
-    padding: 6px 14px;
-    border-radius: 8px;
-    border: 1px solid rgba(59, 130, 246, 0.45);
-    background: rgba(59, 130, 246, 0.18);
-    color: $white;
-    font-size: 12px;
-    font-weight: 700;
-    cursor: pointer;
-    transition:
-        background 0.15s ease,
-        border-color 0.15s ease;
-}
-
-.finance-load-more-btn:hover {
-    background: rgba(59, 130, 246, 0.28);
-    border-color: rgba(96, 165, 250, 0.85);
-}
-
 .incoming-table-shell :deep(.data-table) {
     table-layout: fixed;
     width: 100%;
@@ -876,37 +803,51 @@ export default {
 }
 
 /* Shared 11-column grid — Invoice, Date, Client, Amount, Tax, Total, Warehouse, Cost, Bill, Comment, Actions (sum 100%) */
-.incoming-table-shell col.inc-col-inv {
+.incoming-table-shell col.inc-col-inv,
+.incoming-subtotal-sticky col.inc-col-inv {
     width: 7%;
 }
-.incoming-table-shell col.inc-col-date {
+.incoming-table-shell col.inc-col-date,
+.incoming-subtotal-sticky col.inc-col-date {
     width: 7%;
 }
-.incoming-table-shell col.inc-col-client {
+.incoming-table-shell col.inc-col-client,
+.incoming-subtotal-sticky col.inc-col-client {
     width: 9%;
 }
-.incoming-table-shell col.inc-col-num {
+.incoming-table-shell col.inc-col-num,
+.incoming-subtotal-sticky col.inc-col-num {
     width: 11%;
 }
-.incoming-table-shell col.inc-col-wh {
+.incoming-table-shell col.inc-col-wh,
+.incoming-subtotal-sticky col.inc-col-wh {
     width: 8%;
 }
-.incoming-table-shell col.inc-col-cost {
+.incoming-table-shell col.inc-col-cost,
+.incoming-subtotal-sticky col.inc-col-cost {
     width: 7%;
 }
-.incoming-table-shell col.inc-col-bill {
+.incoming-table-shell col.inc-col-bill,
+.incoming-subtotal-sticky col.inc-col-bill {
     width: 7%;
 }
-.incoming-table-shell col.inc-col-comment {
+.incoming-table-shell col.inc-col-comment,
+.incoming-subtotal-sticky col.inc-col-comment {
     width: 11%;
 }
-.incoming-table-shell col.inc-col-actions {
+.incoming-table-shell col.inc-col-actions,
+.incoming-subtotal-sticky col.inc-col-actions {
     width: 11%;
     min-width: 72px;
 }
 
 .incoming-table-shell :deep(.data-table-head th),
 .incoming-table-shell :deep(.data-table-body td) {
+    padding-left: 10px;
+    padding-right: 10px;
+}
+
+.incoming-subtotal-sticky .finance-subtotal-table td {
     padding-left: 10px;
     padding-right: 10px;
 }
@@ -928,21 +869,16 @@ export default {
 
 /* Amount / Tax / Total — override DataTableShell default th alignment */
 .incoming-table-shell :deep(.data-table-head th.col-num),
-.incoming-table-shell :deep(.data-table-body td.col-num) {
+.incoming-table-shell :deep(.data-table-body td.col-num),
+.incoming-subtotal-sticky .finance-subtotal-table td.col-num {
     text-align: right;
     font-variant-numeric: tabular-nums;
     min-width: 11rem;
     white-space: nowrap;
 }
 
-.incoming-table-shell.finance-subtotal-outside .finance-subtotal-table td.col-num {
-    text-align: right;
-    font-variant-numeric: tabular-nums;
-    min-width: 11rem;
-    white-space: nowrap;
-}
-
-.incoming-table-shell .finance-money {
+.incoming-table-shell .finance-money,
+.incoming-subtotal-sticky .finance-money {
     display: block;
     overflow: visible;
     text-overflow: clip;
@@ -1060,12 +996,15 @@ export default {
     color: rgba(255, 255, 255, 0.7);
 }
 
-/* Subtotal strip — scrollbar padding-inline-end matches table width; same gradient fills that zone (no pale patch bottom-right) */
-.incoming-table-shell.finance-subtotal-outside {
-    flex: 0 0 auto;
+/* Subtotal strip — always visible at bottom, positioned outside scroll container */
+.incoming-subtotal-sticky {
+    position: sticky;
+    bottom: 0;
+    z-index: 10;
     box-sizing: border-box;
     width: 100%;
     min-width: 0;
+    margin-top: -1px;
     border-radius: 0 0 12px 12px;
     overflow-x: auto;
     overflow-y: visible;
@@ -1076,16 +1015,17 @@ export default {
         rgba(37, 99, 235, 0.24) 0%,
         rgba(15, 23, 42, 0.94) 100%
     );
+    box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.3);
 }
 
-.incoming-table-shell.finance-subtotal-outside .finance-subtotal-table {
+.incoming-subtotal-sticky .finance-subtotal-table {
     width: 100%;
     border-collapse: collapse;
     table-layout: fixed;
     font-variant-numeric: tabular-nums;
 }
 
-.incoming-table-shell.finance-subtotal-outside .finance-subtotal-table td {
+.incoming-subtotal-sticky .finance-subtotal-table td {
     padding: 6px 10px;
     border: 1px solid rgba(255, 255, 255, 0.08);
     font-size: 12px;
@@ -1093,7 +1033,7 @@ export default {
     vertical-align: middle;
 }
 
-.incoming-table-shell.finance-subtotal-outside tr.incoming-subtotal-row td {
+.incoming-subtotal-sticky tr.incoming-subtotal-row td {
     background: linear-gradient(
         180deg,
         rgba(37, 99, 235, 0.24) 0%,
@@ -1106,18 +1046,18 @@ export default {
     padding-bottom: 9px !important;
 }
 
-.incoming-table-shell.finance-subtotal-outside tr.incoming-subtotal-row td.incoming-subtotal-num--total {
+.incoming-subtotal-sticky tr.incoming-subtotal-row td.incoming-subtotal-num--total {
     box-shadow:
         inset 0 1px 0 rgba(191, 219, 254, 0.14),
         inset 1px 0 0 rgba(147, 197, 253, 0.4);
 }
 
-.incoming-table-shell.finance-subtotal-outside .incoming-subtotal-label {
+.incoming-subtotal-sticky .incoming-subtotal-label {
     text-align: left;
     vertical-align: middle;
 }
 
-.incoming-table-shell.finance-subtotal-outside .incoming-subtotal-label-text {
+.incoming-subtotal-sticky .incoming-subtotal-label-text {
     display: inline-block;
     margin-right: 8px;
     font-size: 11px;
@@ -1128,7 +1068,7 @@ export default {
     text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
 }
 
-.incoming-table-shell.finance-subtotal-outside .incoming-subtotal-hint {
+.incoming-subtotal-sticky .incoming-subtotal-hint {
     display: inline-block;
     padding: 2px 8px;
     border-radius: 999px;
@@ -1141,14 +1081,14 @@ export default {
     border: 1px solid rgba(96, 165, 250, 0.35);
 }
 
-.incoming-table-shell.finance-subtotal-outside .incoming-subtotal-value {
+.incoming-subtotal-sticky .incoming-subtotal-value {
     font-size: 13px;
     font-weight: 700;
     font-variant-numeric: tabular-nums;
     color: #f1f5f9;
 }
 
-.incoming-table-shell.finance-subtotal-outside .incoming-subtotal-value--emphasis {
+.incoming-subtotal-sticky .incoming-subtotal-value--emphasis {
     font-size: 14px;
     font-weight: 800;
     color: #fff;

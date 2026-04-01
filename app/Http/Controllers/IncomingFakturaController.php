@@ -103,7 +103,7 @@ class IncomingFakturaController extends Controller
             $sortOrder = $request->input('sortOrder', 'desc');
             $listQuery = (clone $baseQuery)->with('client')->orderBy('created_at', $sortOrder);
 
-            $perPage = (int) $request->input('per_page', 13);
+            $perPage = (int) $request->input('per_page', 10);
             $perPage = max(1, min($perPage, 200));
             $incomingInvoice = $listQuery->paginate($perPage)->withQueryString();
 

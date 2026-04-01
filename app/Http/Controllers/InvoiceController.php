@@ -1692,7 +1692,7 @@ class InvoiceController extends Controller
                 ->orderBy('id', $sortOrder);
 
             // Apply pagination with configurable results per page
-            $perPage = (int) $request->input('per_page', 13);
+            $perPage = (int) $request->input('per_page', 10);
             $perPage = max(1, min($perPage, 200));
             $fakturas = $query->paginate($perPage)->withQueryString();
             $this->augmentAllInvoicesPaginator($fakturas);
@@ -3263,7 +3263,7 @@ class InvoiceController extends Controller
                 ->orderBy('id', $sortOrder);
 
             // Apply pagination with configurable results per page on initial page
-            $perPage = (int) $request->input('per_page', 13);
+            $perPage = (int) $request->input('per_page', 10);
             $perPage = max(1, min($perPage, 200));
             $fakturas = $query->paginate($perPage)->withQueryString();
             $this->augmentAllInvoicesPaginator($fakturas);
