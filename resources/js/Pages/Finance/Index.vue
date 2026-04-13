@@ -54,13 +54,29 @@
                         <div class="toolbar-actions">
                             <button
                                 v-if="hasSelectedInvoices || clientId != null"
+                                type="button"
+                                class="finance-toolbar-btn finance-toolbar-btn--ghost"
                                 @click="clearAllSelections"
-                                class="btn create-order1"
                             >
-                                Clear Selection <i class="fa-solid fa-times"></i>
+                                Clear Selection
+                                <i class="fa-solid fa-times" aria-hidden="true"></i>
                             </button>
-                            <button @click="generateInvoices" class="btn create-order">
-                                Generate Invoice <i class="fa-solid fa-file-invoice-dollar"></i>
+                            <button
+                                type="button"
+                                class="finance-toolbar-btn finance-toolbar-btn--secondary"
+                                :disabled="generateEmptyLoading"
+                                @click="generateEmptyInvoice"
+                            >
+                                Generate empty
+                                <i class="fa-regular fa-file" aria-hidden="true"></i>
+                            </button>
+                            <button
+                                type="button"
+                                class="finance-toolbar-btn finance-toolbar-btn--primary"
+                                @click="generateInvoices"
+                            >
+                                Generate Invoice
+                                <i class="fa-solid fa-file-invoice-dollar" aria-hidden="true"></i>
                             </button>
                         </div>
                     </div>
@@ -91,9 +107,15 @@
                             <tr
                                 v-for="invoice in filteredInvoices"
                                 :key="invoice.id"
-                                :class="['invoice-table-row', getStatusRowClass(invoice.status), { 'row-selected': selectedInvoices[invoice.id] }]"
+                                :class="[
+                                    'invoice-table-row',
+                                    'invoice-table-row--clickable',
+                                    getStatusRowClass(invoice.status),
+                                    { 'row-selected': selectedInvoices[invoice.id] },
+                                ]"
+                                @click="openOrderDrawer(invoice)"
                             >
-                                <td class="select-cell">
+                                <td class="select-cell" @click.stop>
                                     <button
                                         type="button"
                                         class="select-toggle"
@@ -113,7 +135,7 @@
                                 <td>
                                     <div class="title-cell">
                                         <div class="cell-primary truncate-title">{{ invoice.invoice_title }}</div>
-                                        <div v-if="invoice.LockedNote" class="lock-note-trigger">
+                                        <div v-if="invoice.LockedNote" class="lock-note-trigger" @click.stop>
                                             <ViewLockDialog :invoice="invoice" />
                                         </div>
                                     </div>
@@ -121,7 +143,7 @@
                                 <td class="customer-column">
                                     <FinanceClientNameCell :name="invoice.client?.name || ''" variant="secondary" />
                                 </td>
-                                <td class="files-cell">
+                                <td class="files-cell" @click.stop>
                                     <div class="thumbnail-section">
                                         <template v-if="invoice.jobs && invoice.jobs.length > 0">
                                             <div class="invoice-thumbnails-container">
@@ -210,8 +232,8 @@
                                         {{ invoice.status }}
                                     </span>
                                 </td>
-                                <td class="actions-cell">
-                                    <button class="view-button" @click="viewInvoice(invoice.id)">
+                                <td class="actions-cell" @click.stop>
+                                    <button type="button" class="view-button" @click="openOrderInNewTab(invoice.id)">
                                         <i class="fa fa-eye" aria-hidden="true"></i>
                                         <span>View</span>
                                     </button>
@@ -229,6 +251,8 @@
                 <Pagination :pagination="paginationState"
                     @pagination-change-page="goToPage" />
             </div>
+
+            <NotInvoicedOrderDrawer v-model="orderDrawerOpen" :invoice="orderDrawerInvoice" />
 
             <!-- File-Specific Thumbnail Preview Modal -->
             <div v-if="fileModal.show" class="thumbnail-modal-overlay" @click="closeFileModal">
@@ -289,6 +313,8 @@ import FinanceDateRangeCompact from "@/Components/Finance/FinanceDateRangeCompac
 import FinanceYearMonthSelects from "@/Components/Finance/FinanceYearMonthSelects.vue";
 import FinancePeriodPresets from "@/Components/Finance/FinancePeriodPresets.vue";
 import FinanceClientNameCell from "@/Components/Finance/FinanceClientNameCell.vue";
+import NotInvoicedOrderDrawer from '@/Components/Finance/NotInvoicedOrderDrawer.vue';
+import { formatDateDdMmYyyy } from '@/utils/financeFilters';
 import { useToast } from "vue-toastification";
 
 function localISODate(d = new Date()) {
@@ -319,6 +345,7 @@ export default {
         FinanceYearMonthSelects,
         FinancePeriodPresets,
         FinanceClientNameCell,
+        NotInvoicedOrderDrawer,
     },
     props: {
         invoices: Object,
@@ -355,6 +382,9 @@ export default {
                 currentIndex: 0,
                 hasError: false // Track if current thumbnail has error
             },
+            orderDrawerOpen: false,
+            orderDrawerInvoice: null,
+            generateEmptyLoading: false,
         };
     },
     mounted() {
@@ -372,15 +402,22 @@ export default {
         },
 
     },
+    watch: {
+        orderDrawerOpen(open) {
+            if (!open) {
+                this.$nextTick(() => {
+                    this.orderDrawerInvoice = null;
+                });
+            }
+        },
+    },
     methods: {
         formatDate(dateStr) {
-            if (!dateStr) return '';
-            const d = new Date(dateStr);
-            if (isNaN(d.getTime())) return dateStr;
-            const dd = String(d.getDate()).padStart(2, '0');
-            const mm = String(d.getMonth() + 1).padStart(2, '0');
-            const yyyy = d.getFullYear();
-            return `${dd}/${mm}/${yyyy}`;
+            if (!dateStr) {
+                return '';
+            }
+            const s = formatDateDdMmYyyy(dateStr);
+            return s === 'N/A' ? String(dateStr) : s;
         },
         getStatusRowClass(status) {
             if (status === 'Completed') return 'row-completed';
@@ -648,8 +685,12 @@ export default {
             this.clientId = c ? c.id : null;
             await this.applyFilter(1);
         },
-        viewInvoice(id) {
-            this.$inertia.visit(`/orders/${id}`);
+        openOrderDrawer(invoice) {
+            this.orderDrawerInvoice = invoice;
+            this.orderDrawerOpen = true;
+        },
+        openOrderInNewTab(id) {
+            window.open(`/orders/${id}`, '_blank', 'noopener,noreferrer');
         },
         clearAllSelections() {
             this.selectedInvoices = {};
@@ -671,6 +712,45 @@ export default {
             // Redirect to invoice generation page with selected orders
             const queryParams = selectedIds.map(id => `orders[]=${id}`).join('&');
             this.$inertia.visit(`/invoiceGeneration?${queryParams}`);
+        },
+
+        async generateEmptyInvoice() {
+            const toast = useToast();
+            if (this.generateEmptyLoading) {
+                return;
+            }
+            this.generateEmptyLoading = true;
+            try {
+                const payload = {
+                    orders: [],
+                    empty_faktura: true,
+                    comment: '',
+                    trade_items: [],
+                    additional_services: [],
+                    merge_groups: [],
+                    job_units: [],
+                    return_meta: true,
+                };
+                const response = await axios.post('/generate-invoice', payload, { responseType: 'json' });
+                if (response?.data?.success && response?.data?.faktura_id) {
+                    const fid = response.data.faktura_id;
+                    toast.success(`Empty invoice created (faktura #${fid}).`);
+                    this.$inertia.visit('/allInvoices');
+                    return;
+                }
+                toast.error(response?.data?.error || 'Could not create empty invoice.');
+            } catch (error) {
+                console.error(error);
+                let message = 'Could not create empty invoice.';
+                if (error?.response?.data?.error) {
+                    message = error.response.data.error;
+                } else if (error?.response?.data?.message) {
+                    message = error.response.data.message;
+                }
+                toast.error(message);
+            } finally {
+                this.generateEmptyLoading = false;
+            }
         },
 
         // Thumbnail-related methods
@@ -1035,22 +1115,80 @@ select {
     min-width: 80vh;
 }
 
-.btn {
-    padding: 9px 12px;
-    border: none;
+.finance-toolbar-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-height: 38px;
+    padding: 0 16px;
+    border-radius: 10px;
+    font-size: 13px;
+    font-weight: 700;
     cursor: pointer;
-    font-weight: bold;
-    border-radius: 2px;
+    border: 1px solid transparent;
+    transition:
+        background 0.15s ease,
+        border-color 0.15s ease,
+        color 0.15s ease,
+        box-shadow 0.15s ease;
 }
 
-.create-order1 {
-    background-color: $blue;
-    color: white;
+.finance-toolbar-btn--ghost {
+    background: transparent;
+    color: rgba(255, 255, 255, 0.92);
+    border-color: rgba(255, 255, 255, 0.22);
+    box-shadow: none;
 }
 
-.create-order {
-    background-color: $green;
-    color: white;
+.finance-toolbar-btn--ghost:hover {
+    background: rgba(255, 255, 255, 0.06);
+    border-color: rgba(255, 255, 255, 0.34);
+    color: $white;
+}
+
+.finance-toolbar-btn--ghost:focus-visible {
+    outline: 2px solid rgba(96, 165, 250, 0.65);
+    outline-offset: 2px;
+}
+
+.finance-toolbar-btn--primary {
+    background: $green;
+    color: $white;
+    border-color: rgba(255, 255, 255, 0.12);
+    box-shadow: 0 1px 0 rgba(0, 0, 0, 0.15);
+}
+
+.finance-toolbar-btn--primary:hover {
+    filter: brightness(1.07);
+    border-color: rgba(255, 255, 255, 0.2);
+}
+
+.finance-toolbar-btn--primary:focus-visible {
+    outline: 2px solid rgba(134, 239, 172, 0.75);
+    outline-offset: 2px;
+}
+
+.finance-toolbar-btn--secondary {
+    background: rgba(255, 255, 255, 0.05);
+    color: rgba(255, 255, 255, 0.92);
+    border-color: rgba(251, 191, 36, 0.42);
+}
+
+.finance-toolbar-btn--secondary:hover:not(:disabled) {
+    background: rgba(251, 191, 36, 0.1);
+    border-color: rgba(253, 224, 71, 0.55);
+    color: $white;
+}
+
+.finance-toolbar-btn--secondary:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+}
+
+.finance-toolbar-btn--secondary:focus-visible {
+    outline: 2px solid rgba(251, 191, 36, 0.65);
+    outline-offset: 2px;
 }
 
 .loading-container {
@@ -1164,6 +1302,14 @@ select {
     -webkit-line-clamp: 2;
     -webkit-box-orient: vertical;
     overflow: hidden;
+}
+
+.invoice-table-row--clickable {
+    cursor: pointer;
+}
+
+.invoice-table-row--clickable:hover {
+    filter: brightness(1.05);
 }
 
 .customer-column {

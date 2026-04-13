@@ -73,13 +73,27 @@
 
                                 <div class="detail-field">
                                     <span class="detail-label">Date</span>
-                                    <div v-if="isStatementEditMode">
+                                    <div v-if="isStatementEditMode" class="cert-date-edit-wrap">
                                         <input
+                                            v-model="statementDateDisplay"
+                                            type="text"
+                                            class="edit-input cert-date-edit-text"
+                                            placeholder="dd/mm/yyyy"
+                                            inputmode="numeric"
+                                            autocomplete="off"
+                                            title="Click to open calendar or type dd/mm/yyyy"
+                                            @click="openStatementNativeDatePicker"
+                                            @blur="commitStatementDateDisplay"
+                                        />
+                                        <input
+                                            ref="nativeStatementDateInput"
                                             type="date"
-                                            v-model="editedCertificate.date"
-                                            class="edit-input"
-                                            @input="markStatementAsModified"
-                                        >
+                                            class="cert-date-edit-anchor"
+                                            :value="editedCertificate.date || ''"
+                                            tabindex="-1"
+                                            aria-hidden="true"
+                                            @change="onStatementNativeDatePicked"
+                                        />
                                     </div>
                                     <div v-else class="detail-value">{{ formatDateDisplay(certificate.date) }}</div>
                                 </div>
@@ -249,6 +263,7 @@
 <script>
 import MainLayout from "@/Layouts/MainLayout.vue";
 import axios from "axios";
+import { formatDateDdMmYyyy, parseDdMmYyyyToIso } from "@/utils/financeFilters";
 import { useToast } from "vue-toastification";
 import Header from "@/Components/Header.vue";
 import AddItemDialog from "@/Components/AddItemDialog.vue";
@@ -314,6 +329,8 @@ export default {
             bankSearch: '',
             showBankDropdown: false,
             filteredBanks: [],
+            /** Statement edit: visible dd/mm/yyyy; editedCertificate.date stays yyyy-mm-dd for API */
+            statementDateDisplay: '',
         }
     },
     async beforeMount() {
@@ -488,6 +505,56 @@ export default {
                 this.isStatementEditMode = true;
                 this.editedCertificate = { ...this.certificate };
                 this.bankSearch = this.certificate.bank;
+                this.syncStatementDateDisplayFromEdited();
+            }
+        },
+        syncStatementDateDisplayFromEdited() {
+            if (!this.editedCertificate?.date) {
+                this.statementDateDisplay = '';
+                return;
+            }
+            const formatted = formatDateDdMmYyyy(this.editedCertificate.date);
+            this.statementDateDisplay = formatted === 'N/A' ? '' : formatted;
+        },
+        commitStatementDateDisplay() {
+            const raw = (this.statementDateDisplay || '').trim();
+            if (!raw) {
+                this.editedCertificate.date = null;
+                return true;
+            }
+            const iso = parseDdMmYyyyToIso(raw);
+            if (!iso) {
+                const toast = useToast();
+                toast.error('Use date as dd/mm/yyyy (e.g. 14/01/2026).');
+                this.syncStatementDateDisplayFromEdited();
+                return false;
+            }
+            this.editedCertificate.date = iso;
+            this.statementDateDisplay = formatDateDdMmYyyy(iso);
+            return true;
+        },
+        onStatementNativeDatePicked(event) {
+            const v = event.target.value;
+            if (!v) {
+                return;
+            }
+            this.editedCertificate.date = v;
+            this.statementDateDisplay = formatDateDdMmYyyy(v);
+            this.markStatementAsModified();
+        },
+        openStatementNativeDatePicker() {
+            const el = this.$refs.nativeStatementDateInput;
+            if (!el) {
+                return;
+            }
+            try {
+                if (typeof el.showPicker === 'function') {
+                    el.showPicker();
+                } else {
+                    el.click();
+                }
+            } catch (_) {
+                el.click();
             }
         },
         markStatementAsModified() {
@@ -495,6 +562,13 @@ export default {
         },
         async saveStatementChanges() {
             const toast = useToast();
+            if (!this.commitStatementDateDisplay()) {
+                return;
+            }
+            if (!this.editedCertificate.date) {
+                toast.error('Please enter a date as dd/mm/yyyy.');
+                return;
+            }
             try {
                 const response = await axios.put(`/certificate/${this.certificate.id}`, {
                     date: this.editedCertificate.date,
@@ -513,13 +587,7 @@ export default {
             }
         },
         formatDateDisplay(value) {
-            if (!value) return 'N/A';
-
-            return new Date(value).toLocaleDateString('en-US', {
-                year: 'numeric',
-                month: '2-digit',
-                day: '2-digit'
-            });
+            return formatDateDdMmYyyy(value);
         },
         formatNumber(value) {
             return Number(value).toLocaleString(undefined, {
@@ -605,22 +673,15 @@ export default {
     gap: 10px;
 }
 
-.page-actions :deep(.d-flex.justify-center.align-center) {
-    display: contents;
-}
-
-.page-actions :deep(.v-row) {
-    margin: 0;
-    width: auto;
+.page-actions :deep(.add-statement-activator),
+.page-actions :deep(.add-item-activator) {
+    font-size: inherit;
+    padding: 0;
     flex: 0 0 auto;
 }
 
-.page-actions :deep(.bt) {
-    font-size: inherit;
-    padding: 0;
-}
-
-.page-actions :deep(.btn) {
+.page-actions :deep(.add-statement-btn),
+.page-actions :deep(.add-item-btn) {
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -639,7 +700,8 @@ export default {
     transition: all 0.2s ease;
 }
 
-.page-actions :deep(.btn:hover) {
+.page-actions :deep(.add-statement-btn:hover),
+.page-actions :deep(.add-item-btn:hover) {
     background: rgba(59, 130, 246, 0.92);
     border-color: rgba(96, 165, 250, 0.85);
 }
@@ -995,6 +1057,32 @@ export default {
     border-radius: 8px;
     background-color: white;
     color: black;
+}
+
+.cert-date-edit-wrap {
+    position: relative;
+    width: 100%;
+    overflow: visible;
+}
+
+.cert-date-edit-text {
+    width: 100%;
+}
+
+.cert-date-edit-anchor {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 100%;
+    width: 100%;
+    height: 6px;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    opacity: 0;
+    pointer-events: none;
+    font-size: 16px;
+    box-sizing: border-box;
 }
 
 .delete-btn {

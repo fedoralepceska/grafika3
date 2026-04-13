@@ -2,6 +2,7 @@
     <div class="fc-cs" ref="root">
         <label v-if="label" class="fc-label">{{ label }}</label>
         <button
+            ref="trigger"
             type="button"
             class="fc-cs__trigger text-black"
             :class="{ 'fc-cs__trigger--open': open }"
@@ -10,8 +11,17 @@
             <span class="fc-cs__trigger-text">{{ displayName }}</span>
             <span class="fc-cs__caret" aria-hidden="true">▾</span>
         </button>
-        <div v-if="open" class="fc-cs__dropdown" @click.stop>
+        <teleport to="body" :disabled="!teleportDropdown">
+            <div
+                v-if="open"
+                ref="dropdownPanel"
+                class="fc-cs__dropdown"
+                :class="{ 'fc-cs__dropdown--teleport': teleportDropdown }"
+                :style="teleportDropdown ? teleportStyle : undefined"
+                @click.stop
+            >
             <input
+                ref="searchInput"
                 v-model="clientSearch"
                 type="text"
                 class="fc-cs__search text-black"
@@ -20,20 +30,26 @@
                 @keydown.esc="open = false"
             />
             <div class="fc-cs__list">
-                <button type="button" class="fc-cs__item" @click="select(null)">All clients</button>
+                <button v-if="variant === 'filter'" type="button" class="fc-cs__item" @click="select(null)">
+                    All clients
+                </button>
+                <button v-else type="button" class="fc-cs__item" @click="select(null)">
+                    {{ emptyLabel }}
+                </button>
                 <button
                     v-for="c in filteredClients"
                     :key="c.id"
                     type="button"
                     class="fc-cs__item"
-                    :class="{ 'fc-cs__item--active': modelValue === c.id }"
+                    :class="{ 'fc-cs__item--active': Number(modelValue) === Number(c.id) }"
                     @click="select(c.id)"
                 >
                     {{ c.name }}
                 </button>
                 <div v-if="filteredClients.length === 0" class="fc-cs__empty">No matches</div>
             </div>
-        </div>
+            </div>
+        </teleport>
     </div>
 </template>
 
@@ -45,36 +61,66 @@ export default {
         /** null = all clients */
         modelValue: { type: [Number, String, null], default: null },
         label: { type: String, default: 'Client' },
+        /**
+         * filter: null means "all clients" (finance lists).
+         * pick: null means nothing selected; first row clears to null (forms).
+         */
+        variant: {
+            type: String,
+            default: 'filter',
+            validator: (v) => ['filter', 'pick'].includes(v),
+        },
+        /** Label for null selection when variant is pick */
+        emptyLabel: { type: String, default: 'Select client' },
+        /** Avoid clipping inside overflow scroll (e.g. v-dialog); positions panel fixed under trigger */
+        teleportDropdown: { type: Boolean, default: false },
     },
     emits: ['update:modelValue', 'change'],
     data() {
         return {
             open: false,
             clientSearch: '',
+            teleportStyle: {},
         };
     },
     computed: {
         displayName() {
             if (this.modelValue == null || this.modelValue === '' || this.modelValue === 'All') {
-                return 'All clients';
+                return this.variant === 'pick' ? this.emptyLabel : 'All clients';
             }
             const id = Number(this.modelValue);
             const c = this.clients.find((x) => Number(x.id) === id);
-            return c ? c.name : 'All clients';
+            if (c) {
+                return c.name;
+            }
+            return this.variant === 'pick' ? this.emptyLabel : 'All clients';
         },
         filteredClients() {
             const q = (this.clientSearch || '').trim().toLowerCase();
-            if (!q) {
-                return this.clients;
-            }
-            return this.clients.filter((c) => (c.name || '').toLowerCase().includes(q));
+            const list = !q
+                ? [...this.clients]
+                : this.clients.filter((c) => (c.name || '').toLowerCase().includes(q));
+            list.sort((a, b) =>
+                String(a.name || '').localeCompare(String(b.name || ''), undefined, { sensitivity: 'base' }),
+            );
+            return list;
         },
     },
     watch: {
         open(val) {
             if (!val) {
                 this.clientSearch = '';
+                this.teardownTeleportListeners();
+                return;
             }
+            this.$nextTick(() => {
+                this.$refs.searchInput?.focus();
+                if (this.teleportDropdown) {
+                    this.syncTeleportPosition();
+                    window.addEventListener('scroll', this.onTeleportReposition, true);
+                    window.addEventListener('resize', this.onTeleportReposition);
+                }
+            });
         },
     },
     mounted() {
@@ -82,11 +128,38 @@ export default {
     },
     beforeUnmount() {
         document.removeEventListener('click', this.onDocClick);
+        this.teardownTeleportListeners();
     },
     methods: {
+        onTeleportReposition() {
+            if (this.open && this.teleportDropdown) {
+                this.syncTeleportPosition();
+            }
+        },
+        syncTeleportPosition() {
+            const btn = this.$refs.trigger;
+            if (!btn) {
+                return;
+            }
+            const r = btn.getBoundingClientRect();
+            this.teleportStyle = {
+                position: 'fixed',
+                top: `${Math.round(r.bottom + 4)}px`,
+                left: `${Math.round(r.left)}px`,
+                width: `${Math.round(r.width)}px`,
+                /* Above typical Vuetify overlays (~2.4k) when teleport is used outside dialog */
+                zIndex: 10000,
+            };
+        },
+        teardownTeleportListeners() {
+            window.removeEventListener('scroll', this.onTeleportReposition, true);
+            window.removeEventListener('resize', this.onTeleportReposition);
+        },
         onDocClick(e) {
-            const el = this.$refs.root;
-            if (el && !el.contains(e.target)) {
+            const root = this.$refs.root;
+            const panel = this.$refs.dropdownPanel;
+            const inside = (root && root.contains(e.target)) || (panel && panel.contains(e.target));
+            if (!inside) {
                 this.open = false;
             }
         },
@@ -162,6 +235,11 @@ export default {
     border-radius: 8px;
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
     overflow: hidden;
+}
+
+.fc-cs__dropdown--teleport {
+    right: auto;
+    margin-top: 0;
 }
 
 .fc-cs__search {

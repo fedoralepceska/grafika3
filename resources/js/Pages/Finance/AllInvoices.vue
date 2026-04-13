@@ -208,7 +208,7 @@ import FinancePeriodPresets from '@/Components/Finance/FinancePeriodPresets.vue'
 import FinanceClientNameCell from '@/Components/Finance/FinanceClientNameCell.vue';
 import axios from 'axios';
 import { measureVerticalScrollbarWidth } from '@/utils/financeTableScrollbar';
-import { monthBoundsLocalISO } from '@/utils/financeFilters';
+import { monthBoundsLocalISO, formatDateDdMmYyyy } from '@/utils/financeFilters';
 
 function localISODate(d = new Date()) {
     const y = d.getFullYear();
@@ -570,11 +570,11 @@ export default {
             this.$inertia.visit(`/invoice/${id}`);
         },
         formatFullDate(date) {
-            return new Date(date).toLocaleDateString('en-US', {
-                year: 'numeric',
-                month: '2-digit',
-                day: '2-digit',
-            });
+            if (!date) {
+                return '';
+            }
+            const s = formatDateDdMmYyyy(date);
+            return s === 'N/A' ? '' : s;
         },
         getCommentDisplay(comment) {
             return comment && String(comment).trim() ? comment : 'No comment';

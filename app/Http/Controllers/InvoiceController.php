@@ -2065,7 +2065,14 @@ class InvoiceController extends Controller
 
     public function generateInvoice(Request $request)
     {
-        $invoiceIds = $request->input('orders');
+        $emptyFaktura = $request->boolean('empty_faktura');
+        $invoiceIds = $request->input('orders', []);
+        if (!is_array($invoiceIds)) {
+            $invoiceIds = $invoiceIds !== null && $invoiceIds !== '' ? [(string) $invoiceIds] : [];
+        }
+        if ($emptyFaktura) {
+            $invoiceIds = [];
+        }
         $comment = $request->input('comment');
         $tradeItems = $request->input('trade_items', []);
         $additionalServices = $request->input('additional_services', []);
@@ -2094,8 +2101,7 @@ class InvoiceController extends Controller
             return $this->generateSplitInvoices($request, $splitGroups);
         }
 
-        // Validate that we have at least one order id
-        if (empty($invoiceIds) || !is_array($invoiceIds)) {
+        if (!$emptyFaktura && empty($invoiceIds)) {
             return response()->json(['error' => 'No invoices selected'], 400);
         }
 
@@ -2103,20 +2109,24 @@ class InvoiceController extends Controller
             // Start a database transaction
             DB::beginTransaction();
 
-            // Retrieve the Invoice instances based on the provided IDs
-            $invoices = Invoice::with([
-                'jobs.actions',
-                'jobs.articles' => function ($q) {
-                    $q->select('article.id', 'article.name', 'article.price_1', 'article.tax_type', 'article.in_square_meters', 'article.in_pieces', 'article.in_kilograms', 'article.in_meters');
-                },
-                'contact', 'user', 'client', 'article', 'client.clientCardStatement'
-            ])
-                ->find($invoiceIds);
+            if ($emptyFaktura) {
+                $invoices = collect();
+            } else {
+                // Retrieve the Invoice instances based on the provided IDs
+                $invoices = Invoice::with([
+                    'jobs.actions',
+                    'jobs.articles' => function ($q) {
+                        $q->select('article.id', 'article.name', 'article.price_1', 'article.tax_type', 'article.in_square_meters', 'article.in_pieces', 'article.in_kilograms', 'article.in_meters');
+                    },
+                    'contact', 'user', 'client', 'article', 'client.clientCardStatement'
+                ])
+                    ->find($invoiceIds);
 
-            // Abort if none of the provided IDs resolved to invoices
-            if (!$invoices || $invoices->count() === 0) {
-                DB::rollBack();
-                return response()->json(['error' => 'No valid invoices found for generation'], 400);
+                // Abort if none of the provided IDs resolved to invoices
+                if (!$invoices || $invoices->count() === 0) {
+                    DB::rollBack();
+                    return response()->json(['error' => 'No valid invoices found for generation'], 400);
+                }
             }
 
             $fakturaOverrides = $this->mergeDefaultJobNameOverrides($fakturaOverrides, $invoices);
@@ -2180,14 +2190,16 @@ class InvoiceController extends Controller
             }
 
             // Associate the retrieved Invoice instances with the new Faktura
-            foreach ($invoices as $invoice) {
-                $invoice->faktura_id = $faktura->id;
-                $invoice->save();
-                
-                // Also link all jobs in this invoice to the faktura
-                foreach ($invoice->jobs as $job) {
-                    $job->faktura_id = $faktura->id;
-                    $job->save();
+            if (!$emptyFaktura) {
+                foreach ($invoices as $invoice) {
+                    $invoice->faktura_id = $faktura->id;
+                    $invoice->save();
+
+                    // Also link all jobs in this invoice to the faktura
+                    foreach ($invoice->jobs as $job) {
+                        $job->faktura_id = $faktura->id;
+                        $job->save();
+                    }
                 }
             }
 
@@ -2241,6 +2253,15 @@ class InvoiceController extends Controller
             // Commit the transaction
             DB::commit();
 
+            // Empty fakturas: never build or return a PDF (client only needs the new id).
+            // Other callers can use return_meta + skip_pdf for the same lightweight response.
+            if ($emptyFaktura || ($request->boolean('return_meta') && $request->boolean('skip_pdf'))) {
+                return response()->json([
+                    'success' => true,
+                    'faktura_id' => $faktura->id,
+                ]);
+            }
+
             // Generate PDF for the created invoice
             $dns1d = new DNS1D();
             // If merge groups persisted on faktura (from request or pre-set), build merged jobs
@@ -2252,7 +2273,7 @@ class InvoiceController extends Controller
             );
 
             // If faktura has a client override, reflect it in mapped data by overriding invoice->client relation
-            if ($faktura && $faktura->client_id) {
+            if (!$emptyFaktura && $faktura && $faktura->client_id) {
                 $overrideClient = \App\Models\Client::with(['clientCardStatement'])->find($faktura->client_id);
                 if ($overrideClient) {
                     $invoices->each(function ($inv) use ($overrideClient) {
@@ -2261,54 +2282,120 @@ class InvoiceController extends Controller
                 }
             }
 
-            $transformedInvoices = $invoices->map(function ($invoice) use ($dns1d, $tradeItems, $comment, $faktura, $mergedJobsByInvoice, $paymentDeadlineOverride) {
-                $barcodeString = $invoice->id . '-' . date('m-Y', strtotime($invoice->end_date));
+            if ($emptyFaktura) {
+                $barcodeString = $faktura->id . '-' . date('m-Y');
                 $barcodeImage = base64_encode($dns1d->getBarcodePNG($barcodeString, 'C128'));
-
-                $totalSalePrice = $invoice->jobs->sum('salePrice');
-                $totalCopies = $invoice->jobs->sum('copies');
-
-                $taxRate = 0.18;
-                $priceWithTax = $totalSalePrice * (1 + $taxRate);
-                $taxAmount = $totalSalePrice * $taxRate;
-
-                // Add trade items to this invoice's data
                 $invoiceTradeItems = collect($tradeItems)->map(function ($item) {
                     return [
-                        'article_id' => $item['article_id'],
-                        'article_name' => $item['article_name'],
-                        'quantity' => $item['quantity'],
-                        'unit_price' => $item['unit_price'],
-                        'total_price' => $item['total_price'],
-                        'vat_rate' => $item['vat_rate'],
-                        'vat_amount' => $item['vat_amount']
+                        'article_id' => $item['article_id'] ?? null,
+                        'article_name' => $item['article_name'] ?? '',
+                        'quantity' => $item['quantity'] ?? 0,
+                        'unit_price' => $item['unit_price'] ?? 0,
+                        'total_price' => $item['total_price'] ?? 0,
+                        'vat_rate' => $item['vat_rate'] ?? 0,
+                        'vat_amount' => $item['vat_amount'] ?? 0,
                     ];
                 })->toArray();
 
-                // Return a new array for this invoice with the required fields
-                $invoiceArr = $invoice->toArray();
-                if (!empty($mergedJobsByInvoice) && isset($mergedJobsByInvoice[$invoice->id])) {
-                    $invoiceArr['jobs'] = $mergedJobsByInvoice[$invoice->id];
+                $clientBlock = [
+                    'id' => null,
+                    'name' => '',
+                    'address' => '',
+                    'client_card_statement' => [
+                        'edb' => '',
+                        'payment_deadline' => 30,
+                    ],
+                ];
+                if ($faktura->client_id) {
+                    $overrideClient = \App\Models\Client::with(['clientCardStatement'])->find($faktura->client_id);
+                    if ($overrideClient) {
+                        $ccs = $overrideClient->clientCardStatement;
+                        $clientBlock = [
+                            'id' => $overrideClient->id,
+                            'name' => $overrideClient->name,
+                            'address' => $overrideClient->address ?? '',
+                            'client_card_statement' => [
+                                'edb' => $ccs->edb ?? '',
+                                'payment_deadline' => $ccs->payment_deadline ?? 30,
+                            ],
+                        ];
+                    }
                 }
-                return array_merge(
-                    $invoiceArr,
-                    [
-                        'barcodeImage' => $barcodeImage,
-                        'totalSalePrice' => $totalSalePrice,
-                        'taxRate' => $taxRate * 100,
-                        'priceWithTax' => $priceWithTax,
-                        'taxAmount' => $taxAmount,
-                        'copies' => $totalCopies,
-                        'trade_items' => $invoiceTradeItems,
-                        'comment' => $comment,
-                        // Use Faktura creation time as the official generated time
-                        'generated_at' => optional($faktura->created_at)->toDateTimeString(),
-                        'faktura_id' => $faktura->id,
-                        'faktura_number' => $faktura->faktura_number,
-                        'payment_deadline_override' => is_numeric($paymentDeadlineOverride) ? (int)$paymentDeadlineOverride : null,
-                    ]
-                );
-            })->toArray();
+
+                $transformedInvoices = [[
+                    'id' => 0,
+                    'order_number' => null,
+                    'fiscal_year' => null,
+                    'invoice_title' => '',
+                    'client' => $clientBlock,
+                    'jobs' => [],
+                    'user' => optional(auth()->user())->name ?? '',
+                    'start_date' => optional($faktura->created_at)->toDateTimeString(),
+                    'end_date' => optional($faktura->created_at)->toDateTimeString(),
+                    'status' => '',
+                    'barcodeImage' => $barcodeImage,
+                    'totalSalePrice' => 0,
+                    'taxRate' => 18,
+                    'priceWithTax' => 0,
+                    'taxAmount' => 0,
+                    'copies' => 0,
+                    'trade_items' => $invoiceTradeItems,
+                    'comment' => $comment,
+                    'generated_at' => optional($faktura->created_at)->toDateTimeString(),
+                    'faktura_id' => $faktura->id,
+                    'faktura_number' => $faktura->faktura_number,
+                    'payment_deadline_override' => is_numeric($paymentDeadlineOverride) ? (int) $paymentDeadlineOverride : null,
+                ]];
+            } else {
+                $transformedInvoices = $invoices->map(function ($invoice) use ($dns1d, $tradeItems, $comment, $faktura, $mergedJobsByInvoice, $paymentDeadlineOverride) {
+                    $barcodeString = $invoice->id . '-' . date('m-Y', strtotime($invoice->end_date));
+                    $barcodeImage = base64_encode($dns1d->getBarcodePNG($barcodeString, 'C128'));
+
+                    $totalSalePrice = $invoice->jobs->sum('salePrice');
+                    $totalCopies = $invoice->jobs->sum('copies');
+
+                    $taxRate = 0.18;
+                    $priceWithTax = $totalSalePrice * (1 + $taxRate);
+                    $taxAmount = $totalSalePrice * $taxRate;
+
+                    // Add trade items to this invoice's data
+                    $invoiceTradeItems = collect($tradeItems)->map(function ($item) {
+                        return [
+                            'article_id' => $item['article_id'],
+                            'article_name' => $item['article_name'],
+                            'quantity' => $item['quantity'],
+                            'unit_price' => $item['unit_price'],
+                            'total_price' => $item['total_price'],
+                            'vat_rate' => $item['vat_rate'],
+                            'vat_amount' => $item['vat_amount']
+                        ];
+                    })->toArray();
+
+                    // Return a new array for this invoice with the required fields
+                    $invoiceArr = $invoice->toArray();
+                    if (!empty($mergedJobsByInvoice) && isset($mergedJobsByInvoice[$invoice->id])) {
+                        $invoiceArr['jobs'] = $mergedJobsByInvoice[$invoice->id];
+                    }
+                    return array_merge(
+                        $invoiceArr,
+                        [
+                            'barcodeImage' => $barcodeImage,
+                            'totalSalePrice' => $totalSalePrice,
+                            'taxRate' => $taxRate * 100,
+                            'priceWithTax' => $priceWithTax,
+                            'taxAmount' => $taxAmount,
+                            'copies' => $totalCopies,
+                            'trade_items' => $invoiceTradeItems,
+                            'comment' => $comment,
+                            // Use Faktura creation time as the official generated time
+                            'generated_at' => optional($faktura->created_at)->toDateTimeString(),
+                            'faktura_id' => $faktura->id,
+                            'faktura_number' => $faktura->faktura_number,
+                            'payment_deadline_override' => is_numeric($paymentDeadlineOverride) ? (int)$paymentDeadlineOverride : null,
+                        ]
+                    );
+                })->toArray();
+            }
 
             // Ensure trade items are shown only once (per faktura), not repeated per order
             if (is_array($transformedInvoices) && count($transformedInvoices) > 1) {

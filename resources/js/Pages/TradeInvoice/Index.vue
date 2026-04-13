@@ -72,7 +72,9 @@
                         </div>
 
                         <div class="toolbar-actions">
-                            <button @click="createInvoice" class="btn create-order1">Create Invoice</button>
+                            <button type="button" class="btn create-order1 trade-toolbar-create" @click="createInvoice">
+                                Create Invoice
+                            </button>
                         </div>
                     </div>
 
@@ -1149,6 +1151,33 @@ select {
     color: white;
 }
 
+/* Match receipts / finance primary toolbar actions (Priemnica heading + screenshot) */
+.toolbar-actions .trade-toolbar-create.btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 36px;
+    padding: 0 14px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 700;
+    line-height: 1.2;
+    box-sizing: border-box;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
+    transition: filter 0.15s ease;
+}
+
+.toolbar-actions .trade-toolbar-create.btn:hover {
+    filter: brightness(1.06);
+}
+
+.toolbar-actions .trade-toolbar-create.btn:focus-visible {
+    outline: none;
+    box-shadow:
+        0 1px 2px rgba(0, 0, 0, 0.12),
+        0 0 0 2px rgba(59, 130, 246, 0.45);
+}
+
 .delete {
     border: none;
     color: white;
@@ -1431,10 +1460,18 @@ select {
         font-size: 10px;
         line-height: 1.2;
     }
-    
+
     .btn {
         font-size: 11px;
         padding: 6px 8px;
+    }
+
+    .toolbar-actions .trade-toolbar-create.btn {
+        width: 100%;
+        min-height: 36px;
+        padding: 0 14px;
+        font-size: 13px;
+        font-weight: 700;
     }
 }
 

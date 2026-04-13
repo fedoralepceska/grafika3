@@ -11,7 +11,11 @@
                                 {{ $t('allReceipts') }}
                             </h2>
                             <div class="page-heading-actions">
-                                <button @click="$inertia.visit('/receipt/create')" class="btn create-order1 header-action">
+                                <button
+                                    type="button"
+                                    class="btn create-order1 header-action"
+                                    @click="$inertia.visit('/receipt/create')"
+                                >
                                     <i class="fa-solid fa-plus" aria-hidden="true"></i>
                                     <span>Add New Receipt</span>
                                 </button>
@@ -500,7 +504,24 @@ input[type="date"] {
     font-weight: bold;
     border-radius: 2px;
 }
-.create-order1{
+
+.page-heading-actions .header-action.btn {
+    min-height: 36px;
+    padding: 0 14px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 700;
+    line-height: 1.2;
+    box-sizing: border-box;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
+    transition: filter 0.15s ease;
+}
+
+.page-heading-actions .header-action.btn:hover {
+    filter: brightness(1.06);
+}
+
+.create-order1 {
     background-color: $blue;
     color: white;
 }
@@ -636,7 +657,7 @@ input[type="date"] {
         justify-content: center;
         box-sizing: border-box;
     }
-    .page-heading-actions :deep(.header-import-summary button) {
+    .page-heading-actions :deep(.import-summary-trigger) {
         width: 100%;
         justify-content: center;
         box-sizing: border-box;

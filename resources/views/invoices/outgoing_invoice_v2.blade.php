@@ -88,7 +88,8 @@
         .footer {
             position: absolute;
             bottom: 0;
-            width: 95%;
+            left: 125px;
+            right: 40px;
             margin-bottom: 40px;
             justify-content: center;
         }
@@ -223,6 +224,15 @@
         }
 
         .page-break { page-break-after: always; }
+        /* Prevent page breaks within summary rows */
+        .summary-section {
+            page-break-inside: avoid;
+        }
+        .summary-row {
+            page-break-inside: avoid;
+            page-break-before: avoid;
+            page-break-after: avoid;
+        }
         /* Allow long article/job names to wrap within cell without expanding column */
         .truncate-cell {
             display: block;
@@ -236,13 +246,14 @@
     </style>
 </head>
 <body>
+<!-- Fixed banners outside flex-container to repeat on all pages -->
+<div class="side-banner">
+    <img src="data:image/png;base64,{{ base64_encode(file_get_contents(public_path('images/sidebanner.png'))) }}" alt="Side Banner">
+</div>
+<div class="side-banner-right">
+    <img src="data:image/png;base64,{{ base64_encode(file_get_contents(public_path('images/rightbanner.png'))) }}" alt="Right Banner">
+</div>
 <div class="flex-container with-sidebar">
-    <div class="side-banner">
-        <img src="data:image/png;base64,{{ base64_encode(file_get_contents(public_path('images/sidebanner.png'))) }}" alt="Side Banner">
-    </div>
-    <div class="side-banner-right">
-        <img src="data:image/png;base64,{{ base64_encode(file_get_contents(public_path('images/rightbanner.png'))) }}" alt="Right Banner">
-    </div>
     <div class="content">
     <div class="header">
         <!-- header kept minimal; actual two-column header is rendered per-invoice below -->
@@ -642,7 +653,6 @@
                     </tr>
                 @endif
             @endforeach
-            
             <!-- Summary section with per-rate VAT breakdown -->
             @php
                 $firstPayload = is_array($invoices) ? ($invoices[0] ?? []) : ($invoices->first() ?? []);
@@ -715,28 +725,28 @@
                 $subtotalNoVat = $verticalSums['totalPriceWithTaxSum'];
                 $totalWithVat = $subtotalNoVat + array_sum($vatBreakdown);
             @endphp
-            <tr>
+            <tr class="summary-row" style="page-break-inside: avoid; page-break-before: avoid;">
                 <td colspan="2" style="font-size: 10pt; padding: 6px; text-align: right; font-weight: bold;"></td>
                 <td colspan="4" style="font-size: 10pt; padding: 6px; text-align: right; font-weight: bold; background-color: #E7F1F2; border-bottom: 2px solid white">Вкупно без ДДВ:</td>
                 <td style="font-size: 10pt; padding: 6px; text-align: right; font-weight: bold; background-color: #E7F1F2; border-bottom: 2px solid white">{{ number_format($subtotalNoVat, 2) }}</td>
             </tr>
             @if(is_array($vatBreakdown))
                 @if(($vatBreakdown[5] ?? 0) > 0)
-                <tr>
+                <tr class="summary-row" style="page-break-inside: avoid; page-break-before: avoid;">
                     <td colspan="2" style="font-size: 10pt; padding: 6px; text-align: right; font-weight: bold;"></td>
                     <td colspan="4" style="font-size: 10pt; padding: 6px; text-align: right; font-weight: bold; background-color: #E7F1F2; border-bottom: 2px solid white">ДДВ (5%):</td>
                     <td style="font-size: 10pt; padding: 6px; text-align: right; font-weight: bold; background-color: #E7F1F2; border-bottom: 2px solid white">{{ number_format($vatBreakdown[5], 2) }}</td>
                 </tr>
                 @endif
                 @if(($vatBreakdown[10] ?? 0) > 0)
-                <tr>
+                <tr class="summary-row" style="page-break-inside: avoid; page-break-before: avoid;">
                     <td colspan="2" style="font-size: 10pt; padding: 6px; text-align: right; font-weight: bold;"></td>
                     <td colspan="4" style="font-size: 10pt; padding: 6px; text-align: right; font-weight: bold; background-color: #E7F1F2; border-bottom: 2px solid white">ДДВ (10%):</td>
                     <td style="font-size: 10pt; padding: 6px; text-align: right; font-weight: bold; background-color: #E7F1F2; border-bottom: 2px solid white">{{ number_format($vatBreakdown[10], 2) }}</td>
                 </tr>
                 @endif
                 @if(($vatBreakdown[18] ?? 0) > 0)
-                <tr>
+                <tr class="summary-row" style="page-break-inside: avoid; page-break-before: avoid;">
                     <td colspan="2" style="font-size: 10pt; padding: 6px; text-align: right; font-weight: bold;"></td>
                     <td colspan="4" style="font-size: 10pt; padding: 6px; text-align: right; font-weight: bold; background-color: #E7F1F2; border-bottom: 2px solid white">ДДВ (18%):</td>
                     <td style="font-size: 10pt; padding: 6px; text-align: right; font-weight: bold; background-color: #E7F1F2; border-bottom: 2px solid white">{{ number_format($vatBreakdown[18], 2) }}</td>
@@ -744,13 +754,13 @@
                 @endif
             @else
                 <!-- Fallback single-line VAT if breakdown not present -->
-                <tr>
+                <tr class="summary-row" style="page-break-inside: avoid; page-break-before: avoid;">
                     <td colspan="2" style="font-size: 10pt; padding: 6px; text-align: right; font-weight: bold;"></td>
                     <td colspan="4" style="font-size: 10pt; padding: 6px; text-align: right; font-weight: bold; background-color: #E7F1F2; border-bottom: 2px solid white">ДДВ:</td>
                     <td style="font-size: 10pt; padding: 6px; text-align: right; font-weight: bold; background-color: #E7F1F2; border-bottom: 2px solid white">{{ number_format($verticalSums['totalTaxSum'], 2) }}</td>
                 </tr>
             @endif
-            <tr>
+            <tr class="summary-row" style="page-break-inside: avoid; page-break-before: avoid;">
                 <td colspan="2" style="font-size: 10pt; padding: 6px; text-align: right; font-weight: bold;"></td>
                 <td colspan="4" style="font-size: 10pt; padding: 6px; text-align: right; font-weight: bold; background-color: #E7F1F2;">Вкупно со ДДВ:</td>
                 <td style="font-size: 10pt; padding: 6px; text-align: right; font-weight: bold; background-color: #E7F1F2;">{{ number_format($totalWithVat, 2) }}</td>
@@ -758,10 +768,9 @@
             </tbody>
         </table>
     </div>
-        </div>
-        </div>
-        <footer class="footer" style="padding-left: 80px; padding-right: 80px;">
-            <div class="invoice-note" style="padding-left: 20px;">
+    </div>
+    <footer class="footer">
+            <div class="invoice-note" style="padding-left: 20px; padding-right: 20px;">
                 <p style="font-family: 'Calibri'; font-weight: 300; font-size: 9pt; margin: 5px 0;"><span>• Рекламации се примаат во рок од 8 дена по приемот на стоката</span></p>
                 <p style="font-family: 'Calibri'; font-weight: 300; font-size: 9pt; margin: 5px 0;"><span>• Ве молиме вкупниот износ на плаќање да го платите во валутниот рок</span></p>
                 <p style="font-family: 'Calibri'; font-weight: 300; font-size: 9pt; margin: 5px 0;"><span>• За секое задоцнување пресметуваме за констата камата</span></p>
@@ -786,7 +795,7 @@
                 </tr>
             </table>
         </footer>
-    </div>
+</div>
 </body>
 </html>
 

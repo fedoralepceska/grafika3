@@ -1,8 +1,9 @@
 <template>
     <div>
         <!-- Button to open dialog -->
-        <button @click="openDialog" class="bg-white/40 inline-flex items-center px-4 py-2 border border-transparent white-hover rounded-md font-semibold text-white uppercase tracking-widest focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition ease-in-out duration-50">
-            <i class="fa-solid fa-chart-line"></i> Import Summary
+        <button type="button" class="import-summary-trigger" @click="openDialog">
+            <i class="fa-solid fa-chart-line" aria-hidden="true"></i>
+            <span>Import Summary</span>
         </button>
 
         <!-- Modal Dialog -->
@@ -202,6 +203,38 @@ export default {
 </script>
 
 <style scoped lang="scss">
+.import-summary-trigger {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-height: 36px;
+    padding: 0 14px;
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.28);
+    background: rgba(255, 255, 255, 0.14);
+    color: #fff;
+    font-size: 13px;
+    font-weight: 700;
+    line-height: 1.2;
+    cursor: pointer;
+    box-sizing: border-box;
+    transition:
+        background 0.15s ease,
+        border-color 0.15s ease,
+        filter 0.15s ease;
+}
+
+.import-summary-trigger:hover {
+    background: rgba(255, 255, 255, 0.22);
+    border-color: rgba(255, 255, 255, 0.4);
+}
+
+.import-summary-trigger:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.45);
+}
+
 .modal-overlay {
     position: fixed;
     top: 0;

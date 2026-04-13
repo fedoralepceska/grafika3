@@ -4,9 +4,9 @@
             <div class="flex justify-between">
                 <Header title="statement" subtitle="bankStatement" icon="bill.png" link="statements"/>
                 <div class="flex pt-4">
-                    <div class="flex gap-2 pt-3">
-                        <button class="btn"><ViewBanksDialog :bank="bank"/></button>
-                        <button class="btn"><AddBankDialog :bank="bank" /></button>
+                    <div class="flex gap-2 pt-3 bank-toolbar-dialogs">
+                        <ViewBanksDialog :bank="bank" />
+                        <AddBankDialog :bank="bank" />
                     </div>
                 </div>
             </div>
@@ -71,44 +71,149 @@
                         </div>
                     </div>
 
-                    <DataTableShell compact variant="grid">
-                        <template #header>
-                            <tr>
-                                <th class="number-column">Nr</th>
-                                <th class="statement-column">Statement</th>
-                                <th>Bank</th>
-                                <th>Bank Account</th>
-                                <th>Created By</th>
-                                <th>Date Created</th>
-                                <th class="actions-column actions-header">Actions</th>
-                            </tr>
-                        </template>
+                    <div class="statements-split">
+                        <div class="statements-list-col">
+                            <DataTableShell class="statements-list-table" compact variant="grid">
+                                <template #colgroup>
+                                    <colgroup>
+                                        <col class="col-stmt" />
+                                        <col class="col-date" />
+                                        <col class="col-account" />
+                                    </colgroup>
+                                </template>
+                                <template #header>
+                                    <tr>
+                                        <th class="statement-column">Statement #</th>
+                                        <th class="date-column">Date</th>
+                                        <th class="account-column">Bank account</th>
+                                    </tr>
+                                </template>
 
-                        <template v-if="localCertificates && localCertificates.length > 0">
-                            <tr v-for="(certificate, index) in localCertificates" :key="certificate.id">
-                                <td class="cell-secondary">{{ rowNumber(index) }}</td>
-                                <td class="statement-primary-cell">
-                                    <div class="cell-primary">#{{ certificate.id_per_bank }}</div>
-                                    <div class="cell-secondary">{{ certificate.fiscal_year }}</div>
-                                </td>
-                                <td><div class="cell-primary">{{ certificate.bank }}</div></td>
-                                <td><div class="cell-secondary">{{ certificate.bankAccount }}</div></td>
-                                <td><div class="cell-secondary">{{ certificate.created_by?.name || 'N/A' }}</div></td>
-                                <td><div class="cell-secondary">{{ formatDateDisplay(certificate.date) }}</div></td>
-                                <td class="actions-cell">
-                                    <button class="table-action-button" @click="viewCertificate(certificate.id)">
-                                        View
-                                    </button>
-                                </td>
-                            </tr>
-                        </template>
+                                <template v-if="localCertificates && localCertificates.length > 0">
+                                    <tr
+                                        v-for="certificate in localCertificates"
+                                        :key="certificate.id"
+                                        class="statement-row"
+                                        :class="{ 'statement-row--selected': selectedStatementId === certificate.id }"
+                                        tabindex="0"
+                                        @click="openStatementDrawer(certificate)"
+                                        @keydown.enter.prevent="openStatementDrawer(certificate)"
+                                        @keydown.space.prevent="openStatementDrawer(certificate)"
+                                    >
+                                        <td class="statement-primary-cell">
+                                            <div class="cell-primary">#{{ certificate.id_per_bank }}/{{ certificate.fiscal_year }}</div>
+                                        </td>
+                                        <td><div class="cell-secondary">{{ formatDateDisplay(certificate.date) }}</div></td>
+                                        <td><div class="cell-secondary">{{ certificate.bankAccount }}</div></td>
+                                    </tr>
+                                </template>
 
-                        <tr v-else>
-                            <td colspan="7" class="empty-cell">
-                                No bank statements found matching your criteria.
-                            </td>
-                        </tr>
-                    </DataTableShell>
+                                <tr v-else>
+                                    <td colspan="3" class="empty-cell">
+                                        No bank statements found matching your criteria.
+                                    </td>
+                                </tr>
+                            </DataTableShell>
+                        </div>
+
+                        <aside
+                            class="statements-details-aside"
+                            :aria-label="drawerRegionLabel"
+                            @click.stop
+                        >
+                            <div class="statements-aside-body">
+                                <div v-if="selectedStatementId == null && localCertificates.length" class="statements-aside-idle" />
+                                <div v-else-if="selectedStatementId == null && !localCertificates.length" class="statements-aside-idle-text">
+                                    No statements in this list.
+                                </div>
+                                <div v-else-if="drawerLoading" class="statement-drawer-loading">Loading…</div>
+                                <div v-else-if="drawerError" class="statement-drawer-error">{{ drawerError }}</div>
+                                <template v-else-if="drawerCertificate">
+                                    <DataTableShell
+                                        compact
+                                        variant="grid"
+                                        class="statement-table drawer-inline-statement-table statements-nested-shell"
+                                    >
+                                        <template #header>
+                                            <tr>
+                                                <th class="number-column">Nr</th>
+                                                <th class="client-column">Client</th>
+                                                <th class="text-right">Expense</th>
+                                                <th class="text-right">Income</th>
+                                                <th>Code</th>
+                                                <th>Reference</th>
+                                                <th>Comment</th>
+                                            </tr>
+                                        </template>
+
+                                        <template v-if="drawerItems.length">
+                                            <tr v-for="(item, index) in drawerItems" :key="item.id">
+                                                <td class="number-cell drawer-nr-compact">
+                                                    <span class="drawer-nr-line">
+                                                        <span class="cell-primary drawer-nr-main">#{{ index + 1 }}</span>
+                                                        <span class="cell-secondary drawer-nr-id">{{ item.id }}</span>
+                                                    </span>
+                                                </td>
+                                                <td class="client-cell">
+                                                    <div class="cell-primary drawer-cell-tight">{{ getDrawerClientName(item) || 'N/A' }}</div>
+                                                </td>
+                                                <td class="text-right amount-cell">
+                                                    <span class="cell-secondary drawer-cell-tight">{{ formatDrawerNumber(item.expense) }}</span>
+                                                </td>
+                                                <td class="text-right amount-cell">
+                                                    <span class="cell-secondary drawer-cell-tight">{{ formatDrawerNumber(item.income) }}</span>
+                                                </td>
+                                                <td>
+                                                    <span class="cell-secondary drawer-cell-tight">{{ item.code || '—' }}</span>
+                                                </td>
+                                                <td>
+                                                    <span class="cell-secondary drawer-cell-tight">{{ item.reference_to || '—' }}</span>
+                                                </td>
+                                                <td class="comment-cell">
+                                                    <span class="cell-secondary drawer-cell-tight">{{ item.comment || '—' }}</span>
+                                                </td>
+                                            </tr>
+                                        </template>
+
+                                        <tr v-else>
+                                            <td colspan="7" class="empty-cell drawer-statement-empty-cell">
+                                                No statement transactions added yet.
+                                            </td>
+                                        </tr>
+
+                                        <template #footer>
+                                            <tr>
+                                                <td colspan="2">Totals</td>
+                                                <td class="text-right">{{ formatDrawerNumber(drawerTotalExpense) }}</td>
+                                                <td class="text-right">{{ formatDrawerNumber(drawerTotalIncome) }}</td>
+                                                <td colspan="3" class="footer-balance">
+                                                    Net {{ formatSignedDrawerBalance(drawerNetBalance) }}
+                                                </td>
+                                            </tr>
+                                        </template>
+                                    </DataTableShell>
+                                </template>
+                            </div>
+
+                            <div v-if="selectedStatementId != null" class="statement-drawer-footer">
+                                <button
+                                    type="button"
+                                    class="statements-aside-btn statements-aside-btn--muted"
+                                    @click="closeStatementDrawer"
+                                >
+                                    Close
+                                </button>
+                                <button
+                                    v-if="drawerCertificate && !drawerLoading"
+                                    type="button"
+                                    class="statements-aside-btn statements-aside-btn--primary"
+                                    @click="viewCertificate(drawerCertificate.id)"
+                                >
+                                    View full statement
+                                </button>
+                            </div>
+                        </aside>
+                    </div>
                 </div>
                 <Pagination :pagination="paginationState" @pagination-change-page="goToPage" />
             </div>
@@ -130,7 +235,7 @@ import FinanceCompactSearch from "@/Components/Finance/FinanceCompactSearch.vue"
 import FinanceDateRangeCompact from "@/Components/Finance/FinanceDateRangeCompact.vue";
 import FinanceYearMonthSelects from "@/Components/Finance/FinanceYearMonthSelects.vue";
 import FinancePeriodPresets from "@/Components/Finance/FinancePeriodPresets.vue";
-import { normalizeDateRangeFields } from "@/utils/financeFilters";
+import { normalizeDateRangeFields, formatDateDdMmYyyy } from "@/utils/financeFilters";
 
 export default {
     components: {
@@ -165,9 +270,29 @@ export default {
             localCertificates: this.certificates?.data || [],
             paginationState: this.certificates || { data: [], links: [] },
             perPage: 20,
+            selectedStatementId: null,
+            drawerLoading: false,
+            drawerError: null,
+            drawerCertificate: null,
+            drawerItems: [],
         };
     },
     computed: {
+        drawerRegionLabel() {
+            if (this.drawerCertificate) {
+                return `Statement ${this.drawerCertificate.id_per_bank}/${this.drawerCertificate.fiscal_year}, lines`;
+            }
+            return 'Statement lines';
+        },
+        drawerTotalIncome() {
+            return this.drawerItems.reduce((sum, item) => sum + (Number(item.income) || 0), 0);
+        },
+        drawerTotalExpense() {
+            return this.drawerItems.reduce((sum, item) => sum + (Number(item.expense) || 0), 0);
+        },
+        drawerNetBalance() {
+            return this.drawerTotalIncome - this.drawerTotalExpense;
+        },
         yearSelectMin() {
             if (!this.availableYears || this.availableYears.length === 0) {
                 return null;
@@ -181,20 +306,75 @@ export default {
             return Math.max(...this.availableYears.map((y) => Number(y)));
         },
     },
+    watch: {
+        selectedStatementId(val) {
+            document.removeEventListener('keydown', this.onDrawerEscape);
+            if (val != null) {
+                document.addEventListener('keydown', this.onDrawerEscape);
+            }
+        },
+    },
     mounted() {
         this.initFiltersFromUrl();
         this.fetchUniqueBanks();
         this.fetchAvailableYears();
     },
+    beforeUnmount() {
+        document.removeEventListener('keydown', this.onDrawerEscape);
+    },
     methods: {
-        rowNumber(index) {
-            const currentPage = this.paginationState?.current_page || 1;
-            const perPage = this.paginationState?.per_page || this.perPage;
-            return ((currentPage - 1) * perPage) + index + 1;
+        onDrawerEscape(e) {
+            if (e.key === 'Escape') {
+                this.closeStatementDrawer();
+            }
+        },
+        openStatementDrawer(certificate) {
+            this.selectedStatementId = certificate.id;
+            this.drawerLoading = true;
+            this.drawerError = null;
+            this.drawerCertificate = null;
+            this.drawerItems = [];
+            const id = certificate.id;
+            Promise.all([
+                axios.get(`/statements/${id}`, { headers: { Accept: 'application/json' } }),
+                axios.get(`/items/${id}`),
+            ])
+                .then(([certRes, itemsRes]) => {
+                    this.drawerCertificate = certRes.data;
+                    this.drawerItems = itemsRes.data || [];
+                })
+                .catch(() => {
+                    this.drawerError = 'Could not load this statement.';
+                })
+                .finally(() => {
+                    this.drawerLoading = false;
+                });
+        },
+        closeStatementDrawer() {
+            this.selectedStatementId = null;
+            this.drawerLoading = false;
+            this.drawerError = null;
+            this.drawerCertificate = null;
+            this.drawerItems = [];
+        },
+        formatDrawerNumber(value) {
+            return Number(value || 0).toLocaleString(undefined, {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+            });
+        },
+        formatSignedDrawerBalance(value) {
+            if (!value) {
+                return this.formatDrawerNumber(0);
+            }
+            const prefix = value > 0 ? '+' : '-';
+            return `${prefix}${this.formatDrawerNumber(Math.abs(value))}`;
+        },
+        getDrawerClientName(item) {
+            return item.client?.name || '';
         },
         formatDateDisplay(date) {
-            if (!date) return 'N/A';
-            return new Date(date).toLocaleDateString('en-US', { year: 'numeric', month: '2-digit', day: '2-digit' });
+            return formatDateDdMmYyyy(date);
         },
         initFiltersFromUrl() {
             const p = new URLSearchParams(window.location.search);
@@ -306,6 +486,12 @@ export default {
                 });
                 this.localCertificates = response.data.data;
                 this.paginationState = response.data;
+                if (
+                    this.selectedStatementId != null
+                    && !this.localCertificates.some((c) => c.id === this.selectedStatementId)
+                ) {
+                    this.closeStatementDrawer();
+                }
                 this.pushBankHistory(params);
             } catch (error) {
                 console.error(error);
@@ -328,6 +514,7 @@ export default {
             }
         },
         viewCertificate(id) {
+            this.closeStatementDrawer();
             this.$inertia.visit(`/statements/${id}`);
         },
         goToPage(page) {
@@ -481,20 +668,36 @@ export default {
     color: white;
 }
 
-.number-column {
-    width: 70px;
-}
-
 .statement-column {
-    width: 160px;
+    width: 140px;
 }
 
-.actions-column {
-    width: 120px;
+.date-column {
+    width: 110px;
 }
 
-.actions-header {
-    text-align: right;
+.account-column {
+    min-width: 160px;
+}
+
+.statement-row {
+    cursor: pointer;
+    transition: background-color 0.15s ease;
+}
+
+.statement-row:hover,
+.statement-row:focus-visible {
+    background: rgba(255, 255, 255, 0.06);
+    outline: none;
+}
+
+.statement-row--selected {
+    background: rgba(59, 130, 246, 0.14) !important;
+}
+
+.statement-row--selected:hover,
+.statement-row--selected:focus-visible {
+    background: rgba(59, 130, 246, 0.2) !important;
 }
 
 .statement-primary-cell {
@@ -511,30 +714,6 @@ export default {
     color: rgba(255, 255, 255, 0.68);
 }
 
-.actions-cell {
-    text-align: right;
-}
-
-.table-action-button {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-    padding: 6px 10px;
-    border: 1px solid rgba(255, 255, 255, 0.14);
-    border-radius: 8px;
-    background: rgba(255, 255, 255, 0.06);
-    color: $white;
-    font-size: 12px;
-    font-weight: 700;
-    transition: all 0.2s ease;
-}
-
-.table-action-button:hover {
-    background: rgba(255, 255, 255, 0.1);
-    border-color: rgba(255, 255, 255, 0.24);
-}
-
 .empty-cell {
     padding: 34px 16px !important;
     text-align: center;
@@ -546,6 +725,241 @@ export default {
         width: 100%;
         justify-content: flex-start;
     }
+}
+
+.statements-split {
+    display: flex;
+    align-items: stretch;
+    gap: 0;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 12px;
+    overflow: hidden;
+    background: rgba(4, 10, 18, 0.92);
+    box-shadow: 0 14px 30px rgba(0, 0, 0, 0.14);
+}
+
+.statements-list-col {
+    flex: 1 1 45%;
+    min-width: 0;
+    border-right: 1px solid rgba(255, 255, 255, 0.1);
+    display: flex;
+    flex-direction: column;
+    background: rgba(6, 12, 20, 0.75);
+}
+
+.statements-list-table {
+    flex: 1 1 auto;
+    border: none !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    background: transparent !important;
+}
+
+.statements-list-table :deep(.data-table) {
+    table-layout: fixed;
+}
+
+.statements-list-table :deep(col.col-stmt) {
+    width: 26%;
+}
+
+.statements-list-table :deep(col.col-date) {
+    width: 22%;
+}
+
+.statements-list-table :deep(col.col-account) {
+    width: 52%;
+}
+
+.statements-list-table.data-table-shell--grid.compact :deep(.data-table-head th) {
+    padding: 5px 8px !important;
+    line-height: 1.2;
+}
+
+.statements-list-table.data-table-shell--grid.compact :deep(.data-table-body td) {
+    padding: 4px 8px !important;
+    line-height: 1.3;
+    vertical-align: middle;
+}
+
+.statements-details-aside {
+    flex: 1 1 55%;
+    min-width: 240px;
+    max-width: 58%;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    background: rgba(4, 10, 18, 0.92);
+    min-height: 0;
+}
+
+.statements-aside-body {
+    flex: 1;
+    min-height: 0;
+    overflow: auto;
+    padding: 8px 8px 8px 8px;
+}
+
+.statements-aside-idle {
+    min-height: 48px;
+}
+
+.statements-aside-idle-text {
+    margin: 0;
+    padding: 14px 12px;
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.5);
+}
+
+@media (max-width: 960px) {
+    .statements-split {
+        flex-direction: column;
+    }
+
+    .statements-list-col {
+        border-right: none;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        width: 100%;
+    }
+
+    .statements-details-aside {
+        max-width: none;
+        width: 100%;
+        max-height: min(65vh, 560px);
+    }
+}
+
+.drawer-nr-line {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 6px;
+    white-space: nowrap;
+    line-height: 1.2;
+}
+
+.drawer-nr-main {
+    font-size: 11px;
+}
+
+.drawer-nr-id {
+    font-size: 10px;
+    opacity: 0.72;
+}
+
+.drawer-cell-tight {
+    font-size: 11px;
+    line-height: 1.25;
+}
+
+.statements-nested-shell {
+    border: none !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    background: transparent !important;
+}
+
+.statement-drawer-loading,
+.statement-drawer-error {
+    padding: 14px 8px;
+    text-align: center;
+    color: rgba(255, 255, 255, 0.75);
+    font-size: 12px;
+}
+
+.statement-drawer-error {
+    color: #f87171;
+}
+
+/* Same grid styling as Finance/Certificate.vue statement table */
+.drawer-inline-statement-table :deep(th.number-column) {
+    width: 92px;
+}
+
+.drawer-inline-statement-table :deep(th.client-column) {
+    min-width: 140px;
+}
+
+.drawer-inline-statement-table.data-table-shell--grid.compact :deep(.data-table-head th) {
+    padding: 4px 6px !important;
+    font-size: 9px !important;
+    line-height: 1.15 !important;
+}
+
+.drawer-inline-statement-table.data-table-shell--grid.compact :deep(.data-table-body td) {
+    padding: 2px 6px !important;
+    font-size: 11px !important;
+    line-height: 1.22 !important;
+    vertical-align: middle !important;
+}
+
+.drawer-inline-statement-table.data-table-shell--grid.compact :deep(.data-table-foot td) {
+    padding: 2px 6px !important;
+    font-size: 11px !important;
+    line-height: 1.22 !important;
+    vertical-align: middle !important;
+}
+
+.drawer-inline-statement-table.statement-table :deep(.data-table-head th:not(:last-child)),
+.drawer-inline-statement-table.statement-table :deep(.data-table-body td:not(:last-child)),
+.drawer-inline-statement-table.statement-table :deep(.data-table-foot td:not(:last-child)) {
+    border-right: 1px solid rgba(255, 255, 255, 0.14);
+}
+
+.footer-balance {
+    text-align: right;
+    color: rgba(255, 255, 255, 0.84);
+}
+
+.drawer-statement-empty-cell {
+    padding: 10px 8px !important;
+    text-align: center;
+    color: rgba(255, 255, 255, 0.66);
+    font-size: 11px;
+}
+
+.statement-drawer-footer {
+    flex-shrink: 0;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 10px 10px;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.statements-aside-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 5px 12px;
+    min-height: 0;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s ease, border-color 0.15s ease, filter 0.15s ease;
+}
+
+.statements-aside-btn--muted {
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    background: rgba(255, 255, 255, 0.06);
+    color: rgba(255, 255, 255, 0.88);
+}
+
+.statements-aside-btn--muted:hover {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: rgba(255, 255, 255, 0.28);
+}
+
+.statements-aside-btn--primary {
+    border: 1px solid transparent;
+    background: $blue;
+    color: $white;
+}
+
+.statements-aside-btn--primary:hover {
+    filter: brightness(1.06);
 }
 </style>
 

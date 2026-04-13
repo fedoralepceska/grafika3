@@ -1606,32 +1606,43 @@ class JobController extends Controller
                         ]);
                     }
                 } else {
-                    \Log::info('Skipping price recalculation for manual job', [
+                    \Log::info('Skipping catalog price recalculation for manual job', [
                         'job_id' => $id,
                         'reason' => 'Missing catalog_item_id or client_id'
                     ]);
 
-                    // For manual jobs, scale both selling price and cost price proportionally based on quantity change only
-                    if ($request->has('quantity') && $job->quantity > 0) {
-                        $quantityRatio = $request->input('quantity') / $job->quantity;
+                    // Manual jobs: scale sale/cost when quantity and/or copies change (multiplicative ratios).
+                    $hadQty = $request->has('quantity');
+                    $hadCopies = $request->has('copies');
+                    if ($hadQty || $hadCopies) {
+                        $oldQ = $job->quantity && (float) $job->quantity > 0 ? (float) $job->quantity : 1.0;
+                        $oldC = $job->copies && (float) $job->copies > 0 ? (float) $job->copies : 1.0;
+                        $newQ = $hadQty ? (float) $request->input('quantity') : $oldQ;
+                        $newC = $hadCopies ? (float) $request->input('copies') : $oldC;
+                        $qtyRatio = $hadQty ? ($newQ / $oldQ) : 1.0;
+                        $cpyRatio = $hadCopies ? ($newC / $oldC) : 1.0;
+                        $combined = $qtyRatio * $cpyRatio;
 
-                        // Scale selling price if it exists
-                        if ($job->salePrice) {
-                            $job->salePrice = $job->salePrice * $quantityRatio;
+                        if (abs($combined - 1.0) > 1e-12) {
+                            if ($job->salePrice !== null && is_numeric($job->salePrice)) {
+                                $job->salePrice = round(((float) $job->salePrice) * $combined, 4);
+                            }
+                            if ($job->price !== null && is_numeric($job->price)) {
+                                $job->price = round(((float) $job->price) * $combined, 4);
+                            }
                         }
 
-                        // Scale cost price if it exists
-                        if ($job->price) {
-                            $job->price = $job->price * $quantityRatio;
-                        }
-
-                        \Log::info('Scaled both prices for manual job', [
+                        \Log::info('Scaled prices for manual job (quantity and/or copies)', [
                             'job_id' => $id,
-                            'old_quantity' => $job->quantity,
-                            'new_quantity' => $request->input('quantity'),
-                            'quantity_ratio' => $quantityRatio,
+                            'old_quantity' => $oldQ,
+                            'old_copies' => $oldC,
+                            'new_quantity' => $newQ,
+                            'new_copies' => $newC,
+                            'quantity_ratio' => $qtyRatio,
+                            'copies_ratio' => $cpyRatio,
+                            'combined_ratio' => $combined,
                             'new_sale_price' => $job->salePrice,
-                            'new_cost_price' => $job->price
+                            'new_cost_price' => $job->price,
                         ]);
                     }
                 }

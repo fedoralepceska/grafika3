@@ -1,57 +1,90 @@
 <template>
-    <v-row>
-        <v-dialog
-            v-model="dialog"
-            persistent
-            max-width="400"
-            class="height"
-            @keydown.esc="closeDialog"
-        >
-            <template v-slot:activator="{ props }">
-                <button v-bind="props" class="btn lock-order">Add Bank</button>
-            </template>
-            <v-card class="height background">
-                <v-card-title>
-                    <span class="text-h5 text-white">Add New Bank</span>
-                </v-card-title>
-                <v-card-text>
-                    <div>
-                        <div class="form-group">
-                            <label for="name" class="text-white width100">Bank Name</label>
-                            <input type="text" id="name" class="rounded text-black" v-model="newBank.name" @input="checkDuplicate">
+    <v-dialog
+        v-model="dialog"
+        persistent
+        max-width="480"
+        class="bank-dlg-root"
+        @keydown.esc="closeDialog"
+    >
+        <template #activator="{ props: activatorProps }">
+            <div v-bind="activatorProps" class="bank-dlg-activator">
+                <button type="button" class="bank-dlg-toolbar-btn">
+                    <span>Add Bank</span>
+                    <i class="fa fa-plus bank-dlg-toolbar-btn__icon" aria-hidden="true" />
+                </button>
+            </div>
+        </template>
+
+        <v-card class="bank-dlg-card">
+            <div class="bank-dlg-card__head">
+                <h2 id="add-bank-title" class="bank-dlg-card__title">Add New Bank</h2>
+                <button type="button" class="bank-dlg-card__close" aria-label="Close" @click="closeDialog">
+                    &times;
+                </button>
+            </div>
+
+            <v-card-text class="bank-dlg-card__body">
+                <form class="bank-dlg-form" @submit.prevent="saveData">
+                    <section class="bank-dlg-section">
+                        <div class="bank-dlg-field">
+                            <label class="bank-dlg-label" for="add-bank-name">Bank name</label>
+                            <div class="bank-dlg-control">
+                                <input
+                                    id="add-bank-name"
+                                    v-model="newBank.name"
+                                    type="text"
+                                    class="bank-dlg-input"
+                                    autocomplete="organization"
+                                    @input="checkDuplicate"
+                                />
+                            </div>
                         </div>
-                        <div class="form-group" >
-                            <label for="address" class="text-white width100 ">Bank Account</label>
-                            <input type="text"  id="address" class="rounded text-black" v-model="newBank.address" @input="checkDuplicate">
+                        <div class="bank-dlg-field">
+                            <label class="bank-dlg-label" for="add-bank-account">Bank account</label>
+                            <div class="bank-dlg-control">
+                                <input
+                                    id="add-bank-account"
+                                    v-model="newBank.address"
+                                    type="text"
+                                    class="bank-dlg-input"
+                                    autocomplete="off"
+                                    @input="checkDuplicate"
+                                />
+                            </div>
                         </div>
-                        <div v-if="isDuplicate" class="error-message">
-                            This bank with this account already exists!
-                        </div>
-                    </div>
-                </v-card-text>
-                <v-card-actions class="flexSpace gap-4">
-                    <v-spacer></v-spacer>
-                    <SecondaryButton @click="closeDialog" class="red">
-                        Close
-                    </SecondaryButton>
-                    <SecondaryButton @click="saveData" class="green" :disabled="isDuplicate || !isValid">
-                       Add
-                    </SecondaryButton>
-                </v-card-actions>
-            </v-card>
-        </v-dialog>
-    </v-row>
+                        <p v-if="isDuplicate" class="bank-dlg-error" role="alert">
+                            This bank with this account already exists.
+                        </p>
+                    </section>
+                </form>
+            </v-card-text>
+
+            <div class="bank-dlg-card__actions">
+                <button type="button" class="bank-dlg-footer-btn bank-dlg-footer-btn--close" @click="closeDialog">
+                    Close
+                </button>
+                <button
+                    type="button"
+                    class="bank-dlg-footer-btn bank-dlg-footer-btn--save"
+                    :disabled="isDuplicate || !isValid"
+                    @click="saveData"
+                >
+                    Add
+                </button>
+            </div>
+        </v-card>
+    </v-dialog>
 </template>
 
 <script>
-import VueMultiselect from 'vue-multiselect'
-import SecondaryButton from "@/Components/buttons/SecondaryButton.vue";
-import {useToast} from "vue-toastification";
+import { useToast } from 'vue-toastification';
 
 export default {
-    components: {
-        SecondaryButton,
-        VueMultiselect
+    props: {
+        bank: {
+            type: Object,
+            default: null,
+        },
     },
     data() {
         return {
@@ -67,20 +100,21 @@ export default {
     computed: {
         isValid() {
             return this.newBank.name.trim() !== '' && this.newBank.address.trim() !== '';
-        }
+        },
     },
-    props: {
-        bank: Object
+    watch: {
+        dialog(open) {
+            if (open) {
+                this.fetchBanks();
+            } else {
+                this.newBank = { name: '', address: '' };
+                this.isDuplicate = false;
+            }
+        },
     },
     methods: {
-        openDialog() {
-            this.dialog = true;
-        },
         closeDialog() {
             this.dialog = false;
-            this.newBank.name = '';
-            this.newBank.address = '';
-            this.isDuplicate = false;
         },
         async fetchBanks() {
             try {
@@ -92,23 +126,26 @@ export default {
         },
         checkDuplicate() {
             if (this.newBank.name && this.newBank.address) {
-                this.isDuplicate = this.existingBanks.some(bank => 
-                    bank.name.toLowerCase() === this.newBank.name.toLowerCase() && 
-                    bank.address.toLowerCase() === this.newBank.address.toLowerCase()
+                this.isDuplicate = this.existingBanks.some(
+                    (b) =>
+                        b.name.toLowerCase() === this.newBank.name.toLowerCase() &&
+                        b.address.toLowerCase() === this.newBank.address.toLowerCase(),
                 );
             } else {
                 this.isDuplicate = false;
             }
         },
         saveData() {
-            if (this.isDuplicate) return;
+            if (this.isDuplicate) {
+                return;
+            }
 
             const toast = useToast();
-            axios.post('/api/banks', this.newBank)
-                .then((response) => {
+            axios
+                .post('/api/banks', this.newBank)
+                .then(() => {
                     this.dialog = false;
                     toast.success('Bank created successfully!');
-
                     setTimeout(() => {
                         window.location.reload();
                     }, 1000);
@@ -118,74 +155,246 @@ export default {
                     toast.error('Failed to create bank!');
                 });
         },
-        handleEscapeKey(event) {
-            if (event.key === 'Escape') {
-                this.closeDialog();
-            }
-        }
     },
-    async mounted() {
-        document.addEventListener('keydown', this.handleEscapeKey);
-        await this.fetchBanks();
-    },
-    beforeUnmount() {
-        document.removeEventListener('keydown', this.handleEscapeKey);
-    }
 };
 </script>
-<style src="vue-multiselect/dist/vue-multiselect.css"></style>
-<style scoped lang="scss">
-.btn {
-    padding: 10px 15px;
-    border: none;
-    cursor: pointer;
-    font-weight: bold;
-    border-radius: 2px;
-    background-color: $blue;
-    color: white;
-}
-.height {
-    height: calc(100vh - 400px);
-}
-.form-group {
-    display: flex;
-    justify-content: left;
-    align-items: center;
-    width: 450px;
-    color: $white;
-    padding-bottom: 12px;
-}
-.width100 {
-    width: 120px;
-}
-.background {
-    background-color: $light-gray;
-}
-.flexSpace {
-    display: flex;
-    justify-content: space-between;
-}
-.orange {
-    color: $orange;
-}
-.red{
-    background-color: $red;
-    color:white;
-    border: none;
-}
-.green{
-    background-color: $green;
-    color: white;
-    border: none;
 
-    &:disabled {
-        opacity: 0.5;
-        cursor: not-allowed;
-    }
+<style scoped lang="scss">
+.bank-dlg-activator {
+    display: inline-flex;
+    align-items: center;
 }
-.error-message {
-    color: $red;
-    margin-top: 5px;
-    font-size: 0.9em;
+
+.bank-dlg-toolbar-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-height: 34px;
+    padding: 0 14px;
+    border: none;
+    border-radius: 10px;
+    background-color: $blue;
+    color: $white;
+    font-size: 13px;
+    font-weight: 700;
+    line-height: 1.2;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: filter 0.15s ease, transform 0.08s ease;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
+}
+
+.bank-dlg-toolbar-btn:hover {
+    filter: brightness(1.07);
+}
+
+.bank-dlg-toolbar-btn:active {
+    transform: scale(0.98);
+}
+
+.bank-dlg-toolbar-btn__icon {
+    font-size: 11px;
+    opacity: 0.92;
+}
+
+.bank-dlg-card {
+    border-radius: 12px !important;
+    overflow: hidden;
+    background: #1a2332 !important;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.45) !important;
+}
+
+.bank-dlg-card__head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 16px 18px 12px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.bank-dlg-card__title {
+    margin: 0;
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: $white;
+    line-height: 1.3;
+}
+
+.bank-dlg-card__close {
+    flex-shrink: 0;
+    width: 32px;
+    height: 32px;
+    margin: -4px -6px 0 0;
+    border: none;
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.08);
+    color: rgba(255, 255, 255, 0.85);
+    font-size: 22px;
+    line-height: 1;
+    cursor: pointer;
+    transition: background 0.15s ease;
+}
+
+.bank-dlg-card__close:hover {
+    background: rgba(255, 255, 255, 0.14);
+}
+
+.bank-dlg-card__body {
+    --bank-dlg-label-w: 132px;
+    padding: 14px 18px 8px !important;
+    color: rgba(255, 255, 255, 0.9);
+    max-height: min(60vh, 420px);
+    overflow-y: auto;
+}
+
+.bank-dlg-section {
+    padding: 12px 14px 14px;
+    border: 1px solid rgba(255, 255, 255, 0.22);
+    border-radius: 12px;
+    background: rgba(0, 0, 0, 0.12);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.bank-dlg-field {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 12px 16px;
+    margin-bottom: 10px;
+    min-width: 0;
+}
+
+.bank-dlg-field:last-of-type {
+    margin-bottom: 0;
+}
+
+.bank-dlg-label {
+    flex: 0 0 var(--bank-dlg-label-w);
+    max-width: 42%;
+    margin: 0;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: rgba(255, 255, 255, 0.88);
+    line-height: 1.25;
+}
+
+.bank-dlg-control {
+    flex: 1 1 auto;
+    min-width: 0;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+}
+
+.bank-dlg-input {
+    width: 100%;
+    max-width: 280px;
+    min-height: 36px;
+    padding: 0 10px;
+    border: 1px solid rgba(0, 0, 0, 0.14);
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.98);
+    color: #111827;
+    font-size: 14px;
+    box-sizing: border-box;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.bank-dlg-input:focus {
+    outline: none;
+    border-color: rgba(59, 130, 246, 0.75);
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+}
+
+.bank-dlg-error {
+    margin: 12px 0 0;
+    padding: 0;
+    font-size: 13px;
+    font-weight: 600;
+    color: #fca5a5;
+}
+
+.bank-dlg-card__actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 10px;
+    padding: 12px 18px 16px;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.bank-dlg-footer-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 36px;
+    padding: 0 18px;
+    border-radius: 10px;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    cursor: pointer;
+    border: 1px solid transparent;
+    transition: filter 0.15s ease, transform 0.08s ease, opacity 0.15s ease;
+}
+
+.bank-dlg-footer-btn:active:not(:disabled) {
+    transform: scale(0.98);
+}
+
+.bank-dlg-footer-btn:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+
+.bank-dlg-footer-btn--close {
+    background: #b71c1c;
+    color: #fff;
+    border-color: rgba(0, 0, 0, 0.2);
+    box-shadow: 0 1px 0 rgba(255, 255, 255, 0.12) inset;
+}
+
+.bank-dlg-footer-btn--close:hover:not(:disabled) {
+    filter: brightness(1.08);
+}
+
+.bank-dlg-footer-btn--save {
+    background: #1b5e20;
+    color: #fff;
+    border-color: rgba(0, 0, 0, 0.15);
+    box-shadow: 0 1px 0 rgba(255, 255, 255, 0.1) inset;
+}
+
+.bank-dlg-footer-btn--save:hover:not(:disabled) {
+    filter: brightness(1.08);
+}
+
+@media (max-width: 520px) {
+    .bank-dlg-card__body {
+        --bank-dlg-label-w: 0px;
+    }
+
+    .bank-dlg-field {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 6px;
+    }
+
+    .bank-dlg-label {
+        flex: none;
+        max-width: none;
+        width: 100%;
+    }
+
+    .bank-dlg-input {
+        max-width: none;
+    }
 }
 </style>
