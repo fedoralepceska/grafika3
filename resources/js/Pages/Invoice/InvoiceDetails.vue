@@ -112,7 +112,14 @@
                                     </div>
                                 </div>
                                 <div class="btns flex gap-2">
-                                    <div class="bt"><i class="fa-regular fa-pen-to-square"></i></div>
+                                    <div
+                                        class="bt"
+                                        role="button"
+                                        tabindex="0"
+                                        :title="$t('changeOrderClientTitle')"
+                                        @click="openChangeClientModal"
+                                        @keydown.enter.prevent="openChangeClientModal"
+                                    ><i class="fa-regular fa-pen-to-square"></i></div>
                                     <div class="bt" @click="toggleSpreadsheetMode"
                                          :class="{'text-white': spreadsheetMode, 'green-text': !spreadsheetMode}"
                                     ><i class="fa-solid fa-table"></i></div>
@@ -469,6 +476,49 @@
                  </button>
              </div>
          </div>
+
+         <!-- Change order customer -->
+         <div
+             v-if="showChangeClientModal"
+             class="popover"
+             @click="closeChangeClientModal"
+             @keydown.esc="closeChangeClientModal"
+         >
+             <div class="popover-content popover-content--change-client change-client-modal bg-gray-700 text-white" @click.stop>
+                 <button type="button" class="popover-close" @click="closeChangeClientModal">
+                     <i class="fa fa-close"></i>
+                 </button>
+                 <h3 class="change-client-modal__title">{{ $t('changeOrderClientTitle') }}</h3>
+                 <p class="change-client-modal__hint">{{ $t('changeOrderClientHint') }}</p>
+                 <p v-if="invoice?.client" class="change-client-modal__current">
+                     <span class="change-client-modal__label">{{ $t('client') }}:</span>
+                     {{ invoice.client.name }}
+                 </p>
+                 <div v-if="changeClientLoading" class="change-client-modal__loading">{{ $t('changeOrderClientLoading') }}</div>
+                 <FinanceClientSearchSelect
+                     v-else
+                     v-model="changeClientSelectedId"
+                     :clients="changeClientOptions"
+                     :label="$t('changeOrderClientSelectLabel')"
+                     variant="pick"
+                     :empty-label="$t('changeOrderClientEmptyPick')"
+                     :teleport-dropdown="true"
+                 />
+                 <div class="change-client-modal__actions">
+                     <button type="button" class="change-client-modal__btn change-client-modal__btn--ghost" @click="closeChangeClientModal">
+                         {{ $t('close') }}
+                     </button>
+                     <button
+                         type="button"
+                         class="change-client-modal__btn change-client-modal__btn--primary"
+                         :disabled="changeClientSaving || changeClientLoading || !changeClientSelectedId"
+                         @click="saveOrderClientChange"
+                     >
+                         {{ changeClientSaving ? '…' : $t('changeOrderClientSave') }}
+                     </button>
+                 </div>
+             </div>
+         </div>
      </MainLayout>
 </template>
 
@@ -484,6 +534,7 @@ import AddNoteDialog from "@/Components/AddNoteDialog.vue";
 import AddLockNoteDialog from "@/Components/AddLockNoteDialog.vue";
 import CostBreakdownModal from "@/Components/CostBreakdownModal.vue";
 import DownloadFilesModal from "@/Components/DownloadFilesModal.vue";
+import FinanceClientSearchSelect from '@/Components/Finance/FinanceClientSearchSelect.vue';
 import useRoleCheck from '@/Composables/useRoleCheck';
 import { computed } from 'vue';
 import { Link } from '@inertiajs/vue3';
@@ -510,6 +561,7 @@ export default {
         Header,
         CostBreakdownModal,
         DownloadFilesModal,
+        FinanceClientSearchSelect,
         Link,
     },
     props: {
@@ -537,7 +589,12 @@ export default {
             selectedCuttingFileIndex: null,
             showStatusDropdown: false,
             selectedStatus: this.invoice?.status || 'Not started yet',
-            showMockupModal: false
+            showMockupModal: false,
+            showChangeClientModal: false,
+            changeClientOptions: [],
+            changeClientLoading: false,
+            changeClientSaving: false,
+            changeClientSelectedId: null,
         }
     },
     computed: {
@@ -1101,6 +1158,70 @@ export default {
             this.showCostBreakdownModal = false;
             this.selectedJob = null;
             this.costBreakdown = {};
+        },
+
+        async openChangeClientModal() {
+            this.showChangeClientModal = true;
+            this.changeClientSelectedId = this.invoice?.client?.id ?? null;
+            if (this.changeClientOptions.length > 0) {
+                return;
+            }
+            const toast = useToast();
+            this.changeClientLoading = true;
+            try {
+                const { data } = await axios.get('/unique-clients');
+                const list = Array.isArray(data) ? [...data] : [];
+                const cur = this.invoice?.client;
+                if (cur?.id != null && !list.some((c) => Number(c.id) === Number(cur.id))) {
+                    list.unshift({ id: cur.id, name: cur.name || '' });
+                }
+                this.changeClientOptions = list;
+            } catch (e) {
+                console.error(e);
+                toast.error(this.$t('changeOrderClientLoadError'));
+            } finally {
+                this.changeClientLoading = false;
+            }
+        },
+
+        closeChangeClientModal() {
+            if (this.changeClientSaving) {
+                return;
+            }
+            this.showChangeClientModal = false;
+        },
+
+        async saveOrderClientChange() {
+            if (!this.changeClientSelectedId || this.changeClientSaving || this.changeClientLoading) {
+                return;
+            }
+            if (Number(this.invoice?.client?.id) === Number(this.changeClientSelectedId)) {
+                this.showChangeClientModal = false;
+                return;
+            }
+            const toast = useToast();
+            this.changeClientSaving = true;
+            try {
+                const { data } = await axios.put(`/orders/${this.invoice.id}`, {
+                    client_id: this.changeClientSelectedId,
+                });
+                if (data.client) {
+                    this.invoice.client = data.client;
+                } else {
+                    const picked = this.changeClientOptions.find((c) => c.id === this.changeClientSelectedId);
+                    if (picked) {
+                        this.invoice.client = { id: picked.id, name: picked.name };
+                    }
+                }
+                toast.success(this.$t('changeOrderClientSuccess'));
+                this.showChangeClientModal = false;
+            } catch (error) {
+                console.error(error);
+                const msg = error.response?.data?.message;
+                toast.error(msg || this.$t('changeOrderClientError'));
+            } finally {
+                this.changeClientSaving = false;
+            }
         },
         
         async updateStatus() {
@@ -2040,5 +2161,108 @@ table th {
 
 .info-btn:active {
     transform: scale(0.95);
+}
+
+/* Reset image popover flex row — this modal is a vertical form */
+.popover-content.popover-content--change-client {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    justify-content: flex-start;
+    width: min(100%, 32rem);
+    max-width: 32rem;
+    height: auto;
+    min-height: unset;
+    max-height: min(90vh, 36rem);
+    overflow-x: hidden;
+    overflow-y: auto;
+    padding: 1.5rem 1.5rem 1.25rem;
+    padding-top: 3rem;
+    box-sizing: border-box;
+}
+
+.change-client-modal {
+    position: relative;
+}
+
+.change-client-modal__title {
+    margin: 0 0 0.5rem;
+    padding-right: 2.5rem;
+    font-size: 1.25rem;
+    font-weight: 700;
+    line-height: 1.3;
+    flex-shrink: 0;
+}
+
+.change-client-modal__hint {
+    margin: 0 0 1rem;
+    font-size: 0.875rem;
+    color: rgba(255, 255, 255, 0.75);
+    line-height: 1.5;
+    max-width: 100%;
+    flex-shrink: 0;
+}
+
+.change-client-modal__current {
+    margin: 0 0 1rem;
+    padding: 0.65rem 0.85rem;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    font-size: 0.9375rem;
+    line-height: 1.4;
+    word-break: break-word;
+    flex-shrink: 0;
+}
+
+.change-client-modal__label {
+    font-weight: 600;
+    margin-right: 0.35rem;
+}
+
+.change-client-modal__loading {
+    padding: 1rem 0;
+    color: rgba(255, 255, 255, 0.75);
+}
+
+.change-client-modal__actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.5rem;
+    margin-top: 1.25rem;
+    flex-wrap: wrap;
+    flex-shrink: 0;
+}
+
+.change-client-modal__btn {
+    min-height: 40px;
+    padding: 0 1rem;
+    border-radius: 6px;
+    font-weight: 600;
+    font-size: 0.875rem;
+    cursor: pointer;
+    border: none;
+}
+
+.change-client-modal__btn:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+}
+
+.change-client-modal__btn--ghost {
+    background: rgba(255, 255, 255, 0.1);
+    color: #fff;
+}
+
+.change-client-modal__btn--ghost:hover:not(:disabled) {
+    background: rgba(255, 255, 255, 0.16);
+}
+
+.change-client-modal__btn--primary {
+    background-color: $green;
+    color: $white;
+}
+
+.change-client-modal__btn--primary:hover:not(:disabled) {
+    filter: brightness(1.06);
 }
 </style>

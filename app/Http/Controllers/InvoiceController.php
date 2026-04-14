@@ -6,6 +6,7 @@ use App\Models\JobAction;
 use App\Models\JobNote;
 use App\Events\InvoiceCreated;
 use App\Models\Article;
+use App\Models\Client;
 use App\Models\Faktura;
 use App\Models\FakturaTradeItem;
 use App\Models\Invoice;
@@ -715,7 +716,7 @@ class InvoiceController extends Controller
             return response()->json(['message' => 'Invoice not found'], 404);
         }
 
-        $validatedData = $request->validate([
+        $rules = [
             'perfect' => 'sometimes|required',
             'onHold' => 'sometimes|required',
             'ripFirst' => 'sometimes|required',
@@ -724,8 +725,13 @@ class InvoiceController extends Controller
             'rush' => 'sometimes|required',
             'additionalArt' => 'sometimes|required',
             'status' => 'sometimes|required',
-            'comment' => 'sometimes'
-        ]);
+            'comment' => 'sometimes',
+        ];
+        if ($request->has('client_id')) {
+            $rules['client_id'] = 'required|integer|exists:clients,id';
+        }
+
+        $request->validate($rules);
 
         // Update the job with only the validated data that's present in the request
         $invoice->update($request->only([
@@ -737,9 +743,43 @@ class InvoiceController extends Controller
             'rush',
             'additionalArt',
             'status',
-            'comment'
+            'comment',
         ]));
-        return response()->json(['message' => 'Invoice updated successfully']);
+
+        $response = ['message' => 'Invoice updated successfully'];
+
+        if ($request->has('client_id')) {
+            $newClientId = (int) $request->input('client_id');
+            if ($newClientId !== (int) $invoice->client_id) {
+                $client = Client::with(['contacts' => static function ($q) {
+                    $q->orderBy('id');
+                }])->findOrFail($newClientId);
+                $firstContact = $client->contacts->first();
+                if (!$firstContact) {
+                    return response()->json([
+                        'message' => 'Selected client has no contacts. Add a contact for this client before assigning the order.',
+                    ], 422);
+                }
+
+                DB::transaction(function () use ($invoice, $newClientId, $firstContact) {
+                    $invoice->update([
+                        'client_id' => $newClientId,
+                        'contact_id' => $firstContact->id,
+                    ]);
+                    $jobIds = DB::table('invoice_job')->where('invoice_id', $invoice->id)->pluck('job_id');
+                    if ($jobIds->isNotEmpty()) {
+                        Job::whereIn('id', $jobIds)->update(['client_id' => $newClientId]);
+                    }
+                });
+
+                $invoice->load(['client' => static function ($q) {
+                    $q->select('id', 'name');
+                }]);
+                $response['client'] = $invoice->client;
+            }
+        }
+
+        return response()->json($response);
     }
     public function downloadInvoiceFiles(Request $request)
     {
