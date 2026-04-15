@@ -2169,6 +2169,8 @@ table th {
     flex-direction: column;
     align-items: stretch;
     justify-content: flex-start;
+    background: #374151;
+    color: #ffffff;
     width: min(100%, 32rem);
     max-width: 32rem;
     height: auto;
