@@ -40,17 +40,17 @@
                             placeholder="Search by order #, title, client..." 
                             class="search-input"
                         />
-                        <select v-model="yearFilter" @change="fetchOrders" class="status-select">
+                        <select v-model="yearFilter" @change="refreshOrders(true)" class="status-select">
                             <option v-for="year in availableYears" :key="year" :value="year">
                                 {{ year }}
                             </option>
                         </select>
-                        <select v-model="statusFilter" @change="fetchOrders" class="status-select">
+                        <select v-model="statusFilter" @change="refreshOrders(true)" class="status-select">
                             <option value="">All Status</option>
                             <option value="Not started yet">Not started yet</option>
                             <option value="In progress">In progress</option>
                         </select>
-                        <select v-model="createdByFilter" @change="fetchOrders" class="status-select">
+                        <select v-model="createdByFilter" @change="refreshOrders(true)" class="status-select">
                             <option value="">All Users</option>
                             <option v-for="user in availableUsers" :key="user.id" :value="user.id">
                                 {{ user.name }}
@@ -106,7 +106,7 @@
                     <div class="pagination">
                         <button 
                             @click="changePage(orders.current_page - 1)"
-                            :disabled="orders.current_page === 1"
+                            :disabled="orders.current_page === 1 || isLoadingOrders"
                             class="pagination-btn"
                         >
                             Previous
@@ -118,7 +118,7 @@
                         
                         <button 
                             @click="changePage(orders.current_page + 1)"
-                            :disabled="orders.current_page === orders.last_page"
+                            :disabled="orders.current_page === orders.last_page || isLoadingOrders"
                             class="pagination-btn"
                         >
                             Next
@@ -139,12 +139,12 @@
                             placeholder="Search by order #, title, client..." 
                             class="search-input"
                         />
-                        <select v-model="completedYearFilter" @change="fetchCompletedOrders" class="status-select">
+                        <select v-model="completedYearFilter" @change="refreshCompletedOrders(true)" class="status-select">
                             <option v-for="year in availableYears" :key="year" :value="year">
                                 {{ year }}
                             </option>
                         </select>
-                        <select v-model="completedCreatedByFilter" @change="fetchCompletedOrders" class="status-select">
+                        <select v-model="completedCreatedByFilter" @change="refreshCompletedOrders(true)" class="status-select">
                             <option value="">All Users</option>
                             <option v-for="user in availableUsers" :key="user.id" :value="user.id">
                                 {{ user.name }}
@@ -194,7 +194,7 @@
                     <div class="pagination">
                         <button 
                             @click="changeCompletedPage(completedOrders.current_page - 1)"
-                            :disabled="completedOrders.current_page === 1"
+                            :disabled="completedOrders.current_page === 1 || isLoadingCompletedOrders"
                             class="pagination-btn"
                         >
                             Previous
@@ -204,7 +204,7 @@
                         </span>
                         <button 
                             @click="changeCompletedPage(completedOrders.current_page + 1)"
-                            :disabled="completedOrders.current_page === completedOrders.last_page"
+                            :disabled="completedOrders.current_page === completedOrders.last_page || isLoadingCompletedOrders"
                             class="pagination-btn"
                         >
                             Next
@@ -476,6 +476,10 @@ export default {
             availableUsers: [],
             searchTimeout: null,
             completedSearchTimeout: null,
+            isLoadingOrders: false,
+            isLoadingCompletedOrders: false,
+            latestOrdersRequestId: 0,
+            completedOrdersRequestId: 0,
             currentFileIndex: {},
             preloadedImages: {},
             imageLoadStates: {},
@@ -496,17 +500,31 @@ export default {
     beforeUnmount() {
         // Remove ESC key listener
         document.removeEventListener('keydown', this.handleKeydown);
+        clearTimeout(this.searchTimeout);
+        clearTimeout(this.completedSearchTimeout);
     },
     watch: {
         activeFilter(newFilter) {
             // Reset to first page when filter changes
             this.orders.current_page = 1;
-            this.completedOrders.current_page = 1;
             this.fetchOrders();
-            this.fetchCompletedOrders();
         }
     },
     methods: {
+        refreshOrders(resetPage = false) {
+            if (resetPage) {
+                this.orders.current_page = 1;
+            }
+            this.fetchOrders();
+        },
+
+        refreshCompletedOrders(resetPage = false) {
+            if (resetPage) {
+                this.completedOrders.current_page = 1;
+            }
+            this.fetchCompletedOrders();
+        },
+
         initializeAvailableYears() {
             const currentYear = new Date().getFullYear();
             // Generate years from 2025 (system start) to current year + 1
@@ -517,6 +535,8 @@ export default {
         },
 
         async fetchOrders() {
+            const requestId = ++this.latestOrdersRequestId;
+            this.isLoadingOrders = true;
             try {
                 const params = {
                     page: this.orders.current_page,
@@ -542,6 +562,11 @@ export default {
 
                 // Always exclude completed orders from latest list (handled server-side)
                 const response = await axios.get('/orders/latest-open', { params });
+
+                // Ignore stale responses (older requests can finish after newer ones)
+                if (requestId !== this.latestOrdersRequestId) {
+                    return;
+                }
                 
                 // Ensure pagination metadata is properly set
                 this.orders = {
@@ -553,6 +578,9 @@ export default {
                     per_page: response.data.per_page || 10
                 };
             } catch (error) {
+                if (requestId !== this.latestOrdersRequestId) {
+                    return;
+                }
                 console.error('Error fetching orders:', error);
                 // Reset to safe state on error
                 this.orders = {
@@ -562,10 +590,16 @@ export default {
                     total: 0,
                     per_page: 10
                 };
+            } finally {
+                if (requestId === this.latestOrdersRequestId) {
+                    this.isLoadingOrders = false;
+                }
             }
         },
 
         async fetchCompletedOrders() {
+            const requestId = ++this.completedOrdersRequestId;
+            this.isLoadingCompletedOrders = true;
             try {
                 const params = {
                     page: this.completedOrders.current_page
@@ -584,6 +618,11 @@ export default {
                 }
 
                 const response = await axios.get('/orders/completed', { params });
+
+                // Ignore stale responses (older requests can finish after newer ones)
+                if (requestId !== this.completedOrdersRequestId) {
+                    return;
+                }
                 
                 // Ensure pagination metadata is properly set
                 this.completedOrders = {
@@ -595,6 +634,9 @@ export default {
                     per_page: response.data.per_page || 5
                 };
             } catch (error) {
+                if (requestId !== this.completedOrdersRequestId) {
+                    return;
+                }
                 console.error('Error fetching completed orders:', error);
                 // Reset to safe state on error
                 this.completedOrders = {
@@ -604,6 +646,10 @@ export default {
                     total: 0,
                     per_page: 5
                 };
+            } finally {
+                if (requestId === this.completedOrdersRequestId) {
+                    this.isLoadingCompletedOrders = false;
+                }
             }
         },
 
@@ -620,9 +666,7 @@ export default {
             clearTimeout(this.searchTimeout);
             this.searchTimeout = setTimeout(() => {
                 this.orders.current_page = 1;
-                this.completedOrders.current_page = 1;
                 this.fetchOrders();
-                this.fetchCompletedOrders();
             }, 300);
         },
 
@@ -641,6 +685,10 @@ export default {
         },
 
         changePage(page) {
+            if (this.isLoadingOrders) {
+                return;
+            }
+
             if (page >= 1 && page <= this.orders.last_page) {
                 this.orders.current_page = page;
                 this.fetchOrders();
@@ -648,6 +696,10 @@ export default {
         },
 
         changeCompletedPage(page) {
+            if (this.isLoadingCompletedOrders) {
+                return;
+            }
+
             if (page >= 1 && page <= this.completedOrders.last_page) {
                 this.completedOrders.current_page = page;
                 this.fetchCompletedOrders();

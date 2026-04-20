@@ -80,8 +80,27 @@
                                 <span class="info-label">Date Created</span>
                                 <span class="info-value">
                                     <div v-if="isEditMode && editingDate" class="date-edit-container">
-                                        <input v-model="dateEdit" @keyup.enter="saveDate" class="date-input"
-                                            type="date" />
+                                        <input
+                                            v-model="dateEditDisplay"
+                                            @keyup.enter="saveDate"
+                                            class="date-input"
+                                            type="text"
+                                            placeholder="dd/mm/yyyy"
+                                            inputmode="numeric"
+                                            autocomplete="off"
+                                        />
+                                        <input
+                                            ref="nativeDateInput"
+                                            type="date"
+                                            class="date-input-native-anchor"
+                                            :value="dateEdit"
+                                            tabindex="-1"
+                                            aria-hidden="true"
+                                            @change="onNativeDatePicked"
+                                        />
+                                        <button @click="openNativeDatePicker" class="save-btn" title="Open Calendar">
+                                            <i class="fas fa-calendar-alt"></i>
+                                        </button>
                                         <button @click="saveDate" class="save-btn" title="Save">
                                             <i class="fas fa-check"></i>
                                         </button>
@@ -952,6 +971,42 @@
                         </div>
                         <div v-if="filteredDetachableOrders.length === 0">No matching orders.</div>
                     </div>
+                    <div v-if="selectedDetachOrderIds.length > 0" class="detach-options">
+                        <label class="detach-options__title">When removing selected orders:</label>
+                        <label class="detach-options__choice">
+                            <input v-model="detachJobMode" type="radio" value="remove_all" />
+                            Remove all jobs from this faktura too
+                        </label>
+                        <label class="detach-options__choice">
+                            <input v-model="detachJobMode" type="radio" value="keep_selected" />
+                            Choose which jobs stay in this faktura
+                        </label>
+
+                        <div v-if="detachJobMode === 'keep_selected'" class="detach-jobs">
+                            <div
+                                v-for="ord in selectedDetachableOrdersDetailed"
+                                :key="`detach-jobs-${ord.id}`"
+                                class="detach-jobs__order"
+                            >
+                                <div class="detach-jobs__order-title">
+                                    #{{ displayOrderNumberForList(ord) }} - {{ ord.invoice_title || `Order ${ord.id}` }}
+                                </div>
+                                <div v-if="!ord.jobs.length" class="detach-jobs__empty">No jobs found for this order.</div>
+                                <label
+                                    v-for="job in ord.jobs"
+                                    :key="`keep-job-${ord.id}-${job.id}`"
+                                    class="detach-jobs__item"
+                                >
+                                    <input
+                                        type="checkbox"
+                                        :checked="isDetachJobKept(ord.id, job.id)"
+                                        @change="toggleDetachJobKeep(ord.id, job.id)"
+                                    />
+                                    <span>#{{ job.id }} {{ job.name || 'Untitled job' }}</span>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
                 </div>
                 <div class="modal-footer">
                     <button @click="confirmDetachOrders" :disabled="selectedDetachOrderIds.length === 0"
@@ -1214,6 +1269,18 @@ export default {
             if (!q) return mapped;
             return mapped.filter(o => this.uninvoicedOrderMatchesSearch(o, q));
         },
+        selectedDetachableOrdersDetailed() {
+            const ids = new Set(this.selectedDetachOrderIds || []);
+            return (Array.isArray(this.invoice) ? this.invoice : [])
+                .filter(o => ids.has(o.id))
+                .map(o => ({
+                    id: o.id,
+                    order_number: o.order_number,
+                    fiscal_year: o.fiscal_year,
+                    invoice_title: o.invoice_title,
+                    jobs: Array.isArray(o.jobs) ? o.jobs : []
+                }));
+        },
         hasValidMergeGroups() {
             const mergeGroups = this.faktura?.merge_groups || [];
             if (!mergeGroups || mergeGroups.length === 0) {
@@ -1256,6 +1323,7 @@ export default {
             titleEdits: {},
             editingDate: false,
             dateEdit: '',
+            dateEditDisplay: '',
             editingPaymentDeadline: false,
             paymentDeadlineEdit: null,
             toast: useToast(),
@@ -1308,6 +1376,8 @@ export default {
             showDetachOrders: false,
             detachSearch: '',
             selectedDetachOrderIds: [],
+            detachJobMode: 'remove_all',
+            detachKeepJobsByOrder: {},
             // Additional Services state
             showAdditionalServicesModal: false,
             newServiceName: '',
@@ -1344,6 +1414,23 @@ export default {
         this.initializeOverrides();
     },
     methods: {
+        parseDisplayDateToIso(value) {
+            const raw = (value || '').trim();
+            const match = raw.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+            if (!match) return null;
+            const [, day, month, year] = match;
+            const candidate = `${year}-${month}-${day}`;
+            const d = new Date(`${candidate}T00:00:00`);
+            if (isNaN(d.getTime())) return null;
+            const normalized = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+            return normalized === candidate ? candidate : null;
+        },
+        formatIsoToDisplay(value) {
+            if (!value) return '';
+            const d = new Date(`${value}T00:00:00`);
+            if (isNaN(d.getTime())) return '';
+            return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
+        },
         // Helper method to get the faktura date consistently
         getFakturaDate() {
             return this.faktura?.created_at || null;
@@ -1758,6 +1845,7 @@ export default {
             this.editingDate = true;
             // Use the same date logic for consistency
             this.dateEdit = this.getDateForPayload();
+            this.dateEditDisplay = this.formatIsoToDisplay(this.dateEdit);
 
             // Focus the input in the next tick
             this.$nextTick(() => {
@@ -1768,6 +1856,14 @@ export default {
             });
         },
         async saveDate() {
+            const isoDate = this.parseDisplayDateToIso(this.dateEditDisplay);
+            if (!isoDate) {
+                this.toast.error('Use date as dd/mm/yyyy (e.g. 14/01/2026).');
+                return;
+            }
+
+            this.dateEdit = isoDate;
+
             if (!this.dateEdit) {
                 this.cancelEditDate();
                 return;
@@ -1798,6 +1894,26 @@ export default {
         cancelEditDate() {
             this.editingDate = false;
             this.dateEdit = '';
+            this.dateEditDisplay = '';
+        },
+        onNativeDatePicked(event) {
+            const v = event.target.value;
+            if (!v) return;
+            this.dateEdit = v;
+            this.dateEditDisplay = this.formatIsoToDisplay(v);
+        },
+        openNativeDatePicker() {
+            const el = this.$refs.nativeDateInput;
+            if (!el) return;
+            try {
+                if (typeof el.showPicker === 'function') {
+                    el.showPicker();
+                } else {
+                    el.click();
+                }
+            } catch (_) {
+                el.click();
+            }
         },
         startEditPaymentDeadline() {
             if (!this.isEditMode) return;
@@ -1866,11 +1982,15 @@ export default {
         },
         openDetachOrdersModal() {
             this.showDetachOrders = true;
+            this.detachJobMode = 'remove_all';
+            this.detachKeepJobsByOrder = {};
         },
         closeDetachOrdersModal() {
             this.showDetachOrders = false;
             this.detachSearch = '';
             this.selectedDetachOrderIds = [];
+            this.detachJobMode = 'remove_all';
+            this.detachKeepJobsByOrder = {};
         },
         async confirmDetachOrders() {
             try {
@@ -1879,7 +1999,12 @@ export default {
                     return;
                 }
                 if (!this.selectedDetachOrderIds.length) return;
-                await axios.put(`/invoice/${this.faktura.id}/detach-orders`, { orders: this.selectedDetachOrderIds });
+                const payload = {
+                    orders: this.selectedDetachOrderIds,
+                    job_mode: this.detachJobMode,
+                    keep_jobs_by_order: this.detachJobMode === 'keep_selected' ? this.detachKeepJobsByOrder : {},
+                };
+                await axios.put(`/invoice/${this.faktura.id}/detach-orders`, payload);
                 const set = new Set(this.selectedDetachOrderIds);
                 const remaining = (this.invoice || []).filter(o => !set.has(o.id));
                 // Replace array contents in place to avoid reassigning prop
@@ -2046,14 +2171,42 @@ export default {
             if (ids.has(ord.id)) ids.delete(ord.id); else ids.add(ord.id);
             const next = Array.from(ids);
             this.selectedDetachOrderIds = next;
+            this.syncDetachKeepJobsByOrder();
             if (next.length === 0) {
                 this.clearDetachSelection();
             }
         },
         selectAllDetachVisible() {
             this.selectedDetachOrderIds = this.filteredDetachableOrders.map(o => o.id);
+            this.syncDetachKeepJobsByOrder();
         },
-        clearDetachSelection() { this.selectedDetachOrderIds = []; },
+        clearDetachSelection() {
+            this.selectedDetachOrderIds = [];
+            this.detachKeepJobsByOrder = {};
+        },
+        syncDetachKeepJobsByOrder() {
+            const selectedIds = new Set(this.selectedDetachOrderIds || []);
+            const next = {};
+            const orders = Array.isArray(this.invoice) ? this.invoice : [];
+            for (const ord of orders) {
+                if (!selectedIds.has(ord.id)) continue;
+                const jobIds = (Array.isArray(ord.jobs) ? ord.jobs : []).map(j => j.id);
+                const previous = Array.isArray(this.detachKeepJobsByOrder?.[ord.id]) ? this.detachKeepJobsByOrder[ord.id] : jobIds;
+                next[ord.id] = previous.filter(id => jobIds.includes(id));
+            }
+            this.detachKeepJobsByOrder = next;
+        },
+        isDetachJobKept(orderId, jobId) {
+            const kept = this.detachKeepJobsByOrder?.[orderId];
+            return Array.isArray(kept) && kept.includes(jobId);
+        },
+        toggleDetachJobKeep(orderId, jobId) {
+            const current = Array.isArray(this.detachKeepJobsByOrder?.[orderId]) ? [...this.detachKeepJobsByOrder[orderId]] : [];
+            const idx = current.indexOf(jobId);
+            if (idx >= 0) current.splice(idx, 1);
+            else current.push(jobId);
+            this.detachKeepJobsByOrder = { ...this.detachKeepJobsByOrder, [orderId]: current };
+        },
         truncateTitle(title, max = 40) {
             const t = String(title || '');
             if (t.length <= max) return t;
@@ -3274,6 +3427,57 @@ $orange: #a36a03;
     white-space: nowrap;
 }
 
+.detach-options {
+    margin-top: 12px;
+    padding: 10px 12px;
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.04);
+}
+
+.detach-options__title {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: 700;
+}
+
+.detach-options__choice {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 6px;
+}
+
+.detach-jobs {
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px dashed rgba(255, 255, 255, 0.2);
+    max-height: 220px;
+    overflow-y: auto;
+}
+
+.detach-jobs__order {
+    margin-bottom: 10px;
+}
+
+.detach-jobs__order-title {
+    font-weight: 600;
+    margin-bottom: 4px;
+}
+
+.detach-jobs__item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 4px;
+    font-size: 13px;
+}
+
+.detach-jobs__empty {
+    font-size: 12px;
+    opacity: 0.75;
+}
+
 .form-group {
     margin-bottom: 1rem;
 }
@@ -3571,6 +3775,14 @@ $orange: #a36a03;
     outline: none;
     border-color: $light-green;
     box-shadow: 0 0 0 2px rgba($light-green, 0.3);
+}
+
+.date-input-native-anchor {
+    position: absolute;
+    width: 0;
+    height: 0;
+    opacity: 0;
+    pointer-events: none;
 }
 
 .save-btn,

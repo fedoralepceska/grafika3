@@ -24,7 +24,12 @@
                                     </div>
                                     <div class="form-group">
                                         <label class="mr-4 width100">Date</label>
-                                        <input type="date" v-model="form.date" class="form-input">
+                                        <FinanceMaskedDateInput
+                                            v-model="form.date"
+                                            class="edit-date-wrap"
+                                            input-class="form-input"
+                                            variant="light"
+                                        />
                                     </div>
                                     <div class="form-group">
                                         <label class="mr-4 width100">Client</label>
@@ -59,9 +64,7 @@
                                     </div>
                                 </div>
                             </div>
-                        </div>
 
-                        <div class="right-section flex flex-col justify-between">
                             <!-- Types Section -->
                             <div>
                                 <div class="section-title">Invoice Types</div>
@@ -83,7 +86,7 @@
                                                 </option>
                                             </select>
                                             <div v-if="form.billing_type === 2" 
-                                                 class="text-white mt-2 bg-gray-700 p-2 rounded absolute top-full left-0 w-full z-10">
+                                                    class="text-white mt-2 bg-gray-700 p-2 rounded absolute top-full left-0 w-full z-10">
                                                 <span v-if="invoice.billing_type === 2" class="font-semibold">
                                                     Current фактура number: {{ invoice.faktura_counter }}
                                                 </span>
@@ -95,6 +98,9 @@
                                     </div>
                                 </div>
                             </div>
+                        </div>
+
+                        <div class="right-section flex flex-col justify-between">
                             <div class="bg-gray-700 p-2 rounded-md">
                             <div class="section-title">Price and Tax Calculation</div>
                             <div class="tax-grid">
@@ -102,28 +108,28 @@
                                     <div class="tax-row">
                                         <label>Amount TAX A</label>
                                         <div class="tax-inputs">
-                                            <input type="number" v-model.number="form.taxAmounts.taxA" class="amount-input">
+                                            <input type="number" v-model.number="form.taxAmounts.taxA" step="any" class="amount-input">
                                             <input type="text" disabled class="rate-input" value="18.00">
                                         </div>
                                     </div>
                                     <div class="tax-row">
                                         <label>Amount TAX B</label>
                                         <div class="tax-inputs">
-                                            <input type="number" v-model.number="form.taxAmounts.taxB" class="amount-input">
+                                            <input type="number" v-model.number="form.taxAmounts.taxB" step="any" class="amount-input">
                                             <input type="text" disabled class="rate-input" value="5.00">
                                         </div>
                                     </div>
                                     <div class="tax-row">
                                         <label>Amount TAX C</label>
                                         <div class="tax-inputs">
-                                            <input type="number" v-model.number="form.taxAmounts.taxC" class="amount-input">
+                                            <input type="number" v-model.number="form.taxAmounts.taxC" step="any" class="amount-input">
                                             <input type="text" disabled class="rate-input" value="10.00">
                                         </div>
                                     </div>
                                     <div class="tax-row">
                                         <label>Amount TAX D</label>
                                         <div class="tax-inputs">
-                                            <input type="number" v-model.number="form.taxAmounts.taxD" class="amount-input">
+                                            <input type="number" v-model.number="form.taxAmounts.taxD" step="any" class="amount-input">
                                             <input type="text" disabled class="rate-input" value="00.00">
                                         </div>
                                     </div>
@@ -167,8 +173,13 @@
 <script>
 import { ref, computed, watch } from 'vue'
 import axios from 'axios'
+import { useToast } from 'vue-toastification'
+import FinanceMaskedDateInput from '@/Components/Finance/FinanceMaskedDateInput.vue'
 
 export default {
+    components: {
+        FinanceMaskedDateInput,
+    },
     props: {
         invoice: {
             type: Object,
@@ -192,6 +203,7 @@ export default {
         }
     },
     setup(props, { emit }) {
+        const toast = useToast()
         const isOpen = ref(false)
         const loading = ref(false)
         const nextFakturaCounter = ref(null)
@@ -322,7 +334,7 @@ export default {
                 billing_type: props.invoice.billing_type_id,
                 description: props.invoice.description,
                 comment: props.invoice.comment,
-                date: new Date(props.invoice.date).toISOString().split('T')[0],
+                date: props.invoice.date ? new Date(props.invoice.date).toISOString().split('T')[0] : '',
                 taxAmounts: initialTaxAmounts
             }
             isOpen.value = true
@@ -333,6 +345,10 @@ export default {
         }
 
         const updateInvoice = async () => {
+            if (!form.value.incoming_number || String(form.value.incoming_number).trim() === '') {
+                toast.error('Please enter an invoice number');
+                return;
+            }
             loading.value = true
             try {
                 const amount = Object.values(form.value.taxAmounts).reduce((sum, amount) => sum + (amount || 0), 0);
@@ -350,8 +366,10 @@ export default {
                 const response = await axios.put(`/incomingInvoice/${props.invoice.id}`, payload)
                 emit('invoice-updated', response.data)
                 closeDialog()
+                toast.success('Invoice updated successfully');
             } catch (error) {
                 console.error('Error updating invoice:', error)
+                toast.error('Error updating invoice: ' + (error.message || 'Unknown error'));
             } finally {
                 loading.value = false
             }
@@ -387,209 +405,257 @@ export default {
 <style scoped lang="scss">
 .modal-backdrop {
     position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background-color: rgba(0, 0, 0, 0.5);
+    inset: 0;
+    background-color: rgba(0, 0, 0, 0.58);
     display: flex;
     justify-content: center;
     align-items: center;
-    z-index: 1000;
+    z-index: 3050;
+    padding: 16px;
 }
 
 .modal-content {
-    width: 1200px;
-    background-color: $light-gray;
-    border-radius: 8px;
+    width: min(1200px, calc(100vw - 24px));
+    max-height: calc(100vh - 28px);
+    background-color: #1a2332;
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.45);
     display: flex;
     flex-direction: column;
+    overflow: hidden;
 }
 
 .modal-header {
-    padding-left: 0.5rem;
+    padding: 16px 18px 12px;
     font-weight: 600;
-    font-size: 1.2rem;
+    font-size: 1.1rem;
     display: flex;
     justify-content: space-between;
     align-items: center;
-
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    color: $white;
+    gap: 12px;
 }
 
 .modal-body {
-    padding: 0.5rem;
-    display: flex;
-    gap: 1rem;
+    padding: 14px 16px 10px;
+    overflow-y: auto;
 }
 
 .modal-footer {
-    padding: 1rem;
+    padding: 12px 18px 16px;
     display: flex;
     justify-content: flex-end;
-    gap: 1rem;
-    border-top: 1px solid #4a5568;
+    gap: 10px;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .close-btn {
-    background: none;
+    background: rgba(255, 255, 255, 0.08);
     border: none;
-    color: white;
-    font-size: 1.5rem;
+    color: rgba(255, 255, 255, 0.85);
+    width: 32px;
+    height: 32px;
+    border-radius: 10px;
+    font-size: 22px;
+    line-height: 1;
     cursor: pointer;
-    padding: 0.5rem;
+    transition: background 0.15s ease;
+}
+
+.close-btn:hover {
+    background: rgba(255, 255, 255, 0.14);
 }
 
 .form-container {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 1rem;
+    gap: 12px;
     padding: 0;
 }
 
 .left-section {
     display: flex;
     flex-direction: column;
-    gap: 1rem;
+    gap: 12px;
 }
 
 .right-section {
-    border-radius: 0.5rem;
+    border-radius: 12px;
 }
 
 .section-title {
-    font-size: 1rem;
-    font-weight: 600;
+    font-size: 1.05rem;
+    font-weight: 700;
     color: $white;
-    margin-bottom: 0.5rem;
-    padding-bottom: 0.25rem;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    margin: 0 0 10px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.12);
 }
 
 .form-grid {
     display: grid;
     grid-template-columns: 1fr;
-    gap: 0.5rem;
+    gap: 8px;
+    padding: 0 2px;
 }
 
 .form-group {
-    display: flex;
+    display: grid;
+    grid-template-columns: 150px minmax(0, 1fr);
     align-items: center;
     color: $white;
-    padding: 0.25rem;
+    padding: 2px 0;
     margin: 0;
+    gap: 12px;
 }
 
 .width100 {
-    width: 150px;
-    font-weight: 500;
+    width: auto;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: rgba(255, 255, 255, 0.88);
+    margin-right: 0 !important;
+}
+
+.form-group > .flex.flex-col.relative.w-full {
+    width: 100%;
+    min-width: 0;
 }
 
 .form-input {
     flex: 1;
-    padding: 0.5rem;
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    border-radius: 0.25rem;
-    background-color: white;
-    color: black;
-    transition: all 0.2s;
-    
+    min-height: 36px;
+    padding: 0 10px;
+    border: 1px solid rgba(0, 0, 0, 0.14);
+    border-radius: 10px;
+    background-color: rgba(255, 255, 255, 0.98);
+    color: #111827;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+
     &:focus {
-        border-color: $blue;
-        box-shadow: 0 0 0 2px rgba($blue, 0.1);
+        border-color: rgba(59, 130, 246, 0.75);
+        box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
         outline: none;
     }
 }
 
 select.form-input {
-    width: 225px;
+    width: 100%;
+    max-width: 100%;
     cursor: pointer;
 }
 
 .btn {
-    padding: 0.75rem 1.5rem;
+    min-height: 36px;
+    padding: 0 18px;
     border: none;
     cursor: pointer;
-    font-weight: 600;
-    border-radius: 0.25rem;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    border-radius: 10px;
     transition: all 0.2s;
-    
+
     &:hover {
-        transform: translateY(-1px);
+        filter: brightness(1.08);
     }
-    
+
     &:active {
-        transform: translateY(0);
+        transform: scale(0.98);
     }
 }
 
 .edit-btn {
     color: $gray;
-    padding: 0.5rem;
-    border-radius: 0.25rem;
+    min-height: 34px;
+    min-width: 34px;
+    padding: 0;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .background {
-    background-color: $light-gray;
+    background-color: #1a2332;
 }
 
 .red {
-    background-color: $red;
-    color: white;
-    border: none;
+    background: #b71c1c;
+    color: #fff;
+    border: 1px solid rgba(0, 0, 0, 0.2);
+    box-shadow: 0 1px 0 rgba(255, 255, 255, 0.12) inset;
 }
 
 .green {
-    background-color: $green;
-    color: white;
-    border: none;
+    background: #1b5e20;
+    color: #fff;
+    border: 1px solid rgba(0, 0, 0, 0.15);
+    box-shadow: 0 1px 0 rgba(255, 255, 255, 0.1) inset;
 }
 
 .tax-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 1rem;
-    background: none;
-    padding: 0;
+    gap: 16px;
+    background: rgba(32, 41, 58, 0.95);
+    padding: 14px 14px 12px;
     margin: 0;
+    border-radius: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .tax-section {
     display: flex;
     flex-direction: column;
-    gap: 0.5rem;
+    gap: 8px;
 }
 
 .tax-row {
     display: flex;
     align-items: center;
-    justify-content: space-between;
+    justify-content: flex-start;
     color: white;
-    
+    gap: 10px;
+
     label {
-        min-width: 120px;
+        min-width: 92px;
+        font-size: 12px;
+        color: rgba(255, 255, 255, 0.86);
+        line-height: 1.2;
     }
 }
 
 .tax-inputs {
     display: flex;
-    gap: 0.5rem;
+    gap: 8px;
+    align-items: center;
 }
 
 .amount-input {
-    width: 120px;
-    color: black;
-    padding: 0.25rem;
-    border: 1px solid #e2e8f0;
-    border-radius: 0.25rem;
+    width: 104px;
+    max-width: 104px;
+    min-height: 34px;
+    color: #111827;
+    padding: 0 10px;
+    border: 1px solid rgba(0, 0, 0, 0.14);
+    border-radius: 8px;
     text-align: right;
+    background: rgba(255, 255, 255, 0.98);
 }
 
 .rate-input {
-    width: 60px;
-    padding: 0.25rem;
-    color:  $gray;
-    border: 1px solid #e2e8f0;
-    border-radius: 0.25rem;
+    width: 56px;
+    max-width: 56px;
+    min-height: 34px;
+    padding: 0 8px;
+    color: #6b7280;
+    border: 1px solid rgba(0, 0, 0, 0.14);
+    border-radius: 8px;
     background-color: #f7f7f7;
     text-align: right;
 }
@@ -597,32 +663,84 @@ select.form-input {
 .totals-section {
     display: flex;
     flex-direction: column;
-    gap: 0.5rem;
+    gap: 8px;
     justify-content: flex-start;
 }
 
 .total-row {
     display: flex;
     align-items: center;
-    justify-content: space-between;
+    justify-content: flex-start;
     color: white;
-    
+    gap: 8px;
+
     label {
-        min-width: 80px;
+        min-width: 52px;
+        font-size: 12px;
+        color: rgba(255, 255, 255, 0.86);
+        text-align: right;
     }
 }
 
 .total-input {
-    color: $gray;
-    width: 200px;
-    padding: 0.25rem;
-    border: 1px solid #e2e8f0;
-    border-radius: 0.25rem;
-    background-color: white;
+    color: #374151;
+    width: 172px;
+    max-width: 172px;
+    min-height: 34px;
+    padding: 0 10px;
+    border: 1px solid rgba(0, 0, 0, 0.14);
+    border-radius: 8px;
+    background-color: rgba(255, 255, 255, 0.98);
     text-align: right;
-    
+
     &:disabled {
-        background-color: white;
+        background-color: rgba(255, 255, 255, 0.98);
+    }
+}
+
+.text-h5 {
+    margin: 0;
+    font-size: 1.1rem;
+    font-weight: 700;
+}
+
+@media (max-width: 1100px) {
+    .form-container {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 720px) {
+    .form-group {
+        display: flex;
+        flex-direction: column;
+        align-items: stretch;
+        gap: 6px;
+    }
+
+    .width100 {
+        width: 100%;
+    }
+
+    .tax-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .tax-row,
+    .total-row {
+        justify-content: space-between;
+    }
+
+    .tax-row label,
+    .total-row label {
+        min-width: 96px;
+        text-align: left;
+    }
+
+    .amount-input,
+    .total-input {
+        width: 100%;
+        max-width: none;
     }
 }
 </style> 

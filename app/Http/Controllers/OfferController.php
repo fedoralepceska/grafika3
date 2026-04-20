@@ -13,6 +13,50 @@ use Illuminate\Support\Facades\Auth;
 
 class OfferController extends Controller
 {
+    private function buildOfferCatalogItems()
+    {
+        return CatalogItem::withTrashed()
+            ->with(['articles'])
+            ->where('is_for_offer', true)
+            ->where(function ($query) {
+                $query->whereNull('deleted_at')
+                    ->orWhere(function ($deletedQuery) {
+                        $deletedQuery->whereNotNull('deleted_at')
+                            ->where('is_for_sales', false)
+                            ->where('category', 'material')
+                            ->whereNull('large_material_id')
+                            ->whereNull('small_material_id')
+                            ->whereDoesntHave('articles');
+                    });
+            })
+            ->get()
+            ->map(function ($item) {
+                $isReusableCustom = !is_null($item->deleted_at)
+                    && !$item->is_for_sales
+                    && $item->category === 'material'
+                    && is_null($item->large_material_id)
+                    && is_null($item->small_material_id)
+                    && $item->articles->isEmpty();
+
+                return [
+                    'id' => $item->id,
+                    'name' => $item->name,
+                    'description' => $item->description,
+                    'price' => $item->price,
+                    'file' => $item->file,
+                    'category' => $isReusableCustom ? 'custom' : $item->category,
+                    'is_reusable_custom' => $isReusableCustom,
+                    'articles' => $item->articles->map(function ($article) {
+                        return [
+                            'id' => $article->id,
+                            'name' => $article->name,
+                            'quantity' => $article->pivot->quantity
+                        ];
+                    })
+                ];
+            });
+    }
+
     function getPrice($clientId, $item) {
         $priceCalculationService = app()->make(PriceCalculationService::class);
         return $priceCalculationService->calculateEffectivePrice(
@@ -149,26 +193,7 @@ class OfferController extends Controller
     public function create()
     {
         $clients = Client::select('id', 'name')->with('contacts')->get();
-        $catalogItems = CatalogItem::with(['articles'])
-            ->where('is_for_offer', true)
-            ->get()
-            ->map(function ($item) {
-                return [
-                    'id' => $item->id,
-                    'name' => $item->name,
-                    'description' => $item->description,
-                    'price' => $item->price,
-                    'file' => $item->file,
-                    'category' => $item->category,
-                    'articles' => $item->articles->map(function ($article) {
-                        return [
-                            'id' => $article->id,
-                            'name' => $article->name,
-                            'quantity' => $article->pivot->quantity
-                        ];
-                    })
-                ];
-            });
+        $catalogItems = $this->buildOfferCatalogItems();
 
         return Inertia::render('Offer/Create', [
             'clients' => $clients,
@@ -374,26 +399,7 @@ class OfferController extends Controller
     {
         $offer->load(['client', 'contact', 'catalogItems.largeMaterial', 'catalogItems.smallMaterial', 'catalogItems.largeMaterialCategory', 'catalogItems.smallMaterialCategory']);
         $clients = Client::select('id', 'name')->with('contacts')->get();
-        $catalogItems = CatalogItem::with(['articles'])
-            ->where('is_for_offer', true)
-            ->get()
-            ->map(function ($item) {
-                return [
-                    'id' => $item->id,
-                    'name' => $item->name,
-                    'description' => $item->description,
-                    'price' => $item->price,
-                    'file' => $item->file,
-                    'category' => $item->category,
-                    'articles' => $item->articles->map(function ($article) {
-                        return [
-                            'id' => $article->id,
-                            'name' => $article->name,
-                            'quantity' => $article->pivot->quantity
-                        ];
-                    })
-                ];
-            });
+        $catalogItems = $this->buildOfferCatalogItems();
 
         return Inertia::render('Offer/Edit', [
             'offer' => [

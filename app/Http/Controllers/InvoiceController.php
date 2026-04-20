@@ -900,6 +900,7 @@ class InvoiceController extends Controller
         $query->orderBy('created_at', 'desc');
 
         $perPage = (int)($request->input('per_page', 10));
+        $perPage = max(1, min($perPage, 100));
         $invoices = $query->paginate($perPage);
 
         // Load thumbnails for all jobs
@@ -944,7 +945,8 @@ class InvoiceController extends Controller
         foreach ($invoices as $invoice) {
             if ($invoice->jobs) {
                 foreach ($invoice->jobs as $job) {
-                    $job->thumbnails = $this->getJobThumbnails($job->id);
+                    // Pass hydrated job model to avoid an extra DB query per job.
+                    $job->thumbnails = $this->getJobThumbnails($job);
                 }
             }
         }
@@ -953,13 +955,15 @@ class InvoiceController extends Controller
     /**
      * Get thumbnails for a specific job
      */
-    private function getJobThumbnails($jobId)
+    private function getJobThumbnails($jobOrId)
     {
         try {
-            $job = \App\Models\Job::find($jobId);
+            $job = $jobOrId instanceof Job ? $jobOrId : Job::find($jobOrId);
             if (!$job) {
                 return [];
             }
+
+            $jobId = $job->id;
 
             $originalFiles = $job->getOriginalFiles();
             $thumbnailDir = public_path('jobfiles/thumbnails/' . $jobId);
@@ -1008,6 +1012,7 @@ class InvoiceController extends Controller
             
             return $thumbnails;
         } catch (\Exception $e) {
+            $jobId = $jobOrId instanceof Job ? $jobOrId->id : $jobOrId;
             \Log::error('Error loading thumbnails for job ' . $jobId . ': ' . $e->getMessage());
             return [];
         }
@@ -1086,6 +1091,7 @@ class InvoiceController extends Controller
         $query->where('status', 'Completed')->orderBy('created_at', 'desc');
 
         $perPage = (int)($request->input('per_page', 5));
+        $perPage = max(1, min($perPage, 100));
         $invoices = $query->paginate($perPage);
 
         return response()->json($invoices);
@@ -3087,9 +3093,14 @@ class InvoiceController extends Controller
     public function detachOrders(Request $request, $fakturaId)
     {
         $orderIds = $request->input('orders', []);
+        $jobMode = $request->input('job_mode', 'remove_all');
+        $keepJobsByOrder = $request->input('keep_jobs_by_order', []);
         try {
             if (empty($orderIds) || !is_array($orderIds)) {
                 return response()->json(['error' => 'No orders provided'], 400);
+            }
+            if (!in_array($jobMode, ['remove_all', 'keep_selected'], true)) {
+                return response()->json(['error' => 'Invalid job mode'], 400);
             }
             $faktura = Faktura::findOrFail($fakturaId);
             // Only detach orders currently linked to this faktura
@@ -3097,15 +3108,56 @@ class InvoiceController extends Controller
             if (empty($ids)) {
                 return response()->json(['error' => 'No valid orders provided'], 400);
             }
-            $invoices = Invoice::where('faktura_id', $faktura->id)->whereIn('id', $ids)->get();
+            $invoices = Invoice::with('jobs')
+                ->where('faktura_id', $faktura->id)
+                ->whereIn('id', $ids)
+                ->get();
             if ($invoices->isEmpty()) {
                 return response()->json(['error' => 'No matching orders to detach'], 400);
             }
-            foreach ($invoices as $inv) {
-                $inv->faktura_id = null;
-                $inv->save();
-            }
-            return response()->json(['success' => true, 'detached' => $invoices->pluck('id')]);
+
+            DB::transaction(function () use ($invoices, $faktura, $jobMode, $keepJobsByOrder) {
+                foreach ($invoices as $inv) {
+                    // Detach order from faktura
+                    $inv->faktura_id = null;
+                    $inv->save();
+
+                    $jobIdsInCurrentFaktura = $inv->jobs()
+                        ->where('jobs.faktura_id', $faktura->id)
+                        ->pluck('jobs.id')
+                        ->map(fn ($id) => (int) $id)
+                        ->values();
+
+                    if ($jobIdsInCurrentFaktura->isEmpty()) {
+                        continue;
+                    }
+
+                    if ($jobMode === 'remove_all') {
+                        Job::whereIn('id', $jobIdsInCurrentFaktura->all())
+                            ->update(['faktura_id' => null]);
+                        continue;
+                    }
+
+                    $requestedKeep = collect($keepJobsByOrder[(string) $inv->id] ?? $keepJobsByOrder[$inv->id] ?? [])
+                        ->filter(fn ($v) => is_numeric($v))
+                        ->map(fn ($v) => (int) $v)
+                        ->values();
+
+                    $keepIds = $jobIdsInCurrentFaktura->intersect($requestedKeep)->values();
+                    $detachJobIds = $jobIdsInCurrentFaktura->diff($keepIds)->values();
+
+                    if ($detachJobIds->isNotEmpty()) {
+                        Job::whereIn('id', $detachJobIds->all())
+                            ->update(['faktura_id' => null]);
+                    }
+                }
+            });
+
+            return response()->json([
+                'success' => true,
+                'detached' => $invoices->pluck('id'),
+                'job_mode' => $jobMode,
+            ]);
         } catch (\Throwable $e) {
             return response()->json(['error' => 'Failed to detach orders'], 500);
         }

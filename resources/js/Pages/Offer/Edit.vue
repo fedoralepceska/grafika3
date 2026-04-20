@@ -260,6 +260,13 @@
                                             >
                                                 Articles
                                             </button>
+                                            <button
+                                                type="button"
+                                                @click="activeTab = 'custom'"
+                                                :class="['tab-button', activeTab === 'custom' ? 'active' : '']"
+                                            >
+                                                Custom
+                                            </button>
                                         </div>
                                         <div class="flex items-center mr-4 space-x-2">
                                             <button
@@ -492,6 +499,71 @@
                                             </div>
                                         </div>
                                     </div>
+
+                                    <!-- Custom Tab -->
+                                    <div v-if="activeTab === 'custom'" class="space-y-2">
+                                        <div v-if="customItems.length === 0" class="empty-state">
+                                            No custom items available
+                                        </div>
+
+                                        <!-- List View -->
+                                        <div v-if="viewMode === 'list'" class="space-y-2">
+                                            <div v-for="item in filteredCustomItems"
+                                                :key="item.id"
+                                                class="catalog-item"
+                                                @click="toggleItemSelection(item)"
+                                            >
+                                                <input
+                                                    type="checkbox"
+                                                    :value="item.id"
+                                                    :checked="isItemSelected(item.id)"
+                                                    class="h-4 w-4 rounded border-gray-300 checkbox-green"
+                                                    @click.stop
+                                                />
+                                                <div class="catalog-item-details">
+                                                    <div class="catalog-item-name">{{ item.name }}</div>
+                                                    <div class="catalog-item-material">
+                                                        {{ getCustomDisplay(item) }}
+                                                    </div>
+                                                </div>
+                                                <div class="catalog-item-price">
+                                                    {{ item.price ? `${item.price} ден` : 'Price not set' }}
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <!-- Card View -->
+                                        <div v-else class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-8 gap-3">
+                                            <div v-for="item in filteredCustomItems"
+                                                :key="item.id"
+                                                class="catalog-card"
+                                                @click="toggleItemSelection(item)"
+                                            >
+                                                <div class="catalog-card-image catalog-card-image--custom">
+                                                    <input
+                                                        type="checkbox"
+                                                        :value="item.id"
+                                                        :checked="isItemSelected(item.id)"
+                                                        class="absolute top-2 left-2 h-4 w-4 rounded border-gray-300 checkbox-green z-10"
+                                                        @click.stop
+                                                    />
+                                                    <div class="catalog-card-custom-label">
+                                                        <i class="fas fa-pen-ruler mr-1"></i>
+                                                        Custom Item
+                                                    </div>
+                                                </div>
+                                                <div class="p-2">
+                                                    <h3 class="font-medium text-gray-900 text-sm mb-1 truncate">{{ item.name }}</h3>
+                                                    <p class="text-xs text-gray-500 mb-1 truncate">
+                                                        {{ getCustomDisplay(item) }}
+                                                    </p>
+                                                    <div class="text-xs font-medium text-gray-900">
+                                                        {{ item.price ? `${item.price} ден` : 'Price not set' }}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -650,6 +722,11 @@ export default {
                 item.name.toLowerCase().includes(this.searchQuery.toLowerCase())
             );
         },
+        filteredCustomItems() {
+            return this.customItems.filter(item =>
+                item.name.toLowerCase().includes(this.searchQuery.toLowerCase())
+            );
+        },
         largeMaterialItems() {
             return this.catalogItems.filter(item => 
                 item.category === 'material'
@@ -664,6 +741,11 @@ export default {
             return this.catalogItems.filter(item => 
                 item.category === 'article' || 
                 (item.articles && item.articles.length > 0)
+            );
+        },
+        customItems() {
+            return this.catalogItems.filter(item =>
+                item.category === 'custom' || item.is_reusable_custom
             );
         },
         filteredArticleItems() {
@@ -793,6 +875,7 @@ export default {
         toggleItemSelection(item) {
             // Create a unique ID for this selection
             const uniqueId = Date.now() + Math.floor(Math.random() * 1000);
+            const isReusableCustom = item.category === 'custom' || item.is_reusable_custom;
             
             // Always create a new item entry with a unique selection ID
             this.form.catalog_items.push({
@@ -801,13 +884,13 @@ export default {
                 name: item.name,
                 quantity: 1,
                 description: item.description || '',
-                custom_price: null,
-                calculated_price: null,
-                isCustomPrice: false,
+                custom_price: isReusableCustom ? Number(item.price || 0) : null,
+                calculated_price: isReusableCustom ? Number(item.price || 0) : null,
+                isCustomPrice: isReusableCustom,
                 file: item.file,
                 large_material: item.large_material,
                 small_material: item.small_material,
-                isCustomItem: false, // Indicate if it's a custom item
+                isCustomItem: isReusableCustom,
                 articles: item.articles // Add articles to the item
             });
             
@@ -914,6 +997,13 @@ export default {
                 return item.articles.map(article => `${article.name} (${article.quantity})`).join(', ');
             }
             return 'N/A';
+        },
+
+        getCustomDisplay(item) {
+            if (item.description) {
+                return `Description: ${item.description}`;
+            }
+            return 'Reusable custom item';
         }
     }
 };
@@ -1023,6 +1113,14 @@ export default {
             @apply flex items-center justify-center text-gray-400 text-xs;
         }
     }
+}
+
+.catalog-card-image--custom {
+    @apply flex items-center justify-center bg-gray-200 text-gray-600;
+}
+
+.catalog-card-custom-label {
+    @apply text-xs font-semibold uppercase tracking-wide;
 }
 
 /* View toggle buttons */

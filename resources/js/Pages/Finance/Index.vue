@@ -384,6 +384,7 @@ export default {
             },
             orderDrawerOpen: false,
             orderDrawerInvoice: null,
+            lastAppliedDateRangeKey: null,
             generateEmptyLoading: false,
         };
     },
@@ -628,6 +629,7 @@ export default {
                 this.paginationState = response.data && response.data.links
                     ? response.data
                     : { data: this.filteredInvoices, links: [] };
+                this.lastAppliedDateRangeKey = `${this.dateFrom || ''}|${this.dateTo || ''}`;
 
                 window.history.replaceState({}, '', `/notInvoiced${this.buildHistoryQueryString(page)}`);
             } catch (error) {
@@ -642,6 +644,10 @@ export default {
         },
         onDateRangeChange() {
             this.normalizeDates();
+            const dateRangeKey = `${this.dateFrom || ''}|${this.dateTo || ''}`;
+            if (dateRangeKey === this.lastAppliedDateRangeKey) {
+                return;
+            }
             this.applyFilter(1);
         },
         onPeriodPreset(type) {

@@ -68,8 +68,13 @@
                                 <span class="info-label">Date Created</span>
                                 <span class="info-value">
                                     <div v-if="isEditMode && editingDate" class="date-edit-container">
-                                        <input v-model="dateEdit" @keyup.enter="commitPreviewDate" class="date-input"
-                                            type="date" />
+                                        <FinanceMaskedDateInput
+                                            ref="previewDateInput"
+                                            v-model="dateEdit"
+                                            class="date-edit-inline-input"
+                                            input-class="date-input"
+                                            @submit="commitPreviewDate"
+                                        />
                                         <button @click="commitPreviewDate" class="save-btn" title="Save">
                                             <i class="fas fa-check"></i>
                                         </button>
@@ -942,6 +947,7 @@ import OrderJobDetails from "@/Pages/Invoice/OrderJobDetails.vue";
 import OrderSpreadsheet from "@/Components/OrderSpreadsheet.vue";
 import Header from "@/Components/Header.vue";
 import InvoiceJobEdit from "@/Components/InvoiceJobEdit.vue";
+import FinanceMaskedDateInput from "@/Components/Finance/FinanceMaskedDateInput.vue";
 import { getEffectiveVatFromArticles } from "@/utils/jobVatFromArticles.js";
 
 export default {
@@ -949,7 +955,8 @@ export default {
         OrderJobDetails,
         MainLayout,
         Header,
-        InvoiceJobEdit
+        InvoiceJobEdit,
+        FinanceMaskedDateInput
     },
     props: {
         invoiceData: Object,
@@ -1723,11 +1730,15 @@ export default {
             this.editingDate = true;
             this.dateEdit = this.previewDate;
             this.$nextTick(() => {
-                const input = document.querySelector('.date-input');
-                if (input) input.focus();
+                this.$refs.previewDateInput?.focusInput?.();
             });
         },
         commitPreviewDate() {
+            const dateInput = this.$refs.previewDateInput;
+            if (dateInput?.commitInput && !dateInput.commitInput()) {
+                return;
+            }
+
             if (!this.dateEdit) {
                 this.cancelEditPreviewDate();
                 return;
@@ -4037,6 +4048,18 @@ table th {
 
 .date-display:hover {
     background: rgba($white, 0.1);
+}
+
+.date-edit-container {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: nowrap;
+}
+
+.date-edit-inline-input {
+    flex: 0 0 150px;
+    min-width: 150px;
 }
 
 .date-input {

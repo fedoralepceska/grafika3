@@ -60,29 +60,13 @@
                         <div class="inv-field">
                             <label class="inv-label" for="inv-date">Date</label>
                             <div class="inv-control">
-                                <div class="inv-date-wrap">
-                                    <input
-                                        id="inv-date"
-                                        v-model="dateDisplay"
-                                        type="text"
-                                        class="inv-input inv-input--date inv-date-text"
-                                        placeholder="dd/mm/yyyy"
-                                        inputmode="numeric"
-                                        autocomplete="off"
-                                        title="Click to open calendar or type dd/mm/yyyy"
-                                        @click="openNativeDatePicker"
-                                        @blur="commitDateDisplay"
-                                    />
-                                    <input
-                                        ref="invNativeDateInput"
-                                        type="date"
-                                        class="inv-date-anchor"
-                                        :value="newInvoice.date || ''"
-                                        tabindex="-1"
-                                        aria-hidden="true"
-                                        @change="onNativeDatePicked"
-                                    />
-                                </div>
+                                <FinanceMaskedDateInput
+                                    id="inv-date"
+                                    v-model="newInvoice.date"
+                                    class="inv-date-wrap"
+                                    input-class="inv-input inv-input--date inv-date-text"
+                                    variant="light"
+                                />
                             </div>
                         </div>
                         <div class="inv-field">
@@ -272,12 +256,15 @@
 <script>
 import { useToast } from 'vue-toastification';
 import axios from 'axios';
-import { parseDdMmYyyyToIso, formatDateDdMmYyyy } from '@/utils/financeFilters';
+import FinanceMaskedDateInput from '@/Components/Finance/FinanceMaskedDateInput.vue';
 
 const TAX_BASE_IDS = ['inv-tax-a', 'inv-tax-b', 'inv-tax-c', 'inv-tax-d'];
 const SUMMARY_IDS = ['inv-calc-amount', 'inv-calc-tax', 'inv-calc-total'];
 
 export default {
+    components: {
+        FinanceMaskedDateInput,
+    },
     emits: ['invoice-added'],
     props: {
         incomingInvoice: {
@@ -298,8 +285,6 @@ export default {
     data() {
         return {
             dialog: false,
-            /** Visible date in field; API payload uses newInvoice.date as yyyy-mm-dd */
-            dateDisplay: '',
             validationError: false,
             uniqueClients: [],
             warehouses: [],
@@ -405,53 +390,6 @@ export default {
         closeDialog() {
             this.dialog = false;
         },
-        syncDateDisplayFromNewInvoice() {
-            if (!this.newInvoice.date) {
-                this.dateDisplay = '';
-                return;
-            }
-            const formatted = formatDateDdMmYyyy(this.newInvoice.date);
-            this.dateDisplay = formatted === 'N/A' ? '' : formatted;
-        },
-        commitDateDisplay() {
-            const raw = (this.dateDisplay || '').trim();
-            if (!raw) {
-                this.newInvoice.date = null;
-                return;
-            }
-            const iso = parseDdMmYyyyToIso(raw);
-            if (!iso) {
-                const toast = useToast();
-                toast.error('Use date as dd/mm/yyyy (e.g. 14/01/2026).');
-                this.syncDateDisplayFromNewInvoice();
-                return;
-            }
-            this.newInvoice.date = iso;
-            this.dateDisplay = formatDateDdMmYyyy(iso);
-        },
-        onNativeDatePicked(event) {
-            const v = event.target.value;
-            if (!v) {
-                return;
-            }
-            this.newInvoice.date = v;
-            this.dateDisplay = formatDateDdMmYyyy(v);
-        },
-        openNativeDatePicker() {
-            const el = this.$refs.invNativeDateInput;
-            if (!el) {
-                return;
-            }
-            try {
-                if (typeof el.showPicker === 'function') {
-                    el.showPicker();
-                } else {
-                    el.click();
-                }
-            } catch (_) {
-                el.click();
-            }
-        },
         onTaxSectionFocusIn(e) {
             const id = e.target?.id;
             if (TAX_BASE_IDS.includes(id)) {
@@ -475,7 +413,6 @@ export default {
         },
         async addIncomingInvoice() {
             const toast = useToast();
-            this.commitDateDisplay();
 
             if (!this.newInvoice.incoming_number || this.newInvoice.incoming_number.trim() === '') {
                 this.validationError = true;
@@ -509,7 +446,6 @@ export default {
         resetForm() {
             this.validationError = false;
             this.taxAccent = null;
-            this.dateDisplay = '';
             this.newInvoice = {
                 incoming_number: '',
                 client_id: null,
@@ -793,32 +729,13 @@ export default {
 }
 
 .inv-date-wrap {
-    position: relative;
     width: 100%;
     max-width: 200px;
     min-width: 0;
-    overflow: visible;
 }
 
 .inv-date-text {
     width: 100%;
-}
-
-.inv-date-anchor {
-    position: absolute;
-    left: 0;
-    right: 0;
-    top: 100%;
-    width: 100%;
-    height: 6px;
-    margin: 0;
-    padding: 0;
-    border: 0;
-    opacity: 0;
-    pointer-events: none;
-    cursor: pointer;
-    font-size: 16px;
-    box-sizing: border-box;
 }
 
 .inv-input--date {
