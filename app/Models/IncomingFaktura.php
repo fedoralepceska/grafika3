@@ -18,6 +18,7 @@ class IncomingFaktura extends Model
         'tax',
         'client_id',
         'date',
+        'due_date',
         'incoming_number',
         'faktura_counter'
     ];
@@ -30,6 +31,7 @@ class IncomingFaktura extends Model
         'billing_type' => 'integer',
         'client_id' => 'integer',
         'date' => 'date',
+        'due_date' => 'date',
         'faktura_counter' => 'integer'
     ];
 

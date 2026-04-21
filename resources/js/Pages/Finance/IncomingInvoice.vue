@@ -17,7 +17,13 @@
                                 />
                                 <div class="filter-col incoming-field incoming-field--sort">
                                     <label class="toolbar-label">Order</label>
-                                    <select v-model="sortOrder" class="text-black filter-select-compact" @change="fetchList(1)">
+                                    <select
+                                        v-model="sortOrder"
+                                        class="text-black filter-select-compact"
+                                        :disabled="!!dueDateTarget"
+                                        :title="dueDateTarget ? 'Disabled while “Due near” is set (list is sorted by closest due date)' : ''"
+                                        @change="fetchList(1)"
+                                    >
                                         <option value="desc">Newest first</option>
                                         <option value="asc">Oldest first</option>
                                     </select>
@@ -55,6 +61,32 @@
                                             {{ type.name }}
                                         </option>
                                     </select>
+                                </div>
+                                <div
+                                    class="filter-col incoming-field incoming-field--due-near"
+                                    title="Type a date: results are ordered with the closest due date first (invoices without a due date appear last)."
+                                >
+                                    <div class="inc-due-near-wrap">
+                                        <FinanceDateRangeCompact
+                                            :key="'due-near-' + dueDateFilterKey"
+                                            class="inc-due-near-drc"
+                                            label="Due near"
+                                            :date-from="dueDateTarget"
+                                            date-to=""
+                                            single
+                                            @update:dateFrom="dueDateTarget = $event"
+                                        />
+                                        <button
+                                            v-if="dueDateTarget"
+                                            type="button"
+                                            class="inc-due-near-clear"
+                                            title="Clear due date filter"
+                                            aria-label="Clear due date filter"
+                                            @click="clearDueNearFilter"
+                                        >
+                                            ×
+                                        </button>
+                                    </div>
                                 </div>
                                 <FinanceDateRangeCompact
                                     class="incoming-field incoming-field--dates"
@@ -100,6 +132,7 @@
                     <DataTableShell compact variant="grid">
                         <template #colgroup>
                             <colgroup>
+                                <col class="inc-col-idx" />
                                 <col class="inc-col-inv" />
                                 <col class="inc-col-date" />
                                 <col class="inc-col-client" />
@@ -115,6 +148,7 @@
                         </template>
                         <template #header>
                             <tr>
+                                <th class="col-idx">{{ $t('financeTable.index') }}</th>
                                 <th class="invoice-column">{{ $t('financeTable.invoice') }}</th>
                                 <th class="col-date">{{ $t('financeTable.date') }}</th>
                                 <th class="customer-column">{{ $t('financeTable.client') }}</th>
@@ -130,7 +164,14 @@
                         </template>
 
                         <template v-if="displayIncoming.data && displayIncoming.data.length > 0">
-                            <tr v-for="faktura in displayIncoming.data" :key="faktura.id">
+                            <tr
+                                v-for="(faktura, rowIdx) in displayIncoming.data"
+                                :key="faktura.id"
+                                :class="{ 'incoming-row--saved-flash': rowSavedFlashId === faktura.id }"
+                            >
+                                <td class="col-idx">
+                                    <div class="cell-secondary text-right tabular-nums">{{ incomingRowIndex(rowIdx) }}</div>
+                                </td>
                                 <td
                                     class="invoice-primary-cell"
                                     :class="{ 'invoice-primary-cell--archived': faktura.billing_type === 'фактура' }"
@@ -166,6 +207,7 @@
                                 <td class="actions-cell">
                                     <EditIncomingInvoiceDialog
                                         :invoice="faktura"
+                                        :list-row-index="incomingRowIndex(rowIdx)"
                                         :cost-types="$page.props.costTypes"
                                         :bill-types="$page.props.billTypes"
                                         :warehouses="$page.props.warehouses"
@@ -177,7 +219,7 @@
                         </template>
 
                         <tr v-else>
-                            <td colspan="11" class="empty-cell">
+                            <td colspan="12" class="empty-cell">
                                 No incoming invoices found matching your criteria.
                             </td>
                         </tr>
@@ -194,6 +236,7 @@
                     >
                         <table class="data-table finance-subtotal-table" title="Totals for all rows matching the current filters">
                             <colgroup>
+                                <col class="inc-col-idx" />
                                 <col class="inc-col-inv" />
                                 <col class="inc-col-date" />
                                 <col class="inc-col-client" />
@@ -208,7 +251,7 @@
                             </colgroup>
                             <tbody>
                                 <tr class="incoming-subtotal-row">
-                                    <td colspan="3" class="incoming-subtotal-label">
+                                    <td colspan="4" class="incoming-subtotal-label">
                                         <span class="incoming-subtotal-label-text">Subtotal</span>
                                         <span class="incoming-subtotal-hint">{{ incomingSubtotalRowCount }} {{ incomingSubtotalCountLabel }}</span>
                                     </td>
@@ -251,7 +294,7 @@ import FinanceYearMonthSelects from '@/Components/Finance/FinanceYearMonthSelect
 import FinancePeriodPresets from '@/Components/Finance/FinancePeriodPresets.vue';
 import FinanceClientNameCell from '@/Components/Finance/FinanceClientNameCell.vue';
 import axios from 'axios';
-import { normalizeDateRangeFields, monthBoundsLocalISO } from '@/utils/financeFilters';
+import { normalizeDateRangeFields, monthBoundsLocalISO, formatDateDdMmYyyy } from '@/utils/financeFilters';
 import { measureVerticalScrollbarWidth } from '@/utils/financeTableScrollbar';
 
 export default {
@@ -301,6 +344,9 @@ export default {
             fiscalYear: '',
             calendarMonth: '',
             sortOrder: 'desc',
+            /** Target calendar day; API sorts by closest `due_date` (nulls last). */
+            dueDateTarget: '',
+            dueDateFilterKey: 0,
             chunkSize: 10,
             localIncoming: null,
             loading: false,
@@ -308,6 +354,9 @@ export default {
             incomingScrollFillDepth: 0,
             subtotalScrollbarPadPx: 0,
             filterTotalsSnapshot: null,
+            rowSavedFlashId: null,
+            _rowFlashClearTimer: null,
+            _incomingBootstrapping: false,
         };
     },
     computed: {
@@ -376,11 +425,22 @@ export default {
                 this.$nextTick(() => this.syncIncomingSubtotalScrollbarPad());
             }
         },
+        dueDateTarget() {
+            if (this._incomingBootstrapping) {
+                return;
+            }
+            this.fetchList(1);
+        },
     },
     mounted() {
+        this._incomingBootstrapping = true;
         this.initFromUrl();
         this.filterTotalsSnapshot = this.filter_totals || null;
-        this.fetchList(1);
+        this.fetchList(1).finally(() => {
+            this.$nextTick(() => {
+                this._incomingBootstrapping = false;
+            });
+        });
     },
     beforeUnmount() {
         if (this._incomingSubtotalWindowResize) {
@@ -413,6 +473,7 @@ export default {
             const mo = p.get('month');
             this.calendarMonth = mo ? parseInt(mo, 10) : '';
             this.sortOrder = p.get('sortOrder') || 'desc';
+            this.dueDateTarget = p.get('due_date_target') || '';
         },
         buildParams(page) {
             const state = { dateFrom: this.dateFrom, dateTo: this.dateTo };
@@ -450,6 +511,9 @@ export default {
             if (this.calendarMonth !== '' && this.calendarMonth != null) {
                 params.month = this.calendarMonth;
             }
+            if (this.dueDateTarget && String(this.dueDateTarget).trim() !== '') {
+                params.due_date_target = this.dueDateTarget;
+            }
             if (!this.dateFrom && !this.dateTo) {
                 params.no_date_filter = 1;
             }
@@ -485,20 +549,23 @@ export default {
             if (p.month != null && p.month !== '') {
                 parts.push(`month=${p.month}`);
             }
+            if (p.due_date_target) {
+                parts.push(`due_date_target=${encodeURIComponent(p.due_date_target)}`);
+            }
             parts.push(`sortOrder=${this.sortOrder}`);
             if (!this.dateFrom && !this.dateTo) {
                 parts.push('no_date_filter=1');
             }
             return parts.length ? `?${parts.join('&')}` : '';
         },
-        async fetchList(page = 1, { append = false } = {}) {
+        async fetchList(page = 1, { append = false, silent = false } = {}) {
             if (!append) {
                 this.incomingScrollFillDepth = 0;
             }
             try {
                 if (append) {
                     this.loadingMore = true;
-                } else {
+                } else if (!silent) {
                     this.loading = true;
                 }
                 const { data } = await axios.get('/incomingInvoice', {
@@ -604,27 +671,55 @@ export default {
             this.dateTo = '';
             this.fetchList(1);
         },
+        clearDueNearFilter() {
+            this.dueDateTarget = '';
+            this.dueDateFilterKey += 1;
+        },
         handleInvoiceAdded() {
             this.fetchList(1);
         },
-        handleInvoiceUpdated() {
-            this.fetchList(1);
+        handleInvoiceUpdated(payload) {
+            const raw = payload?.id ?? payload?.data?.id;
+            const id = raw != null ? Number(raw) : NaN;
+            if (Number.isFinite(id)) {
+                if (this._rowFlashClearTimer) {
+                    clearTimeout(this._rowFlashClearTimer);
+                    this._rowFlashClearTimer = null;
+                }
+                this.rowSavedFlashId = null;
+                this.$nextTick(() => {
+                    this.rowSavedFlashId = id;
+                    this._rowFlashClearTimer = setTimeout(() => {
+                        this.rowSavedFlashId = null;
+                        this._rowFlashClearTimer = null;
+                    }, 2400);
+                });
+            }
+            this.fetchList(1, { silent: true });
         },
         calculateTotal(faktura) {
             const amount = parseFloat(String(faktura.amount).replace(/,/g, ''));
             const tax = parseFloat(String(faktura.tax).replace(/,/g, ''));
             return (amount + tax).toFixed(2);
         },
+        incomingRowIndex(rowIdx) {
+            const p = this.displayIncoming;
+            const page = p?.current_page ?? 1;
+            const per = p?.per_page ?? this.chunkSize;
+            return (page - 1) * per + rowIdx + 1;
+        },
         formatFullDate(date) {
             if (!date) {
-                return 'N/A';
+                return '';
             }
-            return new Date(date).toLocaleDateString('en-US', {
-                year: 'numeric',
-                month: '2-digit',
-                day: '2-digit',
-            });
+            const s = formatDateDdMmYyyy(date);
+            return s === 'N/A' ? '' : s;
         },
+    },
+    beforeUnmount() {
+        if (this._rowFlashClearTimer) {
+            clearTimeout(this._rowFlashClearTimer);
+        }
     },
 };
 </script>
@@ -685,6 +780,48 @@ export default {
 .filter-toolbar-incoming .incoming-field--ym {
     flex: 0 1 260px;
     min-width: 240px;
+}
+
+.filter-toolbar-incoming .incoming-field--due-near {
+    flex: 0 1 200px;
+    min-width: 168px;
+    max-width: 240px;
+}
+
+.inc-due-near-wrap {
+    display: flex;
+    align-items: flex-end;
+    gap: 6px;
+    min-width: 0;
+}
+
+.inc-due-near-drc {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.inc-due-near-clear {
+    flex-shrink: 0;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    border: none;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.12);
+    color: rgba(255, 255, 255, 0.9);
+    font-size: 18px;
+    line-height: 1;
+    cursor: pointer;
+    transition: background 0.15s ease;
+}
+
+.inc-due-near-clear:hover {
+    background: rgba(255, 255, 255, 0.2);
+}
+
+.filter-select-compact:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
 }
 
 .presets-inline {
@@ -802,7 +939,11 @@ export default {
     min-width: 0;
 }
 
-/* Shared 11-column grid — Invoice, Date, Client, Amount, Tax, Total, Warehouse, Cost, Bill, Comment, Actions (sum 100%) */
+/* 12-column grid — #, Invoice, Date, Client, Amount, Tax, Total, Warehouse, Cost, Bill, Comment, Actions (sum 100%) */
+.incoming-table-shell col.inc-col-idx,
+.incoming-subtotal-sticky col.inc-col-idx {
+    width: 4%;
+}
 .incoming-table-shell col.inc-col-inv,
 .incoming-subtotal-sticky col.inc-col-inv {
     width: 7%;
@@ -833,7 +974,7 @@ export default {
 }
 .incoming-table-shell col.inc-col-comment,
 .incoming-subtotal-sticky col.inc-col-comment {
-    width: 11%;
+    width: 7%;
 }
 .incoming-table-shell col.inc-col-actions,
 .incoming-subtotal-sticky col.inc-col-actions {
@@ -845,6 +986,20 @@ export default {
 .incoming-table-shell :deep(.data-table-body td) {
     padding-left: 10px;
     padding-right: 10px;
+}
+
+/* Saved row: green tint fades to normal (striped row bg comes from tr via transparent td) */
+@keyframes incoming-row-saved-flash {
+    0% {
+        background-color: rgba(34, 197, 94, 0.45);
+    }
+    100% {
+        background-color: transparent;
+    }
+}
+
+.incoming-table-shell :deep(tr.incoming-row--saved-flash td) {
+    animation: incoming-row-saved-flash 2.2s ease-out forwards;
 }
 
 .incoming-subtotal-sticky .finance-subtotal-table td {
@@ -859,6 +1014,14 @@ export default {
     text-overflow: ellipsis;
     line-height: 1.2;
     vertical-align: bottom;
+}
+
+.incoming-table-shell :deep(th.col-idx),
+.incoming-table-shell :deep(td.col-idx) {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    width: 1%;
+    white-space: nowrap;
 }
 
 .incoming-table-shell :deep(th.actions-column),

@@ -72,6 +72,27 @@ class IncomingFakturaController extends Controller
         return $query;
     }
 
+    /**
+     * Order by closest due_date to a target day. Rows with null due_date sort last.
+     */
+    protected function applyDueDateProximityOrder(Builder $query, string $targetYmd): Builder
+    {
+        $driver = $query->getConnection()->getDriverName();
+
+        $query->orderByRaw('CASE WHEN due_date IS NULL THEN 1 ELSE 0 END ASC');
+
+        if ($driver === 'sqlite') {
+            $query->orderByRaw('ABS((julianday(due_date) - julianday(?)) * 1) ASC', [$targetYmd]);
+        } elseif ($driver === 'pgsql') {
+            $query->orderByRaw('ABS((due_date::date - ?::date)) ASC', [$targetYmd]);
+        } else {
+            // mysql / mariadb (default)
+            $query->orderByRaw('ABS(DATEDIFF(due_date, ?)) ASC', [$targetYmd]);
+        }
+
+        return $query->orderBy('id', 'desc');
+    }
+
     protected function computeIncomingFilterTotals(Builder $filteredQuery): array
     {
         $row = (clone $filteredQuery)->selectRaw(
@@ -101,7 +122,17 @@ class IncomingFakturaController extends Controller
                 : null;
 
             $sortOrder = $request->input('sortOrder', 'desc');
-            $listQuery = (clone $baseQuery)->with('client')->orderBy('created_at', $sortOrder);
+            $listQuery = (clone $baseQuery)->with('client');
+
+            if ($request->filled('due_date_target')) {
+                $validated = $request->validate([
+                    'due_date_target' => 'required|date',
+                ]);
+                $target = \Carbon\Carbon::parse($validated['due_date_target'])->toDateString();
+                $this->applyDueDateProximityOrder($listQuery, $target);
+            } else {
+                $listQuery->orderBy('created_at', $sortOrder);
+            }
 
             $perPage = (int) $request->input('per_page', 10);
             $perPage = max(1, min($perPage, 200));
@@ -123,6 +154,7 @@ class IncomingFakturaController extends Controller
                     'amount' => number_format($invoice->amount, 2),
                     'tax' => number_format($invoice->tax, 2),
                     'date' => $invoice->date,
+                    'due_date' => $invoice->due_date,
                     'created_at' => $invoice->created_at,
                     'updated_at' => $invoice->updated_at,
                     'faktura_counter' => $invoice->faktura_counter
@@ -176,7 +208,8 @@ class IncomingFakturaController extends Controller
             'comment' => 'nullable|string',
             'amount' => 'required|numeric',
             'tax' => 'required|numeric',
-            'date' => 'nullable|date'
+            'date' => 'nullable|date',
+            'due_date' => 'nullable|date',
         ]);
 
         // If billing type is фактура (2), get and set the counter
@@ -202,7 +235,8 @@ class IncomingFakturaController extends Controller
                 'comment' => 'nullable|string',
                 'amount' => 'nullable|numeric',
                 'tax' => 'nullable|numeric',
-                'date' => 'nullable|date'
+                'date' => 'nullable|date',
+                'due_date' => 'nullable|date',
             ]);
 
             $incoming_faktura = IncomingFaktura::findOrFail($id);

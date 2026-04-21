@@ -6,10 +6,22 @@
 
         <div v-if="isOpen" class="modal-backdrop" @click="closeDialog">
             <div class="modal-content background" @click.stop>
-                <div class="modal-header">
-                    <span class="text-h5 text-white">Edit Invoice #{{ invoice.incoming_number }}</span>
-                    <span v-if="invoice.billing_type === 'фактура'" class="text-white">Archive #{{ invoice.faktura_counter }}</span>
-                    <button @click="closeDialog" class="close-btn">&times;</button>
+                <div class="modal-header modal-header--minimal">
+                    <dl class="modal-meta" aria-label="Invoice context">
+                        <div class="modal-meta__item">
+                            <dt class="modal-meta__label">Row</dt>
+                            <dd class="modal-meta__value">{{ listRowIndex != null ? listRowIndex : '—' }}</dd>
+                        </div>
+                        <div class="modal-meta__item">
+                            <dt class="modal-meta__label">Invoice</dt>
+                            <dd class="modal-meta__value">#{{ invoice.incoming_number }}</dd>
+                        </div>
+                        <div class="modal-meta__item modal-meta__item--client">
+                            <dt class="modal-meta__label">Client</dt>
+                            <dd class="modal-meta__value">{{ invoice.client_name || '—' }}</dd>
+                        </div>
+                    </dl>
+                    <button type="button" @click="closeDialog" class="close-btn" aria-label="Close">&times;</button>
                 </div>
                 <div class="modal-body">
                     <form @submit.prevent="updateInvoice" class="form-container">
@@ -25,7 +37,18 @@
                                     <div class="form-group">
                                         <label class="mr-4 width100">Date</label>
                                         <FinanceMaskedDateInput
+                                            :key="'edit-date-' + dateInputKey"
                                             v-model="form.date"
+                                            class="edit-date-wrap"
+                                            input-class="form-input"
+                                            variant="light"
+                                        />
+                                    </div>
+                                    <div class="form-group">
+                                        <label class="mr-4 width100">Due date</label>
+                                        <FinanceMaskedDateInput
+                                            :key="'edit-due-' + dateInputKey"
+                                            v-model="form.due_date"
                                             class="edit-date-wrap"
                                             input-class="form-input"
                                             variant="light"
@@ -34,6 +57,7 @@
                                     <div class="form-group">
                                         <label class="mr-4 width100">Client</label>
                                         <select v-model="form.client_id" class="form-input">
+                                            <option :value="null">Select client</option>
                                             <option v-for="client in clients" :key="client.id" :value="client.id">
                                                 {{ client.name }}
                                             </option>
@@ -42,8 +66,9 @@
                                     <div class="form-group">
                                         <label class="mr-4 width100">Warehouse</label>
                                         <select v-model="form.warehouse" class="form-input">
-                                            <option v-for="warehouse in warehouses" :key="warehouse" :value="warehouse">
-                                                {{ warehouse }}
+                                            <option value="">Select warehouse</option>
+                                            <option v-for="w in warehouseOptions" :key="w" :value="w">
+                                                {{ w }}
                                             </option>
                                         </select>
                                     </div>
@@ -72,26 +97,33 @@
                                     <div class="form-group">
                                         <label class="mr-4 width100">Cost Type</label>
                                         <select v-model="form.cost_type" class="form-input">
+                                            <option :value="null">Select cost type</option>
                                             <option v-for="type in costTypes" :key="type.id" :value="type.id">
                                                 {{ type.name }}
                                             </option>
                                         </select>
                                     </div>
-                                    <div class="form-group">
+                                    <div class="form-group form-group--billing-type">
                                         <label class="mr-4 width100">Billing Type</label>
-                                        <div class="flex flex-col relative w-full">
+                                        <div class="billing-type-stack">
                                             <select v-model="form.billing_type" class="form-input">
+                                                <option :value="null">Select bill type</option>
                                                 <option v-for="type in billTypes" :key="type.id" :value="type.id">
                                                     {{ type.name }}
                                                 </option>
                                             </select>
-                                            <div v-if="form.billing_type === 2" 
-                                                    class="text-white mt-2 bg-gray-700 p-2 rounded absolute top-full left-0 w-full z-10">
-                                                <span v-if="invoice.billing_type === 2" class="font-semibold">
-                                                    Current фактура number: {{ invoice.faktura_counter }}
+                                            <div
+                                                v-if="form.billing_type === 2"
+                                                class="faktura-hint"
+                                                role="status"
+                                            >
+                                                <span v-if="invoice.billing_type_id === 2">
+                                                    Current фактура number:
+                                                    <strong class="faktura-hint__num">{{ invoice.faktura_counter }}</strong>
                                                 </span>
-                                                <span v-else class="font-semibold">
-                                                    Next available фактура number: {{ nextFakturaCounter }}
+                                                <span v-else>
+                                                    Next available фактура number:
+                                                    <strong class="faktura-hint__num">{{ nextFakturaCounter }}</strong>
                                                 </span>
                                             </div>
                                         </div>
@@ -100,56 +132,48 @@
                             </div>
                         </div>
 
-                        <div class="right-section flex flex-col justify-between">
-                            <div class="bg-gray-700 p-2 rounded-md">
-                            <div class="section-title">Price and Tax Calculation</div>
-                            <div class="tax-grid">
-                                <div class="tax-section">
-                                    <div class="tax-row">
-                                        <label>Amount TAX A</label>
-                                        <div class="tax-inputs">
-                                            <input type="number" v-model.number="form.taxAmounts.taxA" step="any" class="amount-input">
-                                            <input type="text" disabled class="rate-input" value="18.00">
+                        <div class="right-section edit-inv-right">
+                            <div class="edit-inv-tax-panel">
+                                <div class="section-title">Price and Tax Calculation</div>
+                                <div class="tax-grid">
+                                    <div class="tax-section">
+                                        <div class="tax-row">
+                                            <label class="tax-row__label" :for="'edit-tax-a-' + invoice.id">Amount TAX A</label>
+                                            <input :id="'edit-tax-a-' + invoice.id" type="number" v-model.number="form.taxAmounts.taxA" step="any" class="amount-input">
+                                            <input type="text" disabled class="rate-input" value="18.00" aria-label="Rate A %">
+                                        </div>
+                                        <div class="tax-row">
+                                            <label class="tax-row__label" :for="'edit-tax-b-' + invoice.id">Amount TAX B</label>
+                                            <input :id="'edit-tax-b-' + invoice.id" type="number" v-model.number="form.taxAmounts.taxB" step="any" class="amount-input">
+                                            <input type="text" disabled class="rate-input" value="5.00" aria-label="Rate B %">
+                                        </div>
+                                        <div class="tax-row">
+                                            <label class="tax-row__label" :for="'edit-tax-c-' + invoice.id">Amount TAX C</label>
+                                            <input :id="'edit-tax-c-' + invoice.id" type="number" v-model.number="form.taxAmounts.taxC" step="any" class="amount-input">
+                                            <input type="text" disabled class="rate-input" value="10.00" aria-label="Rate C %">
+                                        </div>
+                                        <div class="tax-row">
+                                            <label class="tax-row__label" :for="'edit-tax-d-' + invoice.id">Amount TAX D</label>
+                                            <input :id="'edit-tax-d-' + invoice.id" type="number" v-model.number="form.taxAmounts.taxD" step="any" class="amount-input">
+                                            <input type="text" disabled class="rate-input" value="0.00" aria-label="Rate D %">
                                         </div>
                                     </div>
-                                    <div class="tax-row">
-                                        <label>Amount TAX B</label>
-                                        <div class="tax-inputs">
-                                            <input type="number" v-model.number="form.taxAmounts.taxB" step="any" class="amount-input">
-                                            <input type="text" disabled class="rate-input" value="5.00">
-                                        </div>
-                                    </div>
-                                    <div class="tax-row">
-                                        <label>Amount TAX C</label>
-                                        <div class="tax-inputs">
-                                            <input type="number" v-model.number="form.taxAmounts.taxC" step="any" class="amount-input">
-                                            <input type="text" disabled class="rate-input" value="10.00">
-                                        </div>
-                                    </div>
-                                    <div class="tax-row">
-                                        <label>Amount TAX D</label>
-                                        <div class="tax-inputs">
-                                            <input type="number" v-model.number="form.taxAmounts.taxD" step="any" class="amount-input">
-                                            <input type="text" disabled class="rate-input" value="00.00">
-                                        </div>
-                                    </div>
-                                </div>
 
-                                <div class="totals-section">
-                                    <div class="total-row">
-                                        <label>Amount:</label>
-                                        <input type="text" :value="calculatedAmount" disabled class="total-input">
-                                    </div>
-                                    <div class="total-row">
-                                        <label>Tax:</label>
-                                        <input type="text" :value="calculatedTax" disabled class="total-input">
-                                    </div>
-                                    <div class="total-row">
-                                        <label>Total:</label>
-                                        <input type="text" :value="calculatedTotal" disabled class="total-input">
+                                    <div class="totals-section">
+                                        <div class="total-row">
+                                            <label class="total-row__label">Amount:</label>
+                                            <input type="text" :value="calculatedAmount" disabled class="total-input">
+                                        </div>
+                                        <div class="total-row">
+                                            <label class="total-row__label">Tax:</label>
+                                            <input type="text" :value="calculatedTax" disabled class="total-input">
+                                        </div>
+                                        <div class="total-row">
+                                            <label class="total-row__label">Total:</label>
+                                            <input type="text" :value="calculatedTotal" disabled class="total-input">
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
                             </div>
                         </div>
 
@@ -200,13 +224,19 @@ export default {
         clients: {
             type: Array,
             required: true
-        }
+        },
+        /** Table index column (same numbering as the list when the dialog opens). */
+        listRowIndex: {
+            type: Number,
+            default: null,
+        },
     },
     setup(props, { emit }) {
         const toast = useToast()
         const isOpen = ref(false)
         const loading = ref(false)
         const nextFakturaCounter = ref(null)
+        const dateInputKey = ref(0)
         const form = ref({
             incoming_number: '',
             client_id: null,
@@ -216,6 +246,7 @@ export default {
             description: '',
             comment: '',
             date: '',
+            due_date: '',
             taxAmounts: {
                 taxA: 0,
                 taxB: 0,
@@ -269,6 +300,12 @@ export default {
                 taxD: 0
             };
 
+            // Amount with no tax (exempt / zero-rated) → band D (matches 0% branch below)
+            if (totalAmount > 0 && totalTax === 0) {
+                taxAmounts.taxD = totalAmount;
+                return taxAmounts;
+            }
+
             if (totalAmount > 0 && totalTax > 0) {
                 const taxPercentage = (totalTax / totalAmount) * 100;
                 const roundedPercentage = Math.round(taxPercentage * 100) / 100;
@@ -319,26 +356,78 @@ export default {
             return taxAmounts;
         };
 
+        const parseDisplayMoney = (val) => {
+            const n = parseFloat(String(val ?? '').replace(/,/g, ''));
+            return Number.isFinite(n) ? n : 0;
+        };
+
+        /**
+         * Match `formatDateDdMmYyyy` in the table: exact `yyyy-mm-dd` uses that calendar day;
+         * datetime strings (e.g. Laravel JSON `…T23:00:00.000000Z`) use local date from `Date`,
+         * not the UTC date prefix — otherwise the modal is one day behind the table.
+         */
+        const invoiceDateToFormYmd = (raw) => {
+            if (raw == null || raw === '') {
+                return '';
+            }
+            const s = String(raw).trim();
+            if (/^\d{4}-\d{2}-\d{2}$/.test(s)) {
+                return s;
+            }
+            const d = new Date(raw);
+            if (Number.isNaN(d.getTime())) {
+                return '';
+            }
+            const y = d.getFullYear();
+            const m = String(d.getMonth() + 1).padStart(2, '0');
+            const day = String(d.getDate()).padStart(2, '0');
+            return `${y}-${m}-${day}`;
+        };
+
+        const toNullableId = (v) => {
+            if (v === null || v === undefined || v === '') {
+                return null;
+            }
+            const n = Number(v);
+            return Number.isFinite(n) ? n : null;
+        };
+
+        /** Include current row warehouse if it is not in the global list (renamed / legacy). */
+        const warehouseOptions = computed(() => {
+            const list = Array.isArray(props.warehouses) ? [...props.warehouses] : [];
+            const cur = props.invoice?.warehouse;
+            if (typeof cur === 'string' && cur !== '' && !list.includes(cur)) {
+                list.push(cur);
+            }
+            return list;
+        });
+
+        /**
+         * Prefill from `IncomingFakturaController@index` JSON: incoming_number, client_id,
+         * warehouse, cost_type_id, billing_type_id, description, comment, date, amount, tax.
+         */
         const openDialog = () => {
-            const totalAmount = parseFloat(props.invoice.amount.replace(/,/g, ''));
-            const totalTax = parseFloat(props.invoice.tax.replace(/,/g, ''));
-            
-            // Calculate initial tax amounts based on the total amount and tax
+            const inv = props.invoice;
+            const totalAmount = parseDisplayMoney(inv.amount);
+            const totalTax = parseDisplayMoney(inv.tax);
+
             const initialTaxAmounts = calculateInitialTaxAmounts(totalAmount, totalTax);
 
             form.value = {
-                incoming_number: props.invoice.incoming_number || '',
-                client_id: Number(props.invoice.client_id),
-                warehouse: props.invoice.warehouse,
-                cost_type: props.invoice.cost_type_id,
-                billing_type: props.invoice.billing_type_id,
-                description: props.invoice.description,
-                comment: props.invoice.comment,
-                date: props.invoice.date ? new Date(props.invoice.date).toISOString().split('T')[0] : '',
-                taxAmounts: initialTaxAmounts
-            }
-            isOpen.value = true
-        }
+                incoming_number: inv.incoming_number != null ? String(inv.incoming_number) : '',
+                client_id: toNullableId(inv.client_id),
+                warehouse: inv.warehouse != null && inv.warehouse !== '' ? String(inv.warehouse) : '',
+                cost_type: toNullableId(inv.cost_type_id),
+                billing_type: toNullableId(inv.billing_type_id),
+                description: inv.description != null ? String(inv.description) : '',
+                comment: inv.comment != null ? String(inv.comment) : '',
+                date: invoiceDateToFormYmd(inv.date),
+                due_date: invoiceDateToFormYmd(inv.due_date),
+                taxAmounts: initialTaxAmounts,
+            };
+            dateInputKey.value += 1;
+            isOpen.value = true;
+        };
 
         const closeDialog = () => {
             isOpen.value = false
@@ -357,14 +446,17 @@ export default {
                     return sum + ((amount || 0) * rate);
                 }, 0);
 
+                const { taxAmounts: _taxAmounts, ...fields } = form.value;
                 const payload = {
-                    ...form.value,
-                    amount: amount,
-                    tax: tax
+                    ...fields,
+                    amount,
+                    tax,
+                    date: fields.date || null,
+                    due_date: fields.due_date || null,
                 };
 
                 const response = await axios.put(`/incomingInvoice/${props.invoice.id}`, payload)
-                emit('invoice-updated', response.data)
+                emit('invoice-updated', { id: props.invoice.id, response: response.data })
                 closeDialog()
                 toast.success('Invoice updated successfully');
             } catch (error) {
@@ -391,12 +483,14 @@ export default {
             loading,
             form,
             nextFakturaCounter,
+            dateInputKey,
+            warehouseOptions,
             openDialog,
             closeDialog,
             updateInvoice,
             calculatedAmount,
             calculatedTax,
-            calculatedTotal
+            calculatedTotal,
         }
     }
 }
@@ -427,7 +521,7 @@ export default {
 }
 
 .modal-header {
-    padding: 16px 18px 12px;
+    padding: 14px 16px 12px;
     font-weight: 600;
     font-size: 1.1rem;
     display: flex;
@@ -436,6 +530,57 @@ export default {
     border-bottom: 1px solid rgba(255, 255, 255, 0.08);
     color: $white;
     gap: 12px;
+}
+
+.modal-header--minimal {
+    align-items: flex-start;
+}
+
+.modal-meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 16px 28px;
+    margin: 0;
+    min-width: 0;
+    flex: 1;
+}
+
+.modal-meta__item {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+}
+
+.modal-meta__item--client {
+    flex: 1 1 180px;
+    min-width: min(100%, 200px);
+}
+
+.modal-meta__label {
+    margin: 0;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: rgba(255, 255, 255, 0.52);
+    line-height: 1.2;
+}
+
+.modal-meta__value {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 700;
+    line-height: 1.25;
+    color: rgba(255, 255, 255, 0.96);
+    font-variant-numeric: tabular-nums;
+}
+
+.modal-meta__item--client .modal-meta__value {
+    font-weight: 600;
+    font-variant-numeric: normal;
+    word-break: break-word;
 }
 
 .modal-body {
@@ -483,6 +628,18 @@ export default {
 
 .right-section {
     border-radius: 12px;
+    min-width: 0;
+}
+
+.edit-inv-right {
+    min-width: 0;
+}
+
+.edit-inv-tax-panel {
+    background: rgba(55, 65, 81, 0.85);
+    padding: 12px 14px 14px;
+    border-radius: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .section-title {
@@ -521,9 +678,39 @@ export default {
     margin-right: 0 !important;
 }
 
-.form-group > .flex.flex-col.relative.w-full {
+.form-group--billing-type {
+    align-items: start;
+}
+
+.billing-type-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
     width: 100%;
     min-width: 0;
+}
+
+.faktura-hint {
+    width: 100%;
+    box-sizing: border-box;
+    margin: 0;
+    padding: 10px 12px;
+    border-radius: 10px;
+    background: rgba(59, 130, 246, 0.14);
+    border: 1px solid rgba(96, 165, 250, 0.4);
+    color: rgba(255, 255, 255, 0.92);
+    font-size: 13px;
+    font-weight: 600;
+    line-height: 1.45;
+    text-align: left;
+}
+
+.faktura-hint__num {
+    margin-left: 6px;
+    font-size: 15px;
+    font-weight: 700;
+    color: #fff;
+    font-variant-numeric: tabular-nums;
 }
 
 .form-input {
@@ -598,12 +785,13 @@ select.form-input {
     box-shadow: 0 1px 0 rgba(255, 255, 255, 0.1) inset;
 }
 
+/* Stack tax bands + totals (was 2 columns — squeezed inputs). */
 .tax-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 16px;
-    background: rgba(32, 41, 58, 0.95);
-    padding: 14px 14px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    background: rgba(32, 41, 58, 0.75);
+    padding: 14px 12px 12px;
     margin: 0;
     border-radius: 10px;
     border: 1px solid rgba(255, 255, 255, 0.08);
@@ -612,89 +800,102 @@ select.form-input {
 .tax-section {
     display: flex;
     flex-direction: column;
-    gap: 8px;
-}
-
-.tax-row {
-    display: flex;
-    align-items: center;
-    justify-content: flex-start;
-    color: white;
     gap: 10px;
-
-    label {
-        min-width: 92px;
-        font-size: 12px;
-        color: rgba(255, 255, 255, 0.86);
-        line-height: 1.2;
-    }
+    min-width: 0;
 }
 
-.tax-inputs {
-    display: flex;
-    gap: 8px;
+/* Label | amount | rate — one row, no clipping */
+.tax-row {
+    display: grid;
+    grid-template-columns: minmax(96px, 1fr) minmax(88px, 1.2fr) minmax(72px, 96px);
+    gap: 10px 12px;
     align-items: center;
+    color: white;
+    min-width: 0;
+}
+
+.tax-row__label {
+    margin: 0;
+    font-size: 12px;
+    font-weight: 600;
+    color: rgba(255, 255, 255, 0.88);
+    line-height: 1.25;
+    min-width: 0;
 }
 
 .amount-input {
-    width: 104px;
-    max-width: 104px;
-    min-height: 34px;
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+    min-height: 36px;
     color: #111827;
-    padding: 0 10px;
+    padding: 6px 10px;
     border: 1px solid rgba(0, 0, 0, 0.14);
     border-radius: 8px;
     text-align: right;
+    font-variant-numeric: tabular-nums;
     background: rgba(255, 255, 255, 0.98);
 }
 
 .rate-input {
-    width: 56px;
-    max-width: 56px;
-    min-height: 34px;
-    padding: 0 8px;
-    color: #6b7280;
-    border: 1px solid rgba(0, 0, 0, 0.14);
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+    min-height: 36px;
+    padding: 6px 10px;
+    color: #4b5563;
+    font-size: 13px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    border: 1px solid rgba(0, 0, 0, 0.12);
     border-radius: 8px;
-    background-color: #f7f7f7;
+    background-color: #f3f4f6;
     text-align: right;
 }
 
 .totals-section {
     display: flex;
     flex-direction: column;
-    gap: 8px;
-    justify-content: flex-start;
+    gap: 10px;
+    padding-top: 4px;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    min-width: 0;
 }
 
 .total-row {
-    display: flex;
+    display: grid;
+    grid-template-columns: minmax(88px, 120px) minmax(0, 1fr);
+    gap: 12px;
     align-items: center;
-    justify-content: flex-start;
     color: white;
-    gap: 8px;
+    min-width: 0;
+}
 
-    label {
-        min-width: 52px;
-        font-size: 12px;
-        color: rgba(255, 255, 255, 0.86);
-        text-align: right;
-    }
+.total-row__label {
+    margin: 0;
+    font-size: 12px;
+    font-weight: 600;
+    color: rgba(255, 255, 255, 0.88);
+    text-align: left;
 }
 
 .total-input {
     color: #374151;
-    width: 172px;
-    max-width: 172px;
-    min-height: 34px;
-    padding: 0 10px;
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+    min-height: 36px;
+    padding: 6px 12px;
     border: 1px solid rgba(0, 0, 0, 0.14);
     border-radius: 8px;
     background-color: rgba(255, 255, 255, 0.98);
     text-align: right;
+    font-variant-numeric: tabular-nums;
+    font-weight: 600;
 
     &:disabled {
         background-color: rgba(255, 255, 255, 0.98);
+        color: #1f2937;
     }
 }
 
@@ -722,25 +923,24 @@ select.form-input {
         width: 100%;
     }
 
-    .tax-grid {
-        grid-template-columns: 1fr;
+    .tax-row {
+        grid-template-columns: 1fr 1fr;
+        grid-template-rows: auto auto;
     }
 
-    .tax-row,
-    .total-row {
-        justify-content: space-between;
-    }
-
-    .tax-row label,
-    .total-row label {
-        min-width: 96px;
-        text-align: left;
+    .tax-row__label {
+        grid-column: 1 / -1;
     }
 
     .amount-input,
+    .rate-input,
     .total-input {
         width: 100%;
-        max-width: none;
+    }
+
+    .total-row {
+        grid-template-columns: 1fr;
+        gap: 6px;
     }
 }
 </style> 

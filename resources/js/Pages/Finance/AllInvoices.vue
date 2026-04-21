@@ -96,7 +96,13 @@
                         </template>
 
                         <template v-if="hasInvoices">
-                            <tr v-for="faktura in displayFakturas.data" :key="faktura.id">
+                            <tr
+                                v-for="faktura in displayFakturas.data"
+                                :key="faktura.id"
+                                class="invoice-row"
+                                :class="{ 'invoice-row--active': selectedInvoice?.id === faktura.id }"
+                                @click="openInvoiceDrawer(faktura)"
+                            >
                                 <td class="invoice-primary-cell">
                                     <div class="invoice-main">
                                         <div class="invoice-number">#{{ faktura.faktura_number || faktura.id }}</div>
@@ -128,7 +134,7 @@
                                     <div class="cell-secondary comment-cell">{{ getCommentDisplay(faktura.comment) }}</div>
                                 </td>
                                 <td class="actions-cell">
-                                    <button class="view-button" @click="viewInvoice(faktura.id)">
+                                    <button class="view-button" @click.stop="viewInvoice(faktura.id)">
                                         <i class="fa fa-eye" aria-hidden="true" />
                                         <span>View</span>
                                     </button>
@@ -192,6 +198,173 @@
                 </div>
         </div>
         </div>
+
+        <Teleport to="body">
+            <div v-if="invoiceDrawerOpen && selectedInvoice" class="invoice-drawer-portal" role="presentation">
+                <div class="invoice-drawer-scrim" aria-hidden="true" @click="closeInvoiceDrawer" />
+                <aside
+                    class="invoice-drawer-panel"
+                    role="dialog"
+                    aria-modal="true"
+                    aria-labelledby="invoice-drawer-title"
+                    @click.stop
+                >
+                    <header class="invoice-drawer-head">
+                        <div class="invoice-drawer-head-text">
+                            <h2 id="invoice-drawer-title" class="invoice-drawer-title">
+                                Invoice #{{ selectedInvoice.faktura_number || selectedInvoice.id }}/{{ selectedInvoice.fiscal_year || '—' }}
+                            </h2>
+                            <p class="invoice-drawer-subtitle">
+                                {{ getClientName(selectedInvoice) }}
+                            </p>
+                        </div>
+                        <div class="invoice-drawer-head-actions">
+                            <button
+                                v-if="selectedInvoice.is_split_invoice"
+                                type="button"
+                                class="invoice-drawer-chip"
+                            >
+                                Split invoice
+                            </button>
+                            <button type="button" class="invoice-drawer-close" aria-label="Close drawer" @click="closeInvoiceDrawer">
+                                &times;
+                            </button>
+                        </div>
+                    </header>
+
+                    <div class="invoice-drawer-scroll">
+                        <section class="invoice-drawer-meta-grid">
+                            <div class="invoice-meta-card">
+                                <span class="invoice-meta-label">Created date</span>
+                                <span class="invoice-meta-value">{{ formatFullDate(selectedInvoice.created_at) || '—' }}</span>
+                            </div>
+                            <div class="invoice-meta-card">
+                                <span class="invoice-meta-label">Created by</span>
+                                <span class="invoice-meta-value">{{ selectedInvoice.created_by?.name || 'N/A' }}</span>
+                            </div>
+                            <div class="invoice-meta-card">
+                                <span class="invoice-meta-label">Amount</span>
+                                <span class="invoice-meta-value finance-money">{{ formatFakturaMoney(selectedInvoice.amount) }}</span>
+                            </div>
+                            <div class="invoice-meta-card">
+                                <span class="invoice-meta-label">Tax</span>
+                                <span class="invoice-meta-value finance-money">{{ formatFakturaMoney(selectedInvoice.tax) }}</span>
+                            </div>
+                            <div class="invoice-meta-card invoice-meta-card--emphasis">
+                                <span class="invoice-meta-label">Total</span>
+                                <span class="invoice-meta-value finance-money">{{ formatFakturaTotalCell(selectedInvoice) }}</span>
+                            </div>
+                        </section>
+
+                        <section class="invoice-drawer-section">
+                            <div class="invoice-drawer-section-head">
+                                <h3 class="invoice-drawer-section-title">Orders</h3>
+                                <span class="invoice-drawer-section-hint">{{ getInvoiceOrders(selectedInvoice).length }} linked</span>
+                            </div>
+
+                            <div v-if="!getInvoiceOrders(selectedInvoice).length" class="invoice-drawer-empty">
+                                No linked orders.
+                            </div>
+
+                            <article
+                                v-for="order in getInvoiceOrders(selectedInvoice)"
+                                :key="`drawer-order-${order.id}`"
+                                class="invoice-order-card"
+                            >
+                                <div class="invoice-order-separator">
+                                    <span class="separator-line" />
+                                    <span class="separator-text">Order {{ order.order_number || order.id }}</span>
+                                    <span class="separator-line" />
+                                </div>
+                                <header class="invoice-order-head">
+                                    <div class="invoice-order-title-wrap">
+                                        <h4 class="invoice-order-title">{{ order.invoice_title || 'Untitled order' }}</h4>
+                                        <p class="invoice-order-subtitle">
+                                            {{ formatFullDate(order.start_date) || '—' }} - {{ formatFullDate(order.end_date) || '—' }}
+                                        </p>
+                                        <p v-if="getOrderMergeGroups(order).length" class="invoice-order-grouping">
+                                            {{ getOrderMergeGroups(order).length }} grouped block{{ getOrderMergeGroups(order).length === 1 ? '' : 's' }}
+                                        </p>
+                                    </div>
+                                    <div class="invoice-order-head-right">
+                                        <span class="invoice-order-meta">{{ order.client?.name || getClientName(selectedInvoice) }}</span>
+                                        <span class="invoice-order-meta">{{ order.user?.name || 'N/A' }}</span>
+                                    </div>
+                                </header>
+
+                                <div class="invoice-order-jobs">
+                                    <div
+                                        v-for="group in getOrderGroupedJobs(order)"
+                                        :key="`drawer-group-${order.id}-${group.index}`"
+                                        class="invoice-merge-group"
+                                        :class="group.colorClass"
+                                    >
+                                        <div class="invoice-merge-group-head">
+                                            <span class="invoice-merge-badge">{{ group.label }}</span>
+                                            <span class="invoice-merge-stats">
+                                                {{ group.jobCount }} jobs · Qty {{ group.totalQty }} · {{ formatArea(group.totalArea) }} m²
+                                            </span>
+                                        </div>
+                                        <div class="invoice-merge-group-body">
+                                            <div
+                                                v-for="job in group.jobs"
+                                                :key="`drawer-group-job-${job.id}`"
+                                                class="invoice-job-row invoice-job-row--inside-group"
+                                            >
+                                                <div class="invoice-job-main">
+                                                    <span class="invoice-job-name">{{ job.name || `Job #${job.id}` }}</span>
+                                                    <span class="invoice-job-meta">Qty: {{ job.quantity ?? '—' }} {{ job.unit || '' }}</span>
+                                                </div>
+                                                <div class="invoice-job-side">
+                                                    <span class="invoice-job-meta">m²: {{ formatArea(job.computed_total_area_m2) }}</span>
+                                                    <span class="invoice-job-meta">VAT: {{ formatVatDisplay(job) }}</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div
+                                        v-if="getOrderGroupedJobs(order).length && getOrderUngroupedJobs(order).length"
+                                        class="invoice-ungrouped-label"
+                                    >
+                                        Other jobs
+                                    </div>
+
+                                    <div
+                                        v-for="job in getOrderUngroupedJobs(order)"
+                                        :key="`drawer-job-${job.id}`"
+                                        class="invoice-job-row"
+                                    >
+                                        <div class="invoice-job-main">
+                                            <span class="invoice-job-name">{{ job.name || `Job #${job.id}` }}</span>
+                                            <span class="invoice-job-meta">Qty: {{ job.quantity ?? '—' }} {{ job.unit || '' }}</span>
+                                        </div>
+                                        <div class="invoice-job-side">
+                                            <span class="invoice-job-meta">m²: {{ formatArea(job.computed_total_area_m2) }}</span>
+                                            <span class="invoice-job-meta">VAT: {{ formatVatDisplay(job) }}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </article>
+                        </section>
+
+                        <section class="invoice-drawer-section" v-if="selectedInvoice.comment">
+                            <h3 class="invoice-drawer-section-title">Comment</h3>
+                            <p class="invoice-drawer-comment">{{ selectedInvoice.comment }}</p>
+                        </section>
+                    </div>
+
+                    <footer class="invoice-drawer-foot">
+                        <button type="button" class="invoice-drawer-btn invoice-drawer-btn--muted" @click="closeInvoiceDrawer">
+                            Close
+                        </button>
+                        <button type="button" class="invoice-drawer-btn invoice-drawer-btn--primary" @click="viewInvoice(selectedInvoice.id)">
+                            Open full invoice
+                        </button>
+                    </footer>
+                </aside>
+            </div>
+        </Teleport>
     </MainLayout>
 </template>
 
@@ -262,6 +435,8 @@ export default {
             allInvoicesScrollFillDepth: 0,
             subtotalScrollbarPadPx: 0,
             filterTotalsSnapshot: null,
+            invoiceDrawerOpen: false,
+            selectedInvoice: null,
         };
     },
     computed: {
@@ -345,6 +520,15 @@ export default {
                 this.$nextTick(() => this.syncAllInvoicesSubtotalScrollbarPad());
             }
         },
+        invoiceDrawerOpen(open) {
+            if (open) {
+                document.body.style.overflow = 'hidden';
+                window.addEventListener('keydown', this.onInvoiceDrawerEscape, true);
+            } else {
+                document.body.style.overflow = '';
+                window.removeEventListener('keydown', this.onInvoiceDrawerEscape, true);
+            }
+        },
     },
     mounted() {
         this.fetchUniqueClients();
@@ -353,11 +537,25 @@ export default {
         this.applyFilter(1);
     },
     beforeUnmount() {
+        document.body.style.overflow = '';
+        window.removeEventListener('keydown', this.onInvoiceDrawerEscape, true);
         if (this._allInvoicesSubtotalWindowResize) {
             window.removeEventListener('resize', this._allInvoicesSubtotalWindowResize);
         }
     },
     methods: {
+        onInvoiceDrawerEscape(e) {
+            if (e.key === 'Escape' && this.invoiceDrawerOpen) {
+                this.closeInvoiceDrawer();
+            }
+        },
+        openInvoiceDrawer(faktura) {
+            this.selectedInvoice = faktura;
+            this.invoiceDrawerOpen = true;
+        },
+        closeInvoiceDrawer() {
+            this.invoiceDrawerOpen = false;
+        },
         initFromUrl() {
             const p = new URLSearchParams(window.location.search);
             const sq = p.get('searchQuery') || '';
@@ -568,6 +766,123 @@ export default {
         },
         viewInvoice(id) {
             this.$inertia.visit(`/invoice/${id}`);
+        },
+        getInvoiceOrders(faktura) {
+            if (!faktura || !Array.isArray(faktura.invoices)) {
+                return [];
+            }
+            return faktura.invoices;
+        },
+        formatArea(value) {
+            const n = Number(value);
+            if (!Number.isFinite(n)) {
+                return '—';
+            }
+            return n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        },
+        formatVatDisplay(job) {
+            if (!job || !Array.isArray(job.articles) || !job.articles.length) {
+                return '—';
+            }
+            const values = [];
+            for (const article of job.articles) {
+                if (article == null) {
+                    continue;
+                }
+                const raw = article?.pivot?.taxRate ?? article?.taxRate;
+                if (raw !== undefined && raw !== null && raw !== '') {
+                    values.push(`${raw}%`);
+                }
+            }
+            if (!values.length) {
+                return '—';
+            }
+            return Array.from(new Set(values)).join(', ');
+        },
+        getOrderMergeGroups(order) {
+            const raw = order?.merge_groups;
+            if (Array.isArray(raw)) {
+                return raw;
+            }
+            if (typeof raw === 'string' && raw.trim()) {
+                try {
+                    const parsed = JSON.parse(raw);
+                    return Array.isArray(parsed) ? parsed : [];
+                } catch (_) {
+                    return [];
+                }
+            }
+            return [];
+        },
+        getOrderGroupedJobs(order) {
+            const jobs = Array.isArray(order?.jobs) ? order.jobs : [];
+            if (!jobs.length) {
+                return [];
+            }
+
+            const jobById = new Map();
+            for (const job of jobs) {
+                const key = Number(job?.id);
+                if (Number.isFinite(key)) {
+                    jobById.set(key, job);
+                }
+            }
+
+            const groups = this.getOrderMergeGroups(order);
+            const grouped = [];
+            for (let i = 0; i < groups.length; i += 1) {
+                const g = groups[i];
+                const ids = Array.isArray(g?.job_ids) ? g.job_ids : [];
+                const mergedJobs = [];
+                let totalQty = 0;
+                let totalArea = 0;
+                for (const rawId of ids) {
+                    const id = Number(rawId);
+                    if (!Number.isFinite(id) || !jobById.has(id)) {
+                        continue;
+                    }
+                    const job = jobById.get(id);
+                    mergedJobs.push(job);
+                    totalQty += Number(job?.quantity) || 0;
+                    totalArea += Number(job?.computed_total_area_m2) || 0;
+                }
+                if (!mergedJobs.length) {
+                    continue;
+                }
+                grouped.push({
+                    index: i,
+                    label: `Group ${i + 1}`,
+                    jobs: mergedJobs,
+                    jobCount: mergedJobs.length,
+                    totalQty,
+                    totalArea,
+                    colorClass: `invoice-merge-color-${i % 6}`,
+                });
+            }
+            return grouped;
+        },
+        getOrderUngroupedJobs(order) {
+            const jobs = Array.isArray(order?.jobs) ? order.jobs : [];
+            if (!jobs.length) {
+                return [];
+            }
+            const groupedIds = new Set();
+            const groups = this.getOrderGroupedJobs(order);
+            for (const group of groups) {
+                for (const job of group.jobs) {
+                    const id = Number(job?.id);
+                    if (Number.isFinite(id)) {
+                        groupedIds.add(id);
+                    }
+                }
+            }
+            return jobs.filter((job) => {
+                const id = Number(job?.id);
+                if (!Number.isFinite(id)) {
+                    return true;
+                }
+                return !groupedIds.has(id);
+            });
         },
         formatFullDate(date) {
             if (!date) {
@@ -912,6 +1227,21 @@ export default {
     padding-right: 9px;
 }
 
+.all-invoices-table-shell :deep(.data-table-body tr.invoice-row) {
+    cursor: pointer;
+    transition: background-color 0.14s ease, box-shadow 0.14s ease;
+}
+
+.all-invoices-table-shell :deep(.data-table-body tr.invoice-row--active),
+.all-invoices-table-shell :deep(.data-table-body tr.invoice-row--active:nth-child(even)),
+.all-invoices-table-shell :deep(.data-table-body tr.invoice-row--active:hover) {
+    background: linear-gradient(90deg, rgba(59, 130, 246, 0.16) 0%, rgba(30, 41, 59, 0.88) 100%) !important;
+    box-shadow:
+        inset 3px 0 0 #60a5fa,
+        inset 0 1px 0 rgba(147, 197, 253, 0.22),
+        inset 0 -1px 0 rgba(147, 197, 253, 0.16);
+}
+
 .all-invoices-subtotal-sticky .finance-subtotal-table td {
     padding-left: 9px;
     padding-right: 9px;
@@ -1060,6 +1390,392 @@ export default {
     font-size: 14px;
     font-weight: 800;
     color: #fff;
+}
+
+.invoice-drawer-portal {
+    position: fixed;
+    inset: 0;
+    z-index: 1900;
+}
+
+.invoice-drawer-scrim {
+    position: absolute;
+    inset: 0;
+    background: rgba(2, 6, 23, 0.62);
+    backdrop-filter: blur(1px);
+}
+
+.invoice-drawer-panel {
+    position: absolute;
+    top: 0;
+    right: 0;
+    height: 100%;
+    width: min(940px, 96vw);
+    display: flex;
+    flex-direction: column;
+    background: #0f172a;
+    border-left: 1px solid rgba(148, 163, 184, 0.24);
+    box-shadow: -18px 0 44px rgba(2, 6, 23, 0.48);
+}
+
+.invoice-drawer-head {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 16px 20px;
+    border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+    background: rgba(15, 23, 42, 0.96);
+}
+
+.invoice-drawer-title {
+    margin: 0;
+    font-size: 20px;
+    font-weight: 800;
+    color: #f8fafc;
+}
+
+.invoice-drawer-subtitle {
+    margin: 4px 0 0;
+    color: rgba(226, 232, 240, 0.82);
+    font-size: 13px;
+}
+
+.invoice-drawer-head-actions {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+}
+
+.invoice-drawer-chip {
+    border: 1px solid rgba(125, 211, 252, 0.38);
+    background: rgba(14, 116, 144, 0.28);
+    color: #e0f2fe;
+    border-radius: 999px;
+    padding: 4px 10px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.invoice-drawer-close {
+    border: 1px solid rgba(148, 163, 184, 0.3);
+    background: rgba(15, 23, 42, 0.7);
+    color: #e2e8f0;
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    font-size: 20px;
+    line-height: 1;
+}
+
+.invoice-drawer-scroll {
+    flex: 1;
+    overflow: auto;
+    padding: 16px 20px 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.invoice-drawer-meta-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(148px, 1fr));
+    gap: 10px;
+}
+
+.invoice-meta-card {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    padding: 10px 12px;
+    border-radius: 10px;
+    border: 1px solid rgba(148, 163, 184, 0.18);
+    background: rgba(15, 23, 42, 0.72);
+}
+
+.invoice-meta-card--emphasis {
+    border-color: rgba(96, 165, 250, 0.38);
+    background: linear-gradient(180deg, rgba(30, 64, 175, 0.26) 0%, rgba(15, 23, 42, 0.82) 100%);
+}
+
+.invoice-meta-label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: rgba(148, 163, 184, 0.92);
+    font-weight: 700;
+}
+
+.invoice-meta-value {
+    font-size: 14px;
+    font-weight: 700;
+    color: #f8fafc;
+}
+
+.invoice-drawer-section {
+    border: 1px solid rgba(148, 163, 184, 0.17);
+    background: rgba(15, 23, 42, 0.64);
+    border-radius: 12px;
+    padding: 12px;
+}
+
+.invoice-drawer-section-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 10px;
+}
+
+.invoice-drawer-section-title {
+    margin: 0;
+    font-size: 13px;
+    font-weight: 800;
+    letter-spacing: 0.03em;
+    color: #dbeafe;
+    text-transform: uppercase;
+}
+
+.invoice-drawer-section-hint {
+    font-size: 11px;
+    color: rgba(191, 219, 254, 0.85);
+    background: rgba(30, 58, 138, 0.28);
+    border: 1px solid rgba(96, 165, 250, 0.3);
+    border-radius: 999px;
+    padding: 3px 8px;
+}
+
+.invoice-drawer-empty {
+    color: rgba(203, 213, 225, 0.75);
+    font-size: 13px;
+}
+
+.invoice-order-card {
+    border: 1px solid rgba(148, 163, 184, 0.15);
+    border-radius: 10px;
+    background: rgba(2, 6, 23, 0.26);
+    padding: 10px;
+}
+
+.invoice-order-card + .invoice-order-card {
+    margin-top: 10px;
+}
+
+.invoice-order-separator {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 10px;
+}
+
+.invoice-order-separator .separator-line {
+    flex: 1;
+    height: 1px;
+    background: rgba(226, 232, 240, 0.32);
+}
+
+.invoice-order-separator .separator-text {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: rgba(226, 232, 240, 0.84);
+    font-weight: 700;
+}
+
+.invoice-order-head {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 8px;
+}
+
+.invoice-order-title {
+    margin: 0;
+    font-size: 14px;
+    font-weight: 800;
+    color: #f1f5f9;
+}
+
+.invoice-order-subtitle {
+    margin: 3px 0 0;
+    font-size: 12px;
+    color: rgba(203, 213, 225, 0.74);
+}
+
+.invoice-order-grouping {
+    margin: 4px 0 0;
+    font-size: 11px;
+    color: rgba(147, 197, 253, 0.88);
+}
+
+.invoice-order-head-right {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 3px;
+}
+
+.invoice-order-meta {
+    font-size: 11px;
+    color: rgba(191, 219, 254, 0.92);
+}
+
+.invoice-order-jobs {
+    border-top: 1px solid rgba(148, 163, 184, 0.16);
+    padding-top: 8px;
+}
+
+.invoice-merge-group {
+    border: 1px solid rgba(148, 163, 184, 0.24);
+    border-radius: 8px;
+    margin-bottom: 8px;
+    overflow: hidden;
+}
+
+.invoice-merge-group-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 9px;
+}
+
+.invoice-merge-badge {
+    background: rgba(78, 205, 196, 0.9);
+    color: #06262f;
+    padding: 2px 7px;
+    border-radius: 4px;
+    font-size: 10px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.invoice-merge-stats {
+    font-size: 11px;
+    font-weight: 700;
+    color: rgba(241, 245, 249, 0.9);
+}
+
+.invoice-merge-group-body {
+    padding: 0 9px 6px;
+    background: rgba(2, 6, 23, 0.2);
+}
+
+.invoice-job-row--inside-group {
+    border-bottom-color: rgba(148, 163, 184, 0.16);
+}
+
+.invoice-ungrouped-label {
+    margin: 2px 0 4px;
+    font-size: 10px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: rgba(148, 163, 184, 0.88);
+}
+
+.invoice-merge-color-0 .invoice-merge-group-head {
+    background: rgba(49, 130, 206, 0.48);
+}
+
+.invoice-merge-color-1 .invoice-merge-group-head {
+    background: rgba(81, 168, 177, 0.48);
+}
+
+.invoice-merge-color-2 .invoice-merge-group-head {
+    background: rgba(163, 106, 3, 0.48);
+}
+
+.invoice-merge-color-3 .invoice-merge-group-head {
+    background: rgba(162, 185, 58, 0.45);
+}
+
+.invoice-merge-color-4 .invoice-merge-group-head {
+    background: rgba(158, 44, 48, 0.52);
+}
+
+.invoice-merge-color-5 .invoice-merge-group-head {
+    background: rgba(129, 201, 80, 0.46);
+}
+
+.invoice-job-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 8px 0;
+    border-bottom: 1px solid rgba(148, 163, 184, 0.1);
+}
+
+.invoice-job-row:last-child {
+    border-bottom: none;
+    padding-bottom: 2px;
+}
+
+.invoice-job-main,
+.invoice-job-side {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.invoice-job-side {
+    align-items: flex-end;
+}
+
+.invoice-job-name {
+    color: #f8fafc;
+    font-size: 13px;
+    font-weight: 700;
+}
+
+.invoice-job-meta {
+    color: rgba(203, 213, 225, 0.74);
+    font-size: 12px;
+}
+
+.invoice-drawer-comment {
+    margin: 8px 0 0;
+    color: rgba(226, 232, 240, 0.88);
+    white-space: pre-wrap;
+    line-height: 1.45;
+    font-size: 13px;
+}
+
+.invoice-drawer-foot {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    padding: 12px 20px;
+    border-top: 1px solid rgba(148, 163, 184, 0.2);
+    background: rgba(15, 23, 42, 0.95);
+}
+
+.invoice-drawer-btn {
+    border-radius: 9px;
+    padding: 7px 12px;
+    font-size: 12px;
+    font-weight: 700;
+    border: 1px solid transparent;
+}
+
+.invoice-drawer-btn--muted {
+    color: #e2e8f0;
+    background: rgba(15, 23, 42, 0.72);
+    border-color: rgba(148, 163, 184, 0.34);
+}
+
+.invoice-drawer-btn--primary {
+    color: #f8fafc;
+    background: rgba(37, 99, 235, 0.34);
+    border-color: rgba(96, 165, 250, 0.65);
+}
+
+@media (max-width: 900px) {
+    .invoice-drawer-panel {
+        width: 100vw;
+    }
 }
 </style>
 

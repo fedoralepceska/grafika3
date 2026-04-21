@@ -1,7 +1,7 @@
 <template>
     <div class="fc-dr">
         <label v-if="label" class="fc-label">{{ label }}</label>
-        <div class="fc-dr__row">
+        <div class="fc-dr__row" :class="{ 'fc-dr__row--single': single }">
             <div class="fc-dr__pick">
                 <input
                     v-model="displayFrom"
@@ -22,7 +22,7 @@
                     type="button"
                     class="fc-dr__picker-btn"
                     title="Open calendar"
-                    aria-label="Open from date calendar"
+                    :aria-label="single ? 'Open date calendar' : 'Open from date calendar'"
                     @click="openPicker('from')"
                 >
                     <i class="fas fa-calendar-alt" aria-hidden="true" />
@@ -37,8 +37,8 @@
                     @change="onNativeFrom"
                 />
             </div>
-            <span class="fc-dr__sep">–</span>
-            <div class="fc-dr__pick">
+            <span v-if="!single" class="fc-dr__sep">–</span>
+            <div v-if="!single" class="fc-dr__pick">
                 <input
                     v-model="displayTo"
                     type="text"
@@ -87,6 +87,8 @@ export default {
         dateFrom: { type: String, default: '' },
         dateTo: { type: String, default: '' },
         label: { type: String, default: 'Created' },
+        /** One field only — same styling as the “from” cell in range mode (e.g. due-date target). */
+        single: { type: Boolean, default: false },
     },
     emits: ['update:dateFrom', 'update:dateTo', 'change'],
     data() {
@@ -105,6 +107,9 @@ export default {
         dateTo: {
             immediate: true,
             handler() {
+                if (this.single) {
+                    return;
+                }
                 this.displayTo = this.isoToDisplay(this.dateTo);
             },
         },
@@ -279,7 +284,11 @@ export default {
             const iso = parseDdMmYyyyToIso(raw);
             if (!iso) {
                 const toast = useToast();
-                toast.error('From date: use dd/mm/yyyy (e.g. 14/01/2026).');
+                toast.error(
+                    this.single
+                        ? 'Date: use dd/mm/yyyy (e.g. 14/01/2026).'
+                        : 'From date: use dd/mm/yyyy (e.g. 14/01/2026).',
+                );
                 this.displayFrom = this.isoToDisplay(this.dateFrom);
                 return;
             }
@@ -376,6 +385,10 @@ export default {
     align-items: flex-end;
     gap: 6px;
     flex-wrap: nowrap;
+}
+
+.fc-dr__row--single .fc-dr__pick {
+    max-width: 160px;
 }
 
 .fc-dr__pick {

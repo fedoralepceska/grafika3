@@ -73,6 +73,11 @@
 
                     <div class="statements-split">
                         <div class="statements-list-col">
+                            <div
+                                ref="statementsListScroll"
+                                class="statements-list-scroll"
+                                @scroll.passive="onStatementsListScroll"
+                            >
                             <DataTableShell class="statements-list-table" compact variant="grid">
                                 <template #colgroup>
                                     <colgroup>
@@ -114,6 +119,14 @@
                                     </td>
                                 </tr>
                             </DataTableShell>
+                            <div
+                                v-if="loadingMoreStatements"
+                                class="statements-scroll-loading"
+                                aria-live="polite"
+                            >
+                                <i class="fa fa-spinner fa-spin" aria-hidden="true" /> Loading more…
+                            </div>
+                            </div>
                         </div>
 
                         <aside
@@ -215,7 +228,6 @@
                         </aside>
                     </div>
                 </div>
-                <Pagination :pagination="paginationState" @pagination-change-page="goToPage" />
             </div>
         </div>
     </MainLayout>
@@ -224,7 +236,6 @@
 <script>
 import MainLayout from "@/Layouts/MainLayout.vue";
 import Header from "@/Components/Header.vue";
-import Pagination from "@/Components/Pagination.vue"
 import DataTableShell from "@/Components/DataTableShell.vue";
 import axios from 'axios';
 import AddCertificateDialog from "@/Components/AddCertificateDialog.vue";
@@ -242,7 +253,6 @@ export default {
         ViewBanksDialog,
         Header,
         MainLayout,
-        Pagination,
         DataTableShell,
         AddCertificateDialog,
         RedirectTabs,
@@ -270,6 +280,8 @@ export default {
             localCertificates: this.certificates?.data || [],
             paginationState: this.certificates || { data: [], links: [] },
             perPage: 20,
+            loadingMoreStatements: false,
+            statementsScrollFillDepth: 0,
             selectedStatementId: null,
             drawerLoading: false,
             drawerError: null,
@@ -477,24 +489,81 @@ export default {
             this.dateTo = '';
             this.applyFilter(1);
         },
-        async applyFilter(page = 1) {
+        async applyFilter(page = 1, { append = false } = {}) {
             try {
+                if (append) {
+                    this.loadingMoreStatements = true;
+                } else {
+                    this.statementsScrollFillDepth = 0;
+                }
                 const params = this.buildBankListParams(page);
                 const response = await axios.get('/statements', {
                     params,
                     headers: { Accept: 'application/json' },
                 });
-                this.localCertificates = response.data.data;
-                this.paginationState = response.data;
+                const payload = response.data;
+                const chunk = payload.data || [];
+                if (append) {
+                    this.localCertificates = [...(this.localCertificates || []), ...chunk];
+                } else {
+                    this.localCertificates = chunk;
+                }
+                this.paginationState = payload;
                 if (
                     this.selectedStatementId != null
                     && !this.localCertificates.some((c) => c.id === this.selectedStatementId)
                 ) {
                     this.closeStatementDrawer();
                 }
-                this.pushBankHistory(params);
+                if (!append) {
+                    this.pushBankHistory(this.buildBankListParams(1));
+                    this.$nextTick(() => {
+                        const el = this.$refs.statementsListScroll;
+                        if (el) {
+                            el.scrollTop = 0;
+                        }
+                        this.maybeFillStatementsScroll();
+                    });
+                } else {
+                    this.$nextTick(() => this.maybeFillStatementsScroll());
+                }
             } catch (error) {
                 console.error(error);
+            } finally {
+                this.loadingMoreStatements = false;
+            }
+        },
+        onStatementsListScroll(e) {
+            const el = e.target;
+            if (this.loadingMoreStatements) {
+                return;
+            }
+            const p = this.paginationState;
+            const cur = p?.current_page ?? 1;
+            const last = p?.last_page ?? 1;
+            if (cur >= last) {
+                return;
+            }
+            const threshold = 100;
+            if (el.scrollTop + el.clientHeight >= el.scrollHeight - threshold) {
+                this.applyFilter(cur + 1, { append: true });
+            }
+        },
+        maybeFillStatementsScroll() {
+            const el = this.$refs.statementsListScroll;
+            if (!el || this.loadingMoreStatements) {
+                return;
+            }
+            const p = this.paginationState;
+            if (!p || (p.current_page ?? 1) >= (p.last_page ?? 1)) {
+                return;
+            }
+            if (this.statementsScrollFillDepth >= 50) {
+                return;
+            }
+            if (el.scrollHeight <= el.clientHeight + 2) {
+                this.statementsScrollFillDepth += 1;
+                this.applyFilter((p.current_page ?? 1) + 1, { append: true });
             }
         },
         async fetchUniqueBanks() {
@@ -516,9 +585,6 @@ export default {
         viewCertificate(id) {
             this.closeStatementDrawer();
             this.$inertia.visit(`/statements/${id}`);
-        },
-        goToPage(page) {
-            this.applyFilter(page);
         },
     },
 };
@@ -691,13 +757,39 @@ export default {
     outline: none;
 }
 
-.statement-row--selected {
-    background: rgba(59, 130, 246, 0.14) !important;
+/* Must beat DataTableShell grid `tr:nth-child(even)` / `tr:hover` specificity */
+.statements-list-table.data-table-shell--grid.compact :deep(.data-table-body tr.statement-row--selected),
+.statements-list-table.data-table-shell--grid.compact :deep(.data-table-body tr.statement-row--selected:nth-child(even)),
+.statements-list-table.data-table-shell--grid.compact :deep(.data-table-body tr.statement-row--selected:hover) {
+    position: relative;
+    z-index: 1;
+    background: linear-gradient(90deg, rgba(59, 130, 246, 0.2) 0%, rgba(30, 41, 59, 0.88) 100%) !important;
+    box-shadow:
+        inset 4px 0 0 0 #60a5fa,
+        inset 0 1px 0 rgba(147, 197, 253, 0.3),
+        inset 0 -1px 0 rgba(147, 197, 253, 0.22),
+        0 0 0 1px rgba(96, 165, 250, 0.35) !important;
+    outline: none;
 }
 
-.statement-row--selected:hover,
-.statement-row--selected:focus-visible {
-    background: rgba(59, 130, 246, 0.2) !important;
+.statements-list-table.data-table-shell--grid.compact :deep(.data-table-body tr.statement-row--selected:hover),
+.statements-list-table.data-table-shell--grid.compact :deep(.data-table-body tr.statement-row--selected:focus-visible) {
+    background: linear-gradient(90deg, rgba(59, 130, 246, 0.24) 0%, rgba(30, 41, 59, 0.9) 100%) !important;
+    box-shadow:
+        inset 4px 0 0 0 #93c5fd,
+        inset 0 1px 0 rgba(191, 219, 254, 0.34),
+        inset 0 -1px 0 rgba(191, 219, 254, 0.24),
+        0 0 0 1px rgba(147, 197, 253, 0.45) !important;
+    outline: none;
+}
+
+.statements-list-table :deep(tr.statement-row--selected .cell-primary) {
+    color: #ffffff;
+    text-shadow: none;
+}
+
+.statements-list-table :deep(tr.statement-row--selected .cell-secondary) {
+    color: rgba(219, 234, 254, 0.94);
 }
 
 .statement-primary-cell {
@@ -745,6 +837,25 @@ export default {
     display: flex;
     flex-direction: column;
     background: rgba(6, 12, 20, 0.75);
+    max-height: min(72vh, 640px);
+    min-height: 260px;
+}
+
+.statements-list-scroll {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-x: hidden;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+.statements-scroll-loading {
+    padding: 10px 12px;
+    text-align: center;
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.65);
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+    background: rgba(0, 0, 0, 0.2);
 }
 
 .statements-list-table {
@@ -820,6 +931,7 @@ export default {
         border-right: none;
         border-bottom: 1px solid rgba(255, 255, 255, 0.1);
         width: 100%;
+        max-height: min(52vh, 480px);
     }
 
     .statements-details-aside {

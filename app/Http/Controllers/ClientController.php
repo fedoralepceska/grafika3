@@ -252,7 +252,8 @@ class ClientController extends Controller
             'id' => $client->id,
             'name' => $client->name,
             'address' => $client->address,
-            'city' => $client->city
+            'city' => $client->city,
+            'phone' => $client->phone ?? null,
         ]);
     }
 

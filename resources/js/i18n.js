@@ -600,6 +600,7 @@ const messages = {
             clientStatements: 'Client Statements',
         },
         financeTable: {
+            index: '#',
             invoice: 'Invoice',
             date: 'Date',
             client: 'Client',
@@ -1218,6 +1219,7 @@ const messages = {
             clientStatements: 'Клиентски картици',
         },
         financeTable: {
+            index: '#',
             invoice: 'Фактура',
             date: 'Датум',
             client: 'Клиент',

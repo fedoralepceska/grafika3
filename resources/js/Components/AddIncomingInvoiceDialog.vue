@@ -58,11 +58,21 @@
                             </div>
                         </div>
                         <div class="inv-field">
-                            <label class="inv-label" for="inv-date">Date</label>
+                            <label class="inv-label">Date</label>
                             <div class="inv-control">
                                 <FinanceMaskedDateInput
-                                    id="inv-date"
                                     v-model="newInvoice.date"
+                                    class="inv-date-wrap"
+                                    input-class="inv-input inv-input--date inv-date-text"
+                                    variant="light"
+                                />
+                            </div>
+                        </div>
+                        <div class="inv-field">
+                            <label class="inv-label">Due date</label>
+                            <div class="inv-control">
+                                <FinanceMaskedDateInput
+                                    v-model="newInvoice.due_date"
                                     class="inv-date-wrap"
                                     input-class="inv-input inv-input--date inv-date-text"
                                     variant="light"
@@ -313,6 +323,7 @@ export default {
                 tax: 0,
                 total: 0,
                 date: null,
+                due_date: null,
             },
             selectedClientDetails: {
                 address: '',
@@ -458,6 +469,7 @@ export default {
                 tax: 0,
                 total: 0,
                 date: null,
+                due_date: null,
             };
             this.taxAmounts = {
                 taxA: 0,
