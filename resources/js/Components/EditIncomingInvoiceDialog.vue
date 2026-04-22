@@ -42,6 +42,7 @@
                                             class="edit-date-wrap"
                                             input-class="form-input"
                                             variant="light"
+                                            @submit="updateInvoice"
                                         />
                                     </div>
                                     <div class="form-group">
@@ -52,6 +53,7 @@
                                             class="edit-date-wrap"
                                             input-class="form-input"
                                             variant="light"
+                                            @submit="updateInvoice"
                                         />
                                     </div>
                                     <div class="form-group">
@@ -356,6 +358,22 @@ export default {
             return taxAmounts;
         };
 
+        const extractInitialTaxAmounts = (invoice, totalAmount, totalTax) => {
+            const hasStoredTaxBands = ['tax_a_amount', 'tax_b_amount', 'tax_c_amount', 'tax_d_amount']
+                .some((key) => invoice?.[key] !== null && invoice?.[key] !== undefined);
+
+            if (hasStoredTaxBands) {
+                return {
+                    taxA: Number(invoice?.tax_a_amount) || 0,
+                    taxB: Number(invoice?.tax_b_amount) || 0,
+                    taxC: Number(invoice?.tax_c_amount) || 0,
+                    taxD: Number(invoice?.tax_d_amount) || 0,
+                };
+            }
+
+            return calculateInitialTaxAmounts(totalAmount, totalTax);
+        };
+
         const parseDisplayMoney = (val) => {
             const n = parseFloat(String(val ?? '').replace(/,/g, ''));
             return Number.isFinite(n) ? n : 0;
@@ -411,7 +429,7 @@ export default {
             const totalAmount = parseDisplayMoney(inv.amount);
             const totalTax = parseDisplayMoney(inv.tax);
 
-            const initialTaxAmounts = calculateInitialTaxAmounts(totalAmount, totalTax);
+            const initialTaxAmounts = extractInitialTaxAmounts(inv, totalAmount, totalTax);
 
             form.value = {
                 incoming_number: inv.incoming_number != null ? String(inv.incoming_number) : '',
@@ -451,6 +469,10 @@ export default {
                     ...fields,
                     amount,
                     tax,
+                    tax_a_amount: Number(_taxAmounts.taxA) || 0,
+                    tax_b_amount: Number(_taxAmounts.taxB) || 0,
+                    tax_c_amount: Number(_taxAmounts.taxC) || 0,
+                    tax_d_amount: Number(_taxAmounts.taxD) || 0,
                     date: fields.date || null,
                     due_date: fields.due_date || null,
                 };
@@ -466,6 +488,7 @@ export default {
                 loading.value = false
             }
         }
+
 
         watch(() => form.value.billing_type, async (newValue, oldValue) => {
             if (newValue === 2 && oldValue !== 2) {

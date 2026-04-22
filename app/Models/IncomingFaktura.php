@@ -20,7 +20,11 @@ class IncomingFaktura extends Model
         'date',
         'due_date',
         'incoming_number',
-        'faktura_counter'
+        'faktura_counter',
+        'tax_a_amount',
+        'tax_b_amount',
+        'tax_c_amount',
+        'tax_d_amount',
     ];
 
     
@@ -32,7 +36,11 @@ class IncomingFaktura extends Model
         'client_id' => 'integer',
         'date' => 'date',
         'due_date' => 'date',
-        'faktura_counter' => 'integer'
+        'faktura_counter' => 'integer',
+        'tax_a_amount' => 'float',
+        'tax_b_amount' => 'float',
+        'tax_c_amount' => 'float',
+        'tax_d_amount' => 'float',
     ];
 
     public function client()

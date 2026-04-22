@@ -65,7 +65,7 @@
                                 type="button"
                                 class="finance-toolbar-btn finance-toolbar-btn--secondary"
                                 :disabled="generateEmptyLoading"
-                                @click="generateEmptyInvoice"
+                                @click="openGenerateEmptyConfirm"
                             >
                                 Generate empty
                                 <i class="fa-regular fa-file" aria-hidden="true"></i>
@@ -295,6 +295,35 @@
                     </div>
                 </div>
             </div>
+
+            <div
+                v-if="showGenerateEmptyConfirm"
+                class="confirm-overlay"
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="confirm-generate-empty-title"
+                @click="cancelGenerateEmptyConfirm"
+            >
+                <div class="confirm-modal" @click.stop>
+                    <h3 id="confirm-generate-empty-title" class="confirm-title">Generate empty invoice?</h3>
+                    <p class="confirm-text">
+                        This will create a new empty invoice with no selected orders. Are you sure you want to continue?
+                    </p>
+                    <div class="confirm-actions">
+                        <button type="button" class="finance-toolbar-btn finance-toolbar-btn--ghost" @click="cancelGenerateEmptyConfirm">
+                            Cancel
+                        </button>
+                        <button
+                            type="button"
+                            class="finance-toolbar-btn finance-toolbar-btn--secondary"
+                            :disabled="generateEmptyLoading"
+                            @click="confirmGenerateEmptyInvoice"
+                        >
+                            Yes, generate
+                        </button>
+                    </div>
+                </div>
+            </div>
         </div>
     </MainLayout>
 </template>
@@ -386,6 +415,7 @@ export default {
             orderDrawerInvoice: null,
             lastAppliedDateRangeKey: null,
             generateEmptyLoading: false,
+            showGenerateEmptyConfirm: false,
         };
     },
     mounted() {
@@ -757,6 +787,19 @@ export default {
             } finally {
                 this.generateEmptyLoading = false;
             }
+        },
+        openGenerateEmptyConfirm() {
+            if (this.generateEmptyLoading) {
+                return;
+            }
+            this.showGenerateEmptyConfirm = true;
+        },
+        cancelGenerateEmptyConfirm() {
+            this.showGenerateEmptyConfirm = false;
+        },
+        async confirmGenerateEmptyInvoice() {
+            this.showGenerateEmptyConfirm = false;
+            await this.generateEmptyInvoice();
         },
 
         // Thumbnail-related methods
@@ -1804,6 +1847,47 @@ select {
         font-size: 14px;
         font-weight: bold;
     }
+}
+
+.confirm-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.6);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1100;
+    padding: 20px;
+}
+
+.confirm-modal {
+    width: min(520px, 100%);
+    border-radius: 12px;
+    background: $dark-gray;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 20px 42px rgba(0, 0, 0, 0.35);
+    padding: 20px;
+}
+
+.confirm-title {
+    margin: 0 0 8px;
+    color: $white;
+    font-size: 1.1rem;
+    font-weight: 700;
+}
+
+.confirm-text {
+    margin: 0;
+    color: rgba(255, 255, 255, 0.85);
+    font-size: 0.95rem;
+    line-height: 1.45;
+}
+
+.confirm-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 18px;
 }
 
 @keyframes spin {

@@ -132,6 +132,8 @@ class IncomingFakturaController extends Controller
                 $this->applyDueDateProximityOrder($listQuery, $target);
             } else {
                 $listQuery->orderBy('created_at', $sortOrder);
+                // Keep pagination stable when created_at timestamps are equal.
+                $listQuery->orderBy('id', $sortOrder);
             }
 
             $perPage = (int) $request->input('per_page', 10);
@@ -153,6 +155,10 @@ class IncomingFakturaController extends Controller
                     'comment' => $invoice->comment,
                     'amount' => number_format($invoice->amount, 2),
                     'tax' => number_format($invoice->tax, 2),
+                    'tax_a_amount' => $invoice->tax_a_amount,
+                    'tax_b_amount' => $invoice->tax_b_amount,
+                    'tax_c_amount' => $invoice->tax_c_amount,
+                    'tax_d_amount' => $invoice->tax_d_amount,
                     'date' => $invoice->date,
                     'due_date' => $invoice->due_date,
                     'created_at' => $invoice->created_at,
@@ -208,6 +214,10 @@ class IncomingFakturaController extends Controller
             'comment' => 'nullable|string',
             'amount' => 'required|numeric',
             'tax' => 'required|numeric',
+            'tax_a_amount' => 'nullable|numeric',
+            'tax_b_amount' => 'nullable|numeric',
+            'tax_c_amount' => 'nullable|numeric',
+            'tax_d_amount' => 'nullable|numeric',
             'date' => 'nullable|date',
             'due_date' => 'nullable|date',
         ]);
@@ -235,6 +245,10 @@ class IncomingFakturaController extends Controller
                 'comment' => 'nullable|string',
                 'amount' => 'nullable|numeric',
                 'tax' => 'nullable|numeric',
+                'tax_a_amount' => 'nullable|numeric',
+                'tax_b_amount' => 'nullable|numeric',
+                'tax_c_amount' => 'nullable|numeric',
+                'tax_d_amount' => 'nullable|numeric',
                 'date' => 'nullable|date',
                 'due_date' => 'nullable|date',
             ]);

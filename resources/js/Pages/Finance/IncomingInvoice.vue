@@ -168,9 +168,10 @@
                                 v-for="(faktura, rowIdx) in displayIncoming.data"
                                 :key="faktura.id"
                                 :class="{ 'incoming-row--saved-flash': rowSavedFlashId === faktura.id }"
+                                @dblclick="openIncomingEditFromRow(faktura.id, $event)"
                             >
                                 <td class="col-idx">
-                                    <div class="cell-secondary text-right tabular-nums">{{ incomingRowIndex(rowIdx) }}</div>
+                                    <div class="cell-secondary text-right tabular-nums">{{ incomingDisplayId(faktura, rowIdx) }}</div>
                                 </td>
                                 <td
                                     class="invoice-primary-cell"
@@ -206,8 +207,9 @@
                                 <td class="col-comment"><div class="cell-secondary comment-cell" :title="faktura.comment || ''">{{ faktura.comment || 'N/A' }}</div></td>
                                 <td class="actions-cell">
                                     <EditIncomingInvoiceDialog
+                                        :ref="(el) => setIncomingEditDialogRef(faktura.id, el)"
                                         :invoice="faktura"
-                                        :list-row-index="incomingRowIndex(rowIdx)"
+                                        :list-row-index="incomingDisplayId(faktura, rowIdx)"
                                         :cost-types="$page.props.costTypes"
                                         :bill-types="$page.props.billTypes"
                                         :warehouses="$page.props.warehouses"
@@ -357,6 +359,7 @@ export default {
             rowSavedFlashId: null,
             _rowFlashClearTimer: null,
             _incomingBootstrapping: false,
+            incomingEditDialogRefs: {},
         };
     },
     computed: {
@@ -572,9 +575,11 @@ export default {
                     params: this.buildParams(page),
                 });
                 if (append && this.localIncoming && Array.isArray(this.localIncoming.data)) {
+                    const existingIds = new Set(this.localIncoming.data.map((row) => row?.id));
+                    const nextRows = (Array.isArray(data.data) ? data.data : []).filter((row) => !existingIds.has(row?.id));
                     this.localIncoming = {
                         ...data,
-                        data: [...this.localIncoming.data, ...data.data],
+                        data: [...this.localIncoming.data, ...nextRows],
                     };
                 } else {
                     this.localIncoming = data;
@@ -675,6 +680,26 @@ export default {
             this.dueDateTarget = '';
             this.dueDateFilterKey += 1;
         },
+        setIncomingEditDialogRef(invoiceId, el) {
+            if (invoiceId == null) {
+                return;
+            }
+            if (el) {
+                this.incomingEditDialogRefs[invoiceId] = el;
+            } else {
+                delete this.incomingEditDialogRefs[invoiceId];
+            }
+        },
+        openIncomingEditFromRow(invoiceId, event) {
+            const target = event?.target;
+            if (target?.closest?.('.actions-cell, button, a, input, select, textarea, label')) {
+                return;
+            }
+            const dialog = this.incomingEditDialogRefs[invoiceId];
+            if (dialog?.openDialog) {
+                dialog.openDialog();
+            }
+        },
         handleInvoiceAdded() {
             this.fetchList(1);
         },
@@ -702,7 +727,11 @@ export default {
             const tax = parseFloat(String(faktura.tax).replace(/,/g, ''));
             return (amount + tax).toFixed(2);
         },
-        incomingRowIndex(rowIdx) {
+        incomingDisplayId(faktura, rowIdx) {
+            const id = faktura?.id;
+            if (id !== null && id !== undefined && String(id).trim() !== '') {
+                return id;
+            }
             const p = this.displayIncoming;
             const page = p?.current_page ?? 1;
             const per = p?.per_page ?? this.chunkSize;
@@ -1072,6 +1101,19 @@ export default {
 .cell-secondary {
     font-size: 12px;
     color: rgba(255, 255, 255, 0.68);
+}
+
+/* Row interactions: text itself should not capture/select, row handles double-click. */
+.incoming-table-shell .cell-primary,
+.incoming-table-shell .cell-secondary,
+.incoming-table-shell .invoice-primary-stack,
+.incoming-table-shell .invoice-archive-badge,
+.incoming-table-shell .incoming-ellipsis,
+.incoming-table-shell .incoming-text-wrap,
+.incoming-table-shell .comment-cell,
+.incoming-table-shell .finance-client-name {
+    user-select: none;
+    pointer-events: none;
 }
 
 /* Archived invoice: accent rail + archive line only on hover */

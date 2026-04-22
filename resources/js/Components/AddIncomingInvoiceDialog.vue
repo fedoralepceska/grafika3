@@ -443,7 +443,12 @@ export default {
                     comment: this.newInvoice.comment,
                     amount: this.newInvoice.amount,
                     tax: this.newInvoice.tax,
+                    tax_a_amount: Number(this.taxAmounts.taxA) || 0,
+                    tax_b_amount: Number(this.taxAmounts.taxB) || 0,
+                    tax_c_amount: Number(this.taxAmounts.taxC) || 0,
+                    tax_d_amount: Number(this.taxAmounts.taxD) || 0,
                     date: this.newInvoice.date,
+                    due_date: this.newInvoice.due_date,
                 };
 
                 const response = await axios.post('/incomingInvoice', payload);
