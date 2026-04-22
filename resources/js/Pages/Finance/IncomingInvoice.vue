@@ -345,7 +345,7 @@ export default {
             dateTo: '',
             fiscalYear: '',
             calendarMonth: '',
-            sortOrder: 'desc',
+            sortOrder: 'asc',
             /** Target calendar day; API sorts by closest `due_date` (nulls last). */
             dueDateTarget: '',
             dueDateFilterKey: 0,
@@ -475,7 +475,7 @@ export default {
             this.fiscalYear = fy ? parseInt(fy, 10) : '';
             const mo = p.get('month');
             this.calendarMonth = mo ? parseInt(mo, 10) : '';
-            this.sortOrder = p.get('sortOrder') || 'desc';
+            this.sortOrder = p.get('sortOrder') || 'asc';
             this.dueDateTarget = p.get('due_date_target') || '';
         },
         buildParams(page) {

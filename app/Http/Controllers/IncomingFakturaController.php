@@ -121,7 +121,7 @@ class IncomingFakturaController extends Controller
                 ? $this->computeIncomingFilterTotals($baseQuery)
                 : null;
 
-            $sortOrder = $request->input('sortOrder', 'desc');
+            $sortOrder = $request->input('sortOrder', 'asc');
             $listQuery = (clone $baseQuery)->with('client');
 
             if ($request->filled('due_date_target')) {
