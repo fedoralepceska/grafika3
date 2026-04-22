@@ -117,16 +117,19 @@
                             </div>
                         </div>
                         <div class="inv-field inv-field--bill-type">
-                            <label class="inv-label" for="inv-bill-type">Bill type</label>
+                            <label class="inv-label" for="inv-bill-type">
+                                Bill type
+                                <span class="inv-required" aria-hidden="true">*</span>
+                            </label>
                             <div class="inv-control inv-control--stack">
-                                <select id="inv-bill-type" v-model="newInvoice.billing_type" class="inv-input inv-select">
+                                <select id="inv-bill-type" v-model="newInvoice.billing_type" class="inv-input inv-select" required>
                                     <option :value="null">Select bill type</option>
                                     <option v-for="type in billTypes" :key="type.id" :value="type.id">
                                         {{ type.name }}
                                     </option>
                                 </select>
-                                <div v-if="newInvoice.billing_type === 2" class="inv-faktura-hint">
-                                    Фактура бр: <strong>{{ nextFakturaCounter }}</strong>
+                                <div class="inv-faktura-hint">
+                                    Фактура бр: <strong>{{ nextFakturaCounter ?? '—' }}</strong>
                                 </div>
                             </div>
                         </div>
@@ -348,21 +351,15 @@ export default {
             if (open) {
                 this.fetchUniqueClients();
                 this.fetchWarehouses();
+                this.fetchNextFakturaCounter();
             } else {
                 this.resetForm();
             }
         },
         'newInvoice.billing_type': {
-            async handler(newValue) {
-                if (newValue === 2) {
-                    try {
-                        const response = await axios.get('/api/next-faktura-counter');
-                        this.nextFakturaCounter = response.data.counter;
-                    } catch (error) {
-                        console.error('Error fetching next faktura counter:', error);
-                    }
-                } else {
-                    this.nextFakturaCounter = null;
+            async handler() {
+                if (!this.nextFakturaCounter) {
+                    await this.fetchNextFakturaCounter();
                 }
             },
         },
@@ -430,9 +427,15 @@ export default {
                 toast.error('Please enter an invoice number');
                 return;
             }
+            if (this.newInvoice.billing_type == null || this.newInvoice.billing_type === '') {
+                toast.error('Please select a billing type');
+                return;
+            }
 
             this.validationError = false;
             try {
+                // Always refresh right before save to avoid stale counters.
+                await this.fetchNextFakturaCounter();
                 const payload = {
                     incoming_number: this.newInvoice.incoming_number.trim(),
                     client_id: this.newInvoice.client_id,
@@ -449,6 +452,7 @@ export default {
                     tax_d_amount: Number(this.taxAmounts.taxD) || 0,
                     date: this.newInvoice.date,
                     due_date: this.newInvoice.due_date,
+                    faktura_counter: this.nextFakturaCounter,
                 };
 
                 const response = await axios.post('/incomingInvoice', payload);
@@ -513,6 +517,14 @@ export default {
                 console.error('Error fetching warehouses:', error);
                 const toast = useToast();
                 toast.error('Error fetching warehouses');
+            }
+        },
+        async fetchNextFakturaCounter() {
+            try {
+                const response = await axios.get('/api/next-faktura-counter');
+                this.nextFakturaCounter = response.data.counter;
+            } catch (error) {
+                console.error('Error fetching next faktura counter:', error);
             }
         },
     },

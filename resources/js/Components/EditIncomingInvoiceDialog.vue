@@ -106,7 +106,10 @@
                                         </select>
                                     </div>
                                     <div class="form-group form-group--billing-type">
-                                        <label class="mr-4 width100">Billing Type</label>
+                                        <label class="mr-4 width100">
+                                            Billing Type
+                                            <span class="required-star" aria-hidden="true">*</span>
+                                        </label>
                                         <div class="billing-type-stack">
                                             <select v-model="form.billing_type" class="form-input">
                                                 <option :value="null">Select bill type</option>
@@ -115,18 +118,11 @@
                                                 </option>
                                             </select>
                                             <div
-                                                v-if="form.billing_type === 2"
                                                 class="faktura-hint"
                                                 role="status"
                                             >
-                                                <span v-if="invoice.billing_type_id === 2">
-                                                    Current фактура number:
-                                                    <strong class="faktura-hint__num">{{ invoice.faktura_counter }}</strong>
-                                                </span>
-                                                <span v-else>
-                                                    Next available фактура number:
-                                                    <strong class="faktura-hint__num">{{ nextFakturaCounter }}</strong>
-                                                </span>
+                                                Фактура бр:
+                                                <strong class="faktura-hint__num">{{ displayedFakturaCounter }}</strong>
                                             </div>
                                         </div>
                                     </div>
@@ -420,6 +416,10 @@ export default {
             return list;
         });
 
+        const displayedFakturaCounter = computed(() => {
+            return props.invoice?.faktura_counter ?? nextFakturaCounter.value ?? '—';
+        });
+
         /**
          * Prefill from `IncomingFakturaController@index` JSON: incoming_number, client_id,
          * warehouse, cost_type_id, billing_type_id, description, comment, date, amount, tax.
@@ -444,6 +444,9 @@ export default {
                 taxAmounts: initialTaxAmounts,
             };
             dateInputKey.value += 1;
+            if (!nextFakturaCounter.value) {
+                fetchNextFakturaCounter();
+            }
             isOpen.value = true;
         };
 
@@ -456,8 +459,15 @@ export default {
                 toast.error('Please enter an invoice number');
                 return;
             }
+            if (form.value.billing_type == null || form.value.billing_type === '') {
+                toast.error('Please select a billing type');
+                return;
+            }
             loading.value = true
             try {
+                if (!nextFakturaCounter.value) {
+                    await fetchNextFakturaCounter();
+                }
                 const amount = Object.values(form.value.taxAmounts).reduce((sum, amount) => sum + (amount || 0), 0);
                 const tax = Object.entries(form.value.taxAmounts).reduce((sum, [key, amount]) => {
                     const rate = taxRates[key] / 100;
@@ -473,6 +483,7 @@ export default {
                     tax_b_amount: Number(_taxAmounts.taxB) || 0,
                     tax_c_amount: Number(_taxAmounts.taxC) || 0,
                     tax_d_amount: Number(_taxAmounts.taxD) || 0,
+                    faktura_counter: props.invoice?.faktura_counter ?? nextFakturaCounter.value ?? null,
                     date: fields.date || null,
                     due_date: fields.due_date || null,
                 };
@@ -490,14 +501,18 @@ export default {
         }
 
 
-        watch(() => form.value.billing_type, async (newValue, oldValue) => {
-            if (newValue === 2 && oldValue !== 2) {
-                try {
-                    const response = await axios.get('/api/next-faktura-counter');
-                    nextFakturaCounter.value = response.data.counter;
-                } catch (error) {
-                    console.error('Error fetching next faktura counter:', error);
-                }
+        const fetchNextFakturaCounter = async () => {
+            try {
+                const response = await axios.get('/api/next-faktura-counter');
+                nextFakturaCounter.value = response.data.counter;
+            } catch (error) {
+                console.error('Error fetching next faktura counter:', error);
+            }
+        };
+
+        watch(() => form.value.billing_type, async () => {
+            if (!nextFakturaCounter.value) {
+                await fetchNextFakturaCounter();
             }
         });
 
@@ -506,6 +521,7 @@ export default {
             loading,
             form,
             nextFakturaCounter,
+            displayedFakturaCounter,
             dateInputKey,
             warehouseOptions,
             openDialog,
@@ -699,6 +715,11 @@ export default {
     letter-spacing: 0.04em;
     color: rgba(255, 255, 255, 0.88);
     margin-right: 0 !important;
+}
+
+.required-star {
+    color: #fca5a5;
+    margin-left: 2px;
 }
 
 .form-group--billing-type {

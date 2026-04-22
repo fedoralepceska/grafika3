@@ -50,9 +50,8 @@ class IncomingFaktura extends Model
 
     public static function getNextFakturaCounter()
     {
-        // Get all used counters sorted
-        $usedCounters = self::where('billing_type', 2)
-                           ->whereNotNull('faktura_counter')
+        // Get all used counters sorted (across all billing types).
+        $usedCounters = self::whereNotNull('faktura_counter')
                            ->orderBy('faktura_counter')
                            ->pluck('faktura_counter')
                            ->toArray();

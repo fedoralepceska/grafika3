@@ -209,7 +209,7 @@ class IncomingFakturaController extends Controller
             'client_id' => 'nullable|exists:clients,id',
             'warehouse' => 'nullable|string',
             'cost_type' => 'nullable|integer',
-            'billing_type' => 'nullable|integer',
+            'billing_type' => 'required|integer',
             'description' => 'nullable|string',
             'comment' => 'nullable|string',
             'amount' => 'required|numeric',
@@ -218,14 +218,13 @@ class IncomingFakturaController extends Controller
             'tax_b_amount' => 'nullable|numeric',
             'tax_c_amount' => 'nullable|numeric',
             'tax_d_amount' => 'nullable|numeric',
+            'faktura_counter' => 'nullable|integer',
             'date' => 'nullable|date',
             'due_date' => 'nullable|date',
         ]);
 
-        // If billing type is фактура (2), get and set the counter
-        if ($request->billing_type === 2) {
-            $data['faktura_counter'] = IncomingFaktura::getNextFakturaCounter();
-        }
+        // Always persist faktura counter for new invoices.
+        $data['faktura_counter'] = $data['faktura_counter'] ?? IncomingFaktura::getNextFakturaCounter();
 
         $incomingFaktura = IncomingFaktura::create($data);
 
@@ -240,7 +239,7 @@ class IncomingFakturaController extends Controller
                 'client_id' => 'nullable|integer',
                 'warehouse' => 'nullable|string',
                 'cost_type' => 'nullable|integer',
-                'billing_type' => 'nullable|integer',
+                'billing_type' => 'required|integer',
                 'description' => 'nullable|string',
                 'comment' => 'nullable|string',
                 'amount' => 'nullable|numeric',
@@ -249,21 +248,17 @@ class IncomingFakturaController extends Controller
                 'tax_b_amount' => 'nullable|numeric',
                 'tax_c_amount' => 'nullable|numeric',
                 'tax_d_amount' => 'nullable|numeric',
+                'faktura_counter' => 'nullable|integer',
                 'date' => 'nullable|date',
                 'due_date' => 'nullable|date',
             ]);
 
             $incoming_faktura = IncomingFaktura::findOrFail($id);
-            
-            // Case 1: If changing from billing_type 2 to something else, remove the counter
-            if ($incoming_faktura->billing_type === 2 && $request->billing_type !== 2) {
-                $validatedData['faktura_counter'] = null;
-            }
-            
-            // Case 2: If changing to billing_type 2, assign a new counter
-            if ($incoming_faktura->billing_type !== 2 && $request->billing_type === 2) {
-                $validatedData['faktura_counter'] = IncomingFaktura::getNextFakturaCounter();
-            }
+
+            // Keep existing counter if not explicitly provided; otherwise assign next.
+            $validatedData['faktura_counter'] = $validatedData['faktura_counter']
+                ?? $incoming_faktura->faktura_counter
+                ?? IncomingFaktura::getNextFakturaCounter();
 
             $incoming_faktura->update($validatedData);
 

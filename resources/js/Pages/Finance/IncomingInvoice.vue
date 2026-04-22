@@ -175,13 +175,13 @@
                                 </td>
                                 <td
                                     class="invoice-primary-cell"
-                                    :class="{ 'invoice-primary-cell--archived': faktura.billing_type === 'фактура' }"
-                                    :title="faktura.billing_type === 'фактура' ? `Archive #${faktura.faktura_counter}` : undefined"
+                                    :class="{ 'invoice-primary-cell--archived': faktura.faktura_counter != null }"
+                                    :title="faktura.faktura_counter != null ? `Archive #${faktura.faktura_counter}` : undefined"
                                 >
                                     <div class="invoice-primary-stack">
                                         <div class="cell-primary">#{{ faktura.incoming_number }}</div>
                                         <div
-                                            v-if="faktura.billing_type === 'фактура'"
+                                            v-if="faktura.faktura_counter != null"
                                             class="invoice-archive-reveal"
                                         >
                                             <span class="invoice-archive-badge">Archive #{{ faktura.faktura_counter }}</span>
