@@ -1177,6 +1177,9 @@ class InvoiceController extends Controller
     {
         $invoiceId = $request->input('id');
         $comment = $request->input('comment');
+        if ($emptyFaktura && (!is_string($comment) || trim($comment) === '')) {
+            $comment = 'Empty Invoice';
+        }
         $jobNotes = $request->input('jobNotes', []);
         $invoice = Invoice::find($invoiceId);
 
@@ -2119,7 +2122,41 @@ class InvoiceController extends Controller
         if ($emptyFaktura) {
             $invoiceIds = [];
         }
+        $generateLock = null;
+        try {
+            $lockPayload = $this->normalizeGenerateInvoiceLockPayload([
+                'user' => Auth::id(),
+                'empty_faktura' => $emptyFaktura,
+                'orders' => array_values($invoiceIds),
+                'comment' => $request->input('comment'),
+                'trade_items' => $request->input('trade_items', []),
+                'additional_services' => $request->input('additional_services', []),
+                'created_at' => $request->input('created_at'),
+                'merge_groups' => $request->input('merge_groups', []),
+                'split_groups' => $request->input('split_groups', []),
+                'job_units' => $request->input('job_units', []),
+                'faktura_client_id' => $request->input('faktura_client_id'),
+                'payment_deadline_override' => $request->input('payment_deadline_override'),
+                'order_title_overrides' => $request->input('order_title_overrides', []),
+                'job_name_overrides' => $request->input('job_name_overrides', []),
+                'job_quantity_overrides' => $request->input('job_quantity_overrides', []),
+                'job_vat_rate_overrides' => $request->input('job_vat_rate_overrides', []),
+            ]);
+            $payloadHash = hash('sha256', json_encode($lockPayload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+            $generateLock = Cache::lock('faktura:generate:lock:' . $payloadHash, 10);
+            if (!$generateLock->get()) {
+                return response()->json([
+                    'error' => 'Invoice generation is already in progress. Please wait a moment.',
+                    'message' => 'Duplicate invoice generation detected'
+                ], 409);
+            }
+        } catch (\Throwable $t) {
+            Log::warning('GenerateInvoice idempotency lock failed', ['error' => $t->getMessage()]);
+        }
         $comment = $request->input('comment');
+        if ($emptyFaktura && (!is_string($comment) || trim($comment) === '')) {
+            $comment = 'Empty Invoice';
+        }
         $tradeItems = $request->input('trade_items', []);
         $additionalServices = $request->input('additional_services', []);
         $createdAtInput = $request->input('created_at');
@@ -2172,6 +2209,24 @@ class InvoiceController extends Controller
                 if (!$invoices || $invoices->count() === 0) {
                     DB::rollBack();
                     return response()->json(['error' => 'No valid invoices found for generation'], 400);
+                }
+
+                $lockedInvoices = $invoices->filter(function ($invoice) {
+                    return is_string($invoice->LockedNote)
+                        ? trim($invoice->LockedNote) !== ''
+                        : !empty($invoice->LockedNote);
+                })->values();
+                if ($lockedInvoices->isNotEmpty()) {
+                    DB::rollBack();
+                    $lockedOrderLabels = $lockedInvoices
+                        ->map(fn ($invoice) => '#' . ($invoice->order_number ?? $invoice->id))
+                        ->implode(', ');
+
+                    return response()->json([
+                        'error' => 'Locked orders cannot be invoiced.',
+                        'locked_orders' => $lockedInvoices->pluck('id')->values(),
+                        'message' => 'Unlock these orders first: ' . $lockedOrderLabels,
+                    ], 422);
                 }
             }
 
@@ -2495,7 +2550,42 @@ class InvoiceController extends Controller
 
             // Return error response
             return response()->json(['error' => 'Failed to create Faktura'], 500);
+        } finally {
+            if ($generateLock) {
+                try {
+                    $generateLock->release();
+                } catch (\Throwable $t) {
+                    Log::warning('GenerateInvoice idempotency lock release failed', ['error' => $t->getMessage()]);
+                }
+            }
         }
+    }
+
+    private function normalizeGenerateInvoiceLockPayload($value)
+    {
+        if (!is_array($value)) {
+            return $value;
+        }
+
+        if ($this->isListArray($value)) {
+            return array_map(fn ($item) => $this->normalizeGenerateInvoiceLockPayload($item), $value);
+        }
+
+        ksort($value);
+        foreach ($value as $key => $item) {
+            $value[$key] = $this->normalizeGenerateInvoiceLockPayload($item);
+        }
+
+        return $value;
+    }
+
+    private function isListArray(array $value): bool
+    {
+        if ($value === []) {
+            return true;
+        }
+
+        return array_keys($value) === range(0, count($value) - 1);
     }
 
     public function updateFakturaOverrides(Request $request, $fakturaId)
@@ -2878,6 +2968,16 @@ class InvoiceController extends Controller
 
             DB::commit();
 
+            if ($request->wantsJson() || ($request->boolean('return_meta') && $request->boolean('skip_pdf'))) {
+                return response()->json([
+                    'success' => true,
+                    'is_split' => true,
+                    'invoices' => $generatedInvoices,
+                    'pdfs' => [],
+                    'parent_order_ids' => array_unique($parentOrderIds)
+                ]);
+            }
+
             // Generate PDFs for each split invoice
             $pdfUrls = [];
             foreach ($generatedInvoices as $invoiceInfo) {
@@ -3021,6 +3121,27 @@ class InvoiceController extends Controller
                 return response()->json(['error' => 'No orders provided'], 400);
             }
             $faktura = Faktura::findOrFail($fakturaId);
+            $lockedInvoices = Invoice::query()
+                ->whereIn('id', $orderIds)
+                ->whereNotNull('LockedNote')
+                ->get(['id', 'order_number', 'LockedNote'])
+                ->filter(function ($invoice) {
+                    return is_string($invoice->LockedNote)
+                        ? trim($invoice->LockedNote) !== ''
+                        : !empty($invoice->LockedNote);
+                })
+                ->values();
+            if ($lockedInvoices->isNotEmpty()) {
+                $lockedOrderLabels = $lockedInvoices
+                    ->map(fn ($invoice) => '#' . ($invoice->order_number ?? $invoice->id))
+                    ->implode(', ');
+
+                return response()->json([
+                    'error' => 'Locked orders cannot be attached to an invoice.',
+                    'locked_orders' => $lockedInvoices->pluck('id')->values(),
+                    'message' => 'Unlock these orders first: ' . $lockedOrderLabels,
+                ], 422);
+            }
             // Fetch only invoices that are not already attached to a faktura
             $invoices = Invoice::with([
                 'jobs.actions',

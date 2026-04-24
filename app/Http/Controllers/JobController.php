@@ -887,6 +887,7 @@ class JobController extends Controller
         $perPage = (int) $request->query('per_page', 10);
         $perPage = $perPage > 0 ? min($perPage, 100) : 10;
         $search = trim((string) $request->query('search', ''));
+        $orderSearch = ltrim($search, '#');
         // Optional filters
         $rushOnly = filter_var($request->query('rush_only', null), FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
         $onHoldOnly = filter_var($request->query('on_hold_only', null), FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
@@ -919,12 +920,14 @@ class JobController extends Controller
             });
 
         if ($search !== '') {
-            $base->where(function ($q) use ($search) {
+            $base->where(function ($q) use ($search, $orderSearch) {
                 $q->where('invoices.invoice_title', 'like', "%$search%")
                   ->orWhere('users.name', 'like', "%$search%")
-                  ->orWhere('clients.name', 'like', "%$search%");
-                if (is_numeric($search)) {
-                    $q->orWhere('invoices.id', (int) $search);
+                  ->orWhere('clients.name', 'like', "%$search%")
+                  ->orWhere('invoices.order_number', 'like', "%$orderSearch%")
+                  ->orWhereRaw("CONCAT(invoices.order_number, '/', invoices.fiscal_year) LIKE ?", ["%{$orderSearch}%"]);
+                if (is_numeric($orderSearch)) {
+                    $q->orWhere('invoices.order_number', (int) $orderSearch);
                 }
             });
         }
@@ -933,13 +936,15 @@ class JobController extends Controller
         $invoicesPaginator = DB::table('invoices')
             ->leftJoin('users', 'invoices.created_by', '=', 'users.id')
             ->leftJoin('clients', 'invoices.client_id', '=', 'clients.id')
-            ->when($search !== '', function ($q) use ($search) {
-                $q->where(function ($q2) use ($search) {
+            ->when($search !== '', function ($q) use ($search, $orderSearch) {
+                $q->where(function ($q2) use ($search, $orderSearch) {
                     $q2->where('invoices.invoice_title', 'like', "%$search%")
                        ->orWhere('users.name', 'like', "%$search%")
-                       ->orWhere('clients.name', 'like', "%$search%");
-                    if (is_numeric($search)) {
-                        $q2->orWhere('invoices.id', (int) $search);
+                       ->orWhere('clients.name', 'like', "%$search%")
+                       ->orWhere('invoices.order_number', 'like', "%$orderSearch%")
+                       ->orWhereRaw("CONCAT(invoices.order_number, '/', invoices.fiscal_year) LIKE ?", ["%{$orderSearch}%"]);
+                    if (is_numeric($orderSearch)) {
+                        $q2->orWhere('invoices.order_number', (int) $orderSearch);
                     }
                 });
             })

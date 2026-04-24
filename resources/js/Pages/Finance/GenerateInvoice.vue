@@ -27,8 +27,8 @@
                                 {{ splitMode ? 'Preview Split Invoices' : 'Preview' }} <i class="fa-solid fa-eye"></i>
                             </button>
                             <button class="btn generate-invoice" @click="generateInvoice"
-                                :disabled="!canGenerateOrPreview">
-                                {{ splitMode ? 'Generate Split Invoices' : 'Generate Invoice' }} <i
+                                :disabled="!canGenerateOrPreview || isGeneratingInvoice">
+                                {{ isGeneratingInvoice ? 'Generating...' : (splitMode ? 'Generate Split Invoices' : 'Generate Invoice') }} <i
                                     class="fa-solid fa-file-invoice-dollar"></i></button>
                         </div>
                         <div class="buttons flex justify-end pt-3">
@@ -1114,7 +1114,8 @@ export default {
             fakturaClientId: null,
             fakturaClientName: '',
             fakturaClientDropdown: [],
-            tempClientId: null
+            tempClientId: null,
+            isGeneratingInvoice: false,
         }
     },
     methods: {
@@ -2106,11 +2107,15 @@ export default {
         },
         async generateInvoice() {
             const toast = useToast();
+            if (this.isGeneratingInvoice) {
+                return;
+            }
             try {
                 // Check if we're in split mode
                 if (this.splitMode && this.splitGroups.length > 0) {
                     return this.generateSplitInvoices();
                 }
+                this.isGeneratingInvoice = true;
 
                 const orderIds = Object.values(this.invoiceData || {})
                     .map(order => order && order.id)
@@ -2154,6 +2159,7 @@ export default {
                     merge_groups: this.mergeGroups,
                     job_units: jobsWithUnits,
                     return_meta: true,
+                    skip_pdf: true,
                     faktura_client_id: this.fakturaClientId || null,
                     ...this.collectFakturaOverrides()
                 };
@@ -2166,15 +2172,6 @@ export default {
                 const response = await axios.post('/generate-invoice', payloadData, { responseType: 'json' });
 
                 if (response?.data?.success && response?.data?.faktura_id) {
-                    // Open PDF if provided
-                    if (response.data.pdf) {
-                        const binary = atob(response.data.pdf);
-                        const array = new Uint8Array(binary.length);
-                        for (let i = 0; i < binary.length; i++) array[i] = binary.charCodeAt(i);
-                        const blob = new Blob([array], { type: 'application/pdf' });
-                        const url = window.URL.createObjectURL(blob);
-                        window.open(url, '_blank');
-                    }
                     // Redirect to the new invoice view page
                     this.$inertia.visit(`/invoice/${response.data.faktura_id}`);
                     toast.success('Invoice generated successfully');
@@ -2192,7 +2189,9 @@ export default {
                 }
             } catch (error) {
                 console.error('Error generating invoice:', error);
-                toast.error('Error generating invoice!');
+                toast.error(error?.response?.data?.error || 'Error generating invoice!');
+            } finally {
+                this.isGeneratingInvoice = false;
             }
         },
 
@@ -2407,12 +2406,16 @@ export default {
 
         async generateSplitInvoices() {
             const toast = useToast();
+            if (this.isGeneratingInvoice) {
+                return;
+            }
             
             if (!this.validateSplitGroups()) {
                 return;
             }
 
             try {
+                this.isGeneratingInvoice = true;
                 // Include job data with units for split generation
                 const jobsWithUnits = [];
                 if (this.invoiceData) {
@@ -2439,6 +2442,7 @@ export default {
                     created_at: this.previewDate,
                     job_units: jobsWithUnits,
                     return_meta: true,
+                    skip_pdf: true,
                     ...this.collectFakturaOverrides()
                 };
 
@@ -2449,18 +2453,6 @@ export default {
                 const response = await axios.post('/generate-invoice', payloadData, { responseType: 'json' });
 
                 if (response?.data?.success && response?.data?.is_split) {
-                    // Open PDFs for each split invoice
-                    if (response.data.pdfs && response.data.pdfs.length > 0) {
-                        response.data.pdfs.forEach(pdfData => {
-                            const binary = atob(pdfData.pdf);
-                            const array = new Uint8Array(binary.length);
-                            for (let i = 0; i < binary.length; i++) array[i] = binary.charCodeAt(i);
-                            const blob = new Blob([array], { type: 'application/pdf' });
-                            const url = window.URL.createObjectURL(blob);
-                            window.open(url, '_blank');
-                        });
-                    }
-
                     toast.success(`Generated ${response.data.invoices.length} split invoices successfully`);
                     
                     // Redirect to the first invoice or stay on current page
@@ -2470,7 +2462,9 @@ export default {
                 }
             } catch (error) {
                 console.error('Error generating split invoices:', error);
-                toast.error('Error generating split invoices!');
+                toast.error(error?.response?.data?.error || 'Error generating split invoices!');
+            } finally {
+                this.isGeneratingInvoice = false;
             }
         },
 

@@ -73,6 +73,7 @@
                             <button
                                 type="button"
                                 class="finance-toolbar-btn finance-toolbar-btn--primary"
+                                :disabled="!hasSelectedInvoices"
                                 @click="generateInvoices"
                             >
                                 Generate Invoice
@@ -110,6 +111,7 @@
                                 :class="[
                                     'invoice-table-row',
                                     'invoice-table-row--clickable',
+                                    { 'invoice-table-row--locked': hasLockedNote(invoice) },
                                     getStatusRowClass(invoice.status),
                                     { 'row-selected': selectedInvoices[invoice.id] },
                                 ]"
@@ -119,9 +121,13 @@
                                     <button
                                         type="button"
                                         class="select-toggle"
-                                        :class="{ selected: selectedInvoices[invoice.id] }"
+                                        :class="{
+                                            selected: selectedInvoices[invoice.id],
+                                            'select-toggle--locked': hasLockedNote(invoice),
+                                        }"
+                                        :disabled="!isInvoiceSelectable(invoice)"
                                         :aria-pressed="selectedInvoices[invoice.id] ? 'true' : 'false'"
-                                        :title="selectedInvoices[invoice.id] ? 'Selected' : 'Select order'"
+                                        :title="getSelectionTitle(invoice)"
                                         @click="handleSelectionClick(invoice)"
                                     >
                                         <span class="select-indicator">
@@ -134,7 +140,12 @@
                                 </td>
                                 <td>
                                     <div class="title-cell">
-                                        <div class="cell-primary truncate-title">{{ invoice.invoice_title }}</div>
+                                        <div class="title-copy">
+                                            <div class="cell-primary truncate-title">{{ invoice.invoice_title }}</div>
+                                            <div v-if="hasLockedNote(invoice)" class="lock-note-summary">
+                                                {{ getLockedSummary(invoice.LockedNote) }}
+                                            </div>
+                                        </div>
                                         <div v-if="invoice.LockedNote" class="lock-note-trigger" @click.stop>
                                             <ViewLockDialog :invoice="invoice" />
                                         </div>
@@ -443,6 +454,25 @@ export default {
         },
     },
     methods: {
+        hasLockedNote(invoice) {
+            return !!(invoice?.LockedNote && String(invoice.LockedNote).trim());
+        },
+        isInvoiceSelectable(invoice) {
+            return !this.hasLockedNote(invoice);
+        },
+        getSelectionTitle(invoice) {
+            if (this.hasLockedNote(invoice)) {
+                return 'Locked orders cannot be invoiced.';
+            }
+            return this.selectedInvoices[invoice.id] ? 'Selected' : 'Select order';
+        },
+        getLockedSummary(note) {
+            const text = String(note || '').trim();
+            if (text.length <= 88) {
+                return text;
+            }
+            return `${text.slice(0, 85)}...`;
+        },
         formatDate(dateStr) {
             if (!dateStr) {
                 return '';
@@ -459,6 +489,13 @@ export default {
         toggleInvoiceSelection(invoice, event) {
             const toast = useToast();
             const isCurrentlySelected = this.selectedInvoices[invoice.id];
+
+            if (this.hasLockedNote(invoice)) {
+                toast.error('Locked orders cannot be selected for invoicing.');
+                event.target.checked = false;
+                this.selectedInvoices[invoice.id] = false;
+                return;
+            }
 
             // Check if invoice.client exists
             if (!invoice.client) {
@@ -736,6 +773,18 @@ export default {
 
         async generateInvoices() {
             const toast = useToast();
+            const lockedSelected = this.filteredInvoices.filter(
+                (invoice) => this.selectedInvoices[invoice.id] && this.hasLockedNote(invoice)
+            );
+
+            if (lockedSelected.length > 0) {
+                lockedSelected.forEach((invoice) => {
+                    this.selectedInvoices[invoice.id] = false;
+                });
+                toast.error('Locked orders were removed from selection. Unlock them before invoicing.');
+                return;
+            }
+
             const selectedIds = Object.entries(this.selectedInvoices)
                 .filter(([, isSelected]) => isSelected)
                 .map(([id]) => id);
@@ -1218,6 +1267,11 @@ select {
     outline-offset: 2px;
 }
 
+.finance-toolbar-btn--primary:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+}
+
 .finance-toolbar-btn--secondary {
     background: rgba(255, 255, 255, 0.05);
     color: rgba(255, 255, 255, 0.92);
@@ -1300,6 +1354,10 @@ select {
     border-color: rgba(255, 255, 255, 0.2);
 }
 
+.select-toggle:disabled {
+    cursor: not-allowed;
+}
+
 .select-toggle.selected {
     background: rgba(59, 130, 246, 0.16);
     border-color: rgba(96, 165, 250, 0.5);
@@ -1324,6 +1382,18 @@ select {
     color: $white;
 }
 
+.select-toggle--locked {
+    border-color: rgba(248, 113, 113, 0.22);
+    background: rgba(239, 68, 68, 0.08);
+    color: rgba(254, 202, 202, 0.92);
+    opacity: 0.9;
+}
+
+.select-toggle--locked .select-indicator {
+    border-color: rgba(248, 113, 113, 0.38);
+    background: rgba(127, 29, 29, 0.55);
+}
+
 .row-selected {
     box-shadow: inset 3px 0 0 rgba(59, 130, 246, 0.95);
 }
@@ -1341,9 +1411,14 @@ select {
 
 .title-cell {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     gap: 8px;
     min-width: 220px;
+}
+
+.title-copy {
+    min-width: 0;
+    flex: 1 1 auto;
 }
 
 .truncate-title {
@@ -1361,6 +1436,14 @@ select {
     filter: brightness(1.05);
 }
 
+.invoice-table-row--locked {
+    box-shadow: inset 4px 0 0 rgba(248, 113, 113, 0.92);
+}
+
+.invoice-table-row--locked :deep(td) {
+    background: rgba(127, 29, 29, 0.08);
+}
+
 .customer-column {
     max-width: 280px;
     width: 18%;
@@ -1368,6 +1451,13 @@ select {
 
 .lock-note-trigger {
     flex-shrink: 0;
+}
+
+.lock-note-summary {
+    margin-top: 6px;
+    color: rgba(254, 202, 202, 0.9);
+    font-size: 11px;
+    line-height: 1.45;
 }
 
 .status-badge {

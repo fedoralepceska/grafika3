@@ -19,7 +19,7 @@
                         <div class="buttons pt-3">
                             <button class="btn go-back" @click="goBack">Go Back <span class="mdi mdi-arrow-left"></span></button>
                             <button class="btn download-order" @click="showDownloadModal = true">Download All Proofs <span class="mdi mdi-cloud-download"></span></button>
-                            <button v-if="!invoice.LockedNote" class="btn"><AddLockNoteDialog :invoice="invoice"/></button>
+                            <AddLockNoteDialog v-if="!invoice.LockedNote" :invoice="invoice" />
                             <button v-if="invoice.LockedNote" class="btn lock-order" @click="unlockOrder(invoice.id)">Unlock Order <span class="mdi mdi-lock-open"></span></button>
                             <button class="btn re-order"  @click="reorder()">Re-Order <span class="mdi mdi-content-copy"></span></button>
                             <button class="btn go-to-steps" @click="navigateToAction()">Go To Steps <span class="mdi mdi-arrow-right-bold-outline"></span> </button>
@@ -29,15 +29,14 @@
                         </div>
                     </div>
                 </div>
-                <div class="flex pb-2 justify-end">
-                    <label class="btn2"><span class="mdi mdi-image"></span> Revised Art Complete <input type="checkbox" class="blue border-white text-amber" v-model="revisedArtCompleteChecked"></label>
-                    <label class="btn2"><span class="mdi mdi-fire"></span> RUSH <input type="checkbox" class="blue border-white text-amber" v-model="rushChecked"></label>
-                    <label class="btn2"><span class="mdi mdi-pause"></span> ON HOLD <input type="checkbox" class="blue border-white text-amber" v-model="onHoldChecked"></label>
-                    <label class="btn2"><span class="mdi mdi-thumb-up-outline"></span> Must Be Perfect <input type="checkbox" class="blue border-white text-amber" v-model="mustBePerfectChecked"></label>
-                    <label class="btn2"><span class="mdi mdi-box-cutter"></span> Rip First <input type="checkbox" class="blue border-white text-amber" v-model="ripFirstChecked"></label>
-                    <label class="btn2"><span class="mdi mdi-image"></span> Revised Art <input type="checkbox" class="blue border-white text-amber" v-model="revisedArtChecked"></label>
-                    <label class="btn2"><span class="mdi mdi-image"></span> Additional Art <input type="checkbox" class="blue border-white text-amber" v-model="additionalArtChecked"></label>
-                    <label class="btn2"><span class="mdi mdi-flag-outline"></span> Flags <input type="checkbox" class="blue border-white text-amber"></label>
+                <div class="ticket-flags-row pb-2 justify-end">
+                    <label class="btn2" :class="{ active: revisedArtCompleteChecked }"><span class="mdi mdi-image"></span> Revised Art Complete <input type="checkbox" class="blue border-white text-amber" v-model="revisedArtCompleteChecked"></label>
+                    <label class="btn2" :class="{ active: rushChecked }"><span class="mdi mdi-fire"></span> RUSH <input type="checkbox" class="blue border-white text-amber" v-model="rushChecked"></label>
+                    <label class="btn2" :class="{ active: onHoldChecked }"><span class="mdi mdi-pause"></span> ON HOLD <input type="checkbox" class="blue border-white text-amber" v-model="onHoldChecked"></label>
+                    <label class="btn2" :class="{ active: mustBePerfectChecked }"><span class="mdi mdi-thumb-up-outline"></span> Must Be Perfect <input type="checkbox" class="blue border-white text-amber" v-model="mustBePerfectChecked"></label>
+                    <label class="btn2" :class="{ active: ripFirstChecked }"><span class="mdi mdi-box-cutter"></span> Rip First <input type="checkbox" class="blue border-white text-amber" v-model="ripFirstChecked"></label>
+                    <label class="btn2" :class="{ active: revisedArtChecked }"><span class="mdi mdi-image"></span> Revised Art <input type="checkbox" class="blue border-white text-amber" v-model="revisedArtChecked"></label>
+                    <label class="btn2" :class="{ active: additionalArtChecked }"><span class="mdi mdi-image"></span> Additional Art <input type="checkbox" class="blue border-white text-amber" v-model="additionalArtChecked"></label>
                 </div>
                 <div class="dark-gray p-5 text-white">
                     
@@ -1442,22 +1441,64 @@ export default {
     gap: 34.9rem;
 }
 .btn {
-    margin-right: 4px;
-    padding: 10px 15px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-height: 42px;
+    padding: 0 16px;
     border: none;
     cursor: pointer;
     font-weight: bold;
-    border-radius: 2px;
+    font-size: 14px;
+    line-height: 1;
+    border-radius: 4px;
+    vertical-align: middle;
+    transition: filter 0.15s ease, background 0.15s ease, border-color 0.15s ease;
+}
+
+.btn:hover {
+    filter: brightness(1.02);
 }
 .btn2{
-    font-size: 13px;
-    margin-right: 4px;
-    padding: 7px 10px;
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    min-height: 32px;
+    font-size: 12px;
+    line-height: 1;
+    padding: 0 10px;
     border: none;
     cursor: pointer;
-    color: white;
-    background-color: $blue;
-    border-radius: 2px;
+    color: rgba(255, 255, 255, 0.96);
+    background: linear-gradient(180deg, rgba(8, 145, 178, 0.92) 0%, rgba(3, 105, 161, 0.92) 100%);
+    border-radius: 4px;
+    white-space: nowrap;
+    transition: filter 0.15s ease, background 0.15s ease;
+}
+
+.btn2:hover {
+    filter: brightness(1.03);
+}
+
+.btn2.active {
+    background: linear-gradient(180deg, rgba(14, 165, 233, 0.98) 0%, rgba(2, 132, 199, 0.98) 100%);
+}
+
+.btn2 input[type='checkbox'] {
+    width: 14px;
+    height: 14px;
+    margin: 0;
+    accent-color: #f8fafc;
+    cursor: pointer;
+}
+
+.ticket-flags-row {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 4px;
+    flex-wrap: wrap;
 }
 .btns{
     position: absolute;
@@ -1466,12 +1507,24 @@ export default {
     padding: 0;
 }
 .lock-order, .download-order, .re-order{
-    background-color: $blue;
-    color: white;
+    background: linear-gradient(180deg, rgba(2, 132, 199, 0.95) 0%, rgba(3, 105, 161, 0.95) 100%);
+    color: $white;
 }
+
+.lock-order {
+    background: linear-gradient(180deg, rgba(220, 38, 38, 0.95) 0%, rgba(185, 28, 28, 0.95) 100%);
+}
+
 .go-to-steps, .go-back{
-    background-color: $orange;
-    color: white;
+    background: linear-gradient(180deg, rgba(217, 119, 6, 0.95) 0%, rgba(180, 83, 9, 0.95) 100%);
+    color: $white;
+}
+
+.buttons {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex-wrap: nowrap;
 }
 .InvoiceDetails{
     border-bottom: 2px dashed lightgray;
@@ -1534,11 +1587,23 @@ export default {
 
 .hamburger {
     z-index: 2000;
-    background-color: transparent;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 42px;
+    height: 42px;
+    background: rgba(255, 255, 255, 0.08);
     border: none;
-    font-size: 24px;
+    border-radius: 4px;
+    font-size: 22px;
     cursor: pointer;
     color: #fff; /* Adjust the color to match your layout */
+    vertical-align: middle;
+    transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.hamburger:hover {
+    background: rgba(255, 255, 255, 0.12);
 }
 
 .sidebar {

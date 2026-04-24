@@ -16,7 +16,7 @@
                         type="text"
                         v-model="search"
                         @input="onSearchInput"
-                        placeholder="Search orders, clients, users, #id"
+                        placeholder="Search orders, clients, users, #order"
                         class="bg-white text-black px-3 py-2 rounded"
                         style="min-width: 280px"
                     />

@@ -886,7 +886,7 @@
                     </div>
                     <div class="form-group flex" style="gap:8px; align-items:center;">
                         <button class="btn blue" @click="selectAllAttachVisible"
-                            :disabled="filteredAttachableOrders.length === 0">Select all visible</button>
+                            :disabled="selectableAttachableOrders.length === 0">Select all visible</button>
                         <button class="btn delete" @click="clearAttachSelection"
                             :disabled="selectedAttachOrderIds.length === 0">Clear selection</button>
                     </div>
@@ -895,13 +895,25 @@
                         <div v-else>
                             <div v-for="ord in filteredAttachableOrders" :key="ord.id"
                                 class="flex items-center gap-2 select-row"
-                                :class="{ selected: selectedAttachOrderIds.includes(ord.id) }"
+                                :class="{
+                                    selected: selectedAttachOrderIds.includes(ord.id),
+                                    locked: hasOrderLockedNote(ord),
+                                }"
                                 @click="toggleAttachSelection(ord)" style="padding: 6px 0;">
-                                <input type="checkbox" :checked="selectedAttachOrderIds.includes(ord.id)" @click.stop
+                                <input type="checkbox" :checked="selectedAttachOrderIds.includes(ord.id)" :disabled="!canSelectAttachOrder(ord)" @click.stop
                                     @change="toggleAttachSelection(ord)" />
                                 <div class="bold">#{{ displayOrderNumberForList(ord) }}</div>
-                                <div class="select-title" :title="ord.invoice_title">{{ truncateTitle(ord.invoice_title,
-                                    40) }}
+                                <div class="select-row-main">
+                                    <div class="select-title" :title="ord.invoice_title">{{ truncateTitle(ord.invoice_title,
+                                        40) }}
+                                    </div>
+                                    <div v-if="hasOrderLockedNote(ord)" class="select-row-lock-note">
+                                        {{ getLockedOrderSummary(ord.LockedNote) }}
+                                    </div>
+                                </div>
+                                <div v-if="hasOrderLockedNote(ord)" class="select-lock-badge">
+                                    <i class="mdi mdi-lock-outline"></i>
+                                    Locked
                                 </div>
                                 <div class="ml-auto">{{ ord.client?.name || ord.client }}</div>
                                 <div v-if="selectedAttachOrderIds.includes(ord.id)" class="selected-badge">✓ Selected
@@ -1255,6 +1267,9 @@ export default {
 
             // Return selected orders from all pages first, then non-selected orders from current page
             return [...selectedFromAllPages, ...nonSelectedOrders];
+        },
+        selectableAttachableOrders() {
+            return this.filteredAttachableOrders.filter(order => this.canSelectAttachOrder(order));
         },
         filteredDetachableOrders() {
             const list = Array.isArray(this.invoice) ? this.invoice : [];
@@ -2042,7 +2057,8 @@ export default {
                         order_number: r.order_number,
                         fiscal_year: r.fiscal_year,
                         invoice_title: r.invoice_title || r.title || `Order ${r.id}`,
-                        client: r.client || r.client?.name || (r.client_name || ''),
+                        client: r.client?.name || r.client || r.client_name || '',
+                        LockedNote: r.LockedNote || null,
                     }));
 
                     // Update pagination info
@@ -2057,7 +2073,8 @@ export default {
                         order_number: r.order_number,
                         fiscal_year: r.fiscal_year,
                         invoice_title: r.invoice_title || r.title || `Order ${r.id}`,
-                        client: r.client || r.client?.name || (r.client_name || ''),
+                        client: r.client?.name || r.client || r.client_name || '',
+                        LockedNote: r.LockedNote || null,
                     }));
                 }
             } catch (e) {
@@ -2074,6 +2091,19 @@ export default {
                     return;
                 }
                 if (!this.selectedAttachOrderIds.length) return;
+                const lockedSelected = this.allSelectedOrders.filter(order =>
+                    this.selectedAttachOrderIds.includes(order.id) && this.hasOrderLockedNote(order)
+                );
+                if (lockedSelected.length > 0) {
+                    this.selectedAttachOrderIds = this.selectedAttachOrderIds.filter(id =>
+                        !lockedSelected.some(order => order.id === id)
+                    );
+                    this.allSelectedOrders = this.allSelectedOrders.filter(order =>
+                        !lockedSelected.some(locked => locked.id === order.id)
+                    );
+                    this.toast.error('Locked orders cannot be attached to an invoice.');
+                    return;
+                }
                 const res = await axios.put(`/invoice/${this.faktura.id}/attach-orders`, { orders: this.selectedAttachOrderIds });
                 const appended = (res?.data?.invoices || []).map(r => ({
                     id: r.id,
@@ -2096,10 +2126,14 @@ export default {
                 this.closeAttachOrdersModal();
             } catch (e) {
                 console.error('Failed to attach orders', e);
-                this.toast.error('Failed to attach orders');
+                this.toast.error(e?.response?.data?.message || e?.response?.data?.error || 'Failed to attach orders');
             }
         },
         toggleAttachSelection(ord) {
+            if (!this.canSelectAttachOrder(ord)) {
+                this.toast.error('Locked orders cannot be selected.');
+                return;
+            }
             const ids = new Set(this.selectedAttachOrderIds);
             let currentClient = this.attachClientName || (this.invoice?.[0]?.client?.name || this.invoice?.[0]?.client || '');
             const ordClient = ord?.client?.name || ord?.client || '';
@@ -2134,17 +2168,29 @@ export default {
             }
         },
         selectAllAttachVisible() {
-            const currentClient = this.attachClientName || (this.invoice?.[0]?.client?.name || this.invoice?.[0]?.client || '');
-            const ids = this.filteredAttachableOrders.map(o => o.id);
+            const ids = this.selectableAttachableOrders.map(o => o.id);
             this.selectedAttachOrderIds = ids;
 
             // Add visible orders to global selected array
-            this.filteredAttachableOrders.forEach(order => {
+            this.selectableAttachableOrders.forEach(order => {
                 const exists = this.allSelectedOrders.some(o => o.id === order.id);
                 if (!exists) {
                     this.allSelectedOrders.push(order);
                 }
             });
+        },
+        hasOrderLockedNote(order) {
+            return !!(order?.LockedNote && String(order.LockedNote).trim());
+        },
+        canSelectAttachOrder(order) {
+            return !this.hasOrderLockedNote(order);
+        },
+        getLockedOrderSummary(note) {
+            const text = String(note || '').trim();
+            if (text.length <= 90) {
+                return text;
+            }
+            return `${text.slice(0, 87)}...`;
         },
         clearAttachSelection() {
             this.selectedAttachOrderIds = [];
@@ -3412,6 +3458,11 @@ $orange: #a36a03;
     outline: 1px solid rgba(56, 161, 105, 0.5);
 }
 
+.select-row.locked {
+    background: rgba(220, 38, 38, 0.08);
+    outline: 1px solid rgba(248, 113, 113, 0.22);
+}
+
 .select-row input[type='checkbox'] {
     width: 16px;
     height: 16px;
@@ -3419,12 +3470,43 @@ $orange: #a36a03;
     /* green */
 }
 
+.select-row input[type='checkbox']:disabled {
+    accent-color: #ef4444;
+    cursor: not-allowed;
+}
+
 .select-title {
-    flex: 1 1 auto;
     min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+}
+
+.select-row-main {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.select-row-lock-note {
+    margin-top: 4px;
+    color: rgba(254, 202, 202, 0.9);
+    font-size: 11px;
+    line-height: 1.4;
+}
+
+.select-lock-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 4px 8px;
+    border-radius: 999px;
+    border: 1px solid rgba(248, 113, 113, 0.34);
+    background: rgba(239, 68, 68, 0.14);
+    color: #fecaca;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
 }
 
 .detach-options {
