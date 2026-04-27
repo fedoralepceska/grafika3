@@ -762,8 +762,14 @@ export default {
         async submit() {
             if (this.isSubmitting) return;
             
-            this.isSubmitting = true;
             const toast = useToast();
+
+            if (!this.form.catalog_items.length) {
+                toast.error('Add at least one item before updating the offer.');
+                return;
+            }
+
+            this.isSubmitting = true;
             
             try {
                 await axios.put(`/offers/${this.form.id}`, this.form);
@@ -773,7 +779,11 @@ export default {
                 }, 1000);
             } catch (error) {
                 console.error('Error updating offer:', error);
-                toast.error('Failed to update offer!');
+                const message =
+                    error.response?.data?.message ||
+                    Object.values(error.response?.data?.errors || {}).flat()[0] ||
+                    'Failed to update offer!';
+                toast.error(message);
             } finally {
                 this.isSubmitting = false;
             }
@@ -872,7 +882,28 @@ export default {
             this.currentStep++;
         },
 
-        toggleItemSelection(item) {
+        normalizeItemName(name) {
+            return String(name || '').trim().replace(/\s+/g, ' ').toLowerCase();
+        },
+
+        findExistingCatalogItem(name) {
+            const normalizedName = this.normalizeItemName(name);
+
+            if (!normalizedName) {
+                return null;
+            }
+
+            return this.catalogItems.find(item => {
+                const candidateNames = [
+                    item.name,
+                    ...(item.articles || []).map(article => article.name)
+                ];
+
+                return candidateNames.some(candidate => this.normalizeItemName(candidate) === normalizedName);
+            }) || null;
+        },
+
+        toggleItemSelection(item, showToast = true) {
             // Create a unique ID for this selection
             const uniqueId = Date.now() + Math.floor(Math.random() * 1000);
             const isReusableCustom = item.category === 'custom' || item.is_reusable_custom;
@@ -901,8 +932,10 @@ export default {
             this.updatePrice(this.form.catalog_items[this.form.catalog_items.length - 1]);
             
             // Show success message
-            const toast = useToast();
-            toast.success(`${item.name} added to your selection`);
+            if (showToast) {
+                const toast = useToast();
+                toast.success(`${item.name} added to your selection`);
+            }
         },
 
         removeItem(item) {
@@ -958,6 +991,16 @@ export default {
             if (!this.customItem.name || !this.customItem.quantity || !this.customItem.price) {
                 const toast = useToast();
                 toast.error('Please fill in all custom item details.');
+                return;
+            }
+
+            const existingItem = this.findExistingCatalogItem(this.customItem.name);
+            if (existingItem) {
+                this.toggleItemSelection(existingItem, false);
+                this.closeCustomItemModal();
+
+                const toast = useToast();
+                toast.info(`"${existingItem.name}" already exists, so the existing catalog item was added.`);
                 return;
             }
 

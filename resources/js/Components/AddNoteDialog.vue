@@ -1,5 +1,4 @@
 <template>
-    <v-row>
         <v-dialog
             v-model="dialog"
             persistent
@@ -9,9 +8,14 @@
             @keydown.esc="closeDialog"
         >
             <template v-slot:activator="{ props }">
-                <div v-bind="props" class="bt">
+                <button
+                    type="button"
+                    v-bind="props"
+                    class="bt"
+                    title="Sticky note"
+                >
                     <i class="fa-regular fa-note-sticky" :class="{ orange: areNotesAdded }"></i>
-                </div>
+                </button>
             </template>
             <v-card class="dialog-card background">
                 <v-card-title>
@@ -97,7 +101,6 @@
                 </v-card-actions>
             </v-card>
         </v-dialog>
-    </v-row>
 </template>
 
 <script>
@@ -193,7 +196,7 @@ export default {
                 comment: this.noteComment,
                 jobNotes: this.jobNotes, // Include job-specific notes
             }).then(response => {
-                toast.success('Actions successfully updated!');
+                toast.success(response?.data?.message || 'Comment updated successfully.');
             }).catch(error => {
                 toast.error(error);
             });
@@ -288,9 +291,29 @@ export default {
 <style src="vue-multiselect/dist/vue-multiselect.css"></style>
 <style scoped lang="scss">
 .bt{
-    font-size:35px ;
+    width: 42px;
+    height: 42px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
     cursor: pointer;
-    padding: 12px;
+    padding: 0;
+    margin: 0;
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    background: rgba(255, 255, 255, 0.08);
+    color: rgba(255, 255, 255, 0.92);
+    transition: background-color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.bt:hover{
+    background: rgba(255, 255, 255, 0.16);
+    border-color: rgba(255, 255, 255, 0.2);
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.14);
+}
+.bt:focus-visible{
+    outline: 2px solid rgba(245, 158, 11, 0.9);
+    outline-offset: 2px;
 }
 .height {
     /* v-dialog wrapper sizing */

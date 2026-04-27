@@ -10,13 +10,113 @@ use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\ValidationException;
 
 class OfferController extends Controller
 {
-    private function buildOfferCatalogItems()
+    private function hasRealOfferItem(array $item): bool
+    {
+        if (!empty($item['id'])) {
+            return true;
+        }
+
+        return $this->normalizeItemName($item['name'] ?? '') !== '';
+    }
+
+    private function normalizeOfferItems(array $items): array
+    {
+        return collect($items)
+            ->filter(fn ($item) => is_array($item) && $this->hasRealOfferItem($item))
+            ->map(function ($item) {
+                return [
+                    'id' => $item['id'] ?? null,
+                    'name' => isset($item['name']) ? trim((string) $item['name']) : null,
+                    'quantity' => isset($item['quantity']) ? (int) $item['quantity'] : null,
+                    'description' => $item['description'] ?? null,
+                    'custom_price' => isset($item['custom_price']) && $item['custom_price'] !== ''
+                        ? (float) $item['custom_price']
+                        : null,
+                ];
+            })
+            ->values()
+            ->all();
+    }
+
+    private function validateOfferRequest(Request $request): array
+    {
+        $validator = Validator::make($request->all(), [
+            'name' => 'required|string|max:255',
+            'description' => 'nullable|string',
+            'client_id' => 'required|exists:clients,id',
+            'contact_id' => 'required',
+            'validity_days' => 'required|integer|min:1',
+            'production_start_date' => 'nullable|date',
+            'production_end_date' => 'nullable|date|after:production_start_date',
+            'catalog_items' => 'required|array|min:1',
+            'catalog_items.*.id' => 'nullable',
+            'catalog_items.*.name' => 'nullable|string|max:255',
+            'catalog_items.*.quantity' => 'required|integer|min:1',
+            'catalog_items.*.description' => 'nullable|string',
+            'catalog_items.*.custom_price' => 'nullable|numeric|min:0',
+            'production_time' => 'nullable|string'
+        ]);
+
+        $validator->after(function ($validator) use ($request) {
+            $items = $this->normalizeOfferItems((array) $request->input('catalog_items', []));
+
+            if (empty($items)) {
+                $validator->errors()->add('catalog_items', 'Offer must contain at least one item.');
+                return;
+            }
+
+            foreach ($items as $index => $item) {
+                if (empty($item['id']) && $this->normalizeItemName($item['name'] ?? '') === '') {
+                    $validator->errors()->add("catalog_items.$index.name", 'Custom item name is required.');
+                }
+            }
+        });
+
+        $validated = $validator->validate();
+        $validated['catalog_items'] = $this->normalizeOfferItems((array) ($validated['catalog_items'] ?? []));
+
+        return $validated;
+    }
+
+    private function buildOfferCreationFingerprint(array $validated): string
+    {
+        $fingerprintData = [
+            'user' => Auth::id(),
+            'name' => trim((string) ($validated['name'] ?? '')),
+            'description' => trim((string) ($validated['description'] ?? '')),
+            'client_id' => $validated['client_id'] ?? null,
+            'contact_id' => $validated['contact_id'] ?? null,
+            'validity_days' => $validated['validity_days'] ?? null,
+            'production_start_date' => $validated['production_start_date'] ?? null,
+            'production_end_date' => $validated['production_end_date'] ?? null,
+            'production_time' => trim((string) ($validated['production_time'] ?? '')),
+            'items' => collect($validated['catalog_items'] ?? [])
+                ->map(function ($item) {
+                    return [
+                        'id' => $item['id'] ?? null,
+                        'name' => $this->normalizeItemName($item['name'] ?? ''),
+                        'quantity' => (int) ($item['quantity'] ?? 0),
+                        'description' => trim((string) ($item['description'] ?? '')),
+                        'custom_price' => $item['custom_price'] !== null ? (string) $item['custom_price'] : null,
+                    ];
+                })
+                ->values()
+                ->all(),
+        ];
+
+        return hash('sha256', json_encode($fingerprintData));
+    }
+
+    private function availableOfferCatalogItemsQuery()
     {
         return CatalogItem::withTrashed()
-            ->with(['articles'])
             ->where('is_for_offer', true)
             ->where(function ($query) {
                 $query->whereNull('deleted_at')
@@ -28,7 +128,88 @@ class OfferController extends Controller
                             ->whereNull('small_material_id')
                             ->whereDoesntHave('articles');
                     });
+            });
+    }
+
+    private function normalizeItemName(?string $name): string
+    {
+        return mb_strtolower(trim((string) $name));
+    }
+
+    private function findExistingOfferCatalogItem(string $name): ?CatalogItem
+    {
+        $normalizedName = $this->normalizeItemName($name);
+
+        if ($normalizedName === '') {
+            return null;
+        }
+
+        return $this->availableOfferCatalogItemsQuery()
+            ->where(function ($query) use ($normalizedName) {
+                $query->whereRaw('LOWER(TRIM(name)) = ?', [$normalizedName])
+                    ->orWhereHas('largeMaterial', function ($relatedQuery) use ($normalizedName) {
+                        $relatedQuery->whereRaw('LOWER(TRIM(name)) = ?', [$normalizedName]);
+                    })
+                    ->orWhereHas('smallMaterial', function ($relatedQuery) use ($normalizedName) {
+                        $relatedQuery->whereRaw('LOWER(TRIM(name)) = ?', [$normalizedName]);
+                    })
+                    ->orWhereHas('articles', function ($relatedQuery) use ($normalizedName) {
+                        $relatedQuery->whereRaw('LOWER(TRIM(name)) = ?', [$normalizedName]);
+                    });
             })
+            ->first();
+    }
+
+    private function resolveCatalogItemForOffer(array $item): CatalogItem
+    {
+        if (!empty($item['id'])) {
+            return CatalogItem::withTrashed()->findOrFail($item['id']);
+        }
+
+        $name = trim((string) ($item['name'] ?? ''));
+
+        if ($name === '') {
+            throw ValidationException::withMessages([
+                'catalog_items' => ['Custom item name is required.'],
+            ]);
+        }
+
+        $existingItem = $this->findExistingOfferCatalogItem($name);
+
+        if ($existingItem) {
+            return $existingItem;
+        }
+
+        $catalogItem = CatalogItem::create([
+            'name' => $name,
+            'description' => $item['description'] ?? '',
+            'price' => $item['custom_price'] ?? 0,
+            'is_for_offer' => true,
+            'is_for_sales' => false,
+            'category' => 'material',
+        ]);
+
+        // Hide one-off custom items from the main catalog while keeping them reusable in offers.
+        $catalogItem->delete();
+
+        return $catalogItem;
+    }
+
+    private function attachCatalogItemToOffer(Offer $offer, array $item): void
+    {
+        $catalogItem = $this->resolveCatalogItemForOffer($item);
+
+        $offer->catalogItems()->attach($catalogItem->id, [
+            'quantity' => $item['quantity'],
+            'description' => $item['description'] ?? null,
+            'custom_price' => $item['custom_price'] ?? null,
+        ]);
+    }
+
+    private function buildOfferCatalogItems()
+    {
+        return $this->availableOfferCatalogItemsQuery()
+            ->with(['articles'])
             ->get()
             ->map(function ($item) {
                 $isReusableCustom = !is_null($item->deleted_at)
@@ -203,76 +384,56 @@ class OfferController extends Controller
 
     public function store(Request $request)
     {
-        $request->validate([
-            'name' => 'required|string|max:255',
-            'description' => 'nullable|string',
-            'client_id' => 'required|exists:clients,id',
-            'contact_id' => 'required',
-            'validity_days' => 'required|integer|min:1',
-            'production_start_date' => 'nullable|date',
-            'production_end_date' => 'nullable|date|after:production_start_date',
-            'catalog_items' => 'required|array|min:1',
-            'catalog_items.*.quantity' => 'required|integer|min:1',
-            'catalog_items.*.description' => 'nullable|string',
-            'catalog_items.*.custom_price' => 'nullable|numeric|min:0',
-            'production_time' => 'nullable|string'
-        ]);
+        $validated = $this->validateOfferRequest($request);
+
+        $lock = null;
+        try {
+            $fingerprint = $this->buildOfferCreationFingerprint($validated);
+            $lock = Cache::lock('offers:create:' . $fingerprint, 10);
+
+            if (!$lock->get()) {
+                return response()->json([
+                    'message' => 'This offer is already being created. Please wait a moment.',
+                ], 409);
+            }
+        } catch (\Throwable $exception) {
+            // Fail open if the cache lock is unavailable, but keep the request processing.
+        }
 
         // Generate offer number for fiscal year
         $offerNumberData = Offer::generateOfferNumber();
 
-        $offer = Offer::create([
-            'name' => $request->name,
-            'description' => $request->description,
-            'client_id' => $request->client_id,
-            'contact_id' =>  $request->contact_id,
-            'validity_days' => $request->validity_days,
-            'production_start_date' => $request->production_start_date ?? null,
-            'production_end_date' => $request->production_end_date ?? null,
-            'price1' => $request->price1 ?? 0,
-            'price2' => $request->price2 ?? 0,
-            'price3' => $request->price3 ?? 0,
-            'status' => 'pending',
-            'production_time' => $request->production_time,
-            'created_by' => Auth::id(),
-            'offer_number' => $offerNumberData['offer_number'],
-            'fiscal_year' => $offerNumberData['fiscal_year'],
-        ]);
+        try {
+            DB::transaction(function () use ($validated, $offerNumberData) {
+            $offer = Offer::create([
+                'name' => $validated['name'],
+                'description' => $validated['description'] ?? null,
+                'client_id' => $validated['client_id'],
+                'contact_id' =>  $validated['contact_id'],
+                'validity_days' => $validated['validity_days'],
+                'production_start_date' => $validated['production_start_date'] ?? null,
+                'production_end_date' => $validated['production_end_date'] ?? null,
+                'price1' => $validated['price1'] ?? 0,
+                'price2' => $validated['price2'] ?? 0,
+                'price3' => $validated['price3'] ?? 0,
+                'status' => 'pending',
+                'production_time' => $validated['production_time'] ?? null,
+                'created_by' => Auth::id(),
+                'offer_number' => $offerNumberData['offer_number'],
+                'fiscal_year' => $offerNumberData['fiscal_year'],
+            ]);
 
-        // Attach catalog items with their quantities and descriptions
-        foreach ($request->catalog_items as $item) {
-            // Check if this is a custom item (no ID or null ID)
-            if (empty($item['id']) || $item['id'] === null) {
-                // For custom items, we need to create a placeholder catalog item
-                // or use a special approach to store the custom data
-                $customItemData = [
-                    'name' => $item['name'],
-                    'description' => $item['description'] ?? '',
-                    'price' => $item['custom_price'] ?? 0,
-                    'is_for_offer' => true,
-                    'is_for_sales' => false,
-                    'category' => 'material'
-                ];
-                
-                // Create a temporary catalog item for this custom item
-                $catalogItem = CatalogItem::create($customItemData);
-                
-                // Immediately soft-delete the custom item so it doesn't appear in catalog list
-                $catalogItem->delete();
-                
-                // Attach the soft-deleted catalog item
-                $offer->catalogItems()->attach($catalogItem->id, [
-                    'quantity' => $item['quantity'],
-                    'description' => $item['description'] ?? null,
-                    'custom_price' => $item['custom_price'] ?? null
-                ]);
-            } else {
-                // Regular catalog item
-                $offer->catalogItems()->attach($item['id'], [
-                    'quantity' => $item['quantity'],
-                    'description' => $item['description'] ?? null,
-                    'custom_price' => $item['custom_price'] ?? null
-                ]);
+            foreach ($validated['catalog_items'] as $item) {
+                $this->attachCatalogItemToOffer($offer, $item);
+            }
+        });
+        } finally {
+            if ($lock) {
+                try {
+                    $lock->release();
+                } catch (\Throwable $exception) {
+                    // Ignore lock release failures.
+                }
             }
         }
 
@@ -442,66 +603,24 @@ class OfferController extends Controller
 
     public function update(Request $request, Offer $offer)
     {
-        $request->validate([
-            'name' => 'required|string|max:255',
-            'description' => 'nullable|string',
-            'client_id' => 'required|exists:clients,id',
-            'contact_id' => 'required',
-            'validity_days' => 'required|integer|min:1',
-            'production_time' => 'nullable|string',
-            'catalog_items' => 'required|array|min:1',
-            'catalog_items.*.quantity' => 'required|integer|min:1',
-            'catalog_items.*.description' => 'nullable|string',
-            'catalog_items.*.custom_price' => 'nullable|numeric|min:0'
-        ]);
+        $validated = $this->validateOfferRequest($request);
 
-        $offer->update([
-            'name' => $request->name,
-            'description' => $request->description,
-            'client_id' => $request->client_id,
-            'contact_id' => $request->contact_id,
-            'validity_days' => $request->validity_days,
-            'production_time' => $request->production_time
-        ]);
+        DB::transaction(function () use ($validated, $offer) {
+            $offer->update([
+                'name' => $validated['name'],
+                'description' => $validated['description'] ?? null,
+                'client_id' => $validated['client_id'],
+                'contact_id' => $validated['contact_id'],
+                'validity_days' => $validated['validity_days'],
+                'production_time' => $validated['production_time'] ?? null
+            ]);
 
-        // First, detach all existing items
-        $offer->catalogItems()->detach();
-        
-        // Then attach each item individually
-        foreach ($request->catalog_items as $item) {
-            // Check if this is a custom item (no ID or null ID)
-            if (empty($item['id']) || $item['id'] === null) {
-                // For custom items, we need to create a placeholder catalog item
-                $customItemData = [
-                    'name' => $item['name'],
-                    'description' => $item['description'] ?? '',
-                    'price' => $item['custom_price'] ?? 0,
-                    'is_for_offer' => true,
-                    'is_for_sales' => false,
-                    'category' => 'material'
-                ];
-                
-                // Create a temporary catalog item for this custom item
-                $catalogItem = CatalogItem::create($customItemData);
-                
-                // Immediately soft-delete the custom item so it doesn't appear in catalog list
-                $catalogItem->delete();
-                
-                // Attach the soft-deleted catalog item
-                $offer->catalogItems()->attach($catalogItem->id, [
-                    'quantity' => $item['quantity'],
-                    'description' => $item['description'] ?? null,
-                    'custom_price' => $item['custom_price'] ?? null
-                ]);
-            } else {
-                // Regular catalog item
-                $offer->catalogItems()->attach($item['id'], [
-                    'quantity' => $item['quantity'],
-                    'description' => $item['description'] ?? null,
-                    'custom_price' => $item['custom_price'] ?? null
-                ]);
+            $offer->catalogItems()->detach();
+
+            foreach ($validated['catalog_items'] as $item) {
+                $this->attachCatalogItemToOffer($offer, $item);
             }
-        }
+        });
 
         return response()->json(['message' => 'Offer updated successfully']);
     }

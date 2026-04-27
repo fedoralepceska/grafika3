@@ -110,26 +110,51 @@
                                         </Link>
                                     </div>
                                 </div>
-                                <div class="btns flex gap-2">
-                                    <div
-                                        class="bt"
-                                        role="button"
-                                        tabindex="0"
+                                <div class="btns invoice-toolbar">
+                                    <button
+                                        type="button"
+                                        class="toolbar-icon-btn"
                                         :title="$t('changeOrderClientTitle')"
                                         @click="openChangeClientModal"
-                                        @keydown.enter.prevent="openChangeClientModal"
-                                    ><i class="fa-regular fa-pen-to-square"></i></div>
-                                    <div class="bt" @click="toggleSpreadsheetMode"
-                                         :class="{'text-white': spreadsheetMode, 'green-text': !spreadsheetMode}"
-                                    ><i class="fa-solid fa-table"></i></div>
-                                    <div class="bt" @click="toggleJobProcessMode"
-                                        :class="{'text-white': !jobProcessMode, 'green-text': jobProcessMode}"
-                                    ><i class="fa-solid fa-list-check"></i></div>
-                                    <div class="bt" v-if="invoice.mockup" @click="showMockupModal = true" title="View Mockup">
+                                    >
+                                        <i class="fa-regular fa-pen-to-square"></i>
+                                    </button>
+                                    <button
+                                        type="button"
+                                        class="toolbar-icon-btn"
+                                        :class="{ 'toolbar-icon-btn--active': spreadsheetMode }"
+                                        title="Spreadsheet mode"
+                                        @click="toggleSpreadsheetMode"
+                                    >
+                                        <i class="fa-solid fa-table-cells-large"></i>
+                                    </button>
+                                    <button
+                                        type="button"
+                                        class="toolbar-icon-btn"
+                                        :class="{ 'toolbar-icon-btn--active': jobProcessMode }"
+                                        title="Process mode"
+                                        @click="toggleJobProcessMode"
+                                    >
+                                        <i class="fa-solid fa-list-check"></i>
+                                    </button>
+                                    <button
+                                        v-if="invoice.mockup"
+                                        type="button"
+                                        class="toolbar-icon-btn"
+                                        title="View mockup"
+                                        @click="showMockupModal = true"
+                                    >
                                         <i class="fa-regular fa-eye"></i>
-                                    </div>
+                                    </button>
                                     <AddNoteDialog :invoice="invoice" ref="addNoteDialog" />
-                                    <div class="bt"><i class="fa-regular fa-solid fa-file-pdf fa-sm" @click="generatePdf(invoice.id)"></i></div>
+                                    <button
+                                        type="button"
+                                        class="toolbar-icon-btn toolbar-icon-btn--pdf"
+                                        title="Open PDF"
+                                        @click="generatePdf(invoice.id)"
+                                    >
+                                        <i class="fa-solid fa-file-pdf"></i>
+                                    </button>
                                 </div>
                                 <AddNoteDialog v-if="openDialog" :invoice="invoice" ref="addNoteDialog" />
                             </div>
@@ -138,7 +163,7 @@
                     </div>
                     <div class="form-container  light-gray mt-2">
                         <div class="sub-title pl-2 ">{{$t('OrderLines')}}</div>
-                        <div v-for="(job,index) in invoice.jobs" v-if="spreadsheetMode">
+                        <div v-for="(job,index) in invoice.jobs" v-if="!spreadsheetMode">
                             <div class="jobDetails p-2">
                                 <div class="border">
                                     <div class="flex gap-6 items-start">
@@ -400,7 +425,7 @@
                             </div>
                         </div>
                         <div class="flex justify-center" v-else>
-                            <OrderSpreadsheet :invoice="invoice" :canViewPrice="spreadsheetMode ? true : canViewPrice" />
+                            <OrderSpreadsheet :invoice="invoice" :canViewPrice="canViewPrice" />
                                                  </div>
                      </div>
                  </div>
@@ -574,7 +599,7 @@ export default {
             selectedFileIndex: null,
             selectedPage: 1,
             isSidebarVisible: false,
-            spreadsheetMode:true,
+            spreadsheetMode:false,
             jobProcessMode:false,
             backgroundColor: null,
             openDialog: false,
@@ -908,10 +933,14 @@ export default {
             this.isSidebarVisible = !this.isSidebarVisible;
         },
         toggleSpreadsheetMode(){
-            this.spreadsheetMode = !this.spreadsheetMode;
+            const nextState = !this.spreadsheetMode;
+            this.spreadsheetMode = nextState;
+            this.jobProcessMode = false;
         },
         toggleJobProcessMode(){
-            this.jobProcessMode = !this.jobProcessMode;
+            const nextState = !this.jobProcessMode;
+            this.jobProcessMode = nextState;
+            this.spreadsheetMode = false;
         },
         generatePdf(invoiceId) {
             window.open(`/orders/${invoiceId}/pdf`, '_blank');
@@ -1501,9 +1530,11 @@ export default {
     flex-wrap: wrap;
 }
 .btns{
-    position: absolute;
-    top: -6px;
-    right: 0;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-left: auto;
+    align-self: flex-start;
     padding: 0;
 }
 .lock-order, .download-order, .re-order{
@@ -1529,10 +1560,52 @@ export default {
 .InvoiceDetails{
     border-bottom: 2px dashed lightgray;
 }
-.bt{
-    font-size:35px ;
-    cursor: pointer;
+.invoice-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 6px;
     padding: 0;
+}
+
+.toolbar-icon-btn {
+    width: 42px;
+    height: 42px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.08);
+    color: rgba(255, 255, 255, 0.92);
+    cursor: pointer;
+    transition: background-color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.toolbar-icon-btn i {
+    font-size: 20px;
+}
+
+.toolbar-icon-btn:hover {
+    background: rgba(255, 255, 255, 0.16);
+    border-color: rgba(255, 255, 255, 0.2);
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.14);
+}
+
+.toolbar-icon-btn:focus-visible {
+    outline: 2px solid rgba(125, 192, 104, 0.9);
+    outline-offset: 2px;
+}
+
+.toolbar-icon-btn--active {
+    background: linear-gradient(180deg, rgba(125, 192, 104, 0.95) 0%, rgba(94, 163, 74, 0.95) 100%);
+    border-color: rgba(125, 192, 104, 0.9);
+    color: #fff;
+}
+
+.toolbar-icon-btn--pdf {
+    background: linear-gradient(180deg, rgba(251, 113, 133, 0.95) 0%, rgba(225, 29, 72, 0.95) 100%);
+    border-color: rgba(251, 113, 133, 0.7);
+    color: #fff;
 }
 .popover {
     position: fixed;

@@ -1177,9 +1177,6 @@ class InvoiceController extends Controller
     {
         $invoiceId = $request->input('id');
         $comment = $request->input('comment');
-        if ($emptyFaktura && (!is_string($comment) || trim($comment) === '')) {
-            $comment = 'Empty Invoice';
-        }
         $jobNotes = $request->input('jobNotes', []);
         $invoice = Invoice::find($invoiceId);
 
@@ -1251,7 +1248,7 @@ class InvoiceController extends Controller
 
         // Return a response, could be the updated invoice, a success message, etc.
         return response()->json([
-            'message' => 'Invoice jobs updated successfully.'
+            'message' => 'Comment updated successfully.'
         ]);
     }
 
