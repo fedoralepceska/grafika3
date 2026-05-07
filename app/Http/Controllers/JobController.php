@@ -4161,40 +4161,59 @@ class JobController extends Controller
             } elseif ($disk->exists($stableWebp)) {
                 $thumbnailPath = $stableWebp;
             } else {
-                // Fallback: scan and pick the latest timestamped match for this index and filename
-                try {
-                    $files = $disk->files('job-thumbnails');
-                    $latestMatch = null;
-                    $latestTs = 0;
-                    foreach ($files as $thumbFile) {
-                        $thumbBasename = basename($thumbFile);
-                        if (strpos($thumbBasename, 'job_' . $jobId . '_') !== 0) continue;
-                        // Accept both webp/jpg regardless; require index and filename to match
-                        $hasIndex = (strpos($thumbBasename, '_' . $fileIndex . '_') !== false);
-                        $matchesOriginal = $originalFileName ? (strpos($thumbBasename, $originalFileName) !== false) : false;
-                        $matchesClient = $clientFileName ? (strpos($thumbBasename, $clientFileName) !== false) : false;
-                        if (!$hasIndex && !$matchesOriginal && !$matchesClient) continue;
-                        $ts = 0;
-                        if (preg_match('/job_' . $jobId . '_(\\d+)_/',$thumbBasename,$m)) { $ts = (int)$m[1]; }
-                        if ($latestMatch === null || $ts >= $latestTs) { $latestMatch = $thumbFile; $latestTs = $ts; }
-                    }
-                    if ($latestMatch) {
-                        $thumbnailPath = $latestMatch;
-                    } else {
-                        // As a final fallback, try stable candidate including name (older stable scheme)
-                        $candidateBases = array_values(array_unique(array_filter([
-                            $originalFileName,
-                            $clientFileName,
-                        ])));
-                        foreach ($candidateBases as $base) {
-                            $nameCandidateJpg = 'job-thumbnails/job_' . $jobId . '_' . $fileIndex . '_' . $base . '.jpg';
-                            $nameCandidateWebp = 'job-thumbnails/job_' . $jobId . '_' . $fileIndex . '_' . $base . '.webp';
-                            if ($disk->exists($nameCandidateJpg)) { $thumbnailPath = $nameCandidateJpg; break; }
-                            if ($disk->exists($nameCandidateWebp)) { $thumbnailPath = $nameCandidateWebp; break; }
+                $thumbnailCacheKey = 'job_thumbnail_path:' . md5(json_encode([
+                    'job_id' => $jobId,
+                    'file_index' => $fileIndex,
+                    'original' => $originalFileName,
+                    'client' => $clientFileName,
+                ]));
+                $cachedThumbnailPath = \Illuminate\Support\Facades\Cache::get($thumbnailCacheKey);
+
+                if ($cachedThumbnailPath && $disk->exists($cachedThumbnailPath)) {
+                    $thumbnailPath = $cachedThumbnailPath;
+                }
+
+                if (!$thumbnailPath) {
+                    // Fallback: scan and pick the latest timestamped match for this index and filename.
+                    try {
+                        $files = $disk->files('job-thumbnails');
+                        $latestMatch = null;
+                        $latestTs = 0;
+                        foreach ($files as $thumbFile) {
+                            $thumbBasename = basename($thumbFile);
+                            if (strpos($thumbBasename, 'job_' . $jobId . '_') !== 0) continue;
+                            // Accept both webp/jpg regardless; require index and filename to match
+                            $hasIndex = (strpos($thumbBasename, '_' . $fileIndex . '_') !== false);
+                            $matchesOriginal = $originalFileName ? (strpos($thumbBasename, $originalFileName) !== false) : false;
+                            $matchesClient = $clientFileName ? (strpos($thumbBasename, $clientFileName) !== false) : false;
+                            if (!$hasIndex && !$matchesOriginal && !$matchesClient) continue;
+                            $ts = 0;
+                            if (preg_match('/job_' . $jobId . '_(\\d+)_/',$thumbBasename,$m)) { $ts = (int)$m[1]; }
+                            if ($latestMatch === null || $ts >= $latestTs) { $latestMatch = $thumbFile; $latestTs = $ts; }
                         }
+                        if ($latestMatch) {
+                            $thumbnailPath = $latestMatch;
+                            \Illuminate\Support\Facades\Cache::put($thumbnailCacheKey, $thumbnailPath, now()->addHours(6));
+                        } else {
+                            // As a final fallback, try stable candidate including name (older stable scheme)
+                            $candidateBases = array_values(array_unique(array_filter([
+                                $originalFileName,
+                                $clientFileName,
+                            ])));
+                            foreach ($candidateBases as $base) {
+                                $nameCandidateJpg = 'job-thumbnails/job_' . $jobId . '_' . $fileIndex . '_' . $base . '.jpg';
+                                $nameCandidateWebp = 'job-thumbnails/job_' . $jobId . '_' . $fileIndex . '_' . $base . '.webp';
+                                if ($disk->exists($nameCandidateJpg)) { $thumbnailPath = $nameCandidateJpg; break; }
+                                if ($disk->exists($nameCandidateWebp)) { $thumbnailPath = $nameCandidateWebp; break; }
+                            }
+
+                            if ($thumbnailPath) {
+                                \Illuminate\Support\Facades\Cache::put($thumbnailCacheKey, $thumbnailPath, now()->addHours(6));
+                            }
+                        }
+                    } catch (\Exception $e) {
+                        \Log::warning('Thumbnail fallback scan failed: ' . $e->getMessage());
                     }
-                } catch (\Exception $e) {
-                    \Log::warning('Thumbnail fallback scan failed: ' . $e->getMessage());
                 }
             }
 
@@ -4228,6 +4247,9 @@ class JobController extends Controller
                     }
                     if ($latestMatch) {
                         $thumbnailPath = $latestMatch;
+                        if (isset($thumbnailCacheKey)) {
+                            \Illuminate\Support\Facades\Cache::put($thumbnailCacheKey, $thumbnailPath, now()->addHours(6));
+                        }
                         \Log::info('Thumbnail fallback by filename succeeded', [
                             'job_id' => $jobId,
                             'file_index' => $fileIndex,

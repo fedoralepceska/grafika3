@@ -106,7 +106,7 @@
                     <div class="pagination">
                         <button 
                             @click="changePage(orders.current_page - 1)"
-                            :disabled="orders.current_page === 1 || isLoadingOrders"
+                            :disabled="orders.current_page === 1"
                             class="pagination-btn"
                         >
                             Previous
@@ -118,7 +118,7 @@
                         
                         <button 
                             @click="changePage(orders.current_page + 1)"
-                            :disabled="orders.current_page === orders.last_page || isLoadingOrders"
+                            :disabled="orders.current_page === orders.last_page"
                             class="pagination-btn"
                         >
                             Next
@@ -194,7 +194,7 @@
                     <div class="pagination">
                         <button 
                             @click="changeCompletedPage(completedOrders.current_page - 1)"
-                            :disabled="completedOrders.current_page === 1 || isLoadingCompletedOrders"
+                            :disabled="completedOrders.current_page === 1"
                             class="pagination-btn"
                         >
                             Previous
@@ -204,7 +204,7 @@
                         </span>
                         <button 
                             @click="changeCompletedPage(completedOrders.current_page + 1)"
-                            :disabled="completedOrders.current_page === completedOrders.last_page || isLoadingCompletedOrders"
+                            :disabled="completedOrders.current_page === completedOrders.last_page"
                             class="pagination-btn"
                         >
                             Next
@@ -246,6 +246,10 @@
                                 <div><strong>Start Date:</strong> {{ formatDate(selectedOrder.start_date) }}</div>
                                 <div><strong>End Date:</strong> {{ formatDate(selectedOrder.end_date) }}</div>
                                </div>
+                            <div v-if="isLoadingOrderDetails" class="detail-loading">
+                                <i class="fa-solid fa-spinner fa-spin"></i>
+                                <span>Loading preview details...</span>
+                            </div>
                             <!-- Files Section -->
                             <div class="files-section">
                                 <h4 class="section-title">Files</h4>
@@ -274,7 +278,7 @@
                                                             class="carousel-image"
                                                             :data-job-id="job.id"
                                                             :data-file-index="currentFileIndex[job.id] || 0"
-                                                            loading="eager"
+                                                            loading="lazy"
                                                             decoding="async"
                                                             @error="handleThumbnailError"
                                                             @load="handleImageLoad"
@@ -318,7 +322,7 @@
                                                             alt="Job Image" 
                                                             :data-job-id="job.id"
                                                             class="carousel-image"
-                                                            loading="eager"
+                                                            loading="lazy"
                                                             decoding="async"
                                                             @error="handleLegacyImageError"
                                                             @load="handleImageLoad"
@@ -381,7 +385,7 @@
                                         </div>
                                     </div>
                                 </div>
-                                <div v-else class="no-files">
+                                <div v-else-if="!isLoadingOrderDetails" class="no-files">
                                     <i class="fa-solid fa-file"></i>
                                     <span>No files uploaded</span>
                                 </div>
@@ -478,12 +482,21 @@ export default {
             completedSearchTimeout: null,
             isLoadingOrders: false,
             isLoadingCompletedOrders: false,
+            isLoadingOrderDetails: false,
             latestOrdersRequestId: 0,
             completedOrdersRequestId: 0,
+            selectedOrderRequestId: 0,
+            latestOrdersController: null,
+            completedOrdersController: null,
+            orderDetailsController: null,
             currentFileIndex: {},
             preloadedImages: {},
             imageLoadStates: {},
             imageErrors: {}, // Track failed image loads
+            preloadQueue: [],
+            activePreloads: 0,
+            maxConcurrentPreloads: 2,
+            preloadGeneration: 0,
             // Thumbnail system
             carouselIndices: {}, // Track current page for each job/file combination
         }
@@ -502,6 +515,10 @@ export default {
         document.removeEventListener('keydown', this.handleKeydown);
         clearTimeout(this.searchTimeout);
         clearTimeout(this.completedSearchTimeout);
+        this.abortController(this.latestOrdersController);
+        this.abortController(this.completedOrdersController);
+        this.abortController(this.orderDetailsController);
+        this.clearPreloadQueue();
     },
     watch: {
         activeFilter(newFilter) {
@@ -511,6 +528,16 @@ export default {
         }
     },
     methods: {
+        abortController(controller) {
+            if (controller) {
+                controller.abort();
+            }
+        },
+
+        isCanceledRequest(error) {
+            return error?.code === 'ERR_CANCELED' || error?.name === 'CanceledError' || axios.isCancel?.(error);
+        },
+
         refreshOrders(resetPage = false) {
             if (resetPage) {
                 this.orders.current_page = 1;
@@ -536,6 +563,8 @@ export default {
 
         async fetchOrders() {
             const requestId = ++this.latestOrdersRequestId;
+            this.abortController(this.latestOrdersController);
+            this.latestOrdersController = new AbortController();
             this.isLoadingOrders = true;
             try {
                 const params = {
@@ -561,7 +590,10 @@ export default {
                 }
 
                 // Always exclude completed orders from latest list (handled server-side)
-                const response = await axios.get('/orders/latest-open', { params });
+                const response = await axios.get('/orders/latest-open', {
+                    params,
+                    signal: this.latestOrdersController.signal
+                });
 
                 // Ignore stale responses (older requests can finish after newer ones)
                 if (requestId !== this.latestOrdersRequestId) {
@@ -578,6 +610,9 @@ export default {
                     per_page: response.data.per_page || 10
                 };
             } catch (error) {
+                if (this.isCanceledRequest(error)) {
+                    return;
+                }
                 if (requestId !== this.latestOrdersRequestId) {
                     return;
                 }
@@ -593,16 +628,20 @@ export default {
             } finally {
                 if (requestId === this.latestOrdersRequestId) {
                     this.isLoadingOrders = false;
+                    this.latestOrdersController = null;
                 }
             }
         },
 
         async fetchCompletedOrders() {
             const requestId = ++this.completedOrdersRequestId;
+            this.abortController(this.completedOrdersController);
+            this.completedOrdersController = new AbortController();
             this.isLoadingCompletedOrders = true;
             try {
                 const params = {
-                    page: this.completedOrders.current_page
+                    page: this.completedOrders.current_page,
+                    per_page: this.completedOrders.per_page
                 };
 
                 if (this.completedSearchQuery) {
@@ -617,7 +656,10 @@ export default {
                     params.fiscal_year = this.completedYearFilter;
                 }
 
-                const response = await axios.get('/orders/completed', { params });
+                const response = await axios.get('/orders/completed', {
+                    params,
+                    signal: this.completedOrdersController.signal
+                });
 
                 // Ignore stale responses (older requests can finish after newer ones)
                 if (requestId !== this.completedOrdersRequestId) {
@@ -634,6 +676,9 @@ export default {
                     per_page: response.data.per_page || 5
                 };
             } catch (error) {
+                if (this.isCanceledRequest(error)) {
+                    return;
+                }
                 if (requestId !== this.completedOrdersRequestId) {
                     return;
                 }
@@ -649,6 +694,7 @@ export default {
             } finally {
                 if (requestId === this.completedOrdersRequestId) {
                     this.isLoadingCompletedOrders = false;
+                    this.completedOrdersController = null;
                 }
             }
         },
@@ -685,10 +731,6 @@ export default {
         },
 
         changePage(page) {
-            if (this.isLoadingOrders) {
-                return;
-            }
-
             if (page >= 1 && page <= this.orders.last_page) {
                 this.orders.current_page = page;
                 this.fetchOrders();
@@ -696,10 +738,6 @@ export default {
         },
 
         changeCompletedPage(page) {
-            if (this.isLoadingCompletedOrders) {
-                return;
-            }
-
             if (page >= 1 && page <= this.completedOrders.last_page) {
                 this.completedOrders.current_page = page;
                 this.fetchCompletedOrders();
@@ -707,28 +745,55 @@ export default {
         },
 
         async openOrderDetails(order) {
-            // Immediately show the order with available data (including files)
-            this.selectedOrder = order;
+            const requestId = ++this.selectedOrderRequestId;
+            this.abortController(this.orderDetailsController);
+            this.orderDetailsController = new AbortController();
+            this.clearPreloadQueue();
+            this.preloadGeneration++;
+
+            // Show row data immediately, then hydrate the sidebar with the full preview payload.
+            this.selectedOrder = { ...order, jobs: order.jobs || [] };
+            this.isLoadingOrderDetails = true;
             
-            // Initialize carousel indices for the selected order
-            this.initializeCarouselIndices(order);
-            
-            // Reset image loading states for new order
             this.resetImageLoadingStates();
-            
-            // Since we now have file information pre-fetched, we can start preloading immediately
-            this.$nextTick(() => {
-                this.preloadThumbnailsForOrder(this.selectedOrder);
-            });
-            
-            // No need for separate API call - we have all the data we need
-            // this.loadOrderDetailsInBackground(order.id);
+
+            try {
+                const response = await axios.get(`/orders/${order.id}/details`, {
+                    signal: this.orderDetailsController.signal
+                });
+
+                if (requestId !== this.selectedOrderRequestId) {
+                    return;
+                }
+
+                this.selectedOrder = { ...order, ...response.data };
+                this.initializeCarouselIndices(this.selectedOrder);
+                this.resetImageLoadingStates();
+
+                const preloadGeneration = this.preloadGeneration;
+                this.$nextTick(() => {
+                    this.preloadThumbnailsForOrder(this.selectedOrder, preloadGeneration);
+                });
+            } catch (error) {
+                if (this.isCanceledRequest(error) || requestId !== this.selectedOrderRequestId) {
+                    return;
+                }
+
+                console.error('Error fetching order details:', error);
+            } finally {
+                if (requestId === this.selectedOrderRequestId) {
+                    this.isLoadingOrderDetails = false;
+                    this.orderDetailsController = null;
+                }
+            }
         },
 
         resetImageLoadingStates() {
             // Create a new reactive object
             this.imageLoadStates = {};
             this.currentFileIndex = {};
+            this.imageErrors = {};
+            const requestId = this.selectedOrderRequestId;
             
             // Initialize loading states for all jobs in the selected order
             if (this.selectedOrder && this.selectedOrder.jobs) {
@@ -739,7 +804,7 @@ export default {
                         
                         // Set a timeout to automatically hide loading state after 10 seconds
                         setTimeout(() => {
-                            if (this.imageLoadStates[job.id] === false) {
+                            if (requestId === this.selectedOrderRequestId && this.imageLoadStates[job.id] === false) {
                                 this.markImageAsFailed(job.id);
                             }
                         }, 10000);
@@ -753,6 +818,12 @@ export default {
 
 
         closeOrderDetails() {
+            this.selectedOrderRequestId++;
+            this.abortController(this.orderDetailsController);
+            this.orderDetailsController = null;
+            this.isLoadingOrderDetails = false;
+            this.clearPreloadQueue();
+            this.preloadGeneration++;
             this.selectedOrder = null;
         },
 
@@ -913,55 +984,74 @@ export default {
             }
         },
 
-        // Prefetching utilities - now optimized for pre-fetched data
-        preloadThumbnailsForOrder(order) {
+        // Prefetching utilities - keep background image work small and tied to the selected order.
+        preloadThumbnailsForOrder(order, generation = this.preloadGeneration) {
             if (!order || !order.jobs) return;
             
-            console.log('🚀 Preloading thumbnails for order:', order.id, 'with', order.jobs.length, 'jobs');
-            
-            // Preload first thumbnail for each job immediately
-            // Since we have file information, we can be more aggressive with preloading
             order.jobs.forEach(job => {
                 if (this.hasDisplayableFiles(job)) {
-                    this.preloadFirstThumbnail(job);
+                    this.preloadFirstThumbnail(job, generation);
                     
-                    // Also preload next few thumbnails for smooth carousel navigation
                     if (this.hasMultipleFiles(job) && job.originalFile && job.originalFile.length > 1) {
-                        const filesToPreload = Math.min(3, job.originalFile.length);
-                        console.log(`📁 Preloading ${filesToPreload} thumbnails for job ${job.id}`);
+                        const filesToPreload = Math.min(2, job.originalFile.length);
                         for (let i = 1; i < filesToPreload; i++) {
-                            this.preloadImage(this.getThumbnailUrl(job.id, i));
+                            this.preloadImage(this.getThumbnailUrl(job.id, i), generation);
                         }
                     }
                 }
             });
         },
 
-        preloadFirstThumbnail(job) {
+        preloadFirstThumbnail(job, generation = this.preloadGeneration) {
             if (this.hasMultipleFiles(job)) {
-                // Preload first file thumbnail
                 const firstThumbnailUrl = this.getThumbnailUrl(job.id, 0);
-                this.preloadImage(firstThumbnailUrl);
+                this.preloadImage(firstThumbnailUrl, generation);
             } else if (job.file && job.file !== 'placeholder.jpeg') {
-                // Preload legacy image
                 const legacyUrl = this.getLegacyImageUrl(job);
-                this.preloadImage(legacyUrl);
+                this.preloadImage(legacyUrl, generation);
             }
         },
 
-        preloadImage(url) {
+        preloadImage(url, generation = this.preloadGeneration) {
             if (!url || this.preloadedImages[url]) return;
+            this.preloadQueue.push({ url, generation });
+            this.processPreloadQueue();
+        },
+
+        processPreloadQueue() {
+            while (this.activePreloads < this.maxConcurrentPreloads && this.preloadQueue.length > 0) {
+                const nextPreload = this.preloadQueue.shift();
+                if (!nextPreload || nextPreload.generation !== this.preloadGeneration || this.preloadedImages[nextPreload.url]) {
+                    continue;
+                }
+
+                this.activePreloads++;
+                this.startImagePreload(nextPreload.url, nextPreload.generation);
+            }
+        },
+
+        startImagePreload(url, generation) {
             const img = new Image();
             img.decoding = 'async';
-            img.loading = 'eager';
+            img.loading = 'lazy';
             img.src = url;
-            const markDone = () => { this.preloadedImages[url] = true; };
+            const markDone = () => {
+                if (generation === this.preloadGeneration) {
+                    this.preloadedImages[url] = true;
+                }
+                this.activePreloads = Math.max(0, this.activePreloads - 1);
+                this.processPreloadQueue();
+            };
             if (img.decode) {
                 img.decode().then(markDone).catch(markDone);
             } else {
                 img.onload = markDone;
                 img.onerror = markDone;
             }
+        },
+
+        clearPreloadQueue() {
+            this.preloadQueue = [];
         },
 
         // Carousel navigation methods
@@ -1058,6 +1148,7 @@ export default {
         },
         
         getCurrentPageIndex(job, fileIndex) {
+            if (!job) return 0;
             const key = `${job.id}_${fileIndex}`;
             return this.carouselIndices[key] || 0;
         },
@@ -1695,6 +1786,17 @@ export default {
             color: $ultra-light-gray;
         }
     }
+}
+
+.detail-loading {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: $white;
+    font-size: 0.875rem;
+    padding: 0.5rem;
+    margin-bottom: 0.5rem;
+    background-color: rgba(255, 255, 255, 0.08);
 }
 
 .section-title {

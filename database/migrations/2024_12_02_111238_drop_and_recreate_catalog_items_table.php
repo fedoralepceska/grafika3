@@ -8,26 +8,12 @@ return new class extends Migration
 {
     public function up()
     {
-        // First drop the existing table
-        Schema::dropIfExists('catalog_items');
-
-        // Then create the new table with correct structure
-        Schema::create('catalog_items', function (Blueprint $table) {
-            $table->id();
-            $table->string('name')->unique();
-            $table->string('machinePrint')->nullable();
-            $table->string('machineCut')->nullable();
-            $table->foreignId('large_material_id')->nullable()->constrained('large_format_materials');
-            $table->foreignId('small_material_id')->nullable()->constrained('small_material');
-            $table->integer('quantity')->default(1);
-            $table->integer('copies')->default(1);
-            $table->json('actions')->nullable();
-            $table->timestamps();
-        });
+        // The table is created by 2024_01_23_000000_create_catalog_items_table.
+        // Dropping it here breaks fresh migrations because older tables already reference it.
     }
 
     public function down()
     {
-        Schema::dropIfExists('catalog_items');
+        // Keep rollback non-destructive because many later migrations reference this table.
     }
 };

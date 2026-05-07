@@ -867,16 +867,19 @@ class InvoiceController extends Controller
      */
     public function latestOpenOrders(Request $request)
     {
-        $query = Invoice::with([
-            'jobs' => function ($query) {
-                $query->select([
-                    'jobs.id', 'jobs.invoice_id', 'jobs.name', 'jobs.status', 'jobs.quantity', 'jobs.copies',
-                    'jobs.file', 'jobs.originalFile', 'jobs.cuttingFiles', 'jobs.total_area_m2', 'jobs.dimensions_breakdown'
-                ]);
-            },
-            'jobs.articles.categories',
-            'jobs.articles.largeFormatMaterial',
-            'jobs.articles.smallMaterial',
+        $query = Invoice::select([
+            'id',
+            'order_number',
+            'fiscal_year',
+            'invoice_title',
+            'comment',
+            'client_id',
+            'created_by',
+            'start_date',
+            'end_date',
+            'status',
+            'created_at',
+        ])->with([
             'user:id,name',
             'client:id,name'
         ]);
@@ -902,28 +905,6 @@ class InvoiceController extends Controller
         $perPage = (int)($request->input('per_page', 10));
         $perPage = max(1, min($perPage, 100));
         $invoices = $query->paginate($perPage);
-
-        // Load thumbnails for all jobs
-        $this->loadThumbnailsForInvoices($invoices->items());
-
-        // Ensure originalFile is properly cast for each job
-        foreach ($invoices->items() as $invoice) {
-            if ($invoice->jobs) {
-                foreach ($invoice->jobs as $job) {
-                    // Force cast originalFile to array if it's a string
-                    if (is_string($job->originalFile)) {
-                        $job->originalFile = json_decode($job->originalFile, true) ?: [];
-                    }
-                    
-                    // Ensure file field is properly set (for legacy system)
-                    if (empty($job->file) && !empty($job->originalFile) && is_array($job->originalFile) && count($job->originalFile) > 0) {
-                        // If no legacy file but we have originalFile, use the first file as legacy
-                        $firstOriginalFile = $job->originalFile[0];
-                        $job->file = pathinfo(basename($firstOriginalFile), PATHINFO_FILENAME) . '.jpg';
-                    }
-                }
-            }
-        }
 
         return response()->json($invoices);
     }
@@ -1019,6 +1000,31 @@ class InvoiceController extends Controller
     }
 
     /**
+     * Keep the dashboard preview payload consistent regardless of where the order was loaded from.
+     */
+    private function normalizeDashboardPreviewFiles($invoices): void
+    {
+        foreach ($invoices as $invoice) {
+            if (!$invoice->jobs) {
+                continue;
+            }
+
+            foreach ($invoice->jobs as $job) {
+                if (is_string($job->originalFile)) {
+                    $job->originalFile = json_decode($job->originalFile, true) ?: [];
+                }
+
+                if (empty($job->file) && !empty($job->originalFile) && is_array($job->originalFile)) {
+                    $firstOriginalFile = $job->originalFile[0] ?? null;
+                    if ($firstOriginalFile) {
+                        $job->file = pathinfo(basename($firstOriginalFile), PATHINFO_FILENAME) . '.jpg';
+                    }
+                }
+            }
+        }
+    }
+
+    /**
      * Apply dashboard filter to the query based on the filter type
      */
     private function applyDashboardFilter($query, $filterType)
@@ -1066,16 +1072,19 @@ class InvoiceController extends Controller
      */
     public function completedOrders(Request $request)
     {
-        $query = Invoice::with([
-            'jobs' => function ($query) {
-                $query->select([
-                    'jobs.id', 'jobs.invoice_id', 'jobs.name', 'jobs.status', 'jobs.quantity', 'jobs.copies',
-                    'jobs.file', 'jobs.originalFile', 'jobs.cuttingFiles', 'jobs.total_area_m2', 'jobs.dimensions_breakdown'
-                ]);
-            },
-            'jobs.articles.categories',
-            'jobs.articles.largeFormatMaterial',
-            'jobs.articles.smallMaterial',
+        $query = Invoice::select([
+            'id',
+            'order_number',
+            'fiscal_year',
+            'invoice_title',
+            'comment',
+            'client_id',
+            'created_by',
+            'start_date',
+            'end_date',
+            'status',
+            'created_at',
+        ])->with([
             'user:id,name',
             'client:id,name'
         ]);
@@ -1110,10 +1119,15 @@ class InvoiceController extends Controller
             'jobs.small_material.smallFormatMaterial', 
             'jobs.large_material',
             'jobs.actions',
-            'jobs.articles',
+            'jobs.articles.categories',
+            'jobs.articles.largeFormatMaterial',
+            'jobs.articles.smallMaterial',
             'user:id,name', 
             'client:id,name'
         ])->findOrFail($id);
+
+        $this->loadThumbnailsForInvoices([$invoice]);
+        $this->normalizeDashboardPreviewFiles([$invoice]);
 
         return response()->json($invoice);
     }
