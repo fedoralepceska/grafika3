@@ -31,8 +31,6 @@
 </template>
 
 <script>
-import axios from 'axios';
-
 export default {
     name: 'OrderJobProgressCompact',
     props: {
@@ -47,58 +45,14 @@ export default {
         /** Text to display in the label when showLabel is true */
         labelText: { type: String, default: 'ACTIONS' },
     },
-    data() {
-        return {
-            newJobs: [],
-        };
-    },
-    beforeMount() {
-        this.fetchJobs();
-        if (this.clickable) {
-            console.log('OrderJobProgressCompact mounted with job:', this.job, 'invoiceId:', this.invoiceId);
-        }
-    },
     methods: {
-        async fetchJobs() {
-            try {
-                const response = await axios.get('/jobs');
-                if (response.data && Array.isArray(response.data)) {
-                    this.newJobs = response.data;
-                } else {
-                    console.warn('Unexpected response format from /jobs endpoint');
-                    this.newJobs = [];
-                }
-            } catch (error) {
-                console.error('Failed to fetch jobs:', error);
-                this.newJobs = [];
-            }
-        },
         actions(id) {
             try {
-                if (this.clickable) {
-                    console.log('Processing actions for job:', id, 'job object:', this.job);
-                }
                 if (this.job && this.job.actions && Array.isArray(this.job.actions) && this.job.actions.length > 0) {
-                    if (this.clickable) {
-                        console.log('Found actions in job object:', this.job.actions);
-                    }
                     return this.job.actions.map(action => ({
                         name: action.name || 'Unknown Action',
                         status: action.status || 'Not started yet',
                     }));
-                }
-                const job = this.newJobs.find(j => j.id === id);
-                if (job && job.actions && Array.isArray(job.actions) && job.actions.length > 0) {
-                    if (this.clickable) {
-                        console.log('Found actions in newJobs:', job.actions);
-                    }
-                    return job.actions.map(action => ({
-                        name: action.name || 'Unknown Action',
-                        status: action.status || 'Not started yet',
-                    }));
-                }
-                if (this.clickable) {
-                    console.log('No actions found for job:', id);
                 }
                 return [];
             } catch (error) {

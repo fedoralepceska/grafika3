@@ -105,20 +105,20 @@
                 <div class="pagination-container" v-if="orders.last_page > 1">
                     <div class="pagination">
                         <button 
-                            @click="changePage(ordersPaginationPage - 1)"
-                            :disabled="ordersPaginationPage === 1"
+                            @click="changePage(orders.current_page - 1)"
+                            :disabled="orders.current_page === 1"
                             class="pagination-btn"
                         >
                             Previous
                         </button>
                         
                         <span class="pagination-info">
-                            {{ isLoadingOrders && pendingOrdersPage ? `Loading page ${pendingOrdersPage}...` : `Page ${orders.current_page} of ${orders.last_page}` }}
+                            Page {{ orders.current_page }} of {{ orders.last_page }}
                         </span>
                         
                         <button 
-                            @click="changePage(ordersPaginationPage + 1)"
-                            :disabled="ordersPaginationPage === orders.last_page"
+                            @click="changePage(orders.current_page + 1)"
+                            :disabled="orders.current_page === orders.last_page"
                             class="pagination-btn"
                         >
                             Next
@@ -193,18 +193,18 @@
                 <div class="pagination-container" v-if="completedOrders.last_page > 1">
                     <div class="pagination">
                         <button 
-                            @click="changeCompletedPage(completedOrdersPaginationPage - 1)"
-                            :disabled="completedOrdersPaginationPage === 1"
+                            @click="changeCompletedPage(completedOrders.current_page - 1)"
+                            :disabled="completedOrders.current_page === 1"
                             class="pagination-btn"
                         >
                             Previous
                         </button>
                         <span class="pagination-info">
-                            {{ isLoadingCompletedOrders && pendingCompletedOrdersPage ? `Loading page ${pendingCompletedOrdersPage}...` : `Page ${completedOrders.current_page} of ${completedOrders.last_page}` }}
+                            Page {{ completedOrders.current_page }} of {{ completedOrders.last_page }}
                         </span>
                         <button 
-                            @click="changeCompletedPage(completedOrdersPaginationPage + 1)"
-                            :disabled="completedOrdersPaginationPage === completedOrders.last_page"
+                            @click="changeCompletedPage(completedOrders.current_page + 1)"
+                            :disabled="completedOrders.current_page === completedOrders.last_page"
                             class="pagination-btn"
                         >
                             Next
@@ -483,8 +483,6 @@ export default {
             isLoadingOrders: false,
             isLoadingCompletedOrders: false,
             isLoadingOrderDetails: false,
-            pendingOrdersPage: null,
-            pendingCompletedOrdersPage: null,
             latestOrdersRequestId: 0,
             completedOrdersRequestId: 0,
             selectedOrderRequestId: 0,
@@ -501,15 +499,6 @@ export default {
             preloadGeneration: 0,
             // Thumbnail system
             carouselIndices: {}, // Track current page for each job/file combination
-        }
-    },
-    computed: {
-        ordersPaginationPage() {
-            return this.pendingOrdersPage || this.orders.current_page || 1;
-        },
-
-        completedOrdersPaginationPage() {
-            return this.pendingCompletedOrdersPage || this.completedOrders.current_page || 1;
         }
     },
     mounted() {
@@ -534,7 +523,8 @@ export default {
     watch: {
         activeFilter(newFilter) {
             // Reset to first page when filter changes
-            this.fetchOrders(1);
+            this.orders.current_page = 1;
+            this.fetchOrders();
         }
     },
     methods: {
@@ -549,11 +539,17 @@ export default {
         },
 
         refreshOrders(resetPage = false) {
-            this.fetchOrders(resetPage ? 1 : this.orders.current_page);
+            if (resetPage) {
+                this.orders.current_page = 1;
+            }
+            this.fetchOrders();
         },
 
         refreshCompletedOrders(resetPage = false) {
-            this.fetchCompletedOrders(resetPage ? 1 : this.completedOrders.current_page);
+            if (resetPage) {
+                this.completedOrders.current_page = 1;
+            }
+            this.fetchCompletedOrders();
         },
 
         initializeAvailableYears() {
@@ -565,15 +561,14 @@ export default {
             }
         },
 
-        async fetchOrders(page = this.orders.current_page) {
+        async fetchOrders() {
             const requestId = ++this.latestOrdersRequestId;
             this.abortController(this.latestOrdersController);
             this.latestOrdersController = new AbortController();
-            this.pendingOrdersPage = page;
             this.isLoadingOrders = true;
             try {
                 const params = {
-                    page,
+                    page: this.orders.current_page,
                     per_page: this.orders.per_page
                 };
 
@@ -633,21 +628,19 @@ export default {
             } finally {
                 if (requestId === this.latestOrdersRequestId) {
                     this.isLoadingOrders = false;
-                    this.pendingOrdersPage = null;
                     this.latestOrdersController = null;
                 }
             }
         },
 
-        async fetchCompletedOrders(page = this.completedOrders.current_page) {
+        async fetchCompletedOrders() {
             const requestId = ++this.completedOrdersRequestId;
             this.abortController(this.completedOrdersController);
             this.completedOrdersController = new AbortController();
-            this.pendingCompletedOrdersPage = page;
             this.isLoadingCompletedOrders = true;
             try {
                 const params = {
-                    page,
+                    page: this.completedOrders.current_page,
                     per_page: this.completedOrders.per_page
                 };
 
@@ -701,7 +694,6 @@ export default {
             } finally {
                 if (requestId === this.completedOrdersRequestId) {
                     this.isLoadingCompletedOrders = false;
-                    this.pendingCompletedOrdersPage = null;
                     this.completedOrdersController = null;
                 }
             }
@@ -719,33 +711,40 @@ export default {
         debounceSearch() {
             clearTimeout(this.searchTimeout);
             this.searchTimeout = setTimeout(() => {
-                this.fetchOrders(1);
+                this.orders.current_page = 1;
+                this.fetchOrders();
             }, 300);
         },
 
         debounceCompletedSearch() {
             clearTimeout(this.completedSearchTimeout);
             this.completedSearchTimeout = setTimeout(() => {
-                this.fetchCompletedOrders(1);
+                this.completedOrders.current_page = 1;
+                this.fetchCompletedOrders();
             }, 300);
         },
 
         clearCompletedSearch() {
             this.completedSearchQuery = '';
-            this.fetchCompletedOrders(1);
+            this.completedOrders.current_page = 1;
+            this.fetchCompletedOrders();
         },
 
         changePage(page) {
             if (page >= 1 && page <= this.orders.last_page) {
-                this.closeOrderDetails();
-                this.fetchOrders(page);
+                this.orders.current_page = page;
+                this.clearPreloadQueue();
+                this.preloadGeneration++;
+                this.fetchOrders();
             }
         },
 
         changeCompletedPage(page) {
             if (page >= 1 && page <= this.completedOrders.last_page) {
-                this.closeOrderDetails();
-                this.fetchCompletedOrders(page);
+                this.completedOrders.current_page = page;
+                this.clearPreloadQueue();
+                this.preloadGeneration++;
+                this.fetchCompletedOrders();
             }
         },
 
